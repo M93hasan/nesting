@@ -21,8 +21,8 @@ import { colors } from '../colors';
 export { colors } from '../colors';
 
 export default function Workspace({ document: doc, result, live, selected, selectedCopies, onSelect, onSelectCopies, onMove, onTransform,
-  disabled, optimizing, polygon, onDraw, fitRequest, unit: displayUnit = 'mm', materialWidthFocused = false }: {
-  optimizing: boolean; materialWidthFocused?: boolean; unit?: DisplayUnit; fitRequest: number; document: Document; result?: Result;
+  disabled, optimizing, polygon, onDraw, fitRequest, unit: displayUnit = 'mm', materialGenişlikFocused = false }: {
+  optimizing: boolean; materialGenişlikFocused?: boolean; unit?: DisplayUnit; fitRequest: number; document: Document; result?: Result;
   live?: LiveGeometry & { sequence: number }; selected: string[]; selectedCopies: CopyRef[];
   onSelect: (copy?: CopyRef, toggle?: boolean) => void;
   onSelectCopies: (copies: CopyRef[]) => void;
@@ -47,7 +47,7 @@ export default function Workspace({ document: doc, result, live, selected, selec
   const displayedDrag = drag ?? pending;
   const selection = useMemo(()=>selectionBounds(doc, selected, selectedCopies),[doc,selected,selectedCopies]), unit = Math.max(camera.w / size.width, camera.h / size.height);
   const coordinates = coordinateGrid(camera, size.width, size.height, unitScale(displayUnit));
-  const showWidth = materialWidthFocused && Number.isFinite(doc.settings.materialWidthMm) && doc.settings.materialWidthMm > 0;
+  const showGenişlik = materialGenişlikFocused && Number.isFinite(doc.settings.materialGenişlikMm) && doc.settings.materialGenişlikMm > 0;
   const preview = displayedDrag?.transform?.edit, hit = (size.width < 700 ? 22 : 11) * unit;
 
   useEffect(() => {
@@ -76,23 +76,23 @@ export default function Workspace({ document: doc, result, live, selected, selec
       const radians = drawing.angleDeg * Math.PI / 180, c = Math.cos(radians), s = Math.sin(radians);
       for (const [x, y] of drawing.outer) all.push([drawing.position[0] + x * c - y * s, -drawing.position[1] - (x * s + y * c)]);
     }
-    if (world) all.push([0, 0], [doc.settings.materialWidthMm, -result!.usedLengthMm]);
+    if (world) all.push([0, 0], [doc.settings.materialGenişlikMm, -result!.usedLengthMm]);
     if (!all.length) return;
     const [x0, y0, x1, y1] = bounds(all), pad = Math.max(x1 - x0, y1 - y0) * .07 + 2;
     setCamera({ x: x0 - pad, y: y0 - pad, w: x1 - x0 + 2 * pad, h: y1 - y0 + 2 * pad });
   }
-  // Manual moves and candidate updates preserve the camera. Fit is explicit,
+  // Manual moves and candidate updates preserve the camera. Sığdır is explicit,
   // and a project switch increments fitRequest even when it has the same part count.
   useEffect(fit, [doc.parts.length, fitRequest]);
   // Align once at solve start / first layout, and after viewport resizing.
   // Results are displayed as a vertical strip: material width on X, used length on Y.
   useEffect(() => {
     if (!optimizing || !world || !size.width || !size.height) return;
-    const pad = Math.max(doc.settings.materialWidthMm, result?.usedLengthMm ?? 0) * .07 + 2;
+    const pad = Math.max(doc.settings.materialGenişlikMm, result?.usedLengthMm ?? 0) * .07 + 2;
     setCamera({
       x: -pad,
       y: -(result?.usedLengthMm ?? 0) - pad,
-      w: doc.settings.materialWidthMm + 2 * pad,
+      w: doc.settings.materialGenişlikMm + 2 * pad,
       h: (result?.usedLengthMm ?? 0) + 2 * pad
     });
   }, [optimizing, world, size.width, size.height]);
@@ -132,7 +132,7 @@ export default function Workspace({ document: doc, result, live, selected, selec
     const fill = outlines ? 'light-dark(black, white)' : colors[index % colors.length], fillOpacity = outlines ? .1 : 1;
     const stroke = outlines ? (active ? 'var(--accent)' : 'var(--muted)') : active ? 'var(--ink)' :
       `light-dark(#64748b, color-mix(in srgb, ${colors[index % colors.length]} 60%, white))`;
-    const strokeWidth = outlines ? (active ? 1.5 : 1) : (active ? 3 : 2);
+    const strokeGenişlik = outlines ? (active ? 1.5 : 1) : (active ? 3 : 2);
     const opacity = selected.length && !active ? .5 : 1;
     const transform = world
       ? `translate(${position[1]} ${-position[0]}) rotate(${90 - drawing.angleDeg}) scale(1 -1)`
@@ -142,7 +142,7 @@ export default function Workspace({ document: doc, result, live, selected, selec
         ? screenTransform(active ? preview : {...preview,pivot:position}) : active ? screenTransform(preview) : undefined}>
       <g data-part={drawing.partId} data-copy-index={drawing.copyIndex} transform={transform}>
         <path d={drawing.path} fillRule="evenodd" fill={fill} fillOpacity={fillOpacity} pointerEvents="all" stroke={stroke}
-          strokeWidth={strokeWidth} vectorEffect="non-scaling-stroke" />
+          strokeGenişlik={strokeGenişlik} vectorEffect="non-scaling-stroke" />
         {active && <rect x={x0} y={y0} width={x1 - x0} height={y1 - y0} fill="none" stroke="var(--accent)"
           strokeDasharray="4 3" vectorEffect="non-scaling-stroke" pointerEvents="none" />}
         <title>{doc.parts[index]?.name} · copy {drawing.copyIndex + 1}{active ? ' · selected' : ''}</title>
@@ -153,12 +153,12 @@ export default function Workspace({ document: doc, result, live, selected, selec
   const snapMenu=useRef<HTMLDetailsElement>(null);useDismissibleMenu(snapMenu);
   return <div className="canvas-wrap">
     <div className="canvas-tools"><details className="cad-snapping" ref={snapMenu}><summary>Snap{snapping ? ' on' : ' off'}</summary><div>
-      <label className="checkbox"><input type="checkbox" checked={snapping} onChange={event => setSnapping(event.target.checked)} />Enable snapping</label>
-      <label>Grid, {displayUnit}<select value={grid} onChange={event => setGrid(Number(event.target.value))}>{[.1, 1, 5, 10].map(value => <option key={value} value={value}>{displayLength(value, displayUnit)}</option>)}</select></label>
-      <label>Angle step<select value={angleStep} onChange={event => setAngleStep(Number(event.target.value))}>{[1, 5, 15, 45, 90].map(value => <option key={value} value={value}>{value}°</option>)}</select></label>
+      <label className="checkbox"><input type="checkbox" checked={snapping} onChange={event => setSnapping(event.target.checked)} />Yakalamayı etkinleştir</label>
+      <label>Izgara, {displayUnit}<select value={grid} onChange={event => setGrid(Number(event.target.value))}>{[.1, 1, 5, 10].map(value => <option key={value} value={value}>{displayLength(value, displayUnit)}</option>)}</select></label>
+      <label>Açı adımı<select value={angleStep} onChange={event => setAngleStep(Number(event.target.value))}>{[1, 5, 15, 45, 90].map(value => <option key={value} value={value}>{value}°</option>)}</select></label>
       <small>Hold Alt to bypass. Numeric fields stay exact.</small>
-    </div></details><button aria-label="Ghost mode" aria-pressed={outlines} title="Show outlines with a faint fill" onClick={() => setOutlines(!outlines)}><span aria-hidden="true">👻</span></button>
-      <button onClick={fit}>Fit</button><button aria-label="Zoom out" onClick={() => zoom(1.25)}>−</button><button aria-label="Zoom in" onClick={() => zoom(.8)}>+</button></div>
+    </div></details><button aria-label="Kontur modu" aria-pressed={outlines} title="Soluk dolgulu konturları göster" onClick={() => setOutlines(!outlines)}><span aria-hidden="true">👻</span></button>
+      <button onClick={fit}>Sığdır</button><button aria-label="Uzaklaştır" onClick={() => zoom(1.25)}>−</button><button aria-label="Yakınlaştır" onClick={() => zoom(.8)}>+</button></div>
     <svg ref={svg} tabIndex={0} className="workspace-svg" aria-label={world ? (live ? 'Live nesting search' : 'Valid nesting result') : 'Preparation drawing'} role="img" data-live-sequence={live?.sequence}
       style={{ '--camera-unit': `${unit}px` } as CSSProperties} viewBox={`${camera.x} ${camera.y} ${camera.w} ${camera.h}`}
       onPointerDown={event => {
@@ -243,22 +243,22 @@ export default function Workspace({ document: doc, result, live, selected, selec
         }
         setDrag(undefined); if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
       }}
-      onPointerCancel={event => { touches.current.delete(event.pointerId); if (!touches.current.size) pinch.current = undefined; touchDraw.current = undefined; setDrag(undefined); setMarquee(undefined); }}
+      onPointerİptal={event => { touches.current.delete(event.pointerId); if (!touches.current.size) pinch.current = undefined; touchDraw.current = undefined; setDrag(undefined); setMarquee(undefined); }}
       onLostPointerCapture={event => { touches.current.delete(event.pointerId); if (!touches.current.size) pinch.current = undefined; touchDraw.current = undefined; setDrag(undefined); setMarquee(undefined); }}>
-      {world && <><rect x="0" y={-result!.usedLengthMm} width={doc.settings.materialWidthMm} height={result!.usedLengthMm} fill={outlines ? 'none' : 'var(--material-fill)'} stroke="var(--secondary)" vectorEffect="non-scaling-stroke" />
-        <text x="0" y={-result!.usedLengthMm - 2} fontSize={camera.w / 70} fill="var(--muted)">{displayLength(doc.settings.materialWidthMm, displayUnit)} {displayUnit} × {(result!.usedLengthMm / unitScale(displayUnit)).toFixed(2)} {displayUnit}</text></>}
-      {showWidth && <g className="material-width-band" data-material-width-band={doc.settings.materialWidthMm} pointerEvents="none" aria-hidden="true"><rect x={coordinates.left} y={-doc.settings.materialWidthMm} width={size.width * unit} height={doc.settings.materialWidthMm} /><path d={`M${coordinates.left},0h${size.width * unit}M${coordinates.left},${-doc.settings.materialWidthMm}h${size.width * unit}`} vectorEffect="non-scaling-stroke" /></g>}
+      {world && <><rect x="0" y={-result!.usedLengthMm} width={doc.settings.materialGenişlikMm} height={result!.usedLengthMm} fill={outlines ? 'none' : 'var(--material-fill)'} stroke="var(--secondary)" vectorEffect="non-scaling-stroke" />
+        <text x="0" y={-result!.usedLengthMm - 2} fontSize={camera.w / 70} fill="var(--muted)">{displayLength(doc.settings.materialGenişlikMm, displayUnit)} {displayUnit} × {(result!.usedLengthMm / unitScale(displayUnit)).toFixed(2)} {displayUnit}</text></>}
+      {showGenişlik && <g className="material-width-band" data-material-width-band={doc.settings.materialGenişlikMm} pointerEvents="none" aria-hidden="true"><rect x={coordinates.left} y={-doc.settings.materialGenişlikMm} width={size.width * unit} height={doc.settings.materialGenişlikMm} /><path d={`M${coordinates.left},0h${size.width * unit}M${coordinates.left},${-doc.settings.materialGenişlikMm}h${size.width * unit}`} vectorEffect="non-scaling-stroke" /></g>}
       <g className="coordinate-grid" aria-hidden="true" pointerEvents="none" data-grid-step={coordinates.major}>{(['minor', 'major', 'origin'] as const).map(kind => <path key={kind} className={kind} fill="none" vectorEffect="non-scaling-stroke" d={[...coordinates.x.filter(t => (t.value === 0 ? 'origin' : t.major ? 'major' : 'minor') === kind).map(t => `M${t.mm},${coordinates.top}v${size.height * unit}`), ...coordinates.y.filter(t => (t.value === 0 ? 'origin' : t.major ? 'major' : 'minor') === kind).map(t => `M${coordinates.left},${-t.mm}h${size.width * unit}`)].join(' ')} />)}</g>
       {shapes}
       {marquee&&<rect data-selection-marquee x={Math.min(marquee.start[0],marquee.end[0])} y={Math.min(marquee.start[1],marquee.end[1])} width={Math.abs(marquee.end[0]-marquee.start[0])} height={Math.abs(marquee.end[1]-marquee.start[1])} fill="var(--accent)" fillOpacity=".12" stroke="var(--accent)" strokeDasharray="4 3" vectorEffect="non-scaling-stroke" pointerEvents="none"/>}
-      {showWidth && <g className="material-width-outside" pointerEvents="none" aria-hidden="true"><rect x={coordinates.left} y={coordinates.top} width={size.width * unit} height={Math.max(0, -doc.settings.materialWidthMm - coordinates.top)} /><rect x={coordinates.left} y="0" width={size.width * unit} height={Math.max(0, coordinates.top + size.height * unit)} /></g>}
+      {showGenişlik && <g className="material-width-outside" pointerEvents="none" aria-hidden="true"><rect x={coordinates.left} y={coordinates.top} width={size.width * unit} height={Math.max(0, -doc.settings.materialGenişlikMm - coordinates.top)} /><rect x={coordinates.left} y="0" width={size.width * unit} height={Math.max(0, coordinates.top + size.height * unit)} /></g>}
       {!disabled && !polygon && selection && <g transform={screenTransform(preview)} className="cad-handles">
         <rect x={selection[0] + (drag?.copies.length ? drag.delta[0] : 0)} y={-selection[3] - (drag?.copies.length ? drag.delta[1] : 0)} width={selection[2] - selection[0]} height={selection[3] - selection[1]} fill="none" stroke="var(--accent)" strokeDasharray="4 3" vectorEffect="non-scaling-stroke" pointerEvents="none" />
         {!drag?.copies.length && <>{(['sw', 'se', 'nw', 'ne'] as const).map(corner => { const x = corner.includes('e') ? selection[2] : selection[0], y = -(corner.includes('n') ? selection[3] : selection[1]); return <g key={corner} data-handle={corner} style={{ cursor: corner === 'ne' || corner === 'sw' ? 'nesw-resize' : 'nwse-resize' }}><rect x={x - hit} y={y - hit} width={2 * hit} height={2 * hit} fill="transparent" /><rect x={x - 4 * unit} y={y - 4 * unit} width={8 * unit} height={8 * unit} fill="var(--panel)" stroke="var(--accent)" vectorEffect="non-scaling-stroke" /><title>Resize {corner} corner</title></g>; })}
           <g data-handle="rotate" style={{ cursor: 'grab' }}><line x1={(selection[0] + selection[2]) / 2} x2={(selection[0] + selection[2]) / 2} y1={-selection[3]} y2={-selection[3] - 28 * unit} stroke="var(--accent)" vectorEffect="non-scaling-stroke" /><circle cx={(selection[0] + selection[2]) / 2} cy={-selection[3] - 28 * unit} r={hit} fill="transparent" /><circle cx={(selection[0] + selection[2]) / 2} cy={-selection[3] - 28 * unit} r={5 * unit} fill="var(--panel)" stroke="var(--accent)" vectorEffect="non-scaling-stroke" /><title>Rotate selection</title></g></>}
       </g>}
-      {world && live && <g transform="scale(1 -1)" pointerEvents="none" aria-label="Overlapping areas">{live.overlaps.map((rings, index) => <path key={index} data-overlap="true" d={pathData(rings)} fillRule="evenodd" fill={outlines ? 'none' : '#e34e4e'} stroke="#c72b36" strokeWidth={outlines ? 2 : 1} vectorEffect="non-scaling-stroke" />)}</g>}
-      {polygon && <g transform="scale(1 -1)"><polyline points={polygon.map(p => p.join(',')).join(' ')} fill="none" stroke="#176b58" strokeWidth="2" vectorEffect="non-scaling-stroke" />{polygon.map((p, index) => <circle key={index} cx={p[0]} cy={p[1]} r={camera.w / 250} fill="#176b58" />)}</g>}
+      {world && live && <g transform="scale(1 -1)" pointerEvents="none" aria-label="Overlapping areas">{live.overlaps.map((rings, index) => <path key={index} data-overlap="true" d={pathData(rings)} fillRule="evenodd" fill={outlines ? 'none' : '#e34e4e'} stroke="#c72b36" strokeGenişlik={outlines ? 2 : 1} vectorEffect="non-scaling-stroke" />)}</g>}
+      {polygon && <g transform="scale(1 -1)"><polyline points={polygon.map(p => p.join(',')).join(' ')} fill="none" stroke="#176b58" strokeGenişlik="2" vectorEffect="non-scaling-stroke" />{polygon.map((p, index) => <circle key={index} cx={p[0]} cy={p[1]} r={camera.w / 250} fill="#176b58" />)}</g>}
     </svg>
     <svg className="coordinate-rulers" viewBox={`0 0 ${size.width} ${size.height}`} preserveAspectRatio="none" aria-label={`Coordinate rulers, ${displayUnit}`} role="img"><rect x="0" y="0" width={size.width} height="20" /><rect x="0" y="0" width="20" height={size.height} /><path fill="none" d={[...coordinates.x.map(t => { const x = (t.mm - coordinates.left) / unit; return x < 22 ? '' : `M${x},${t.major ? 14 : 17}V20`; }), ...coordinates.y.map(t => { const y = (-t.mm - coordinates.top) / unit; return y < 22 ? '' : `M${t.major ? 14 : 17},${y}H20`; })].join(' ')} />{coordinates.x.filter(t => t.major).map(t => { const x = (t.mm - coordinates.left) / unit; return x < 22 ? null : <text key={t.value} x={x + 3} y="10" data-axis="x" data-value={t.value}>{t.value}</text>; })}{coordinates.y.filter(t => t.major).map(t => { const y = (-t.mm - coordinates.top) / unit; return y < 22 ? null : <text key={t.value} transform={`translate(10 ${y - 3}) rotate(-90)`} data-axis="y" data-value={t.value}>{t.value}</text>; })}<rect width="20" height="20" /><text x="10" y="12" textAnchor="middle">{displayUnit}</text></svg>
     <p className="canvas-hint">{disabled ? (live ? 'Live search · overlapping areas shown in red.' : result ? 'Geometry checked.' : 'Preparing search…') : polygon ? 'Click vertices · Enter to finish · Escape to cancel' : result ? 'Geometry checked. Select a copy to adjust it.' : 'Select a copy to adjust it. Drag to arrange.'} {!disabled&&<span className="preparation-shortcuts"><kbd>R</kbd> next rotation · <kbd>+</kbd>/<kbd>−</kbd> copies</span>} <span>{!disabled&&'⌘/Ctrl-click or drag to add selection · '}drag background to pan · scroll or pinch to zoom</span></p>
