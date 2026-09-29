@@ -13,7 +13,7 @@ import './ShapeLibrary.css';
 
 const sourceName=(dataset:Dataset)=>dataset.file.replace(/\.json$/i,'');
 
-export default function ShapeLibrary({selectedParts=[],onAdd,onKapat,unit='mm'}:{unit?:DisplayUnit;selectedParts?:Part[];onAdd:(parts:Part[])=>void|Promise<void>;onKapat:()=>void}) {
+export default function ShapeLibrary({selectedParts=[],onAdd,onClose,unit='mm'}:{unit?:DisplayUnit;selectedParts?:Part[];onAdd:(parts:Part[])=>void|Promise<void>;onClose:()=>void}) {
   const [catalog,setCatalog]=useState<Dataset[]>([]),[source,setSource]=useState('mine');
   const [mine,setMine]=useState<Part[]>([]),[parts,setParts]=useState<Part[]>([]),[selected,setSelected]=useState<Part[]>([]);
   const anchor=useRef(0);
@@ -88,7 +88,7 @@ export default function ShapeLibrary({selectedParts=[],onAdd,onKapat,unit='mm'}:
   }
 
   const blocked=busy||loading;
-  return <Modal title="Şekil kütüphanesi" onKapat={onKapat} locked={busy}>
+  return <Modal title="Şekil kütüphanesi" onClose={onClose} locked={busy}>
     <div className="shape-library">
       <div className="library-toolbar">
         <p className="library-note">Pick reusable shapes to add to the current project. Sample projects stay available from “Aç example”.</p>
@@ -136,7 +136,7 @@ export default function ShapeLibrary({selectedParts=[],onAdd,onKapat,unit='mm'}:
           </div>}
         </aside>
       </div>
-      <div className="library-footer"><button type="button" disabled={busy} onClick={onKapat}>Done</button></div>
+      <div className="library-footer"><button type="button" disabled={busy} onClick={onClose}>Done</button></div>
     </div>
   </Modal>;
 }
