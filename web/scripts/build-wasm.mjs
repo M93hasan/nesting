@@ -39,3 +39,5 @@ try {
 } finally {
   rmSync(cwd, { recursive: true, force: true });
 }
+
+// build trigger v0.0.5
