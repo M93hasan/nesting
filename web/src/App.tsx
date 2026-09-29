@@ -300,6 +300,14 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     commit(movePlacements(canvasDocument,refs,axis===0?[delta,0]:[0,delta]));
   }
   async function transformSelection(edit:GeometryEdit,refs=selectedCopies.length?selectedCopies:copyRefsFor(doc,selected)) {
+    if(edit.kind==='scale') {
+      const ids=new Set(refs.map(ref=>ref.partId));
+      const importedDxf=doc.parts.filter(part=>ids.has(part.id)&&part.source.format==='dxf');
+      if(importedDxf.length) {
+        setError('DXF parçalarının ölçüleri kilitlidir. İçe aktarılan DXF dosyasının genişlik ve yüksekliği değiştirilemez.');
+        return;
+      }
+    }
     if(locked||!selected.length)return;setBusy(true);setError('');
     try {
       const reply=await geometryTask({type:'edit-selection',runId:++operation.current,documentRevision:revision,document:canvasDocument,ids:selected,edit,refs});
@@ -416,7 +424,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         {solver.liveError&&<p className="field-error">Live preview unavailable: {solver.liveError}</p>}
       </section>
         {chosen&&!running&&<aside className="selection-panel" aria-label="Part properties"><div className="panel-title"><h2>Part properties</h2><button aria-label="Clear selection" onClick={()=>{setUnusedSelection([]);setSelectedCopies([]);}}>×</button></div><section className="part-settings">{selected.length===1?<label>Name<input data-undo-field value={chosen.name} disabled={locked} onChange={e=>editPart({name:e.target.value},false,`name:${chosen.id}`)}/></label>:<h2>{selected.length} parts selected</h2>}
-          {selectedBox?<SelectionControls key={JSON.stringify(selectedCopies)} unit={unit} box={selectedBox} disabled={locked} onPosition={positionSelection} onSize={(axis,value)=>void transformSelection({kind:'scale',factor:value/(selectedBox[axis+2]-selectedBox[axis]),pivot:[selectedBox[0],selectedBox[1]]})} onRotate={degrees=>void transformSelection({kind:'rotate',degrees,pivot:[(selectedBox[0]+selectedBox[2])/2,(selectedBox[1]+selectedBox[3])/2]})} onValidity={setSizeValid}/>:<p className="muted">No copies selected. Add a copy using its quantity to move or resize this part.</p>}
+          {selectedBox?<SelectionControls key={JSON.stringify(selectedCopies)} unit={unit} box={selectedBox} disabled={locked} sizeLocked={selected.some(id=>doc.parts.some(part=>part.id===id&&part.source.format==='dxf'))} onPosition={positionSelection} onSize={(axis,value)=>void transformSelection({kind:'scale',factor:value/(selectedBox[axis+2]-selectedBox[axis]),pivot:[selectedBox[0],selectedBox[1]]})} onRotate={degrees=>void transformSelection({kind:'rotate',degrees,pivot:[(selectedBox[0]+selectedBox[2])/2,(selectedBox[1]+selectedBox[3])/2]})} onValidity={setSizeValid}/>:<p className="muted">No copies selected. Add a copy using its quantity to move or resize this part.</p>}
           <RotationControl key={JSON.stringify([selected,mixedRotations,chosen.rotations])} rule={chosen.rotations} mixed={!!mixedRotations} disabled={locked} onChange={rotations=>editPart({rotations})}/>
 
         </section></aside>}
