@@ -1,41 +1,90 @@
-# sparrow/studio
+# Serula Nesting
 
-**Free, open-source nesting software that runs in your browser.**
+**Web tabanlı DXF otomatik yerleştirme ve malzeme optimizasyon uygulaması.**
 
-Arrange parts to use less material when laser cutting, CNC routing, or cutting fabric. sparrow/studio is a web-based 2D nesting editor powered by the [sparrow nesting algorithm](https://github.com/JeroenGar/sparrow). Import your shapes, adjust the layout, and watch the solver fit them together—no installation or account needed.
+Serula Nesting; özellikle **ayakkabı üretiminde kullanılan suni deri rulo ve plaka malzemeler** üzerinde DXF parçalarını mümkün olduğunca verimli yerleştirmek için geliştirilmektedir. Amaç, kesim kurallarını korurken malzeme tüketimini ve fireyi azaltmaktır.
 
-**[Open sparrow/studio →](https://sparrowstudio.app/)**
+🌐 **Uygulama:** https://serula.site/  
+📦 **Sürüm:** v0.01
 
-[![sparrow/studio showing the parts list, editable canvas and nesting controls](https://github.com/user-attachments/assets/4d84bb67-ff98-4310-82de-5350baa02427)](https://sparrowstudio.app/)
+## Özellikler
 
-## From drawing to cutting layout
+- DXF dosyalarını içe aktarma
+- Gerçek parça geometrisine göre 2D nesting
+- Rulo ve plaka malzeme seçenekleri
+- Malzeme genişliği ve plaka ölçüsü ayarları
+- Parça adetleri ve dönüş açıları
+- Parçalar arası boşluk ayarı
+- Otomatik yerleştirme ve manuel düzenleme
+- Yerleşim sonucunu görsel olarak kontrol etme
+- **DXF çıktı alma**
+- WebAssembly tabanlı yüksek performanslı hesaplama
+- Web Worker desteği sayesinde yerleştirme sırasında arayüzün kullanılabilir kalması
 
-1. **Bring your parts.** Import SVG or DXF contours, draw simple shapes, or try a bundled example.
-2. **Set up the job.** Choose quantities, material width, permitted rotations, and clearance between parts.
-3. **Nest and inspect.** Run the solver, follow the live search, and inspect its best geometry-checked layout. You can also arrange parts by hand.
-4. **Export your work.** Download the current canvas as SVG or DXF. Export a project ZIP to keep an editable copy or continue with the native sparrow solver.
+## Kullanım Amacı
 
-## Made for workshop layouts
+Projenin ana kullanım alanı ayakkabı üretimidir. Özellikle suni deri ve benzeri malzemelerde farklı şekil ve ölçülerdeki parçaların rulo veya plaka üzerine daha verimli yerleştirilmesi hedeflenmektedir.
 
-- **Laser cutting and CNC routing:** plywood furniture parts, acrylic signs, templates, brackets, and sheet-metal profiles.
-- **Textiles and garments:** fabric cutting layouts for clothing patterns, upholstery, and canvas.
-- **Printing and packaging:** vector outlines for stickers, labels, cardboard blanks, and display pieces.
-- **Research and experimentation:** bundled nesting benchmarks, configurable rotations and clearance, and live search previews.
+Serula Nesting geliştirilirken şu konular önceliklidir:
 
-The solver fits irregular shapes into a strip of fixed width while reducing the length used. For sheet stock, check that the resulting layout fits your sheet. SVG and DXF support selected contour types; review the import preview. Exports are part layouts for your design or CAM software, where you prepare toolpaths and machine settings. Nesting parts inside holes and automatic allocation across multiple sheets are not supported.
+- Daha düşük fire
+- Gerçek DXF geometrisinin korunması
+- Küçük parçaların uygun boşluklarda değerlendirilmesi
+- Kesim yönü ve izin verilen dönüşlerin korunması
+- Rulo ve plaka çalışma biçimlerinin desteklenmesi
+- Üretimde kullanılabilecek temiz DXF çıktısı
 
-## Your files stay on your device
+## Teknoloji
 
-Import, editing, geometry checks, and nesting all run locally. The current project is saved automatically in this browser; export a project ZIP to keep a portable backup. No drawings are uploaded. The public site uses Cloudflare Web Analytics for traffic and performance, without sending project names, geometry, or file contents.
+Arayüz **React + TypeScript + Vite** ile geliştirilmiştir. Yerleştirme motoru Rust tabanlıdır ve tarayıcıda **WebAssembly (WASM)** üzerinden çalışır. Hesaplama işlemleri Web Worker üzerinde yürütülür.
 
-## Development
+Ana web uygulaması `web/` klasöründedir.
 
-The TypeScript/React editor lives in `web/`. The Rust solver runs as WebAssembly in Web Workers, keeping the interface responsive during searches. SIMD and threaded builds are selected when supported, with compatibility fallbacks. No server-side solver is required.
+## Geliştirme
 
-See the **[build, development and testing instructions](web/README.md)**. GitHub Pages builds and tests the app before publishing each push to `main`.
+```bash
+cd web
+npm ci
+npm run dev
+```
 
-For the algorithm and native command-line solver, visit [sparrow](https://github.com/JeroenGar/sparrow) and read [An open-source heuristic to reboot 2D nesting research](https://doi.org/10.48550/arXiv.2509.13329).
+Üretim derlemesi:
 
-## License
+```bash
+npm run build
+```
 
-sparrow/studio is licensed under the [MIT License](LICENSE). Dependencies retain their own licenses, including MPL-2.0 for jagua-rs; see the bundled [third-party notices](web/public/THIRD_PARTY_NOTICES.txt).
+Test:
+
+```bash
+npm test
+```
+
+## Yayınlama
+
+Proje GitHub üzerinden yönetilir ve üretim sitesi **Cloudflare** altyapısında yayınlanmak üzere yapılandırılmıştır.
+
+Ana domain:
+
+**https://serula.site/**
+
+## Proje Sahibi
+
+**Muhammet Hasanoğlu**
+
+İletişim:
+
+- E-posta: m93hasan@gmail.com
+- Telefon: +90 539 348 06 22
+
+## Açık Kaynak Bileşenler
+
+Serula Nesting çeşitli açık kaynak kütüphane ve algoritmalardan yararlanır. Kullanılan üçüncü taraf bileşenlerin lisans ve atıfları kendi koşullarına tabidir. Ayrıntılar için `web/public/THIRD_PARTY_NOTICES.txt` dosyasına bakılabilir.
+
+## Lisans
+
+Bu repository'deki lisans koşulları için [LICENSE](LICENSE) dosyasına bakın.
+
+---
+
+**Serula Nesting — DXF yerleştirme ve malzeme optimizasyonu.**
