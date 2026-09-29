@@ -27,7 +27,9 @@ function finite(text:string|undefined,fallback?:number):number {
 }
 function scan(text:string):{records:DxfRecord[];units:number;text:string} {
   if(text.startsWith('AutoCAD Binary DXF')||text.includes('\0'))throw Error('Binary DXF is unsupported. Export ASCII DXF.');
-  const lines=text.replace(/^\uFEFF/,'').trimEnd().split(/\r\n|\n|\r/);
+  const lines=text.replace(/^\uFEFF/,'').trimEnd().split(/\r
+|
+|\r/);
   if(lines.length%2)throw Error('ASCII DXF must contain complete group-code/value pairs.');
   const groups:Group[]=[];
   for(let i=0;i<lines.length;i+=2) {
@@ -59,7 +61,9 @@ function scan(text:string):{records:DxfRecord[];units:number;text:string} {
     }else if(['VERTEX','SEQEND'].includes(r.type))throw Error(`${r.id}: orphan ${r.type}.`);
     records.push(r);
   }
-  return {records,units,text:groups.map(g=>g.join('\n')).join('\n')};
+  return {records,units,text:groups.map(g=>g.join('
+')).join('
+')};
 }
 function guard(r:DxfRecord) {
   for(const entity of [r,...r.children]) {
@@ -213,7 +217,14 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
       };
       let ring:Ring,closed=false,curved=false;
       if(entity.type==='LINE')ring=[point(entity.start),point(entity.end)];
-      else if(entity.type==='SPLINE'){\n        ring=spline(entity,tolerance);curved=true;\n        // DXF SPLINE flag bit 1 marks a closed curve. Treat it as a contour\n        // directly instead of sending its coincident endpoints through the\n        // open-chain joiner (common in footwear CAD exports).\n        closed=(finite(value(r,70),0)&1)!==0;\n        if(closed&&ring.length>1&&Math.hypot(ring[0][0]-ring[ring.length-1][0],ring[0][1]-ring[ring.length-1][1])<=Math.max(.01,tolerance))ring.pop();\n      }
+      else if(entity.type==='SPLINE'){
+        ring=spline(entity,tolerance);curved=true;
+        // DXF SPLINE flag bit 1 marks a closed curve. Treat it as a contour
+        // directly instead of sending its coincident endpoints through the
+        // open-chain joiner (common in footwear CAD exports).
+        closed=(finite(value(r,70),0)&1)!==0;
+        if(closed&&ring.length>1&&Math.hypot(ring[0][0]-ring[ring.length-1][0],ring[0][1]-ring[ring.length-1][1])<=Math.max(.01,tolerance))ring.pop();
+      }
       else if(['ARC','CIRCLE','ELLIPSE'].includes(entity.type)) {
         const center=point({x:entity.x!,y:entity.y!});let u:Point,v:Point;
         if(entity.type==='ELLIPSE') {
