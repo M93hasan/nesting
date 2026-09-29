@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process';
 
 // Isolate Cargo from ancestor configuration. Sparrow's portable SIMD kernel
 // needs nightly; only the shared-memory build rebuilds std with atomics.
-const cwd = mkdtempSync(join(tmpdir(), 'sparrow-build-'));
+// Keep Cargo's target directory inside the project so Cloudflare can reuse compiled\n// Rust dependencies instead of rebuilding them in a disposable /tmp directory.\nconst cwd = mkdtempSync(join(tmpdir(), 'sparrow-build-'));\nconst cargoTargetDir = fileURLToPath(new URL('../wasm/target', import.meta.url));
 try {
   builds: for (const simd of [true, false]) for (const threaded of [false, true]) {
     const outDir = `pkg${threaded ? '-threads' : ''}${simd ? '' : '-nosimd'}`;
@@ -17,7 +17,7 @@ try {
     if (threaded) args.push('-Z', 'build-std=panic_abort,std');
     const result = spawnSync('wasm-pack', args, {
       cwd, stdio: 'inherit', env: { ...process.env,
-        RUSTUP_TOOLCHAIN: 'nightly-2026-08-30',
+        RUSTUP_TOOLCHAIN: 'nightly-2026-08-30',\n        CARGO_TARGET_DIR: cargoTargetDir,
         CARGO_ENCODED_RUSTFLAGS: threaded ? [
           '-C', `target-feature=${simd ? '+' : '-'}simd128,+atomics,+bulk-memory,+mutable-globals`,
           '-C', 'link-arg=--shared-memory', '-C', 'link-arg=--max-memory=1073741824',
