@@ -50,7 +50,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const [layers,setLayers]=useState<string[]>(),[availableLayers,setAvailableLayers]=useState<string[]>([]),[excludeIssues,setExcludeIssues]=useState(false);
   const [previewStale,setPreviewStale]=useState(false);
   const [importWarnings,setImportWarnings]=useState<string[]>([]);
-  const [exportFormat,setExportFormat]=useState<'svg'|'dxf'|'pdf'>('svg');
+  const exportFormat='dxf' as const;
   const [materialWidthFocused,setMaterialWidthFocused]=useState(false);
   const [nameDialog,setNameDialog]=useState<'new'|'rename'>(),[projectName,setProjectName]=useState('');
   const [pendingProject,setPendingProject]=useState<ProjectSwitch>();
@@ -322,8 +322,8 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     try {
       const reply=await geometryTask({type:'export',runId:++operation.current,documentRevision:revision,document:canvasDocument,result});
       if(reply.type==='export-result'){
-        const content=exportFormat==='pdf'?await (await import('./export/pdf')).exportPDF(reply.bundle.svg):reply.bundle[exportFormat];
-        download(`${exportName}.${exportFormat}`,content,exportFormat==='pdf'?'application/pdf':exportFormat==='svg'?'image/svg+xml':'application/dxf');setDownloadedResult(true);
+        const content=reply.bundle.dxf;
+        download(`${exportName}.dxf`,content,'application/dxf');setDownloadedResult(true);
       }
     } catch(e){setError(String(e));}finally{setBusy(false);}
   }
@@ -422,7 +422,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     <footer className="statusbar"><div className="run-controls"><span id="compression-tooltip" role="tooltip" className="compression-tooltip"><strong>Skip to compression</strong>End exploration and refine the best layout.</span>{running?<><button className="run-button" onClick={solver.stop}>Stop</button>{solver.canSkip&&(solver.state==='Initializing'||solver.state==='Running'&&solver.phase==='Exploration')&&<button className="run-button skip-compression" aria-label="Skip to compression" disabled={solver.state!=='Running'||solver.skipping||!solver.result} aria-describedby="compression-tooltip" onClick={solver.skipToCompression}><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3 5v14l9-7zM12 5v14l9-7z"/></svg></button>}</>:<button className="run-button" disabled={locked||invalidSettings||!doc.parts.some(part=>part.quantity>0)||!!polygon} onClick={()=>void run()}>{result?'Run again':'Nest parts'}</button>}</div>
       <div className="run-status"><span className="status-symbol" aria-hidden="true"><i className={running||busy?'active':undefined}/></span><span role="status" className="run-state"><span>{busy?'Checking inputs':loadingExample?'Loading example…':solver.state==='Running'&&solver.phase?(solver.skipping?'Switching…':solver.phase):solver.state}</span>{(running||solver.state==='Complete'||solver.state==='Stopped')&&<span className="run-elapsed">{solver.elapsed.toFixed(1)} s</span>}</span>{solver.workers&&<small className="worker-status" title={solver.workers.reason} data-worker-count={solver.workers.actual}>{`${solver.workers.actual} solver worker${solver.workers.actual===1?'':'s'}`}{solver.workers.requested?` / ${solver.workers.requested} requested`:' · automatic'}{solver.workers.reason&&' · fallback'}</small>}</div>
       <div className="metrics"><span>{showingLive?'Best valid length':'Used length'} <strong>{result?`${length(result.usedLengthMm)} ${unit}`:'—'}</strong></span><span>Material utilization <strong>{result?`${utilization.toFixed(2)}%`:'—'}</strong></span>{improvement&&<span title="Exploration: reduction from the first valid length. Compression: further reduction from the best exploration length.">Improvement explore / compress <strong>{improvement.explore.toFixed(1)}% / {improvement.compress.toFixed(1)}%</strong></span>}</div>
-      <div className="export-actions"><select aria-label="Export format" value={exportFormat} onChange={e=>setExportFormat(e.target.value as 'svg'|'dxf'|'pdf')}><option value="svg">SVG</option><option value="dxf">DXF</option><option value="pdf">PDF</option></select><span className="download-control" tabIndex={exportBlockedReason?0:undefined} aria-describedby={exportBlockedReason?'download-tooltip':undefined}><button disabled={!!exportBlockedReason} className="primary" onClick={()=>void exportLayout()}>Download {exportFormat.toUpperCase()}</button>{exportBlockedReason&&<span id="download-tooltip" role="tooltip" className="compression-tooltip">{exportBlockedReason}</span>}</span></div><button className="diagnostics-button" onClick={diagnostics}>Diagnostics</button>
+      <div className="export-actions"><span className="download-control" tabIndex={exportBlockedReason?0:undefined} aria-describedby={exportBlockedReason?'download-tooltip':undefined}><button disabled={!!exportBlockedReason} className="primary" onClick={()=>void exportLayout()}>DXF İndir</button>{exportBlockedReason&&<span id="download-tooltip" role="tooltip" className="compression-tooltip">{exportBlockedReason}</span>}</span></div><button className="diagnostics-button" onClick={diagnostics}>Diagnostics</button>
 
     </footer>
     {files&&<Modal title="Review import" locked={busy} onClose={()=>{setFiles(undefined);setReview(undefined);setError('');}}><p>{files.map(f=>f.name).join(', ')}</p><p className="muted">{fileIntent==='project'?'Project files restore a complete job. Drawing files can be added as shapes.':'SVG, DXF and instance JSON add shapes. A saved project restores a complete job.'}</p>
