@@ -1,4 +1,5 @@
 name: Validate Serula Web
+# trigger refresh 2026-09-30
 
 on:
   push:
