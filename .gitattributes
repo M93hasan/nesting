@@ -1,0 +1,3 @@
+# Keep checksummed sample datasets byte-identical on Windows and Linux.
+web/public/examples/*.json text eol=lf
+*.sh text eol=lf
