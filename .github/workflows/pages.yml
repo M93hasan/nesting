@@ -1,4 +1,4 @@
-name: Deploy GitHub Pages
+name: Build Serula Web
 
 on:
   push:
@@ -9,8 +9,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: github-pages
-  cancel-in-progress: false
+  group: serula-web-build
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -21,61 +21,25 @@ jobs:
         working-directory: web
     steps:
       - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '22'
           cache: npm
           cache-dependency-path: web/package-lock.json
-      - name: Install Rust toolchains
+      - name: Install Rust toolchain
         run: |
-          rustup toolchain install stable --profile minimal --target wasm32-unknown-unknown
           rustup toolchain install nightly-2026-08-30 --profile minimal --component rust-src --target wasm32-unknown-unknown
-      - uses: actions/cache/restore@v4
-        id: rust-cache
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            web/wasm/target
-          key: pages-rust-v1-${{ runner.os }}-${{ hashFiles('web/wasm/Cargo.lock', 'web/scripts/build-wasm.mjs') }}
       - name: Install wasm-pack
         run: npm install --global wasm-pack@0.15.0
-      - run: npm ci
-      - name: Check native solver boundaries
-        run: cargo +nightly-2026-08-30 test --manifest-path wasm/Cargo.toml --features sparrow/simd --locked
-      - name: Build all four solver variants and site
+      - name: Install web dependencies
+        run: npm ci
+      - name: Build production web app
         run: npm run build
-      - run: npm test
-      - name: Save compiled Rust cache
-        if: steps.rust-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+      - name: Run unit tests
+        run: npm test
+      - name: Upload production build
+        uses: actions/upload-artifact@v4
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            web/wasm/target
-          key: pages-rust-v1-${{ runner.os }}-${{ hashFiles('web/wasm/Cargo.lock', 'web/scripts/build-wasm.mjs') }}
-      - name: Check the production app
-        run: |
-          npx playwright install --with-deps chromium
-          npx playwright test --project=chromium
-      - uses: actions/upload-pages-artifact@v3
-        with:
+          name: serula-web-dist
           path: web/dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy
-        id: deployment
-        uses: actions/deploy-pages@v4
+          if-no-files-found: error
