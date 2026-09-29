@@ -22,7 +22,7 @@ it('honors units, layer selection, and nested holes',()=>{
   expect(review.document.parts[0].holes).toHaveLength(1);expect(review.layers).toEqual(['cut','holes']);
   expect(importDXF(text,'inch.dxf',{...options,layers:['cut']}).document.parts[0].holes).toHaveLength(0);
   const unitless=importDXF(dxf(outer,0),'unitless.dxf',{...options,scale:25.4});
-  expect(unitless.warnings.join(' ')).toContain('selected 25.4');expect(bounds(unitless.document.parts[0].outer)[2]).toBeCloseTo(101.6);
+  expect(unitless.warnings.join(' ')).toContain('1 çizim birimi = 1 mm');expect(bounds(unitless.document.parts[0].outer)[2]).toBeCloseTo(4);
 });
 it('joins only unambiguous endpoints and reports adjustments and blocked contours',()=>{
   const edges=line(0,0,10,0)+line(10.006,0,10,10)+line(10,10,0,10)+line(0,10,0,0);
