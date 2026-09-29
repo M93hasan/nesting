@@ -2,6 +2,7 @@
   "name": "serula-nesting",
   "private": true,
   "version": "0.0.5",
+  "buildTrigger": "2026-09-30-0039",
   "type": "module",
   "scripts": {
     "wasm:build": "node scripts/build-wasm.mjs",
