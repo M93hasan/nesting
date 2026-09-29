@@ -27,9 +27,7 @@ function finite(text:string|undefined,fallback?:number):number {
 }
 function scan(text:string):{records:DxfRecord[];units:number;text:string} {
   if(text.startsWith('AutoCAD Binary DXF')||text.includes('\0'))throw Error('Binary DXF is unsupported. Export ASCII DXF.');
-  const lines=text.replace(/^\uFEFF/,'').trimEnd().split(/\r
-|
-|\r/);
+  const lines=text.replace(/^\uFEFF/,'').trimEnd().split(/\r\n|\n|\r/);
   if(lines.length%2)throw Error('ASCII DXF must contain complete group-code/value pairs.');
   const groups:Group[]=[];
   for(let i=0;i<lines.length;i+=2) {
@@ -61,9 +59,7 @@ function scan(text:string):{records:DxfRecord[];units:number;text:string} {
     }else if(['VERTEX','SEQEND'].includes(r.type))throw Error(`${r.id}: orphan ${r.type}.`);
     records.push(r);
   }
-  return {records,units,text:groups.map(g=>g.join('
-')).join('
-')};
+  return {records,units,text:groups.map(g=>g.join('\n')).join('\n')};
 }
 function guard(r:DxfRecord) {
   for(const entity of [r,...r.children]) {
