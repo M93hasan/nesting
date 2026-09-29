@@ -37,3 +37,5 @@ fi
 npm run typecheck
 npx vite build
 npm test
+
+# redeploy marker: 2026-09-29
