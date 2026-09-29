@@ -231,6 +231,22 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     window.addEventListener('keydown',key);window.addEventListener('keyup',endNudge);window.addEventListener('blur',endNudge);
     return ()=>{window.removeEventListener('keydown',key);window.removeEventListener('keyup',endNudge);window.removeEventListener('blur',endNudge);};
   });
+  async function fullPlateSelected() {
+    if(locked||selected.length!==1||!chosen)return;
+    if((doc.settings.materialType??'roll')!=='sheet') {setError('Full Plaka için malzeme tipini Plaka seçin.');return;}
+    const plateLength=doc.settings.materialLengthMm??1000;
+    const clearance=doc.settings.clearanceMm;
+    const usableWidth=doc.settings.materialWidthMm-2*clearance;
+    const usableLength=plateLength-2*clearance;
+    const area=netArea(chosen);
+    if(!(usableWidth>0&&usableLength>0&&area>0)) {setError('Full Plaka için plaka ölçülerini ve parça geometrisini kontrol edin.');return;}
+    const quantity=Math.max(1,Math.min(500,Math.floor((usableWidth*usableLength)/area)));
+    const next=syncQuantity({...doc,parts:doc.parts.map(part=>({...part,quantity:part.id===chosen.id?quantity:0}))});
+    commit(next);
+    setUnusedSelection(doc.parts.filter(part=>part.id!==chosen.id).map(part=>part.id));
+    setSelectedCopies(copyRefsFor(next,[chosen.id]));
+    await run(next,revision+1);
+  }
   async function run(document=doc,rev=revision) {
     const requestedAt=performance.now();
     setBusy(true);setError('');setResultMode('live');
@@ -358,7 +374,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const utilization=result?totalArea/(doc.settings.materialWidthMm*result.usedLengthMm)*100:0;
   const improvement=result&&phaseImprovements(solver.diagnostics.current?.history??[],result.usedLengthMm);
   return <div className="app" onBlurCapture={()=>{fieldEdit.current=undefined;}} onKeyDown={e=>{if(e.key==='Enter'&&e.target instanceof HTMLInputElement&&e.target.hasAttribute('data-undo-field')){e.preventDefault();e.target.blur();}}} onMouseDownCapture={e=>{const target=e.target;focusClick.current=target instanceof HTMLInputElement&&['text','number'].includes(target.type)&&document.activeElement!==target?target:null;}} onMouseUpCapture={e=>{if(focusClick.current===e.target){e.preventDefault();focusClick.current.select();}focusClick.current=null;}} onFocusCapture={e=>{const input=e.target;if(input instanceof HTMLInputElement&&['text','number'].includes(input.type))input.select();}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(!document.querySelector('dialog[open]'))void openFiles(e.dataTransfer.files);}}>
-    <header className="header"><div className="brand-block"><a className="brand serula-brand" aria-label="Serula Nesting Studio" href={import.meta.env.BASE_URL}><img src={`${import.meta.env.BASE_URL}serula-logo.svg`} alt="" /><strong>Serula Nesting</strong><span>/studio · v0.01</span></a><p className="tagline">Akıllı DXF yerleştirme ve malzeme optimizasyonu</p></div>
+    <header className="header"><div className="brand-block"><a className="brand serula-brand" aria-label="Serula Nesting Studio" href={import.meta.env.BASE_URL}><img src={`${import.meta.env.BASE_URL}serula-logo.svg`} alt="" /><strong>Serula Nesting</strong><span>/studio · v0.0.3</span></a><p className="tagline">Akıllı DXF yerleştirme ve malzeme optimizasyonu</p></div>
       <div className="header-primary project-bar"><details className="project-menu" ref={projectMenu}><summary aria-label={`Project: ${doc.name}`}>{doc.name}<span aria-hidden="true"> ▾</span></summary><div>
         <button disabled={locked} onClick={()=>{projectMenu.current!.open=false;setProjectName('Adsız proje');setNameDialog('new');}}>Yeni proje</button>
         <button disabled={locked} onClick={()=>{projectMenu.current!.open=false;projectInput.current?.click();}}>Open project</button>
@@ -426,6 +442,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         {chosen&&!running&&<aside className="selection-panel" aria-label="Part properties"><div className="panel-title"><h2>Part properties</h2><button aria-label="Clear selection" onClick={()=>{setUnusedSelection([]);setSelectedCopies([]);}}>×</button></div><section className="part-settings">{selected.length===1?<label>Name<input data-undo-field value={chosen.name} disabled={locked} onChange={e=>editPart({name:e.target.value},false,`name:${chosen.id}`)}/></label>:<h2>{selected.length} parts selected</h2>}
           {selectedBox?<SelectionControls key={JSON.stringify(selectedCopies)} unit={unit} box={selectedBox} disabled={locked} sizeLocked={selected.some(id=>doc.parts.some(part=>part.id===id&&part.source.format==='dxf'))} onPosition={positionSelection} onSize={(axis,value)=>void transformSelection({kind:'scale',factor:value/(selectedBox[axis+2]-selectedBox[axis]),pivot:[selectedBox[0],selectedBox[1]]})} onRotate={degrees=>void transformSelection({kind:'rotate',degrees,pivot:[(selectedBox[0]+selectedBox[2])/2,(selectedBox[1]+selectedBox[3])/2]})} onValidity={setSizeValid}/>:<p className="muted">No kopya selected. Add a copy using its quantity to move or resize this part.</p>}
           <RotationControl key={JSON.stringify([selected,mixedRotations,chosen.rotations])} rule={chosen.rotations} mixed={!!mixedRotations} disabled={locked} onChange={rotations=>editPart({rotations})}/>
+          {selected.length===1&&<div className="row-actions"><button className="primary" disabled={locked||(doc.settings.materialType??'roll')!=='sheet'} title={(doc.settings.materialType??'roll')!=='sheet'?'Önce malzeme tipini Plaka seçin.':'Seçili parçayı plakanın tamamına yerleştir.'} onClick={()=>void fullPlateSelected()}>Full Plaka</button><button disabled={locked||!history.current.length} onClick={()=>restore()}>Full Plaka İptal</button></div>}
 
         </section></aside>}
     </main>
