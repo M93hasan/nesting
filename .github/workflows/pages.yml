@@ -1,7 +1,9 @@
-name: Build and Deploy Serula Web
+name: Validate Serula Web
 
 on:
   push:
+    branches: [main]
+  pull_request:
     branches: [main]
   workflow_dispatch:
 
@@ -9,11 +11,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: serula-web-deploy
+  group: serula-web-checks-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  validate:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     defaults:
@@ -36,7 +38,6 @@ jobs:
         run: npm run build
       - name: Test
         run: npm test
-      - name: Deploy to Cloudflare
-        run: npx --yes wrangler@4 deploy
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      # Cloudflare Workers Builds deploys this same commit using its existing
+      # repository connection, after build-cloudflare.sh passes build and tests.
+      # Do not deploy twice or use the IP-restricted Cloudflare token here.
