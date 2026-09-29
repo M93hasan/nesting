@@ -132,3 +132,61 @@ label{display:flex;flex-wrap:wrap;gap:6px;color:var(--muted);font-size:12px}labe
 .download-control{position:relative}.download-control .compression-tooltip{left:auto;right:0;width:240px;max-width:calc(100vw - 32px)}.download-control:hover .compression-tooltip,.download-control:focus-visible .compression-tooltip{display:block}
 
 .serula-brand{display:inline-flex;align-items:center;gap:9px}.serula-brand img{width:34px;height:34px;display:block;border-radius:7px}.serula-brand strong{font-size:16px;font-weight:650;color:var(--ink);letter-spacing:-.2px}.serula-brand span{font-size:14px;font-weight:400;color:var(--secondary);letter-spacing:0}
+
+
+/* Serula Liquid Glass — sıcak grafit / antrasit */
+:root{
+  --page:light-dark(#ddd9d2,#171716);
+  --panel:light-dark(rgba(248,246,241,.72),rgba(38,37,35,.68));
+  --ink:light-dark(#242320,#f3efe8);
+  --muted:light-dark(#6f6a62,#aaa39a);
+  --border:light-dark(rgba(74,68,59,.18),rgba(255,244,226,.13));
+  --accent:light-dark(#317b5d,#6fbd91);
+  --accent-hover:light-dark(#28684e,#8dceaa);
+  --hover:light-dark(rgba(255,255,255,.58),rgba(255,255,255,.07));
+  --hover-border:light-dark(rgba(70,64,56,.28),rgba(255,244,226,.22));
+  --selected:light-dark(rgba(73,126,99,.13),rgba(111,189,145,.13));
+  --secondary:light-dark(#81796e,#aaa196);
+  --material-fill:light-dark(rgba(244,241,234,.78),rgba(22,22,21,.68));
+}
+body{
+  background:
+    radial-gradient(circle at 16% -8%,light-dark(rgba(255,255,255,.95),rgba(121,106,86,.16)),transparent 34%),
+    radial-gradient(circle at 86% 8%,light-dark(rgba(173,161,142,.25),rgba(68,94,79,.13)),transparent 30%),
+    var(--page);
+}
+.header,.sidebar,.selection-panel,.statusbar,.result-details,.modal,.empty-project,.project-menu>div,.cad-snapping,.cad-snapping>div,.compression-tooltip{
+  background:var(--panel);
+  backdrop-filter:blur(24px) saturate(145%);
+  -webkit-backdrop-filter:blur(24px) saturate(145%);
+  border-color:var(--border);
+  box-shadow:inset 0 1px 0 light-dark(rgba(255,255,255,.7),rgba(255,255,255,.055)),0 12px 36px rgba(0,0,0,.10);
+}
+.header{background:light-dark(rgba(244,241,235,.68),rgba(31,30,29,.72))}
+.sidebar{background:light-dark(rgba(246,243,237,.62),rgba(34,33,31,.66))}
+button,input,select,.project-menu>summary,.result-mode{
+  border-radius:14px;
+  background:light-dark(rgba(255,255,255,.54),rgba(255,255,255,.055));
+  border-color:var(--border);
+  box-shadow:inset 0 1px 0 light-dark(rgba(255,255,255,.75),rgba(255,255,255,.045));
+}
+button{transition:background .16s ease,border-color .16s ease,transform .16s ease,box-shadow .16s ease}
+button:hover:enabled{transform:translateY(-1px);box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 5px 16px rgba(0,0,0,.10)}
+.primary,.run-controls .run-button{
+  background:#2f9e62;color:#fff;border-color:#3aae70;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 6px 18px rgba(47,158,98,.22);
+}
+.primary:hover:enabled,.run-controls .run-button:hover:enabled{background:#38ad6e;border-color:#48b97c;color:#fff}
+.header nav a,.header nav button{border-radius:999px}
+.header nav .hello-button{border-radius:999px;background:light-dark(rgba(255,255,255,.5),rgba(255,255,255,.06))}
+.modal{border-radius:24px}
+.selection-panel{border-radius:20px}
+.empty-project{border-radius:22px}
+.project-menu>div{border-radius:16px}
+.part-row.selected{background:var(--selected)}
+.workspace-svg{background:light-dark(rgba(246,244,239,.38),rgba(16,16,15,.28))}
+.coordinate-rulers rect{fill:light-dark(rgba(239,236,230,.82),rgba(29,29,28,.78))}
+.canvas-tools button,.cad-snapping{border-radius:999px}
+.run-controls .skip-compression{background:light-dark(rgba(170,136,93,.28),rgba(171,133,84,.24));color:var(--ink);border-color:var(--border)}
+.run-controls .skip-compression:hover:enabled{background:light-dark(rgba(170,136,93,.38),rgba(171,133,84,.34));border-color:var(--hover-border)}
+@media(prefers-reduced-transparency:reduce){.header,.sidebar,.selection-panel,.statusbar,.result-details,.modal,.empty-project,.project-menu>div,.cad-snapping,.cad-snapping>div,.compression-tooltip{backdrop-filter:none;-webkit-backdrop-filter:none}}
