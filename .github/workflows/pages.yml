@@ -1,4 +1,4 @@
-name: Build Serula Web
+name: Build and Deploy Serula Web
 
 on:
   push:
@@ -9,11 +9,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: serula-web-build
+  group: serula-web-deploy
   cancel-in-progress: true
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     defaults:
@@ -27,19 +27,16 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - name: Install Rust toolchain
-        run: |
-          rustup toolchain install nightly-2026-08-30 --profile minimal --component rust-src --target wasm32-unknown-unknown
+        run: rustup toolchain install nightly-2026-08-30 --profile minimal --component rust-src --target wasm32-unknown-unknown
       - name: Install wasm-pack
         run: npm install --global wasm-pack@0.15.0
-      - name: Install web dependencies
+      - name: Install dependencies
         run: npm ci
-      - name: Build production web app
+      - name: Build
         run: npm run build
-      - name: Run unit tests
+      - name: Test
         run: npm test
-      - name: Upload production build
-        uses: actions/upload-artifact@v4
-        with:
-          name: serula-web-dist
-          path: web/dist
-          if-no-files-found: error
+      - name: Deploy to Cloudflare
+        run: npx --yes wrangler@4 deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
