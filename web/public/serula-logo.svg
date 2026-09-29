@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 970 971" role="img" aria-label="Serula Nesting">
+<rect width="970" height="971" rx="104" fill="#d9dada"/>
+<path d="M132 103h341a22 22 0 0 1 22 22v328a22 22 0 0 1-22 22H132a21 21 0 0 1-21-21V124a21 21 0 0 1 21-21Z" fill="#8196b1"/>
+<path d="M777 103h70a22 22 0 0 1 22 22v546a22 22 0 0 1-22 22H133a22 22 0 0 1-22-22V523a22 22 0 0 1 22-22h600a22 22 0 0 0 22-22V125a22 22 0 0 1 22-22Z" fill="#8196b1"/>
+<path d="M519 103h213L519 316Z" fill="#0793d0"/><path d="M732 132v213H519Z" fill="#0793d0"/>
+<rect x="519" y="372" width="213" height="102" rx="25" fill="#b44887"/>
+<g fill="#929292"><circle cx="159" cy="768" r="48"/><circle cx="291" cy="768" r="48"/><circle cx="423" cy="768" r="48"/><circle cx="555" cy="768" r="48"/><circle cx="687" cy="768" r="48"/><circle cx="819" cy="768" r="48"/><circle cx="225" cy="861" r="48"/><circle cx="357" cy="861" r="48"/><circle cx="489" cy="861" r="48"/><circle cx="621" cy="861" r="48"/><circle cx="753" cy="861" r="48"/></g>
+</svg>
