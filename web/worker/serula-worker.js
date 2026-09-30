@@ -132,6 +132,16 @@ async function googleUserFromCredential(credential,env){
 async function handleApi(request,env){
   await ensureSchema(env);
   const url=new URL(request.url),path=url.pathname;
+  if(path==='/api/auth/google-redirect'&&request.method==='POST'){
+    const contentType=request.headers.get('content-type')||'';
+    if(!contentType.includes('application/x-www-form-urlencoded'))return new Response('Geçersiz Google yanıtı.',{status:400});
+    const form=await request.formData(),credential=String(form.get('credential')||''),formCsrf=String(form.get('g_csrf_token')||'');
+    const cookieCsrf=request.headers.get('cookie')?.match(/(?:^|;\s*)g_csrf_token=([^;]+)/)?.[1]||'';
+    if(!credential||!formCsrf||!cookieCsrf||decodeURIComponent(cookieCsrf)!==formCsrf)return new Response('Google oturum doğrulaması başarısız.',{status:400});
+    const result=await googleUserFromCredential(credential,env);
+    if(result.error)return new Response(result.error,{status:result.status});
+    return new Response(null,{status:303,headers:{location:url.origin+'/?google=ok','set-cookie':cookie(await makeSession(result.user.id,env)),'cache-control':'no-store'}});
+  }
   if(request.method!=='GET'&&!sameOrigin(request))return json({error:'Geçersiz istek.'},403);
 
   if(path==='/api/auth/me'&&request.method==='GET'){
@@ -354,16 +364,6 @@ async function handleApi(request,env){
 export default {async fetch(request,env){
   const url=new URL(request.url);
   if(url.pathname.startsWith('/api/'))return handleApi(request,env);
-  if(request.method==='POST'&&(request.headers.get('content-type')||'').includes('application/x-www-form-urlencoded')){
-    await ensureSchema(env);
-    const form=await request.formData(),credential=String(form.get('credential')||''),formCsrf=String(form.get('g_csrf_token')||'');
-    const cookieCsrf=request.headers.get('cookie')?.match(/(?:^|;\s*)g_csrf_token=([^;]+)/)?.[1]||'';
-    if(!credential||!formCsrf||!cookieCsrf||decodeURIComponent(cookieCsrf)!==formCsrf)return new Response('Google oturum doğrulaması başarısız.',{status:400});
-    const result=await googleUserFromCredential(credential,env);
-    if(result.error)return new Response(result.error,{status:result.status});
-    const redirect=new URL(url.origin+url.pathname);redirect.searchParams.set('google','ok');
-    return new Response(null,{status:303,headers:{location:redirect.toString(),'set-cookie':cookie(await makeSession(result.user.id,env)),'cache-control':'no-store'}});
-  }
   const response=await env.ASSETS.fetch(request);
   const contentType=response.headers.get('content-type')||'';
   if(request.mode==='navigate'||contentType.includes('text/html')){
