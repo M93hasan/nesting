@@ -169,7 +169,7 @@ function join(chains:Chain[],issues:string[]):{contours:Contour[];gaps:number;ad
   return {contours,gaps,adjustment};
 }
 export function importDXF(text:string,fileName:string,options:DXFOptions):ImportReview {
-  if(!Number.isFinite(options.scale)||options.scale<=0||!Number.isFinite(options.tolerance)||options.tolerance<=0)throw Error('Choose positive scale and approximation tolerance.');
+  if(!Number.isFinite(options.tolerance)||options.tolerance<=0)throw Error('DXF eğri toleransı pozitif bir sayı olmalıdır.');
   const source=scan(text),{records,units}=source,parsed=parseString(source.text) as DxfFile;
   const unitScales:Record<number,number>={1:25.4,2:304.8,4:1,5:10,6:1000,7:1_000_000,9:.0254,10:914.4,13:.001,14:100,15:10000};
   const scale=unitScales[units]??1,warnings:string[]=[],issues:string[]=[],unsupported=new Map<string,number>();
