@@ -74,18 +74,41 @@ export function UserGate({children}:{children:ReactNode}){
   useEffect(()=>{
     if(!open||user)return;
     let cancelled=false;
+    const ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+    if(ios){
+      const host=googleButton.current;if(!host)return;
+      host.replaceChildren();
+      const onload=document.createElement('div');
+      onload.id='g_id_onload';
+      onload.dataset.client_id=GOOGLE_CLIENT_ID;
+      onload.dataset.ux_mode='redirect';
+      onload.dataset.login_uri=location.origin+'/api/auth/google-redirect';
+      onload.dataset.auto_prompt='false';
+      onload.dataset.itp_support='true';
+      const button=document.createElement('div');
+      button.className='g_id_signin';
+      button.dataset.type='standard';
+      button.dataset.size='large';
+      button.dataset.theme='outline';
+      button.dataset.text='continue_with';
+      button.dataset.shape='pill';
+      button.dataset.width='300';
+      host.append(onload,button);
+      document.querySelectorAll('script[data-serula-google-ios]').forEach(node=>node.remove());
+      const script=document.createElement('script');
+      script.src='https://accounts.google.com/gsi/client';
+      script.async=true;script.defer=true;script.dataset.serulaGoogleIos='1';
+      script.onerror=()=>!cancelled&&setError('Google giriş servisi yüklenemedi.');
+      document.head.appendChild(script);
+      return()=>{cancelled=true};
+    }
     const setup=()=>{
       if(!google()?.accounts.id||!googleButton.current)return;
       const accounts=google()?.accounts.id;if(!accounts)return;
-      const ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
-      if(ios){
-        accounts.initialize({client_id:GOOGLE_CLIENT_ID,auto_select:false,ux_mode:'redirect',itp_support:true,login_uri:location.origin+'/api/auth/google-redirect'});
-      }else{
-        accounts.initialize({client_id:GOOGLE_CLIENT_ID,auto_select:false,use_fedcm_for_button:false,itp_support:true,ux_mode:'popup',callback:async response=>{
-          try{setBusy(true);setError('');const data=await request('/api/auth/google',{method:'POST',body:JSON.stringify({credential:response.credential})});if(!cancelled){setUser(data.user);setOpen(false)}}
-          catch(e){if(!cancelled)setError(e instanceof Error?e.message:String(e))}finally{if(!cancelled)setBusy(false)}
-        }});
-      }
+      accounts.initialize({client_id:GOOGLE_CLIENT_ID,auto_select:false,use_fedcm_for_button:false,itp_support:true,ux_mode:'popup',callback:async response=>{
+        try{setBusy(true);setError('');const data=await request('/api/auth/google',{method:'POST',body:JSON.stringify({credential:response.credential})});if(!cancelled){setUser(data.user);setOpen(false)}}
+        catch(e){if(!cancelled)setError(e instanceof Error?e.message:String(e))}finally{if(!cancelled)setBusy(false)}
+      }});
       googleButton.current.replaceChildren();
       accounts.renderButton(googleButton.current,{theme:'outline',size:'large',text:'continue_with',shape:'pill',width:300});
     };
