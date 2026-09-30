@@ -13,7 +13,7 @@ export type Diagnostics={runDocument?:Document;attempts?:(Extract<SolverMessage,
 export type LiveFrame=LiveGeometry & {sequence:number;result:Result;report:string};
 type Run={id:number;revision:number;doc:Document;seed:string;requestedAt:number;solver?:Worker;preview:Worker;
   latest?:Candidate;previewActive?:{candidate:Candidate;result:Result};frame?:LiveFrame;previewSequence:number;previewError?:string;
-  best?:Result;ended?:'Complete'|'Stopped'|'Error';startedAt?:number;watchdog:ReturnType<typeof setTimeout>;
+  best?:Result;ended?:'Complete'|'Stopped'|'Error';startedAt?:number;watchdog:ReturnType<typeof setTimeout>;deadline?:ReturnType<typeof setTimeout>;
   diagnostics:Diagnostics};
 export function candidateResult(doc:Document,candidate:Candidate,seed:string):Result {
   const copies=new Map<string,number>(),parts=doc.parts.filter(part=>part.quantity>0);
@@ -48,7 +48,7 @@ export function useSolver() {
   },[result,live]);
   function clear() {
     const r=run.current;
-    if(r) {r.solver?.postMessage({type:'stop'});r.preview.terminate();clearTimeout(r.watchdog);}
+    if(r) {r.solver?.postMessage({type:'stop'});r.preview.terminate();clearTimeout(r.watchdog);if(r.deadline)clearTimeout(r.deadline);}
     run.current=undefined;setPhase(undefined);setSkipping(false);setCanSkip(false);
   }
   useEffect(()=>{
@@ -56,7 +56,7 @@ export function useSolver() {
       const r=run.current;
       if(r) {
         setResult(r.best);setLive(r.frame);setLiveError(r.previewError??'');
-        if(r.startedAt && !r.ended) setElapsed((performance.now()-r.startedAt)/1000);
+        if(!r.ended) setElapsed((performance.now()-r.requestedAt)/1000);
         // Render the latest snapshot at most 10 times/second. Keep one in flight;
         // preview work cannot accumulate while the solver keeps searching.
         if(r.latest&&!r.previewActive&&!r.previewError&&r.latest.sequence>r.previewSequence) {
@@ -75,10 +75,10 @@ export function useSolver() {
   },[]);
   function end(reason:'Complete'|'Stopped'|'Error',message?:string) {
     const r=run.current;if(!r) return;
-    r.solver?.postMessage({type:'stop'});r.solver=undefined;clearTimeout(r.watchdog);r.ended=reason;
+    r.solver?.postMessage({type:'stop'});r.solver=undefined;clearTimeout(r.watchdog);if(r.deadline)clearTimeout(r.deadline);r.ended=reason;
     r.diagnostics.stopReason=message ?? reason;
     if(message) setError(message);
-    if(r.startedAt) setElapsed((performance.now()-r.startedAt)/1000);
+    setElapsed((performance.now()-r.requestedAt)/1000);
     setResult(r.best);setState(reason);
     if(!r.best&&reason==='Complete'){setState('Error');setError('The solver finished without a feasible result. Download diagnostics and check the input.');}
   }
@@ -91,6 +91,11 @@ export function useSolver() {
     const r:Run={id,revision,doc,seed,requestedAt,solver,preview,previewSequence:0,watchdog:setTimeout(()=>end('Stopped','Initialization exceeded 15 seconds.'),15_000),
       diagnostics:{runDocument:doc,solverRevision:SOLVER_REVISION,seed,buildMode:'Initializing',startup,history:[],liveSnapshots:0,liveErrors:[]}};
     run.current=r;diagnostics.current=r.diagnostics;
+    // Automatic runs have a hard 59-second wall-clock limit from the Nest click,
+    // including normalization and worker startup. Explicit stop conditions keep
+    // their requested duration.
+    const wallClockSeconds=doc.settings.timeLimitSeconds??59;
+    r.deadline=setTimeout(()=>end('Complete'),Math.max(0,wallClockSeconds*1000-(performance.now()-requestedAt)));
     preview.onmessage=({data}:MessageEvent<GeometryReply>)=>{
       if(run.current!==r||data.runId!==r.id||data.documentRevision!==r.revision)return;
       if(data.type==='error'){r.previewError=data.message;r.previewActive=undefined;preview.terminate();return;}
