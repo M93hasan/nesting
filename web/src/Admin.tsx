@@ -22,6 +22,10 @@ function Metric({label,value,detail}:{label:string;value:string;detail:string}){
 }
 
 type AdminUser={id:number;email:string;name:string;role:string;credits:number;unlimited:boolean;authProvider?:string;suspended?:boolean;licenseStartedAt?:string;licenseExpiresAt?:string;createdAt?:string;lastLoginAt?:string};
+type AdminSettings={materialWidthMm:number;clearanceMm:number;marginMm:number;rotation:'fixed'|'half'|'free';materialType:'roll'|'sheet';solverPreset:'standard'|'fast'};
+type AuditLog={id:number;actorType:string;actorEmail:string;targetEmail:string;action:string;detail:string;success:boolean;createdAt:string};
+type Health={adminApi:boolean;auth:boolean;userStore:boolean};
+const FALLBACK_SETTINGS:AdminSettings={materialWidthMm:1000,clearanceMm:.3,marginMm:5,rotation:'half',materialType:'roll',solverPreset:'standard'};
 
 type GoogleCredentialResponse={credential?:string};
 type GoogleAccounts={id:{initialize:(options:{client_id:string;callback:(response:GoogleCredentialResponse)=>void;auto_select?:boolean})=>void;renderButton:(parent:HTMLElement,options:Record<string,unknown>)=>void;disableAutoSelect:()=>void}};
@@ -53,6 +57,13 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
   const [savingUserId,setSavingUserId]=useState<number>();
   const [resettingUserId,setResettingUserId]=useState<number>();
   const [userNotice,setUserNotice]=useState('');
+  const [selectedUserId,setSelectedUserId]=useState<number>();
+  const [userSettings,setUserSettings]=useState<AdminSettings>(FALLBACK_SETTINGS);
+  const [customSettings,setCustomSettings]=useState(false);
+  const [systemSettings,setSystemSettings]=useState<AdminSettings>(FALLBACK_SETTINGS);
+  const [logs,setLogs]=useState<AuditLog[]>([]);
+  const [health,setHealth]=useState<Health>();
+  const [adminBusy,setAdminBusy]=useState('');
   const title=useMemo(()=>nav.find(item=>item.id===section)?.label??'Yönetim',[section]);
   const filteredUsers=useMemo(()=>users.filter(user=>(!query.trim()||(user.email+' '+user.name).toLowerCase().includes(query.trim().toLowerCase()))&&(role==='Tümü'||(role==='Admin'?user.role==='admin':user.role!=='admin'))),[users,query,role]);
 
@@ -91,7 +102,47 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
     }catch(e){setUsersError(e instanceof Error?e.message:String(e))}
     finally{setUsersLoading(false)}
   }
-  useEffect(()=>{if(auth==='allowed')void loadUsers()},[auth]);
+  useEffect(()=>{if(auth==='allowed'){void loadUsers();void loadHealth();void loadSystemSettings()}},[auth]);
+  useEffect(()=>{if(section==='logs')void loadLogs();if(section==='system')void loadHealth()},[section]);
+  async function getJson(path:string,options?:RequestInit){
+    const response=await fetch(path,{credentials:'same-origin',...options,headers:{'content-type':'application/json',...(options?.headers||{})}});
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok)throw Error(data.error||'İşlem başarısız.');
+    return data;
+  }
+  async function loadHealth(){try{const data=await getJson('/api/admin/health');setHealth(data)}catch{setHealth({adminApi:false,auth:false,userStore:false})}}
+  async function loadSystemSettings(){try{const data=await getJson('/api/admin/settings');setSystemSettings(data.settings??FALLBACK_SETTINGS)}catch(e){setUsersError(e instanceof Error?e.message:String(e))}}
+  async function loadLogs(){try{const data=await getJson('/api/admin/logs');setLogs(data.logs??[])}catch(e){setUsersError(e instanceof Error?e.message:String(e))}}
+  async function loadUserSettings(id:number){
+    setSelectedUserId(id);setAdminBusy('user-settings');setUsersError('');
+    try{const data=await getJson(`/api/admin/users/${id}/settings`);setUserSettings(data.settings??systemSettings);setCustomSettings(!!data.custom)}
+    catch(e){setUsersError(e instanceof Error?e.message:String(e))}
+    finally{setAdminBusy('')}
+  }
+  async function saveUserSettings(){
+    if(!selectedUserId)return;setAdminBusy('user-settings');setUsersError('');
+    try{const data=await getJson(`/api/admin/users/${selectedUserId}/settings`,{method:'POST',body:JSON.stringify({settings:userSettings})});setUserSettings(data.settings);setCustomSettings(true);setUserNotice('Kullanıcıya özel varsayılanlar kaydedildi.')}
+    catch(e){setUsersError(e instanceof Error?e.message:String(e))}
+    finally{setAdminBusy('')}
+  }
+  async function resetUserSettings(){
+    if(!selectedUserId)return;setAdminBusy('user-settings');setUsersError('');
+    try{const data=await getJson(`/api/admin/users/${selectedUserId}/settings`,{method:'DELETE',body:'{}'});setUserSettings(data.settings);setCustomSettings(false);setUserNotice('Kullanıcı sistem varsayılanlarına döndürüldü.')}
+    catch(e){setUsersError(e instanceof Error?e.message:String(e))}
+    finally{setAdminBusy('')}
+  }
+  async function saveSystemSettings(){
+    setAdminBusy('system-settings');setUsersError('');
+    try{const data=await getJson('/api/admin/settings',{method:'POST',body:JSON.stringify({settings:systemSettings})});setSystemSettings(data.settings);setUserNotice('Sistem varsayılanları kaydedildi.')}
+    catch(e){setUsersError(e instanceof Error?e.message:String(e))}
+    finally{setAdminBusy('')}
+  }
+  async function setUnlimited(user:AdminUser,unlimited:boolean){
+    setSavingUserId(user.id);setUsersError('');
+    try{await getJson(`/api/admin/users/${user.id}/unlimited`,{method:'POST',body:JSON.stringify({unlimited})});await loadUsers()}
+    catch(e){setUsersError(e instanceof Error?e.message:String(e))}
+    finally{setSavingUserId(undefined)}
+  }
   async function saveCredits(user:AdminUser,credits:number){
     setSavingUserId(user.id);setUsersError('');
     try{
@@ -138,7 +189,7 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
       </aside>
 
       <main className="admin-main">
-        <div className="admin-heading"><div><p>Yönetim</p><h1>{title}</h1></div><span className="admin-connection">Sunucu bağlantısı bekleniyor</span></div>
+        <div className="admin-heading"><div><p>Yönetim</p><h1>{title}</h1></div><span className="admin-connection">{health?.adminApi?'Sunucu bağlı':health?'Sunucu hatası':'Kontrol ediliyor…'}</span></div>
 
         {section==='overview'&&<>
           <section className="admin-metrics">
@@ -158,14 +209,14 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
         {section==='users'&&<section className="admin-card admin-users">
           <div className="admin-card-head"><div><h2>Kullanıcı Yönetimi</h2><p>E-posta veya Google ile giriş yapan kullanıcıların hesap, kota ve 375 günlük lisans bilgilerini yönetin.</p></div><button onClick={()=>void loadUsers()} disabled={usersLoading}>↻ Yenile</button></div>
           <div className="admin-toolbar"><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Kullanıcı ara…" aria-label="Kullanıcı ara"/><select value={role} onChange={e=>setRole(e.target.value)}><option>Tümü</option><option>Admin</option><option>Operatör</option></select></div>
-          {usersError&&<p className="field-error" role="alert">{usersError}</p>}{userNotice&&<p role="status">{userNotice}</p>}
-          <div className="admin-table"><div className="admin-table-head"><span>Kullanıcı</span><span>Rol / Giriş</span><span>Nesting hakkı</span><span>Lisans</span><span>Son giriş</span></div>
+          {usersError&&<p className="field-error" role="alert">{usersError}</p>}{userNotice&&<p className="admin-notice" role="status">{userNotice}</p>}
+          <div className="admin-table"><div className="admin-table-head"><span>Kullanıcı</span><span>Rol / Giriş</span><span>Nesting hakkı</span><span>Lisans</span><span>İşlemler</span></div>
             {usersLoading?<Empty title="Yükleniyor">Kullanıcı bilgileri D1 veritabanından alınıyor.</Empty>:filteredUsers.length?filteredUsers.map(user=><div className="admin-user-row" key={user.id}>
-              <span><strong>{user.name||'İsimsiz'}</strong><small>{user.email}</small></span>
-              <span>{user.role==='admin'?'Admin':'Kullanıcı'}<small>{user.authProvider==='google'?'Google / Gmail':'E-posta'}</small></span>
-              <span>{user.role==='admin'||user.unlimited?<strong>Sınırsız</strong>:<input aria-label={user.email+' nesting hakkı'} type="number" min="0" max="100000" defaultValue={user.credits} key={user.id+'-'+user.credits} onBlur={e=>{const value=Math.max(0,Math.trunc(e.currentTarget.valueAsNumber||0));if(value!==user.credits)void saveCredits(user,value)}}/>}</span>
+              <span className="admin-user-identity"><strong>{user.name||'İsimsiz'}</strong><small>{user.email}</small><small>{user.lastLoginAt?'Son giriş: '+new Date(user.lastLoginAt).toLocaleString('tr-TR'):'Henüz giriş yok'}</small></span>
+              <span><strong>{user.role==='admin'?'Admin':'Kullanıcı'}</strong><small>{user.authProvider==='google'?'Google / Gmail':'E-posta'}</small></span>
+              <span className="admin-user-quota"><label className="admin-toggle"><input type="checkbox" checked={user.unlimited} disabled={savingUserId===user.id} onChange={e=>void setUnlimited(user,e.target.checked)}/><span>Kotasız / Sınırsız</span></label>{!user.unlimited&&<label>Hak<input aria-label={user.email+' nesting hakkı'} type="number" min="0" max="100000" defaultValue={user.credits} key={user.id+'-'+user.credits} onBlur={e=>{const value=Math.max(0,Math.trunc(e.currentTarget.valueAsNumber||0));if(value!==user.credits)void saveCredits(user,value)}}/></label>}</span>
               <span><strong>{user.licenseExpiresAt?new Date(user.licenseExpiresAt).toLocaleDateString('tr-TR'):'Lisans yok'}</strong><small>{user.licenseStartedAt?'Başlangıç: '+new Date(user.licenseStartedAt).toLocaleDateString('tr-TR'):'375 gün · etkinleştirme bekliyor'}</small></span>
-              <span>{user.lastLoginAt?new Date(user.lastLoginAt).toLocaleString('tr-TR'):'—'}{user.suspended&&<small>Askıya alınmış</small>}{savingUserId===user.id&&<small>Kaydediliyor…</small>}<button onClick={()=>void sendPasswordReset(user)} disabled={resettingUserId===user.id}>{resettingUserId===user.id?'Gönderiliyor…':'Şifre sıfırlama e-postası'}</button></span>
+              <span className="admin-user-actions"><button onClick={()=>{setSection('user-settings');void loadUserSettings(user.id)}}>Ayarlar</button><button onClick={()=>void sendPasswordReset(user)} disabled={resettingUserId===user.id}>{resettingUserId===user.id?'Gönderiliyor…':'Şifre sıfırla'}</button></span>
             </div>):<Empty title="Kullanıcı bulunamadı">Filtreye uyan kullanıcı yok.</Empty>}
           </div>
         </section>}
@@ -177,28 +228,29 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
         </section>}
 
         {section==='user-settings'&&<section className="admin-card">
-          <div className="admin-card-head"><div><h2>Kullanıcıya Özel Ayarlar</h2><p>Sistem varsayılanlarının üzerine kullanıcı bazlı değerler uygulanacak.</p></div><button disabled>Kullanıcı seç</button></div>
+          <div className="admin-card-head"><div><h2>Kullanıcıya Özel Varsayılanlar</h2><p>Seçilen kullanıcı için sistem varsayılanlarının üzerine uygulanır.</p></div><select aria-label="Kullanıcı seç" value={selectedUserId??''} onChange={e=>{const id=Number(e.target.value);if(id)void loadUserSettings(id);else setSelectedUserId(undefined)}}><option value="">Kullanıcı seç…</option>{users.map(user=><option key={user.id} value={user.id}>{user.name||user.email} · {user.email}</option>)}</select></div>
+          {usersError&&<p className="field-error" role="alert">{usersError}</p>}{selectedUserId?<><div className="admin-selected-user"><strong>{users.find(u=>u.id===selectedUserId)?.name||users.find(u=>u.id===selectedUserId)?.email}</strong><span>{customSettings?'Özel varsayılanlar aktif':'Sistem varsayılanları kullanılıyor'}</span></div>
           <div className="admin-settings-grid">
-            <label>Parça aralığı (mm)<input type="number" value="0.3" readOnly/></label>
-            <label>Kenar payı (mm)<input type="number" value="5" readOnly/></label>
-            <label>Rotasyon<select disabled><option>0° / 180°</option></select></label>
-            <label>Malzeme tipi<select disabled><option>Rulo / Plaka</option></select></label>
-          </div>
-          <div className="admin-lock-row"><span>🔒 Kullanıcının değiştiremeyeceği ayarlar</span><button disabled>Kilitleri düzenle</button></div>
-          <Empty title="Önce kullanıcı seçilmeli">Kullanıcı veritabanı bağlandığında burada özellik izinleri, nesting seçenekleri ve kilitli ayarlar yönetilecek.</Empty>
+            <label>Malzeme genişliği (mm)<input type="number" min="1" value={userSettings.materialWidthMm} onChange={e=>setUserSettings({...userSettings,materialWidthMm:e.target.valueAsNumber})}/></label>
+            <label>Parça aralığı (mm)<input type="number" min="0" step="0.1" value={userSettings.clearanceMm} onChange={e=>setUserSettings({...userSettings,clearanceMm:e.target.valueAsNumber})}/></label>
+            <label>Kenar payı (mm)<input type="number" min="0" step="0.1" value={userSettings.marginMm} onChange={e=>setUserSettings({...userSettings,marginMm:e.target.valueAsNumber})}/></label>
+            <label>Rotasyon<select value={userSettings.rotation} onChange={e=>setUserSettings({...userSettings,rotation:e.target.value as AdminSettings['rotation']})}><option value="fixed">0°</option><option value="half">0° / 180°</option><option value="free">Serbest</option></select></label>
+            <label>Malzeme tipi<select value={userSettings.materialType} onChange={e=>setUserSettings({...userSettings,materialType:e.target.value as AdminSettings['materialType']})}><option value="roll">Rulo</option><option value="sheet">Plaka</option></select></label>
+            <label>Solver profili<select value={userSettings.solverPreset} onChange={e=>setUserSettings({...userSettings,solverPreset:e.target.value as AdminSettings['solverPreset']})}><option value="standard">Standart</option><option value="fast">Hızlı</option></select></label>
+          </div><div className="admin-save-row"><button onClick={()=>void resetUserSettings()} disabled={adminBusy==='user-settings'}>Sistem varsayılanlarına dön</button><button className="primary" onClick={()=>void saveUserSettings()} disabled={adminBusy==='user-settings'}>{adminBusy==='user-settings'?'Kaydediliyor…':'Kullanıcı ayarlarını kaydet'}</button></div></>:<Empty title="Kullanıcı seçin">Yukarıdaki listeden bir kullanıcı seçerek ona özel varsayılanları düzenleyebilirsiniz.</Empty>}
         </section>}
 
         {section==='defaults'&&<section className="admin-card">
-          <div className="admin-card-head"><div><h2>Sistem Varsayılanları</h2><p>Yeni kullanıcı ve projeler için başlangıç ayarları.</p></div><span className="admin-badge">Taslak</span></div>
+          <div className="admin-card-head"><div><h2>Sistem Varsayılanları</h2><p>Yeni kullanıcı ve projeler için başlangıç ayarları.</p></div><span className="admin-badge">Aktif</span></div>
           <div className="admin-settings-grid">
-            <label>Varsayılan malzeme genişliği (mm)<input type="number" defaultValue="1000"/></label>
-            <label>Parça aralığı (mm)<input type="number" step="0.1" defaultValue="0.3"/></label>
-            <label>Kenar payı (mm)<input type="number" defaultValue="5"/></label>
-            <label>Varsayılan rotasyon<select defaultValue="half"><option value="fixed">0°</option><option value="half">0° / 180°</option><option value="free">Serbest</option></select></label>
-            <label>Varsayılan malzeme<select defaultValue="roll"><option value="roll">Rulo</option><option value="sheet">Plaka</option></select></label>
-            <label>Solver profili<select defaultValue="standard"><option value="standard">Standart</option><option value="fast">Hızlı</option></select></label>
+            <label>Varsayılan malzeme genişliği (mm)<input type="number" min="1" value={systemSettings.materialWidthMm} onChange={e=>setSystemSettings({...systemSettings,materialWidthMm:e.target.valueAsNumber})}/></label>
+            <label>Parça aralığı (mm)<input type="number" min="0" step="0.1" value={systemSettings.clearanceMm} onChange={e=>setSystemSettings({...systemSettings,clearanceMm:e.target.valueAsNumber})}/></label>
+            <label>Kenar payı (mm)<input type="number" min="0" step="0.1" value={systemSettings.marginMm} onChange={e=>setSystemSettings({...systemSettings,marginMm:e.target.valueAsNumber})}/></label>
+            <label>Varsayılan rotasyon<select value={systemSettings.rotation} onChange={e=>setSystemSettings({...systemSettings,rotation:e.target.value as AdminSettings['rotation']})}><option value="fixed">0°</option><option value="half">0° / 180°</option><option value="free">Serbest</option></select></label>
+            <label>Varsayılan malzeme<select value={systemSettings.materialType} onChange={e=>setSystemSettings({...systemSettings,materialType:e.target.value as AdminSettings['materialType']})}><option value="roll">Rulo</option><option value="sheet">Plaka</option></select></label>
+            <label>Solver profili<select value={systemSettings.solverPreset} onChange={e=>setSystemSettings({...systemSettings,solverPreset:e.target.value as AdminSettings['solverPreset']})}><option value="standard">Standart</option><option value="fast">Hızlı</option></select></label>
           </div>
-          <div className="admin-save-row"><small>Bu alanlar şu anda yalnızca arayüz taslağıdır; kalıcı kaydetme API bağlantısı ile açılacak.</small><button disabled>Kaydet</button></div>
+          <div className="admin-save-row"><small>Kullanıcıya özel ayar yoksa bu değerler kullanılır.</small><button className="primary" onClick={()=>void saveSystemSettings()} disabled={adminBusy==='system-settings'}>{adminBusy==='system-settings'?'Kaydediliyor…':'Kaydet'}</button></div>
         </section>}
 
         {section==='history'&&<section className="admin-card">
@@ -208,13 +260,14 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
         </section>}
 
         {section==='logs'&&<section className="admin-card">
-          <div className="admin-card-head"><div><h2>Sistem Logları</h2><p>Uygulama hataları ve yönetim olayları.</p></div><button disabled>Logları temizle</button></div>
-          <div className="admin-log-window"><span>Log servisi bağlı değil.</span></div>
+          <div className="admin-card-head"><div><h2>Sistem Logları</h2><p>Giriş, nesting, dışa aktarma ve yönetim işlemleri.</p></div><button onClick={()=>void loadLogs()}>↻ Yenile</button></div>
+          {usersError&&<p className="field-error" role="alert">{usersError}</p>}
+          <div className="admin-log-window">{logs.length?logs.map(log=><div className="admin-log-row" key={log.id}><time>{new Date(log.createdAt).toLocaleString('tr-TR')}</time><strong>{log.action}</strong><span>{log.actorEmail||log.actorType}{log.targetEmail?' → '+log.targetEmail:''}</span>{log.detail&&<small>{log.detail}</small>}<b>{log.success?'Başarılı':'Hata'}</b></div>):<span>Henüz sistem logu yok.</span>}</div>
         </section>}
 
         {section==='system'&&<section className="admin-grid-two">
           <article className="admin-card"><h2>Uygulama</h2><dl className="admin-status-list"><div><dt>Ürün</dt><dd>Serula Nesting</dd></div><div><dt>Sürüm</dt><dd>v{packageInfo.version}</dd></div><div><dt>Yönetim yolu</dt><dd>/admin</dd></div><div><dt>Dağıtım</dt><dd>Cloudflare</dd></div></dl></article>
-          <article className="admin-card"><h2>Güvenlik</h2><dl className="admin-status-list"><div><dt>Admin API</dt><dd>Bekleniyor</dd></div><div><dt>Kimlik doğrulama</dt><dd>Bekleniyor</dd></div><div><dt>Kalıcı kullanıcı deposu</dt><dd>Bekleniyor</dd></div></dl></article>
+          <article className="admin-card"><div className="admin-card-head"><h2>Güvenlik</h2><button onClick={()=>void loadHealth()}>Kontrol et</button></div><dl className="admin-status-list"><div><dt>Admin API</dt><dd className={health?.adminApi?'status-ok':'status-error'}>{health?.adminApi?'Aktif':health?'Hata':'Kontrol ediliyor'}</dd></div><div><dt>Kimlik doğrulama</dt><dd className={health?.auth?'status-ok':'status-error'}>{health?.auth?'Aktif':health?'Hata':'Kontrol ediliyor'}</dd></div><div><dt>Kalıcı kullanıcı deposu</dt><dd className={health?.userStore?'status-ok':'status-error'}>{health?.userStore?'Aktif':health?'Hata':'Kontrol ediliyor'}</dd></div></dl></article>
         </section>}
       </main>
     </div>
