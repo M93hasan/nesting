@@ -114,3 +114,21 @@ it('bounds nested INSERT expansion before allocating large arrays',()=>{
   const blocks=block('part',shape)+block('many',insert('part','70\n100\n44\n20\n'));
   expect(()=>importDXF(withBlocks(insert('many','70\n101\n44\n3000\n'),blocks),'huge.dxf',options)).toThrow('10,000 expanded');
 });
+
+
+it('stages imported DXF copies in one vertical non-overlapping column',()=>{
+  const a=poly([[100,100],[120,100],[120,110],[100,110]]);
+  const b=poly([[300,50],[330,50],[330,65],[300,65]]);
+  const review=importDXF(dxf(a+b),'vertical.dxf',options);
+  const placements=review.document.placements??[];
+  expect(placements).toHaveLength(2);
+  const boxes=placements.map(placement=>{
+    const part=review.document.parts.find(p=>p.id===placement.partId)!;
+    const b=bounds(part.outer);
+    return [b[0]+placement.xMm,b[1]+placement.yMm,b[2]+placement.xMm,b[3]+placement.yMm];
+  });
+  expect(boxes[0][0]).toBeCloseTo(0);
+  expect(boxes[1][0]).toBeCloseTo(0);
+  expect(boxes[1][1]).toBeGreaterThanOrEqual(boxes[0][3]+10-1e-9);
+  expect(placements.every(p=>p.angleDeg===0)).toBe(true);
+});
