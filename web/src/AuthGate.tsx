@@ -1,7 +1,7 @@
 import {useEffect,useRef,useState,type ReactNode} from 'react';
 
 export type SessionUser={id:number;email:string;name:string;role:string;credits:number;unlimited:boolean};
-const GOOGLE_CLIENT_ID='249559754500-c8sq1giond6vdrab261fkhl7p5f7omvc.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID='249559754500-36grgmm2jucf2159d41efqdcqut02lj6.apps.googleusercontent.com';
 type GoogleCredentialResponse={credential?:string};
 type GoogleAccounts={id:{initialize:(options:{client_id:string;callback:(response:GoogleCredentialResponse)=>void;auto_select?:boolean})=>void;renderButton:(parent:HTMLElement,options:Record<string,unknown>)=>void}};
 const google=()=> (window as Window & {google?:{accounts:GoogleAccounts}}).google;
