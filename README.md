@@ -5,7 +5,7 @@
 Serula Nesting; özellikle **ayakkabı üretiminde kullanılan suni deri rulo ve plaka malzemeler** üzerinde DXF parçalarını mümkün olduğunca verimli yerleştirmek için geliştirilmektedir. Amaç, kesim kurallarını korurken malzeme tüketimini ve fireyi azaltmaktır.
 
 🌐 **Uygulama:** https://serula.site/  
-📦 **Sürüm:** v0.01
+📦 **Sürüm:** `web/package.json` içindeki uygulama sürümü kullanılır.
 
 ## Özellikler
 
