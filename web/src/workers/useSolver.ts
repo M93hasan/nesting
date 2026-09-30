@@ -124,9 +124,15 @@ export function useSolver() {
           startup.firstCandidateMs??=performance.now()-requestedAt;
           r.latest=data;r.diagnostics.liveSnapshots!++;
           r.diagnostics.history.push({phase:r.diagnostics.phases?.at(-1)?.phase,sequence:data.sequence,elapsedMs:data.elapsedMs,lengthMm:data.solution.strip_width,validation:'passed'});
-          if(!r.best||data.solution.strip_width<r.best.usedLengthMm){
-            startup.firstValidMs??=performance.now()-requestedAt;
-            r.best={...packResultIntoSheets(doc,candidateResult(doc,data,seed)),validation:{status:'passed',source:'solver',overlapAreaMm2:null,maxBoundaryViolationMm:null,minClearanceMm:null,errors:[]}};
+          {
+            const packed=packResultIntoSheets(doc,candidateResult(doc,data,seed));
+            const better=!r.best||(doc.settings.materialType==='sheet'
+              ? (packed.sheetCount??1)<(r.best.sheetCount??1)
+              : packed.usedLengthMm<r.best.usedLengthMm);
+            if(better){
+              startup.firstValidMs??=performance.now()-requestedAt;
+              r.best={...packed,validation:{status:'passed',source:'solver',overlapAreaMm2:null,maxBoundaryViolationMm:null,minClearanceMm:null,errors:[]}};
+            }
           }
           break;
         case 'finished': end('Complete');break;
