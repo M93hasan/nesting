@@ -1,4 +1,4 @@
-import {useMemo,useState} from 'react';
+import {useEffect,useMemo,useRef,useState} from 'react';
 import packageInfo from '../package.json';
 
 type Section='overview'|'users'|'roles'|'user-settings'|'defaults'|'history'|'logs'|'system';
@@ -21,7 +21,60 @@ function Metric({label,value,detail}:{label:string;value:string;detail:string}){
   return <article className="admin-metric"><span>{label}</span><strong>{value}</strong><small>{detail}</small></article>;
 }
 
-export default function Admin(){
+type GoogleCredentialResponse={credential?:string};
+type GoogleAccounts={id:{initialize:(options:{client_id:string;callback:(response:GoogleCredentialResponse)=>void;auto_select?:boolean})=>void;renderButton:(parent:HTMLElement,options:Record<string,unknown>)=>void;disableAutoSelect:()=>void}};
+declare global { interface Window { google?:{accounts:GoogleAccounts} } }
+
+function decodeGoogleEmail(credential:string){
+  try{
+    const payload=credential.split('.')[1];
+    if(!payload)return '';
+    const normalized=payload.replace(/-/g,'+').replace(/_/g,'/');
+    const json=decodeURIComponent(Array.from(atob(normalized),c=>'%'+c.charCodeAt(0).toString(16).padStart(2,'0')).join(''));
+    const claims=JSON.parse(json) as {email?:string;email_verified?:boolean;aud?:string};
+    return claims.email_verified?claims.email??'':'';
+  }catch{return '';}
+}
+
+export default function Admin({allowedEmail,clientId}:{allowedEmail:string;clientId:string}){
+  const [auth,setAuth]=useState<'loading'|'signed-out'|'allowed'|'denied'>('loading');
+  const [signedEmail,setSignedEmail]=useState('');
+  const googleButton=useRef<HTMLDivElement>(null);
+
+  useEffect(()=>{
+    let cancelled=false;
+    const onCredential=(response:GoogleCredentialResponse)=>{
+      const email=response.credential?decodeGoogleEmail(response.credential):'';
+      if(cancelled)return;
+      setSignedEmail(email);
+      setAuth(email.toLowerCase()===allowedEmail.toLowerCase()?'allowed':'denied');
+    };
+    const setup=()=>{
+      if(!window.google?.accounts.id||!googleButton.current)return;
+      window.google.accounts.id.initialize({client_id:clientId,callback:onCredential,auto_select:false});
+      googleButton.current.replaceChildren();
+      window.google.accounts.id.renderButton(googleButton.current,{theme:'outline',size:'large',text:'signin_with',shape:'pill'});
+      setAuth('signed-out');
+    };
+    if(window.google?.accounts.id){setup();return()=>{cancelled=true};}
+    const script=document.createElement('script');
+    script.src='https://accounts.google.com/gsi/client';
+    script.async=true;script.defer=true;script.onload=setup;
+    script.onerror=()=>!cancelled&&setAuth('signed-out');
+    document.head.appendChild(script);
+    return()=>{cancelled=true};
+  },[allowedEmail,clientId]);
+
+  if(auth!=='allowed'){
+    return <div className="admin-page"><main className="admin-main" style={{maxWidth:560,margin:'10vh auto'}}>
+      <section className="admin-card">
+        <h1>Serula Yönetim</h1>
+        <p>{auth==='denied'?signedEmail+' hesabının admin yetkisi yok.':'Admin paneline yalnızca yetkili Google hesabı ile giriş yapılabilir.'}</p>
+        <div ref={googleButton} style={{marginTop:20}} />
+        {auth==='denied'&&<button style={{marginTop:16}} onClick={()=>{window.google?.accounts.id.disableAutoSelect();setSignedEmail('');setAuth('signed-out')}}>Başka hesapla giriş yap</button>}
+      </section>
+    </main></div>;
+  }
   const [section,setSection]=useState<Section>('overview');
   const [query,setQuery]=useState('');
   const [role,setRole]=useState('Tümü');
