@@ -314,7 +314,7 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
       source:{format:'dxf' as const,fileName,entityId:outer.entityId,
         ...(outer.dxfColorNumber!==undefined?{dxfColorNumber:outer.dxfColorNumber}:{}),
         ...(holes.some(h=>h.dxfColorNumber!==undefined)?{dxfHoleColorNumbers:holes.map(h=>h.dxfColorNumber??256)}:{}),
-        ...(dxfDetails.length?{dxfDetails}:{})},
+        ...(dxfDetails.length?{dxfDetails}:{}),dxfSourceEntityCount:group.length},
       approximationToleranceMm:group.some(contour=>contour.curved)?options.tolerance+joined.adjustment:0});
   });
   if(groups.some(group=>group.length>1))warnings.push('İç içe konturlar ve farklı renkte üst üste gelen detaylar ana parçaya kilitlendi; aynı renkteki temas eden parçalar ayrı parça olarak korundu.');
