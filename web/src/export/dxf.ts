@@ -7,22 +7,23 @@ export const STUDIO_CREDIT='nested with sparrow/studio · https://sparrowstudio.
 export function exportDXF(doc:Document,world:WorldPart[],placements:Placement[]=[]):string {
   let nextHandle=0x100;
   const handle=()=> (nextHandle++).toString(16).toUpperCase();
-  const polyline=(ring:Ring,layer:string)=>`0\nLWPOLYLINE\n5\n${handle()}\n330\n21\n100\nAcDbEntity\n8\n${layer}\n100\nAcDbPolyline\n90\n${ring.length}\n70\n1\n${ring.map(([x,y])=>`10\n${x}\n20\n${y}\n`).join('')}`;
+  const colorGroup=(color?:number)=>color!==undefined&&color>=1&&color<=255?`62\n${color}\n`:'';
+  const polyline=(ring:Ring,layer:string,color?:number)=>`0\nLWPOLYLINE\n5\n${handle()}\n330\n21\n100\nAcDbEntity\n8\n${layer}\n${colorGroup(color)}100\nAcDbPolyline\n90\n${ring.length}\n70\n1\n${ring.map(([x,y])=>`10\n${x}\n20\n${y}\n`).join('')}`;
   const transformPoint=([x,y]:Point,p:Placement):Point=>{
     const angle=p.angleDeg*Math.PI/180,cos=Math.cos(angle),sin=Math.sin(angle);
     return [x*cos-y*sin+p.xMm,x*sin+y*cos+p.yMm];
   };
-  const spline=(curve:DxfSpline,p:Placement,layer:string)=>{
+  const spline=(curve:DxfSpline,p:Placement,layer:string,color?:number)=>{
     const points=curve.controlPoints.map(point=>transformPoint(point,p));
-    return `0\nSPLINE\n5\n${handle()}\n330\n21\n100\nAcDbEntity\n8\n${layer}\n100\nAcDbSpline\n210\n0\n220\n0\n230\n1\n70\n${curve.flags}\n71\n${curve.degree}\n72\n${curve.knots.length}\n73\n${points.length}\n74\n0\n42\n0.0000000001\n43\n0.0000000001\n${curve.knots.map(k=>`40\n${k}\n`).join('')}${curve.weights?.map(w=>`41\n${w}\n`).join('')??''}${points.map(([x,y])=>`10\n${x}\n20\n${y}\n30\n0\n`).join('')}`;
+    return `0\nSPLINE\n5\n${handle()}\n330\n21\n100\nAcDbEntity\n8\n${layer}\n${colorGroup(color)}100\nAcDbSpline\n210\n0\n220\n0\n230\n1\n70\n${curve.flags}\n71\n${curve.degree}\n72\n${curve.knots.length}\n73\n${points.length}\n74\n0\n42\n0.0000000001\n43\n0.0000000001\n${curve.knots.map(k=>`40\n${k}\n`).join('')}${curve.weights?.map(w=>`41\n${w}\n`).join('')??''}${points.map(([x,y])=>`10\n${x}\n20\n${y}\n30\n0\n`).join('')}`;
   };
   const layers=['0','PARTS','HOLES'].map(layer=>`0\nLAYER\n5\n${handle()}\n330\n10\n100\nAcDbSymbolTableRecord\n100\nAcDbLayerTableRecord\n2\n${layer}\n70\n0\n62\n7\n6\nCONTINUOUS\n`).join('');
   const parts=new Map(doc.parts.map(part=>[part.id,part]));
   const entities=world.map((p,i)=>{
     const part=parts.get(p.partId),placement=placements[i];
     const compact=part?.source.dxfSpline&&placement&&placement.partId===p.partId&&placement.copyIndex===p.copyIndex
-      ?spline(part.source.dxfSpline,placement,'PARTS'):polyline(p.outer,'PARTS');
-    return compact+p.holes.map(h=>polyline(h,'HOLES')).join('');
+      ?spline(part.source.dxfSpline,placement,'PARTS',part.source.dxfColorNumber):polyline(p.outer,'PARTS',part?.source.dxfColorNumber);
+    return compact+p.holes.map((h,holeIndex)=>polyline(h,'HOLES',part?.source.dxfHoleColorNumbers?.[holeIndex])).join('');
   }).join('');
   // R2000 readers such as QCAD require explicit model/paper-space ownership.
   const spaces=[['*Model_Space','21','23','24'],['*Paper_Space','22','25','26']];
