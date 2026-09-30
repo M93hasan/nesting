@@ -5,9 +5,10 @@ export type DxfSpline = { degree:number; knots:number[]; controlPoints:Point[]; 
 export type DxfAuxEntity =
   | { kind:'point'; point:Point; layer:string; colorNumber?:number }
   | { kind:'text'|'mtext'; point:Point; text:string; heightMm:number; rotationDeg:number; layer:string; colorNumber?:number };
+export type DxfDetailContour = { ring:Ring; layer:string; colorNumber?:number };
 export type Part = {
   id: string; name: string;
-  source: { format: 'svg' | 'dxf' | 'sparrow' | 'drawn'; fileName?: string; entityId?: string; dxfSpline?:DxfSpline; dxfColorNumber?:number; dxfHoleColorNumbers?:number[]; dxfAux?:DxfAuxEntity[] };
+  source: { format: 'svg' | 'dxf' | 'sparrow' | 'drawn'; fileName?: string; entityId?: string; dxfSpline?:DxfSpline; dxfColorNumber?:number; dxfHoleColorNumbers?:number[]; dxfAux?:DxfAuxEntity[]; dxfDetails?:DxfDetailContour[] };
   outer: Ring; holes: Ring[]; approximationToleranceMm: number; quantity: number;
   rotations: RotationRule; preparationPosition: Point;
 };
