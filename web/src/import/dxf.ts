@@ -272,7 +272,15 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
   // accidentally merged.
   const ringSignature=(ring:Ring,origin:Point)=>{
     const round=(n:number)=>Math.round(n*1e6)/1e6;
-    return ring.map(([x,y])=>`${round(x-origin[0])},${round(y-origin[1])}`).join(';');
+    const points=ring.map(([x,y])=>`${round(x-origin[0])},${round(y-origin[1])}`);
+    // Vertex zero is arbitrary in DXF. Canonicalize the cyclic start point
+    // while preserving winding/orientation so rotated geometry stays distinct.
+    let best='';
+    for(let i=0;i<points.length;i++){
+      const candidate=[...points.slice(i),...points.slice(0,i)].join(';');
+      if(!best||candidate<best)best=candidate;
+    }
+    return best;
   };
   const signature=(part:(typeof imported)[number])=>{
     const b=bounds(part.outer),origin:Point=[b[0],b[1]];
