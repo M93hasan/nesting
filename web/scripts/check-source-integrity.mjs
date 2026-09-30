@@ -2,7 +2,8 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = fileURLToPath(new URL('../src/', import.meta.url));
+const webRoot = fileURLToPath(new URL('../', import.meta.url));
+const root = join(webRoot, 'src');
 const forbidden = [
   'classAd','setŞekil','setŞekilWidth','setŞekilHeight','addŞekil','addParçalar',
   'defaultExampleİptalled','setGenişlik','setYükseklik','toSabit','materialGenişlik',
@@ -21,8 +22,22 @@ for (const path of files(root)) {
   const source = readFileSync(path, 'utf8');
   for (const token of forbidden) if (source.includes(token)) failures.push(`${path}: forbidden accidental identifier/text "${token}"`);
 }
+
+const pkg = JSON.parse(readFileSync(join(webRoot, 'package.json'), 'utf8'));
+const lock = JSON.parse(readFileSync(join(webRoot, 'package-lock.json'), 'utf8'));
+const expectedVersion = String(pkg.version);
+const lockVersions = [String(lock.version || ''), String(lock.packages?.['']?.version || '')];
+for (const value of lockVersions) {
+  if (value !== expectedVersion) failures.push(`package-lock version "${value}" does not match package.json "${expectedVersion}"`);
+}
+for (const workerPath of [join(webRoot, 'worker', 'serula-worker.js'), join(webRoot, 'worker', 'index.js')]) {
+  const source = readFileSync(workerPath, 'utf8');
+  const marker = source.match(/Build marker:\s*([0-9]+\.[0-9]+\.[0-9]+)/)?.[1] || '';
+  if (marker !== expectedVersion) failures.push(`${workerPath}: build marker "${marker}" does not match package.json "${expectedVersion}"`);
+}
+
 if (failures.length) {
   console.error(failures.join('\n'));
   process.exit(1);
 }
-console.log('Source integrity check passed.');
+console.log(`Source integrity check passed. Version ${expectedVersion} is synchronized.`);
