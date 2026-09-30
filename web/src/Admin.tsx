@@ -36,9 +36,10 @@ function decodeGoogleEmail(credential:string){
   }catch{return '';}
 }
 
-export default function Admin({allowedEmail,clientId}:{allowedEmail:string;clientId:string}){
+export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEmail:string;clientId:string;skipAuth?:boolean}){
   const localDevelopment=import.meta.env.DEV&&(location.hostname==='127.0.0.1'||location.hostname==='localhost');
-  const [auth,setAuth]=useState<'loading'|'signed-out'|'allowed'|'denied'>(localDevelopment?'allowed':'loading');
+  const bypassAuth=skipAuth||localDevelopment;
+  const [auth,setAuth]=useState<'loading'|'signed-out'|'allowed'|'denied'>(bypassAuth?'allowed':'loading');
   const [signedEmail,setSignedEmail]=useState('');
   const googleButton=useRef<HTMLDivElement>(null);
   const [section,setSection]=useState<Section>('overview');
@@ -47,7 +48,7 @@ export default function Admin({allowedEmail,clientId}:{allowedEmail:string;clien
   const title=useMemo(()=>nav.find(item=>item.id===section)?.label??'Yönetim',[section]);
 
   useEffect(()=>{
-    if(localDevelopment)return;
+    if(bypassAuth)return;
     let cancelled=false;
     const onCredential=(response:GoogleCredentialResponse)=>{
       const email=response.credential?decodeGoogleEmail(response.credential):'';
@@ -69,7 +70,7 @@ export default function Admin({allowedEmail,clientId}:{allowedEmail:string;clien
     script.onerror=()=>!cancelled&&setAuth('signed-out');
     document.head.appendChild(script);
     return()=>{cancelled=true};
-  },[allowedEmail,clientId,localDevelopment]);
+  },[allowedEmail,clientId,bypassAuth]);
 
   if(auth!=='allowed'){
     return <div className="admin-page"><main className="admin-main" style={{maxWidth:560,margin:'10vh auto'}}>

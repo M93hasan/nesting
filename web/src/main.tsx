@@ -2,6 +2,8 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import Admin from './Admin';
 import './admin.css';
+import './auth.css';
+import {AdminGate,UserGate} from './AuthGate';
 import {loadCatalog} from './datasets';
 import { prepareIsolation } from './isolation';
 
@@ -17,6 +19,6 @@ void prepareIsolation().catch(()=>{}).then(async () => {
     document.head.append(beacon);
   }
   const isAdmin=location.pathname.replace(/\/$/,'')==='/admin';
-  createRoot(document.getElementById('root')!).render(isAdmin?<Admin allowedEmail={ADMIN_EMAIL} clientId={GOOGLE_CLIENT_ID}/>:<App/>);
+  createRoot(document.getElementById('root')!).render(isAdmin?<AdminGate><Admin allowedEmail={ADMIN_EMAIL} clientId={GOOGLE_CLIENT_ID} skipAuth/></AdminGate>:<UserGate><App/></UserGate>);
   void loadCatalog().catch(()=>{});
 });
