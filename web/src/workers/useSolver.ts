@@ -60,7 +60,10 @@ export function useSolver() {
         // Render the latest snapshot at most 10 times/second. Keep one in flight;
         // preview work cannot accumulate while the solver keeps searching.
         if(r.latest&&!r.previewActive&&!r.previewError&&r.latest.sequence>r.previewSequence) {
-          const candidate=r.latest,result=packResultIntoSheets(r.doc,candidateResult(r.doc,candidate,r.seed));
+          const candidate=r.latest;
+          let result:Result;
+          try{result=packResultIntoSheets(r.doc,candidateResult(r.doc,candidate,r.seed));}
+          catch{r.previewSequence=candidate.sequence;continue;}
           r.previewActive={candidate,result};r.previewSequence=candidate.sequence;
           r.preview.postMessage({type:'live-preview',sequence:candidate.sequence,runId:r.id,documentRevision:r.revision,document:r.doc,result});
         }
@@ -125,7 +128,9 @@ export function useSolver() {
           r.latest=data;r.diagnostics.liveSnapshots!++;
           r.diagnostics.history.push({phase:r.diagnostics.phases?.at(-1)?.phase,sequence:data.sequence,elapsedMs:data.elapsedMs,lengthMm:data.solution.strip_width,validation:'passed'});
           {
-            const packed=packResultIntoSheets(doc,candidateResult(doc,data,seed));
+            let packed:Result;
+            try{packed=packResultIntoSheets(doc,candidateResult(doc,data,seed));}
+            catch{break;}
             const better=!r.best||(doc.settings.materialType==='sheet'
               ? (packed.sheetCount??1)<(r.best.sheetCount??1)
               : packed.usedLengthMm<r.best.usedLengthMm);
