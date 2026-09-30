@@ -285,11 +285,17 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
   const connected=(a:Contour,b:Contour)=>{
     const contains=inside(a.ring[0],b.ring)||inside(b.ring[0],a.ring);
     if(contains)return true;
-    // Touching/overlapping cut parts of the same source color are still separate
-    // physical pieces. Only cross-color overlaps are treated as locked detail
-    // geometry belonging to one footwear pattern.
+    // Cross-color outlines may describe the same footwear pattern (for example
+    // an outer allowance plus an inner cut line), but a different-colored line
+    // that merely touches another nearby piece must NOT pull that piece into the
+    // same rigid nesting group. Require the two crossing contours to have very
+    // similar overall size before treating them as one pattern.
     const differentExplicitColors=a.dxfColorNumber!==undefined&&b.dxfColorNumber!==undefined&&a.dxfColorNumber!==b.dxfColorNumber;
-    return differentExplicitColors&&ringCrosses(a.ring,b.ring);
+    if(!differentExplicitColors||!ringCrosses(a.ring,b.ring))return false;
+    const ab=bounds(a.ring),bb=bounds(b.ring),aw=ab[2]-ab[0],ah=ab[3]-ab[1],bw=bb[2]-bb[0],bh=bb[3]-bb[1];
+    const widthRatio=Math.max(aw,bw)/Math.max(1e-9,Math.min(aw,bw));
+    const heightRatio=Math.max(ah,bh)/Math.max(1e-9,Math.min(ah,bh));
+    return widthRatio<=1.15&&heightRatio<=1.15;
   };
   const seenContours=new Set<number>(),groups:Contour[][]=[];
   for(let i=0;i<valid.length;i++){
