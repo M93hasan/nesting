@@ -4,7 +4,7 @@ export type RotationRule = { kind: 'discrete'; degrees: number[] } | { kind: 'co
 export type DxfSpline = { degree:number; knots:number[]; controlPoints:Point[]; weights?:number[]; flags:number };
 export type Part = {
   id: string; name: string;
-  source: { format: 'svg' | 'dxf' | 'sparrow' | 'drawn'; fileName?: string; entityId?: string; dxfSpline?:DxfSpline };
+  source: { format: 'svg' | 'dxf' | 'sparrow' | 'drawn'; fileName?: string; entityId?: string; dxfSpline?:DxfSpline; dxfColorNumber?:number; dxfHoleColorNumbers?:number[] };
   outer: Ring; holes: Ring[]; approximationToleranceMm: number; quantity: number;
   rotations: RotationRule; preparationPosition: Point;
 };
