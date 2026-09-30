@@ -1,7 +1,7 @@
 const GOOGLE_CLIENT_ID='249559754500-36grgmm2jucf2159d41efqdcqut02lj6.apps.googleusercontent.com';
 const SESSION_DAYS=30;
 const ADMIN_LOGIN_EMAIL='m93hasan@icloud.com';
-// Build marker: 0.0.48
+// Build marker: 0.0.49
 
 const json=(data,status=200,headers={})=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store',...headers}});
 const b64=bytes=>btoa(String.fromCharCode(...bytes));
@@ -52,7 +52,12 @@ async function ensureSchema(env){
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token_hash)'),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)'),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS admin_sessions (token_hash TEXT PRIMARY KEY, expires_at TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`),
-    env.DB.prepare(`CREATE TABLE IF NOT EXISTS password_reset_tokens (token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL, expires_at TEXT NOT NULL, used_at TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`)
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS password_reset_tokens (token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL, expires_at TEXT NOT NULL, used_at TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS system_settings (key TEXT PRIMARY KEY, value_json TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_settings (user_id INTEGER PRIMARY KEY, settings_json TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS audit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, actor_type TEXT NOT NULL, actor_user_id INTEGER, target_user_id INTEGER, action TEXT NOT NULL, detail TEXT, success INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_audit_logs_target ON audit_logs(target_user_id)')
   ]);
 }
 async function sessionUser(request,env){
@@ -72,6 +77,27 @@ function sameOrigin(request){const origin=request.headers.get('origin');return !
 async function body(request){try{return await request.json()}catch{return {}}}
 const validEmail=e=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 const passwordOk=p=>typeof p==='string'&&p.length>=8&&p.length<=200;
+const DEFAULT_ADMIN_SETTINGS={materialWidthMm:1000,clearanceMm:0.3,marginMm:5,rotation:'half',materialType:'roll',solverPreset:'standard'};
+function cleanSettings(value){
+  const input=value&&typeof value==='object'?value:{};
+  const num=(v,fallback,min,max)=>{const n=Number(v);return Number.isFinite(n)?Math.min(max,Math.max(min,n)):fallback};
+  return {
+    materialWidthMm:num(input.materialWidthMm,DEFAULT_ADMIN_SETTINGS.materialWidthMm,1,100000),
+    clearanceMm:num(input.clearanceMm,DEFAULT_ADMIN_SETTINGS.clearanceMm,0,1000),
+    marginMm:num(input.marginMm,DEFAULT_ADMIN_SETTINGS.marginMm,0,1000),
+    rotation:['fixed','half','free'].includes(input.rotation)?input.rotation:DEFAULT_ADMIN_SETTINGS.rotation,
+    materialType:['roll','sheet'].includes(input.materialType)?input.materialType:DEFAULT_ADMIN_SETTINGS.materialType,
+    solverPreset:['standard','fast'].includes(input.solverPreset)?input.solverPreset:DEFAULT_ADMIN_SETTINGS.solverPreset
+  };
+}
+async function audit(env,action,{actorType='system',actorUserId=null,targetUserId=null,detail='',success=true}={}){
+  try{await env.DB.prepare('INSERT INTO audit_logs(actor_type,actor_user_id,target_user_id,action,detail,success) VALUES(?,?,?,?,?,?)').bind(actorType,actorUserId,targetUserId,action,String(detail||'').slice(0,1000),success?1:0).run()}catch{}
+}
+async function systemDefaults(env){
+  const row=await env.DB.prepare("SELECT value_json FROM system_settings WHERE key='defaults'").first();
+  if(!row?.value_json)return DEFAULT_ADMIN_SETTINGS;
+  try{return cleanSettings(JSON.parse(row.value_json))}catch{return DEFAULT_ADMIN_SETTINGS}
+}
 
 async function handleApi(request,env){
   await ensureSchema(env);
@@ -106,8 +132,9 @@ async function handleApi(request,env){
     if(path==='/api/auth/login'&&request.method==='POST'){
     const data=await body(request),email=String(data.email||'').trim().toLowerCase(),password=String(data.password||'');
     const user=await env.DB.prepare('SELECT id,email,name,role,nesting_credits,unlimited,password_hash FROM users WHERE email=?').bind(email).first();
-    if(!user||!await verifyPassword(password,user.password_hash))return json({error:'E-posta veya parola hatalı.'},401);
+    if(!user||!await verifyPassword(password,user.password_hash)){await audit(env,'login_failed',{actorType:'user',detail:email,success:false});return json({error:'E-posta veya parola hatalı.'},401);}
     await env.DB.prepare('UPDATE users SET last_login_at=CURRENT_TIMESTAMP WHERE id=?').bind(user.id).run();
+    await audit(env,'login',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:'E-posta ile giriş'});
     return json({user:publicUser(user)},200,{'set-cookie':cookie(await makeSession(user.id,env))});
   }
   if(path==='/api/auth/google'&&request.method==='POST'){
@@ -122,6 +149,7 @@ async function handleApi(request,env){
         VALUES(?,?,?,'user',5,0,CURRENT_TIMESTAMP)`).bind(email,String(claims.name||'').slice(0,120),String(claims.sub||'')).run();
       user=await env.DB.prepare('SELECT id,email,name,role,nesting_credits,unlimited FROM users WHERE id=?').bind(result.meta.last_row_id).first();
     }else await env.DB.prepare('UPDATE users SET google_id=COALESCE(google_id,?),last_login_at=CURRENT_TIMESTAMP WHERE id=?').bind(String(claims.sub||''),user.id).run();
+    await audit(env,'login',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:'Google ile giriş'});
     return json({user:publicUser(user)},200,{'set-cookie':cookie(await makeSession(user.id,env))});
   }
   if(path==='/api/auth/reset-password'&&request.method==='POST'){
@@ -133,10 +161,12 @@ async function handleApi(request,env){
     await env.DB.prepare('UPDATE users SET password_hash=? WHERE id=?').bind(await hashPassword(newPassword),reset.user_id).run();
     await env.DB.prepare('UPDATE password_reset_tokens SET used_at=CURRENT_TIMESTAMP WHERE token_hash=?').bind(tokenHash).run();
     await env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(reset.user_id).run();
+    await audit(env,'password_changed',{actorType:'user',actorUserId:reset.user_id,targetUserId:reset.user_id});
     return json({ok:true});
   }
   if(path==='/api/auth/logout'&&request.method==='POST'){
-    const raw=cookieToken(request);if(raw)await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(await sha256(raw)).run();
+    const current=await sessionUser(request,env),raw=cookieToken(request);if(raw)await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(await sha256(raw)).run();
+    if(current)await audit(env,'logout',{actorType:'user',actorUserId:current.id,targetUserId:current.id});
     return json({ok:true},200,{'set-cookie':cookie('',0)});
   }
   if(path==='/api/nesting/start'&&request.method==='POST'){
@@ -149,6 +179,7 @@ async function handleApi(request,env){
     await env.DB.prepare('INSERT INTO nesting_history(user_id,project_name,source_file_name,used_credit) VALUES(?,?,?,?)')
       .bind(user.id,String(data.projectName||'').slice(0,200),String(data.sourceFileName||'').slice(0,255),user.unlimited?0:1).run();
     const fresh=await env.DB.prepare('SELECT id,email,name,role,nesting_credits,unlimited FROM users WHERE id=?').bind(user.id).first();
+    await audit(env,'nesting_start',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:String(data.projectName||'')});
     return json({ok:true,user:publicUser(fresh)});
   }
   if(path==='/api/export/authorize'&&request.method==='POST'){
@@ -161,12 +192,66 @@ async function handleApi(request,env){
     await env.DB.prepare('INSERT INTO nesting_history(user_id,project_name,source_file_name,used_credit) VALUES(?,?,?,?)')
       .bind(user.id,String(data.projectName||'').slice(0,200),String(data.sourceFileName||'').slice(0,255),user.unlimited?0:1).run();
     const fresh=await env.DB.prepare('SELECT id,email,name,role,nesting_credits,unlimited FROM users WHERE id=?').bind(user.id).first();
+    await audit(env,'export_authorized',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:String(data.projectName||'')});
     return json({ok:true,user:publicUser(fresh)});
   }
   if(path==='/api/admin/users'&&request.method==='GET'){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
-    const rows=await env.DB.prepare('SELECT id,email,name,role,nesting_credits,unlimited,created_at,last_login_at FROM users ORDER BY created_at DESC LIMIT 500').all();
-    return json({users:rows.results.map(u=>({...publicUser(u),createdAt:u.created_at,lastLoginAt:u.last_login_at}))});
+    const rows=await env.DB.prepare('SELECT id,email,name,role,nesting_credits,unlimited,google_id,created_at,last_login_at FROM users ORDER BY created_at DESC LIMIT 500').all();
+    return json({users:rows.results.map(u=>({...publicUser(u),authProvider:u.google_id?'google':'email',createdAt:u.created_at,lastLoginAt:u.last_login_at}))});
+  }
+  if(path==='/api/admin/health'&&request.method==='GET'){
+    const auth=await adminSessionValid(request,env);if(!auth)return json({error:'Yetkisiz.'},403);
+    let userStore=false;try{await env.DB.prepare('SELECT COUNT(*) AS n FROM users').first();userStore=true}catch{}
+    return json({adminApi:true,auth:true,userStore});
+  }
+  if(path==='/api/admin/logs'&&request.method==='GET'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const rows=await env.DB.prepare(`SELECT l.id,l.actor_type,l.action,l.detail,l.success,l.created_at,au.email actor_email,tu.email target_email
+      FROM audit_logs l LEFT JOIN users au ON au.id=l.actor_user_id LEFT JOIN users tu ON tu.id=l.target_user_id
+      ORDER BY l.id DESC LIMIT 250`).all();
+    return json({logs:rows.results.map(r=>({id:r.id,actorType:r.actor_type,actorEmail:r.actor_email||'',targetEmail:r.target_email||'',action:r.action,detail:r.detail||'',success:!!r.success,createdAt:r.created_at}))});
+  }
+  if(path==='/api/admin/settings'&&request.method==='GET'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    return json({settings:await systemDefaults(env)});
+  }
+  if(path==='/api/admin/settings'&&request.method==='POST'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const data=await body(request),settings=cleanSettings(data.settings);
+    await env.DB.prepare("INSERT INTO system_settings(key,value_json,updated_at) VALUES('defaults',?,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json,updated_at=CURRENT_TIMESTAMP").bind(JSON.stringify(settings)).run();
+    await audit(env,'system_defaults_changed',{actorType:'admin',detail:JSON.stringify(settings)});
+    return json({settings});
+  }
+  if(path==='/api/settings/effective'&&request.method==='GET'){
+    const user=await sessionUser(request,env),defaults=await systemDefaults(env);if(!user)return json({settings:defaults});
+    const row=await env.DB.prepare('SELECT settings_json FROM user_settings WHERE user_id=?').bind(user.id).first();
+    if(!row?.settings_json)return json({settings:defaults});
+    try{return json({settings:{...defaults,...cleanSettings(JSON.parse(row.settings_json))}})}catch{return json({settings:defaults})}
+  }
+  const userSettingsMatch=path.match(/^\/api\/admin\/users\/(\d+)\/settings$/);
+  if(userSettingsMatch&&request.method==='GET'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const id=Number(userSettingsMatch[1]),target=await env.DB.prepare('SELECT id FROM users WHERE id=?').bind(id).first();if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
+    const defaults=await systemDefaults(env),row=await env.DB.prepare('SELECT settings_json FROM user_settings WHERE user_id=?').bind(id).first();
+    if(!row?.settings_json)return json({settings:defaults,custom:false});
+    try{return json({settings:{...defaults,...cleanSettings(JSON.parse(row.settings_json))},custom:true})}catch{return json({settings:defaults,custom:false})}
+  }
+  if(userSettingsMatch&&request.method==='POST'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const id=Number(userSettingsMatch[1]),data=await body(request),settings=cleanSettings(data.settings),target=await env.DB.prepare('SELECT id FROM users WHERE id=?').bind(id).first();if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
+    await env.DB.prepare('INSERT INTO user_settings(user_id,settings_json,updated_at) VALUES(?,?,CURRENT_TIMESTAMP) ON CONFLICT(user_id) DO UPDATE SET settings_json=excluded.settings_json,updated_at=CURRENT_TIMESTAMP').bind(id,JSON.stringify(settings)).run();
+    await audit(env,'user_settings_changed',{actorType:'admin',targetUserId:id,detail:JSON.stringify(settings)});return json({settings,custom:true});
+  }
+  if(userSettingsMatch&&request.method==='DELETE'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const id=Number(userSettingsMatch[1]);await env.DB.prepare('DELETE FROM user_settings WHERE user_id=?').bind(id).run();await audit(env,'user_settings_reset',{actorType:'admin',targetUserId:id});return json({settings:await systemDefaults(env),custom:false});
+  }
+  const unlimitedMatch=path.match(/^\/api\/admin\/users\/(\d+)\/unlimited$/);
+  if(unlimitedMatch&&request.method==='POST'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const id=Number(unlimitedMatch[1]),data=await body(request),unlimited=!!data.unlimited,target=await env.DB.prepare('SELECT id FROM users WHERE id=?').bind(id).first();if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
+    await env.DB.prepare('UPDATE users SET unlimited=? WHERE id=?').bind(unlimited?1:0,id).run();await audit(env,'unlimited_changed',{actorType:'admin',targetUserId:id,detail:unlimited?'Açık':'Kapalı'});return json({ok:true,unlimited});
   }
   const resetMatch=path.match(/^\/api\/admin\/users\/(\d+)\/password-reset$/);
   if(resetMatch&&request.method==='POST'){
@@ -178,6 +263,7 @@ async function handleApi(request,env){
     await env.DB.prepare('INSERT INTO password_reset_tokens(token_hash,user_id,expires_at) VALUES(?,?,?)').bind(await sha256(raw),id,expires).run();
     const resetUrl=new URL(request.url).origin+'/?reset='+encodeURIComponent(raw);
     await env.EMAIL.send({to:target.email,from:'noreply@serula.site',subject:'Serula Nesting - Şifre Sıfırlama',text:'Şifrenizi yenilemek için bu bağlantıyı 1 saat içinde açın: '+resetUrl});
+    await audit(env,'password_reset_sent',{actorType:'admin',targetUserId:id,detail:target.email});
     return json({ok:true});
   }
   const m=path.match(/^\/api\/admin\/users\/(\d+)\/credits$/);
@@ -186,11 +272,8 @@ async function handleApi(request,env){
     const data=await body(request),id=Number(m[1]),credits=Math.max(0,Math.min(100000,Math.trunc(Number(data.credits)||0)));
     const target=await env.DB.prepare('SELECT id,role FROM users WHERE id=?').bind(id).first();
     if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
-    if(target.role==='admin'){
-      await env.DB.prepare('UPDATE users SET nesting_credits=?,unlimited=1 WHERE id=?').bind(credits,id).run();
-    }else{
-      await env.DB.prepare('UPDATE users SET nesting_credits=?,unlimited=0 WHERE id=?').bind(credits,id).run();
-    }
+    await env.DB.prepare('UPDATE users SET nesting_credits=? WHERE id=?').bind(credits,id).run();
+    await audit(env,'credits_changed',{actorType:'admin',targetUserId:id,detail:String(credits)});
     return json({ok:true});
   }
   return json({error:'Bulunamadı.'},404);
