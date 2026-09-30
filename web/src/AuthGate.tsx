@@ -79,7 +79,7 @@ export function UserGate({children}:{children:ReactNode}){
       const accounts=google()?.accounts.id;if(!accounts)return;
       const ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
       if(ios){
-        accounts.initialize({client_id:GOOGLE_CLIENT_ID,auto_select:false,ux_mode:'redirect',itp_support:true});
+        accounts.initialize({client_id:GOOGLE_CLIENT_ID,auto_select:false,ux_mode:'redirect',itp_support:true,login_uri:location.origin+'/api/auth/google-redirect'});
       }else{
         accounts.initialize({client_id:GOOGLE_CLIENT_ID,auto_select:false,use_fedcm_for_button:false,itp_support:true,ux_mode:'popup',callback:async response=>{
           try{setBusy(true);setError('');const data=await request('/api/auth/google',{method:'POST',body:JSON.stringify({credential:response.credential})});if(!cancelled){setUser(data.user);setOpen(false)}}
