@@ -4,6 +4,7 @@ import { SOLVER_REVISION, type Document, type Result } from '../model';
 import type { Candidate, GeometryReply, SolverMessage } from './protocol';
 import type {LiveGeometry} from '../geometry/live';
 import {packResultIntoSheets} from '../geometry/multiSheet';
+import {validate} from '../geometry/validate';
 
 export type RunState='Ready'|'Initializing'|'Running'|'Complete'|'Stopped'|'Error';
 export type Timing={phase?:string;sequence:number;elapsedMs:number;lengthMm:number;validation?:string;validationMs?:number;errors?:string[]};
@@ -142,12 +143,18 @@ export function useSolver() {
             let packed:Result;
             try{packed=packResultIntoSheets(doc,candidateResult(doc,data,seed));}
             catch{break;}
+            const checked=validate(doc,packed);
+            r.diagnostics.history.at(-1)!.validation=checked.status;
+            if(checked.status!=='passed'){
+              r.diagnostics.history.at(-1)!.errors=checked.errors;
+              break;
+            }
             const better=!r.best||(doc.settings.materialType==='sheet'
               ? (packed.sheetCount??1)<(r.best.sheetCount??1)
               : packed.usedLengthMm<r.best.usedLengthMm);
             if(better){
               startup.firstValidMs??=performance.now()-requestedAt;
-              r.best={...packed,validation:{status:'passed',source:'solver',overlapAreaMm2:null,maxBoundaryViolationMm:null,minClearanceMm:null,errors:[]}};
+              r.best={...packed,validation:{...checked,source:'local'}};
             }
           }
           break;
