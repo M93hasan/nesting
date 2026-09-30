@@ -1,7 +1,8 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = new URL('../src/', import.meta.url);
+const root = fileURLToPath(new URL('../src/', import.meta.url));
 const forbidden = [
   'classAd','setŞekil','setŞekilWidth','setŞekilHeight','addŞekil','addParçalar',
   'defaultExampleİptalled','setGenişlik','setYükseklik','toSabit','materialGenişlik',
