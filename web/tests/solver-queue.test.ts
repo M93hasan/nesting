@@ -31,12 +31,12 @@ function candidate(runId:number,documentRevision:number,sequence:number,length:n
 beforeEach(()=>{vi.useFakeTimers();vi.stubGlobal('Worker',WorkerStub);WorkerStub.all=[];hooks.slots=[];hooks.cursor=0;hooks.effects=[];hooks.cleanups=[];});
 afterEach(()=>{for(const cleanup of hooks.cleanups)cleanup();vi.unstubAllGlobals();vi.useRealTimers();});
 
-test('solver-feasible candidates are accepted directly and retain the shortest result',()=>{
+test('solver candidates are locally boundary-checked and retain the shortest valid result',()=>{
   render().start(doc,7);const [solver,preview]=WorkerStub.all;
   expect(WorkerStub.all).toHaveLength(2);
   solver.deliver(candidate(1,7,1,20));solver.deliver(candidate(1,7,2,9));solver.deliver(candidate(1,7,3,18));
   vi.advanceTimersByTime(100);
-  expect(render().result).toMatchObject({usedLengthMm:9,validation:{status:'passed',source:'solver',overlapAreaMm2:null}});
+  expect(render().result).toMatchObject({usedLengthMm:18,validation:{status:'passed',source:'local',overlapAreaMm2:0}});
   expect(()=>exportSVG(doc,render().result)).not.toThrow();
   expect(()=>exportProject(doc,7,render().result)).not.toThrow();
   expect(preview.messages.every(message=>message.type==='live-preview')).toBe(true);
