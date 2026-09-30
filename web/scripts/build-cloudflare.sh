@@ -7,8 +7,19 @@ toolchain=nightly-2026-08-30
 
 npm ci --prefer-offline --no-audit --no-fund
 
-# Rust/WASM kaynaklari degismediyse, repodaki hazir paketleri kullan.
-# Dört varyantin yeniden derlenmesi yalnizca paketler eksikse gerekir.
+# Prefer prebuilt WASM packages. Set SERULA_WASM_DIR to a directory containing
+# pkg, pkg-threads, pkg-nosimd and pkg-threads-nosimd (for example an artifact
+# restored before this build). This keeps normal UI deploys out of the Rust toolchain.
+if [ -n "${SERULA_WASM_DIR:-}" ] && [ -d "$SERULA_WASM_DIR" ]; then
+  for dir in pkg pkg-threads pkg-nosimd pkg-threads-nosimd; do
+    if [ -d "$SERULA_WASM_DIR/$dir" ]; then
+      rm -rf "wasm/$dir"
+      cp -R "$SERULA_WASM_DIR/$dir" "wasm/$dir"
+    fi
+  done
+fi
+
+# Build Rust only when a complete prebuilt set is unavailable.
 wasm_ready=true
 for dir in wasm/pkg wasm/pkg-threads wasm/pkg-nosimd wasm/pkg-threads-nosimd; do
   if [ ! -d "$dir" ] || ! find "$dir" -maxdepth 1 -name '*.wasm' -print -quit | grep -q .; then
@@ -32,7 +43,7 @@ if [ "$wasm_ready" = false ]; then
   fi
   npm run wasm:build
 else
-  echo "WASM packages present: skipping all four Rust/WASM builds."
+  echo "WASM unchanged: using prebuilt packages; skipping all four Rust/WASM builds."
 fi
 
 npm run typecheck
