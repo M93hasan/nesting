@@ -20,8 +20,5 @@
       "database_name": "serula-db",
       "database_id": "109b29ed-a1e1-4fc9-a39f-b9865e2eaa56"
     }
-  ],
-  "secrets": {
-    "required": ["ADMIN_PASSWORD"]
-  }
+  ]
 }
