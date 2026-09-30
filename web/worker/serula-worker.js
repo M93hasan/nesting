@@ -112,6 +112,23 @@ async function systemDefaults(env){
   try{return cleanSettings(JSON.parse(row.value_json))}catch{return DEFAULT_ADMIN_SETTINGS}
 }
 
+async function googleUserFromCredential(credential,env){
+  const verify=credential&&await fetch('https://oauth2.googleapis.com/tokeninfo?id_token='+encodeURIComponent(credential));
+  if(!verify||!verify.ok)return {error:'Google doğrulaması başarısız.',status:401};
+  const claims=await verify.json(),email=String(claims.email||'').toLowerCase();
+  if(claims.aud!==GOOGLE_CLIENT_ID||claims.email_verified!=='true'||!validEmail(email))return {error:'Google hesabı doğrulanamadı.',status:401};
+  let user=await env.DB.prepare('SELECT id,email,name,role,nesting_credits,unlimited FROM users WHERE email=?').bind(email).first();
+  if(!user){
+    const result=await env.DB.prepare(`INSERT INTO users(email,name,google_id,role,nesting_credits,unlimited,last_login_at)
+      VALUES(?,?,?,'user',5,0,CURRENT_TIMESTAMP)`).bind(email,String(claims.name||'').slice(0,120),String(claims.sub||'')).run();
+    user=await env.DB.prepare('SELECT id,email,name,role,nesting_credits,unlimited FROM users WHERE id=?').bind(result.meta.last_row_id).first();
+  }else{
+    await env.DB.prepare('UPDATE users SET google_id=COALESCE(google_id,?),last_login_at=CURRENT_TIMESTAMP WHERE id=?').bind(String(claims.sub||''),user.id).run();
+  }
+  await audit(env,'login',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:'Google ile giriş'});
+  return {user};
+}
+
 async function handleApi(request,env){
   await ensureSchema(env);
   const url=new URL(request.url),path=url.pathname;
@@ -151,19 +168,9 @@ async function handleApi(request,env){
     return json({user:publicUser(user)},200,{'set-cookie':cookie(await makeSession(user.id,env))});
   }
   if(path==='/api/auth/google'&&request.method==='POST'){
-    const data=await body(request),credential=String(data.credential||'');
-    const verify=credential&&await fetch('https://oauth2.googleapis.com/tokeninfo?id_token='+encodeURIComponent(credential));
-    if(!verify||!verify.ok)return json({error:'Google doğrulaması başarısız.'},401);
-    const claims=await verify.json(),email=String(claims.email||'').toLowerCase();
-    if(claims.aud!==GOOGLE_CLIENT_ID||claims.email_verified!=='true'||!validEmail(email))return json({error:'Google hesabı doğrulanamadı.'},401);
-    let user=await env.DB.prepare('SELECT id,email,name,role,nesting_credits,unlimited FROM users WHERE email=?').bind(email).first();
-    if(!user){
-      const result=await env.DB.prepare(`INSERT INTO users(email,name,google_id,role,nesting_credits,unlimited,last_login_at)
-        VALUES(?,?,?,'user',5,0,CURRENT_TIMESTAMP)`).bind(email,String(claims.name||'').slice(0,120),String(claims.sub||'')).run();
-      user=await env.DB.prepare('SELECT id,email,name,role,nesting_credits,unlimited FROM users WHERE id=?').bind(result.meta.last_row_id).first();
-    }else await env.DB.prepare('UPDATE users SET google_id=COALESCE(google_id,?),last_login_at=CURRENT_TIMESTAMP WHERE id=?').bind(String(claims.sub||''),user.id).run();
-    await audit(env,'login',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:'Google ile giriş'});
-    return json({user:publicUser(user)},200,{'set-cookie':cookie(await makeSession(user.id,env))});
+    const data=await body(request),credential=String(data.credential||''),result=await googleUserFromCredential(credential,env);
+    if(result.error)return json({error:result.error},result.status);
+    return json({user:publicUser(result.user)},200,{'set-cookie':cookie(await makeSession(result.user.id,env))});
   }
   if(path==='/api/auth/reset-password'&&request.method==='POST'){
     const data=await body(request),token=String(data.token||''),newPassword=String(data.password||'');
@@ -347,6 +354,16 @@ async function handleApi(request,env){
 export default {async fetch(request,env){
   const url=new URL(request.url);
   if(url.pathname.startsWith('/api/'))return handleApi(request,env);
+  if(request.method==='POST'&&(request.headers.get('content-type')||'').includes('application/x-www-form-urlencoded')){
+    await ensureSchema(env);
+    const form=await request.formData(),credential=String(form.get('credential')||''),formCsrf=String(form.get('g_csrf_token')||'');
+    const cookieCsrf=request.headers.get('cookie')?.match(/(?:^|;\s*)g_csrf_token=([^;]+)/)?.[1]||'';
+    if(!credential||!formCsrf||!cookieCsrf||decodeURIComponent(cookieCsrf)!==formCsrf)return new Response('Google oturum doğrulaması başarısız.',{status:400});
+    const result=await googleUserFromCredential(credential,env);
+    if(result.error)return new Response(result.error,{status:result.status});
+    const redirect=new URL(url.origin+url.pathname);redirect.searchParams.set('google','ok');
+    return new Response(null,{status:303,headers:{location:redirect.toString(),'set-cookie':cookie(await makeSession(result.user.id,env)),'cache-control':'no-store'}});
+  }
   const response=await env.ASSETS.fetch(request);
   const contentType=response.headers.get('content-type')||'';
   if(request.mode==='navigate'||contentType.includes('text/html')){
