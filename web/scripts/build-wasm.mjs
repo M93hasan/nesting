@@ -21,6 +21,7 @@ try {
     const result = spawnSync('wasm-pack', args, {
       cwd, stdio: 'inherit', env: { ...process.env,
         RUSTUP_TOOLCHAIN: 'nightly-2026-08-30',
+        CARGO_NET_GIT_FETCH_WITH_CLI: 'true',
         CARGO_TARGET_DIR: cargoTargetDir,
         CARGO_ENCODED_RUSTFLAGS: threaded ? [
           '-C', `target-feature=${simd ? '+' : '-'}simd128,+atomics,+bulk-memory,+mutable-globals`,

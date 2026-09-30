@@ -1,0 +1,26 @@
+name: Fast Cloudflare trigger
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-trigger-main
+  cancel-in-progress: true
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Cloudflare Workers build
+        env:
+          CLOUDFLARE_DEPLOY_HOOK_URL: ${{ secrets.CLOUDFLARE_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$CLOUDFLARE_DEPLOY_HOOK_URL" ]; then
+            echo "CLOUDFLARE_DEPLOY_HOOK_URL is not configured; using the normal Cloudflare Git trigger."
+            exit 0
+          fi
+          curl --fail --silent --show-error --request POST "$CLOUDFLARE_DEPLOY_HOOK_URL"
