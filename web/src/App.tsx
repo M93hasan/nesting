@@ -274,7 +274,14 @@ export default function App({initialDocument=emptyProject(),initialError='',load
           if(!reply.review.replace&&reply.review.document.parts.length>0&&!(reply.review.issues?.length)){
             await addParts(reply.review.document.parts,reply.review.warnings);
             setFiles(undefined);setReview(undefined);setFitRequest(n=>n+1);
-          }else setReview(reply.review);
+          }else if(reply.review.document.parts.length>0){
+            await addParts(reply.review.document.parts,reply.review.warnings);
+            setFiles(undefined);setReview(undefined);setFitRequest(n=>n+1);
+            if(reply.review.issues?.length)setError(`Bazı konturlar içe aktarılamadı: ${reply.review.issues.join(' ')}`);
+          }else{
+            setFiles(undefined);setReview(undefined);
+            setError(reply.review.issues?.join(' ')||'DXF içinde içe aktarılabilir kapalı kontur bulunamadı.');
+          }
         }
       }
     }
