@@ -51,7 +51,7 @@ self.onmessage=async({data}: MessageEvent<GeometryRequest>)=>{
             }
             return importSparrow(f.text,f.name,data.scale);
           }
-          if(/^0[ \t]*(?:\r\n|\n|\r)[ \t]*SECTION\b/.test(text)||text.startsWith('AutoCAD Binary DXF'))return importDXF(f.text,f.name,{scale:data.scale,tolerance:data.tolerance??.01,enclosed:data.enclosed??'holes',layers:data.layers});
+          if(/^0[ \t]*(?:\r\n|\n|\r)[ \t]*SECTION\b/.test(text)||text.startsWith('AutoCAD Binary DXF')){const tolerance=Number.isFinite(data.tolerance)&&data.tolerance!>0?data.tolerance!:.01;return importDXF(f.text,f.name,{scale:1,tolerance,enclosed:data.enclosed??'holes',layers:data.layers});}
           throw Error(`${f.name}: unsupported file content. Export a closed-contour SVG, supported ASCII DXF, or sparrow instance JSON. Images need tracing and 3D files need projection first.`);
         });
         if(reviews[0].replace) {reply={...ids,type:'import-review',review:reviews[0]};break;}

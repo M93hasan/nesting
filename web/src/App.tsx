@@ -51,12 +51,12 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const [importWarnings,setImportWarnings]=useState<string[]>([]);
   const exportFormat='dxf' as const;
   const [materialWidthFocused,setMaterialWidthFocused]=useState(false);
-  const [nameDialog,setAdDialog]=useState<'new'|'rename'>(),[projectAd,setProjectAd]=useState('');
+  const [nameDialog,setNameDialog]=useState<'new'|'rename'>(),[projectName,setProjectAd]=useState('');
   const [pendingProject,setPendingProject]=useState<ProjectSwitch>();
   const [fileIntent,setFileIntent]=useState<'project'|'shapes'|'auto'>('auto');
   const projectInput=useRef<HTMLInputElement>(null),projectMenu=useRef<HTMLDetailsElement>(null);
   useDismissibleMenu(projectMenu);
-  const [shape,setŞekil]=useState<'rectangle'|'circle'|'polygon'>(),[shapeWidth,setŞekilWidth]=useState(40),[shapeHeight,setŞekilHeight]=useState(30),[polygon,setPolygon]=useState<Point[]>();
+  const [shape,setShape]=useState<'rectangle'|'circle'|'polygon'>(),[shapeWidth,setShapeWidth]=useState(40),[shapeHeight,setShapeHeight]=useState(30),[polygon,setPolygon]=useState<Point[]>();
   const history=useRef<{doc:Document;geometry:boolean;selection:CopyRef[];unused:string[]}[]>([]),future=useRef<{doc:Document;geometry:boolean;selection:CopyRef[];unused:string[]}[]>([]),operation=useRef(0);
   const input=useRef<HTMLInputElement>(null),solver=useSolver();
   const fieldEdit=useRef<{key:string;document:Document}|undefined>(undefined);
@@ -76,8 +76,8 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     worker.postMessage({type:'preload',threads:crossOriginIsolated&&typeof SharedArrayBuffer!=='undefined'&&navigator.hardwareConcurrency>2?3:1});
     return done;
   },[loadingExample]);
-  const defaultExampleİptalled=useRef(false);
-  function cancelDefaultExample() {defaultExampleİptalled.current=true;setLoadingExample(false);}
+  const defaultExampleCancelled=useRef(false);
+  function cancelDefaultExample() {defaultExampleCancelled.current=true;setLoadingExample(false);}
   useEffect(()=>{
     if(!loadDefaultExample)return;
     let disposed=false;
@@ -86,11 +86,11 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         try {
           const saved=await readRecovery();
           if(disposed)return;
-          if(defaultExampleİptalled.current){setRecoveryReady(true);return;}
+          if(defaultExampleCancelled.current){setRecoveryReady(true);return;}
           if(saved) {
             const reply=await geometryTask({type:'import',runId:0,documentRevision:0,files:[{name:'recovery.json',text:JSON.stringify(saved)}],scale:1});
             if(disposed)return;
-            if(defaultExampleİptalled.current){setRecoveryReady(true);return;}
+            if(defaultExampleCancelled.current){setRecoveryReady(true);return;}
             if(reply.type!=='import-review')throw Error('Could not restore the previous project.');
             switchProject({...reply.review,saved:false});
             setRecoveryReady(true);
@@ -101,14 +101,14 @@ export default function App({initialDocument=emptyProject(),initialError='',load
           if(!disposed)setRecoveryError('Browser saving is unavailable. Export the project to keep a copy.');
         }
         const imported=await loadExample('gardeyn2.json',AbortSignal.timeout(10000));
-        if(disposed||defaultExampleİptalled.current)return;
+        if(disposed||defaultExampleCancelled.current)return;
         const prepared=await geometryTask({type:'prepare-layout',runId:0,documentRevision:0,document:imported.document,pinnedIds:[],compact:true});
-        if(disposed||defaultExampleİptalled.current)return;
+        if(disposed||defaultExampleCancelled.current)return;
         if(prepared.type!=='normalized')throw Error('Could not arrange gardeyn2.json.');
         const document=withDocumentPlacements(prepared.document);
         setDoc(document);setExported({document});setFitRequest(n=>n+1);
       } catch(error) {
-        if(!disposed&&!defaultExampleİptalled.current)setError(`The demo could not load. You can still create or import a project. ${String(error)}`);
+        if(!disposed&&!defaultExampleCancelled.current)setError(`The demo could not load. You can still create or import a project. ${String(error)}`);
       } finally {if(!disposed)setLoadingExample(false);}
     })();
     return ()=>{disposed=true;};
@@ -192,7 +192,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
       const editable=isEditableTarget(e.target);
       if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'&&!editable) {e.preventDefault();restore(e.shiftKey);return;}
       if(e.key==='Escape') {setUnusedSelection([]);setSelectedCopies([]);setPolygon(undefined);}
-      if(e.key==='Enter'&&polygon&&!locked&&!editable) {e.preventDefault();void addŞekil('polygon');return;}
+      if(e.key==='Enter'&&polygon&&!locked&&!editable) {e.preventDefault();void addShape('polygon');return;}
       if(editable||locked||e.altKey||!selected.length)return;
       if(e.key==='Backspace'||e.key==='Delete') {e.preventDefault();if(!selectedCopies.length)return;commit(removeCopies(canvasDocument,selectedCopies));setSelectedCopies([]);return;}
       if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='d') {
@@ -272,9 +272,16 @@ export default function App({initialDocument=emptyProject(),initialError='',load
           setAvailableLayers(reply.review.layers??[]);
           setPreviewStale(false);
           if(!reply.review.replace&&reply.review.document.parts.length>0&&!(reply.review.issues?.length)){
-            await addParçalar(reply.review.document.parts,reply.review.warnings);
+            await addParts(reply.review.document.parts,reply.review.warnings);
             setFiles(undefined);setReview(undefined);setFitRequest(n=>n+1);
-          }else setReview(reply.review);
+          }else if(reply.review.document.parts.length>0){
+            await addParts(reply.review.document.parts,reply.review.warnings);
+            setFiles(undefined);setReview(undefined);setFitRequest(n=>n+1);
+            if(reply.review.issues?.length)setError(`Bazı konturlar içe aktarılamadı: ${reply.review.issues.join(' ')}`);
+          }else{
+            setFiles(undefined);setReview(undefined);
+            setError(reply.review.issues?.join(' ')||'DXF içinde içe aktarılabilir kapalı kontur bulunamadı.');
+          }
         }
       }
     }
@@ -285,7 +292,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     try {const reply=await geometryTask({type:'import',runId:++operation.current,documentRevision:revision,files,scale,tolerance,enclosed,layers});if(reply.type==='import-review'){setReview(reply.review);setPreviewStale(false);setAvailableLayers(reply.review.layers??[]);}}
     catch(e){setError(String(e));}finally{setBusy(false);}
   }
-  async function addParçalar(parts:Part[],warnings:string[]=[]) {
+  async function addParts(parts:Part[],warnings:string[]=[]) {
     cancelDefaultExample();
     const reply=await geometryTask({type:'normalize',runId:++operation.current,documentRevision:revision,document:{...doc,parts:[...doc.parts,...parts]}});
     if(reply.type!=='normalized')throw Error('Could not add these shapes.');
@@ -320,7 +327,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         const document=await prepareDocument(review.document,[],true);
         requestProject({document,result:review.result,warnings:review.warnings,saved:false});
       }
-      else{await addParçalar(review.document.parts,review.warnings);setFiles(undefined);setReview(undefined);setFitRequest(n=>n+1);}
+      else{await addParts(review.document.parts,review.warnings);setFiles(undefined);setReview(undefined);setFitRequest(n=>n+1);}
     }catch(e){setError(String(e));}finally{setBusy(false);}
   }
   function editPart(change:Partial<Part>,geometry=true,field?:string) {if(chosen)commit({...doc,parts:doc.parts.map(p=>selected.includes(p.id)?{...p,...change}:p)},geometry,field);}
@@ -345,12 +352,12 @@ export default function App({initialDocument=emptyProject(),initialError='',load
       if(reply.type==='normalized')commit(reply.document);
     }catch(e){setError(String(e));}finally{setBusy(false);}
   }
-  async function addŞekil(kind:'rectangle'|'circle'|'polygon') {
+  async function addShape(kind:'rectangle'|'circle'|'polygon') {
     cancelDefaultExample();setBusy(true);setError('');
     try {
       const reply=await geometryTask({type:'shape',runId:++operation.current,documentRevision:revision,shape:kind,width:shapeWidth,height:shapeHeight,points:polygon});
       if(reply.type==='part') {
-        await addParçalar([reply.part]);setŞekil(undefined);setPolygon(undefined);
+        await addParts([reply.part]);setShape(undefined);setPolygon(undefined);
       }
     }catch(e){setError(String(e));}finally{setBusy(false);}
   }
@@ -391,10 +398,10 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   return <div className="app" onBlurCapture={()=>{fieldEdit.current=undefined;}} onKeyDown={e=>{if(e.key==='Enter'&&e.target instanceof HTMLInputElement&&e.target.hasAttribute('data-undo-field')){e.preventDefault();e.target.blur();}}} onMouseDownCapture={e=>{const target=e.target;focusClick.current=target instanceof HTMLInputElement&&['text','number'].includes(target.type)&&document.activeElement!==target?target:null;}} onMouseUpCapture={e=>{if(focusClick.current===e.target){e.preventDefault();focusClick.current.select();}focusClick.current=null;}} onFocusCapture={e=>{const input=e.target;if(input instanceof HTMLInputElement&&['text','number'].includes(input.type))input.select();}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(!document.querySelector('dialog[open]'))void openFiles(e.dataTransfer.files);}}>
     <header className="header"><div className="brand-block"><a className="brand serula-brand" aria-label="Serula Nesting Studio" href={import.meta.env.BASE_URL}><img src={`${import.meta.env.BASE_URL}serula-logo.svg`} alt="" /><strong>Serula Nesting</strong><span>/studio · v0.0.5</span></a><p className="tagline">Akıllı DXF yerleştirme ve malzeme optimizasyonu</p></div>
       <div className="header-primary project-bar"><details className="project-menu" ref={projectMenu}><summary aria-label={`Project: ${doc.name}`}>{doc.name}<span aria-hidden="true"> ▾</span></summary><div>
-        <button disabled={locked} onClick={()=>{projectMenu.current!.open=false;setProjectAd('Adsız proje');setAdDialog('new');}}>Yeni proje</button>
+        <button disabled={locked} onClick={()=>{projectMenu.current!.open=false;setProjectAd('Adsız proje');setNameDialog('new');}}>Yeni proje</button>
         <button disabled={locked} onClick={()=>{projectMenu.current!.open=false;projectInput.current?.click();}}>Proje aç</button>
         
-        <button disabled={locked} onClick={()=>{projectMenu.current!.open=false;setProjectAd(doc.name);setAdDialog('rename');}}>Projeyi yeniden adlandır</button>
+        <button disabled={locked} onClick={()=>{projectMenu.current!.open=false;setProjectAd(doc.name);setNameDialog('rename');}}>Projeyi yeniden adlandır</button>
       </div></details><button title="Downloads a ZIP with your editable project, CLI input, and any checked SVG/DXF. Import it later to continue." onClick={()=>void exportProject()} disabled={locked||invalidSettings||!!polygon}>Projeyi dışa aktar</button><small className="project-status" data-save-state={browserSaveState} aria-live="polite" title={recoveryError||(invalidSettings?'Fix invalid values to save changes.':polygon?.length?'Finish or cancel the polygon to save changes.':'Bu tarayıcıda bu cihaza otomatik kaydedilir. Yalnızca geçerli proje kept; export a ZIP to keep another copy.')}><span aria-hidden="true">{browserSaveState==='saved'?'✓':browserSaveState==='error'||browserSaveState==='unsaved'?'!':'◷'}</span>{browserSaveLabel}</small></div>
       <nav><button className="mobile-settings" aria-expanded={panel} aria-controls="parts-settings" onClick={()=>setPanel(!panel)}>Parçalar &amp; ayarlar</button><button className="theme-toggle" title="Toggle light/dark mode" aria-label="Toggle light/dark mode" onClick={()=>setTheme(theme==='dark'||theme==='system'&&matchMedia('(prefers-color-scheme: dark)').matches?'light':'dark')}><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16Z" fill="currentColor" stroke="none"/></svg></button><a className="github-link" href="https://github.com/M93hasan/nesting" target="_blank" rel="noreferrer" aria-label="☆ Serula Nesting GitHub"><span aria-hidden="true">☆</span>Serula Nesting GitHub</a><button aria-label="Serula Nesting Hakkında" onClick={()=>setInfo('about')}><span aria-hidden="true">ⓘ</span>Hakkında</button><button className="hello-button" aria-label="İletişim" onClick={()=>setInfo('contact')}><span className={downloadedResult?'hello-wave':undefined} aria-hidden="true">☎</span>İletişim</button></nav>
       <input ref={input} hidden type="file" multiple accept=".json,.svg,.dxf" onChange={e=>{if(e.target.files)void openFiles(e.target.files,'shapes');e.target.value='';}}/>
@@ -428,7 +435,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         </div>;})}</div>
         {doc.parts.reduce((n,p)=>n+(Number.isFinite(p.quantity)?p.quantity:0),0)>500&&<p role="alert" className="field-error quantity-total">This drawing exceeds the 500-copy limit. Reduce quantities to continue.</p>}
         {doc.parts.some(part=>part.quantity===0)&&<button className="text-button clear-unused" disabled={locked} onClick={()=>commit({...doc,parts:doc.parts.filter(part=>part.quantity!==0)})}>Adedi sıfır olan parçaları kaldır</button>}
-        <div className="add-shape"><button disabled={locked} onClick={()=>setŞekil('rectangle')}>Şekil çiz</button><button className="primary" disabled={locked} onClick={()=>input.current?.click()}>DXF İçe Aktar</button><button disabled={locked} onClick={()=>setLibrary(true)}>Şekil kütüphanesi</button></div>
+        <div className="add-shape"><button disabled={locked} onClick={()=>setShape('rectangle')}>Şekil çiz</button><button className="primary" disabled={locked} onClick={()=>input.current?.click()}>DXF İçe Aktar</button><button disabled={locked} onClick={()=>setLibrary(true)}>Şekil kütüphanesi</button></div>
         <p className="import-formats">SVG, DXF veya Sparrow JSON dosyası içe aktarın.</p>
         <div className="row-actions history"><button disabled={locked||!history.current.length} onClick={()=>restore()}>Geri al</button><button disabled={locked||!future.current.length} onClick={()=>restore(true)}>Yinele</button></div>
         <section className="settings"><h2>Malzeme ve Yerleşim</h2>
@@ -450,7 +457,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
           onSelect={(copy,toggle)=>{setUnusedSelection([]);if(!copy){setSelectedCopies([]);return;}const key=`${copy.partId}:${copy.copyIndex}`,already=selectedCopies.some(p=>`${p.partId}:${p.copyIndex}`===key);const nextCopies=toggle?(already?selectedCopies.filter(p=>`${p.partId}:${p.copyIndex}`!==key):[...selectedCopies,copy]):already?selectedCopies:[copy];setSelectedCopies(nextCopies);}}
           onMove={positions=>{const current=documentPlacements(canvasDocument);const updates=positions.map(position=>{const previous=current.find(p=>p.partId===position.partId&&p.copyIndex===position.copyIndex);return previous?{...previous,xMm:position.position[0],yMm:position.position[1]}:undefined;}).filter((position):position is NonNullable<typeof position>=>!!position);commit(updatePlacements(canvasDocument,updates));}}/>
         {!doc.parts.length&&!polygon&&<div className="empty-project"><h2>Projeniz boş</h2><p>Bir şekil çizin, SVG/DXF/JSON içe aktarın veya kütüphaneden şekil ekleyin.</p><div className="empty-project-actions"><button className="primary" disabled={locked} onClick={()=>input.current?.click()}>DXF İçe Aktar</button></div></div>}
-        {polygon&&<div className="polygon-actions"><span>{polygon.length} vertices</span><button disabled={locked||polygon.length<3} onClick={()=>void addŞekil('polygon')}>Çokgeni tamamla</button><button onClick={()=>setPolygon(undefined)}>Çokgeni iptal et</button></div>}
+        {polygon&&<div className="polygon-actions"><span>{polygon.length} vertices</span><button disabled={locked||polygon.length<3} onClick={()=>void addShape('polygon')}>Çokgeni tamamla</button><button onClick={()=>setPolygon(undefined)}>Çokgeni iptal et</button></div>}
         {(live||result)&&<div className={`result-details${showingLive?' live-details':''}`}><div className="result-mode" role="group" aria-label="Result display"><button aria-pressed={resultMode==='live'} disabled={!live} onClick={()=>setResultMode('live')}>{running&&<i className="live-dot" aria-hidden="true"/>}Live search</button><button aria-pressed={resultMode==='checked'} disabled={!result} onClick={()=>setResultMode('checked')}>En iyi geçerli yerleşim</button></div>{showingLive&&<div className="result-copy"><span><i className="overlap-key"/>Çakışmalar kırmızı</span><p>Ara yerleşimlerde geçici çakışmalar olabilir.</p></div>}</div>}
         {solver.liveError&&<p className="field-error">Live preview unavailable: {solver.liveError}</p>}
       </section>
@@ -477,14 +484,14 @@ export default function App({initialDocument=emptyProject(),initialError='',load
       {review&&!review.replace&&!openingSparrowProject&&files.length===1&&review.document.parts.length>0&&review.document.parts.every(part=>part.source.format==='sparrow')&&<button disabled={busy||previewStale||!!review.issues?.length&&!excludeIssues} onClick={()=>void accept(true)}>Open as new project</button>}
       <div className="modal-actions"><button disabled={busy} onClick={()=>{setFiles(undefined);setReview(undefined);setError('');}}>İptal</button>{review&&!previewStale?<button disabled={busy||!review.replace&&!review.document.parts.length||!!review.issues?.length&&!excludeIssues} className="primary" onClick={()=>void accept()}>{review.replace||openingSparrowProject?'Proje aç':`Add ${review.document.parts.length} shape${review.document.parts.length===1?'':'s'} to project`}</button>:<button disabled={busy} className="primary" onClick={()=>void preview()}>{busy?'Checking…':review?'Önizlemeyi güncelle':'İçe aktarmayı önizle'}</button>}</div>
     </Modal>}
-    {shape&&<Modal title="Şekil ekle" locked={busy} onClose={()=>setŞekil(undefined)}><form onSubmit={e=>{e.preventDefault();if(busy)return;if(shape==='polygon'){cancelDefaultExample();setŞekil(undefined);setPolygon([]);}else void addŞekil(shape);}}><label>Şekil<select value={shape} onChange={e=>setŞekil(e.target.value as typeof shape)} disabled={busy}><option value="rectangle">Dikdörtgen</option><option value="circle">Daire</option><option value="polygon">Çokgen çiz</option></select></label>
-      {shape!=='polygon'&&<label>{`${shape==='circle'?'Diameter':'Width'}, ${unit}`}<input type="number" min={0.000001/factor} max={100000/factor} step="any" value={inputLength(shapeWidth)} onChange={e=>setŞekilWidth(e.target.valueAsNumber*factor)} disabled={busy}/></label>}
-      {shape==='rectangle'&&<label>Height, {unit}<input type="number" min={0.000001/factor} max={100000/factor} step="any" value={inputLength(shapeHeight)} onChange={e=>setŞekilHeight(e.target.valueAsNumber*factor)} disabled={busy}/></label>}
+    {shape&&<Modal title="Şekil ekle" locked={busy} onClose={()=>setShape(undefined)}><form onSubmit={e=>{e.preventDefault();if(busy)return;if(shape==='polygon'){cancelDefaultExample();setShape(undefined);setPolygon([]);}else void addShape(shape);}}><label>Şekil<select value={shape} onChange={e=>setShape(e.target.value as typeof shape)} disabled={busy}><option value="rectangle">Dikdörtgen</option><option value="circle">Daire</option><option value="polygon">Çokgen çiz</option></select></label>
+      {shape!=='polygon'&&<label>{`${shape==='circle'?'Diameter':'Width'}, ${unit}`}<input type="number" min={0.000001/factor} max={100000/factor} step="any" value={inputLength(shapeWidth)} onChange={e=>setShapeWidth(e.target.valueAsNumber*factor)} disabled={busy}/></label>}
+      {shape==='rectangle'&&<label>Height, {unit}<input type="number" min={0.000001/factor} max={100000/factor} step="any" value={inputLength(shapeHeight)} onChange={e=>setShapeHeight(e.target.valueAsNumber*factor)} disabled={busy}/></label>}
       {shape==='polygon'&&<p>Click each vertex in the canvas. Enter closes the polygon; Escape cancels. The contour is checked before it is added.</p>}{error&&<p role="alert" className="field-error">{error}</p>}
-      <div className="modal-actions"><button type="button" disabled={busy} onClick={()=>setŞekil(undefined)}>İptal</button><button disabled={busy} className="primary">{shape==='polygon'?'Start drawing':'Şekil ekle'}</button></div></form>
+      <div className="modal-actions"><button type="button" disabled={busy} onClick={()=>setShape(undefined)}>İptal</button><button disabled={busy} className="primary">{shape==='polygon'?'Start drawing':'Şekil ekle'}</button></div></form>
     </Modal>}
-    {library&&<ShapeLibrary unit={unit} selectedParts={doc.parts.filter(p=>selected.includes(p.id))} onClose={()=>setLibrary(false)} onAdd={async parts=>{setBusy(true);try{await addParçalar(parts);}finally{setBusy(false);}}}/>}
-    {nameDialog&&<Modal title={nameDialog==='new'?'Yeni proje':'Projeyi yeniden adlandır'} onClose={()=>setAdDialog(undefined)}><form onSubmit={e=>{e.preventDefault();const name=projectAd.trim();if(!name)return;if(nameDialog==='new')requestProject({document:emptyProject(name),saved:true});else if(name!==doc.name)commit({...doc,name},false);setAdDialog(undefined);}}><label>Proje adı<input autoFocus onFocus={e=>e.currentTarget.select()} required maxLength={200} value={projectAd} onChange={e=>setProjectAd(e.target.value)}/></label><div className="modal-actions"><button type="button" onClick={()=>setAdDialog(undefined)}>İptal</button><button className="primary" disabled={!projectAd.trim()}>{nameDialog==='new'?'Proje oluştur':'Yeniden adlandır'}</button></div></form></Modal>}
+    {library&&<ShapeLibrary unit={unit} selectedParts={doc.parts.filter(p=>selected.includes(p.id))} onClose={()=>setLibrary(false)} onAdd={async parts=>{setBusy(true);try{await addParts(parts);}finally{setBusy(false);}}}/>}
+    {nameDialog&&<Modal title={nameDialog==='new'?'Yeni proje':'Projeyi yeniden adlandır'} onClose={()=>setNameDialog(undefined)}><form onSubmit={e=>{e.preventDefault();const name=projectName.trim();if(!name)return;if(nameDialog==='new')requestProject({document:emptyProject(name),saved:true});else if(name!==doc.name)commit({...doc,name},false);setNameDialog(undefined);}}><label>Proje adı<input autoFocus onFocus={e=>e.currentTarget.select()} required maxLength={200} value={projectName} onChange={e=>setProjectAd(e.target.value)}/></label><div className="modal-actions"><button type="button" onClick={()=>setNameDialog(undefined)}>İptal</button><button className="primary" disabled={!projectName.trim()}>{nameDialog==='new'?'Proje oluştur':'Yeniden adlandır'}</button></div></form></Modal>}
     {pendingProject&&<Modal title="Save a copy before switching?" locked={busy} onClose={()=>setPendingProject(undefined)}><p>Opening <strong>{pendingProject.document.name}</strong> will replace <strong>{doc.name}</strong> in this browser.</p><p className="muted">Download a project file to keep a copy of <strong>{doc.name}</strong>. You can open it again later.</p>{polygon&&<p>Finish or cancel the polygon before exporting, or discard it to continue.</p>}{error&&<p role="alert" className="field-error">{error}</p>}<div className="project-switch-actions"><button className="primary" disabled={busy||invalidSettings||!!polygon} onClick={async()=>{if(await exportProject())switchProject(pendingProject);}}>Download &amp; Switch</button><button className="discard-project" disabled={busy} onClick={()=>switchProject(pendingProject)}>Discard &amp; Switch</button><button className="text-button" disabled={busy} onClick={()=>setPendingProject(undefined)}>İptal</button></div></Modal>}
     {info&&<Modal title={info==='admin'?'Admin Paneli':info==='diagnostics'?'Sorun mu yaşıyorsunuz?':info==='about'?'Serula Nesting Hakkında':info==='contact'?'İletişim':'Kısayollar ve formatlar'} onClose={()=>setInfo(undefined)}>
       {info==='admin'?<><p>Serula Nesting yönetim alanı.</p><div className="admin-panel"><p><strong>Proje:</strong> {doc.name}</p><p><strong>Parça türü:</strong> {doc.parts.length}</p><p><strong>Toplam parça:</strong> {doc.parts.reduce((n,p)=>n+p.quantity,0)}</p><p><strong>Malzeme:</strong> {(doc.settings.materialType??'roll')==='sheet'?'Plaka':'Rulo'}</p><button onClick={diagnostics}>Sistem Tanılama Dosyası</button></div></>:info==='diagnostics'?<><p>Please open an issue on GitHub and attach the downloaded sparrow-studio-diagnostics.zip file. Describe what happened and what you expected.</p><p>The file includes your project shapes and settings. Only attach it if you’re happy to share those publicly.</p></>:info==='about'?<><h2>Serula Nesting Pro</h2><p>Serula Nesting Pro, DXF parçalarını rulo veya plaka malzeme üzerine verimli biçimde yerleştirmek için geliştirilen web tabanlı bir 2D nesting uygulamasıdır.</p><p>Özellikle ayakkabı üretimi, suni deri, tekstil, lazer kesim ve CNC işlemlerinde malzeme kaybını azaltmaya yardımcı olmak amacıyla geliştirilmektedir. İçe aktarılan DXF parçalarının gerçek ölçüleri korunur; parçaların ebatları otomatik olarak değiştirilmez.</p><p>Yerleştirme motoru düzensiz şekilleri değerlendirerek kullanılabilir alanı daha verimli kullanmaya çalışır. Proje aktif olarak geliştirilmektedir.</p><label>Görüntü birimleri<select value={unit} onChange={e=>setUnit(e.target.value as DisplayUnit)}><option value="mm">Milimetre</option><option value="in">İnç</option></select></label><label>Görünüm<select value={theme} onChange={e=>setTheme(e.target.value as typeof theme)}><option value="system">Sistem</option><option value="light">Açık</option><option value="dark">Koyu</option></select></label><p><strong>Geliştirici:</strong> Muhammet Hasanoğlu</p><p><strong>Proje:</strong> Açık kaynak Serula Nesting</p><p><a href="https://github.com/M93hasan/nesting" target="_blank" rel="noreferrer">Projenin GitHub sayfası ↗</a></p><button onClick={diagnostics}>Tanılama dosyasını indir</button></>:info==='contact'?<><h2>İletişim</h2><p>Serula Nesting ile ilgili destek, öneri ve iş birliği için bize ulaşabilirsiniz.</p><div className="contact-links"><a href="mailto:m93hasan@gmail.com"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="m3 6 9 7 9-7"/></svg>m93hasan@gmail.com</a><a href="tel:+905393480622">☎ +90 539 348 06 22</a></div></>:<><h2>Preparation shortcuts</h2><p><kbd>R</kbd> cycles permitted orientations (90° for free rotation). <kbd>⌘/Ctrl+D</kbd> adds kopya of the selection. <kbd>Backspace</kbd> removes selected kopya; zero-quantity shapes stay in the parts pane. <kbd>+</kbd> or <kbd>=</kbd> increases their quantity. <kbd>−</kbd> or <kbd>_</kbd> decreases it.</p><p>Shortcuts work while the canvas or another non-editable control has focus. Quantity changes stay within the 500-copy project limit.</p><p>Open sparrow instance JSON or SVG closed paths, rectangles, circles, ellipses, polygons, and local references. Text must be outlined elsewhere. SVG styles, transforms and repeated shapes are resolved on import. Separate paths become independent parts; holes come from subpaths within the same path. Clipping, masks, filters and external references are unsupported.</p><p>ASCII DXF supports closed outlines built from lines, arcs, circles, ellipses, polylines, and degree 1–3 splines with positive weights. Transformed blocks and repeated inserts are expanded. Select layers in the preview. Open or invalid contours are listed for exclusion. Binary DXF, hatches, dimensions, text, and 3D entities are unsupported.</p><p>Holes are preserved; nesting inside holes is not supported. Parça aralığı is a part-to-part gap, not cutting kerf.</p></>}

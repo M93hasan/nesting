@@ -1,16 +1,16 @@
 {
   "name": "serula-nesting",
   "private": true,
-  "version": "0.0.5",
-  "buildTrigger": "2026-09-30-0039",
+  "version": "0.0.6",
   "type": "module",
   "scripts": {
+    "source:check": "node scripts/check-source-integrity.mjs",
     "wasm:build": "node scripts/build-wasm.mjs",
     "dev": "vite --host 127.0.0.1",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "npm run build && playwright test",
-    "build": "npm run wasm:build && npm run typecheck && vite build",
+    "build": "npm run source:check && npm run wasm:build && npm run typecheck && vite build",
     "preview": "vite preview --host 127.0.0.1"
   },
   "devDependencies": {

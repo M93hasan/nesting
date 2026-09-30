@@ -74,7 +74,9 @@ export default function Workspace({ document: doc, result, live, selected, selec
     const all: Point[] = [];
     for (const drawing of drawings) {
       const radians = drawing.angleDeg * Math.PI / 180, c = Math.cos(radians), s = Math.sin(radians);
-      for (const [x, y] of drawing.outer) all.push([drawing.position[0] + x * c - y * s, -drawing.position[1] - (x * s + y * c)]);
+      for (const [x, y] of drawing.outer) all.push(world
+        ? [drawing.position[1] + x * c - y * s, -drawing.position[0] - (x * s + y * c)]
+        : [drawing.position[0] + x * c - y * s, -drawing.position[1] - (x * s + y * c)]);
     }
     if (world) all.push([0, 0], [doc.settings.materialWidthMm, -result!.usedLengthMm]);
     if (!all.length) return;
@@ -135,7 +137,7 @@ export default function Workspace({ document: doc, result, live, selected, selec
     const strokeWidth = outlines ? (active ? 1.5 : 1) : (active ? 3 : 2);
     const opacity = selected.length && !active ? .5 : 1;
     const transform = world
-      ? `translate(${position[1]} ${-position[0]}) rotate(${90 - drawing.angleDeg}) scale(1 -1)`
+      ? `translate(${position[1]} ${-position[0]}) rotate(${-drawing.angleDeg}) scale(1 -1)`
       : `translate(${position[0]} ${-position[1]}) rotate(${-drawing.angleDeg}) scale(1 -1)`;
     return <g key={key} data-preparation-copy={!world ? drawing.copyIndex : undefined} data-placement-key={key} opacity={opacity}
       transform={preview?.kind==='scale' && selected.includes(drawing.partId)
@@ -245,7 +247,7 @@ export default function Workspace({ document: doc, result, live, selected, selec
       }}
       onPointerCancel={event => { touches.current.delete(event.pointerId); if (!touches.current.size) pinch.current = undefined; touchDraw.current = undefined; setDrag(undefined); setMarquee(undefined); }}
       onLostPointerCapture={event => { touches.current.delete(event.pointerId); if (!touches.current.size) pinch.current = undefined; touchDraw.current = undefined; setDrag(undefined); setMarquee(undefined); }}>
-      {world && <><rect x="0" y={-result!.usedLengthMm} width={doc.settings.materialWidthMm} height={result!.usedLengthMm} fill={outlines ? 'none' : 'var(--material-fill)'} stroke="var(--secondary)" vectorEffect="non-scaling-stroke" />
+      {world && <><rect x="0" y={-(doc.settings.materialType==='sheet'&&doc.settings.materialLengthMm?doc.settings.materialLengthMm:result!.usedLengthMm)} width={doc.settings.materialWidthMm} height={doc.settings.materialType==='sheet'&&doc.settings.materialLengthMm?doc.settings.materialLengthMm:result!.usedLengthMm} fill={outlines ? 'none' : 'var(--material-fill)'} stroke="var(--secondary)" vectorEffect="non-scaling-stroke" />
         <text x="0" y={-result!.usedLengthMm - 2} fontSize={camera.w / 70} fill="var(--muted)">{displayLength(doc.settings.materialWidthMm, displayUnit)} {displayUnit} × {(result!.usedLengthMm / unitScale(displayUnit)).toFixed(2)} {displayUnit}</text></>}
       {showGenişlik && <g className="material-width-band" data-material-width-band={doc.settings.materialWidthMm} pointerEvents="none" aria-hidden="true"><rect x={coordinates.left} y={-doc.settings.materialWidthMm} width={size.width * unit} height={doc.settings.materialWidthMm} /><path d={`M${coordinates.left},0h${size.width * unit}M${coordinates.left},${-doc.settings.materialWidthMm}h${size.width * unit}`} vectorEffect="non-scaling-stroke" /></g>}
       <g className="coordinate-grid" aria-hidden="true" pointerEvents="none" data-grid-step={coordinates.major}>{(['minor', 'major', 'origin'] as const).map(kind => <path key={kind} className={kind} fill="none" vectorEffect="non-scaling-stroke" d={[...coordinates.x.filter(t => (t.value === 0 ? 'origin' : t.major ? 'major' : 'minor') === kind).map(t => `M${t.mm},${coordinates.top}v${size.height * unit}`), ...coordinates.y.filter(t => (t.value === 0 ? 'origin' : t.major ? 'major' : 'minor') === kind).map(t => `M${coordinates.left},${-t.mm}h${size.width * unit}`)].join(' ')} />)}</g>
