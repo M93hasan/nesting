@@ -4,7 +4,7 @@ export type SessionUser={id:number;email:string;name:string;role:string;credits:
 const GOOGLE_CLIENT_ID='249559754500-c8sq1giond6vdrab261fkhl7p5f7omvc.apps.googleusercontent.com';
 type GoogleCredentialResponse={credential?:string};
 type GoogleAccounts={id:{initialize:(options:{client_id:string;callback:(response:GoogleCredentialResponse)=>void;auto_select?:boolean})=>void;renderButton:(parent:HTMLElement,options:Record<string,unknown>)=>void}};
-declare global {interface Window{google?:{accounts:GoogleAccounts}}}
+const google=()=> (window as Window & {google?:{accounts:GoogleAccounts}}).google;
 
 async function request(path:string,options?:RequestInit){
   const response=await fetch(path,{credentials:'same-origin',...options,headers:{'content-type':'application/json',...(options?.headers||{})}});
@@ -30,7 +30,7 @@ export function UserGate({children}:{children:ReactNode}){
     if(user!==null)return;
     let cancelled=false;
     const setup=()=>{
-      if(!window.google?.accounts.id||!googleButton.current)return;
+      if(!google()?.accounts.id||!googleButton.current)return;
       window.google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID,auto_select:false,callback:async response=>{
         try{
           setBusy(true);setError('');
@@ -41,7 +41,7 @@ export function UserGate({children}:{children:ReactNode}){
       googleButton.current.replaceChildren();
       window.google.accounts.id.renderButton(googleButton.current,{theme:'outline',size:'large',text:'continue_with',shape:'pill',width:300});
     };
-    if(window.google?.accounts.id){setup();return()=>{cancelled=true}};
+    if(google()?.accounts.id){setup();return()=>{cancelled=true}};
     const script=document.createElement('script');script.src='https://accounts.google.com/gsi/client';script.async=true;script.defer=true;script.onload=setup;document.head.appendChild(script);
     return()=>{cancelled=true};
   },[user]);
