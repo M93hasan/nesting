@@ -60,7 +60,7 @@ export function useSolver() {
         // Render the latest snapshot at most 10 times/second. Keep one in flight;
         // preview work cannot accumulate while the solver keeps searching.
         if(r.latest&&!r.previewActive&&!r.previewError&&r.latest.sequence>r.previewSequence) {
-          const candidate=r.latest,result=candidateResult(r.doc,candidate,r.seed);
+          const candidate=r.latest,result=packResultIntoSheets(r.doc,candidateResult(r.doc,candidate,r.seed));
           r.previewActive={candidate,result};r.previewSequence=candidate.sequence;
           r.preview.postMessage({type:'live-preview',sequence:candidate.sequence,runId:r.id,documentRevision:r.revision,document:r.doc,result});
         }
