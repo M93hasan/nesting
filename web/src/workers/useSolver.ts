@@ -23,7 +23,10 @@ export function candidateResult(doc:Document,candidate:Candidate,seed:string):Re
     placements:candidate.solution.layout.placed_items.map(p=>{
       const partId=parts[p.item_id]?.id ?? `unknown:${p.item_id}`;
       const copyIndex=copies.get(partId) ?? 0; copies.set(partId,copyIndex+1);
-      return {partId,copyIndex,xMm:p.transformation.translation[0],yMm:p.transformation.translation[1],angleDeg:p.transformation.rotation};
+      // solverInput transposes the solver geometry. Swap the translation axes
+      // back and invert the solver rotation so the original DXF orientation is
+      // preserved while nesting advances down the material length.
+      return {partId,copyIndex,xMm:p.transformation.translation[1],yMm:p.transformation.translation[0],angleDeg:-p.transformation.rotation};
     }), validation:{status:'pending',overlapAreaMm2:0,maxBoundaryViolationMm:0,minClearanceMm:null,errors:[]}};
 }
 export function phaseImprovements(history:Timing[],lengthMm:number) {
