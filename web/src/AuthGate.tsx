@@ -1,4 +1,5 @@
 import {useEffect,useRef,useState,type ReactNode} from 'react';
+import packageInfo from '../package.json';
 
 export type SessionUser={id:number;email:string;name:string;role:string;credits:number;unlimited:boolean};
 const GOOGLE_CLIENT_ID='249559754500-36grgmm2jucf2159d41efqdcqut02lj6.apps.googleusercontent.com';
@@ -71,6 +72,6 @@ export function AdminGate({children}:{children:ReactNode}){
   useEffect(()=>{fetch('/api/auth/admin-me',{credentials:'same-origin'}).then(async r=>{const d=await r.json().catch(()=>({}));setUser(r.ok&&d.user?.role==='admin'?d.user:null)}).catch(()=>setUser(null))},[]);
   async function submit(e:React.FormEvent){e.preventDefault();setBusy(true);setError('');try{const d=await request('/api/auth/admin-login',{method:'POST',body:JSON.stringify({password})});if(d.user.role!=='admin')throw Error('Bu hesabın admin yetkisi yok.');setUser(d.user)}catch(e){setError(e instanceof Error?e.message:String(e))}finally{setBusy(false)}}
   if(user===undefined)return <div className="auth-screen"><div className="auth-card"><p>Admin oturumu kontrol ediliyor…</p></div></div>;
-  if(!user)return <div className="auth-screen"><div className="auth-card"><img src="/serula-logo.svg" alt=""/><h1>Serula Yönetim</h1><p>Admin parolanızı girin.</p><form onSubmit={submit}><label>Parola<input type="password" autoComplete="current-password" autoFocus required value={password} onChange={e=>setPassword(e.target.value)}/></label><button disabled={busy}>{busy?'Bekleyin…':'Admin girişi'}</button></form>{error&&<p className="auth-error">{error}</p>}</div></div>;
+  if(!user)return <div className="auth-screen"><div className="auth-card"><img src="/serula-logo.svg" alt=""/><h1>Serula Yönetim</h1><p>Admin parolanızı girin.</p><span className="admin-version">v{packageInfo.version}</span><form onSubmit={submit}><label>Parola<input type="password" autoComplete="current-password" autoFocus required value={password} onChange={e=>setPassword(e.target.value)}/></label><button disabled={busy}>{busy?'Bekleyin…':'Admin girişi'}</button></form>{error&&<p className="auth-error">{error}</p>}</div></div>;
   return <>{children}</>;
 }
