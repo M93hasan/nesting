@@ -3,7 +3,7 @@ import bSpline from 'dxf/lib/util/bSpline';
 import {pointSegmentDistance} from '../geometry/validate';
 import {DEFAULT_SETTINGS,type Point,type Ring} from '../model';
 import {apply,multiply,append,ellipse,type Matrix} from '../geometry/flatten';
-import {bounds,normalizeDocument,normalizeRing,ringCrosses} from '../geometry/normalize';
+import {bounds,inside,normalizeDocument,normalizeRing,ringCrosses} from '../geometry/normalize';
 import {contoursToParts} from './svg';
 import type {ImportReview} from './sparrow';
 
@@ -261,9 +261,27 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
   // boundary intersections/touches are rejected here; hierarchy is resolved
   // later by contoursToParts.
   const rejected=new Set<number>();
-  for(let i=0;i<valid.length;i++)for(let j=0;j<i;j++)if(ringCrosses(valid[i].ring,valid[j].ring)){
+  const translatedSignature=(ring:Ring)=>{
+    const b=bounds(ring),round=(n:number)=>Math.round(n*1e6)/1e6;
+    const pts=ring.map(([x,y])=>`${round(x-b[0])},${round(y-b[1])}`);
+    let best='';
+    for(let i=0;i<pts.length;i++){const candidate=[...pts.slice(i),...pts.slice(0,i)].join(';');if(!best||candidate<best)best=candidate;}
+    return best;
+  };
+  for(let i=0;i<valid.length;i++)for(let j=0;j<i;j++){
+    const a=valid[i].ring,b=valid[j].ring;
+    if(!ringCrosses(a,b))continue;
+    // Pure containment is valid and is resolved into outer/hole hierarchy by
+    // contoursToParts. A true boundary contact/crossing remains invalid.
+    const nested=inside(a[0],b)||inside(b[0],a);
+    if(nested)continue;
+    const duplicate=translatedSignature(a)===translatedSignature(b)
+      && Math.abs(bounds(a)[0]-bounds(b)[0])<1e-6
+      && Math.abs(bounds(a)[1]-bounds(b)[1])<1e-6;
     rejected.add(i);rejected.add(j);
-    issues.push('İki kontur kesişiyor veya aynı sınırı paylaşıyor; kaynak DXF konturlarını kontrol edin.');
+    issues.push(duplicate
+      ? 'Aynı konumda yinelenen kontur bulundu; kaynak DXF içindeki kopyayı kaldırın.'
+      : 'İki konturun sınırları kesişiyor veya birbirine temas ediyor; kaynak DXF konturlarını kontrol edin.');
   }
   const imported=contoursToParts(valid.filter((_,i)=>!rejected.has(i)),fileName,'dxf',options.tolerance+joined.adjustment,options.enclosed);
 
