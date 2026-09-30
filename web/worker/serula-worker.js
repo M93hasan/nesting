@@ -140,7 +140,8 @@ async function handleApi(request,env){
     if(!credential||!formCsrf||!cookieCsrf||decodeURIComponent(cookieCsrf)!==formCsrf)return new Response('Google oturum doğrulaması başarısız.',{status:400});
     const result=await googleUserFromCredential(credential,env);
     if(result.error)return new Response(result.error,{status:result.status});
-    return new Response(null,{status:303,headers:{location:url.origin+'/?google=ok','set-cookie':cookie(await makeSession(result.user.id,env)),'cache-control':'no-store'}});
+    const html='<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="0;url=/?google=ok"></head><body><script>location.replace("/?google=ok")</script></body></html>';
+    return new Response(html,{status:200,headers:{'content-type':'text/html; charset=utf-8','set-cookie':cookie(await makeSession(result.user.id,env)),'cache-control':'no-store, no-cache, must-revalidate'}});
   }
   if(request.method!=='GET'&&!sameOrigin(request))return json({error:'Geçersiz istek.'},403);
 
