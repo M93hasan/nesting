@@ -31,7 +31,8 @@ export function UserGate({children}:{children:ReactNode}){
     let cancelled=false;
     const setup=()=>{
       if(!google()?.accounts.id||!googleButton.current)return;
-      window.google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID,auto_select:false,callback:async response=>{
+      const accounts=google()?.accounts.id;if(!accounts)return;
+      accounts.initialize({client_id:GOOGLE_CLIENT_ID,auto_select:false,callback:async response=>{
         try{
           setBusy(true);setError('');
           const data=await request('/api/auth/google',{method:'POST',body:JSON.stringify({credential:response.credential})});
@@ -39,7 +40,7 @@ export function UserGate({children}:{children:ReactNode}){
         }catch(e){if(!cancelled)setError(e instanceof Error?e.message:String(e))}finally{if(!cancelled)setBusy(false)}
       }});
       googleButton.current.replaceChildren();
-      window.google.accounts.id.renderButton(googleButton.current,{theme:'outline',size:'large',text:'continue_with',shape:'pill',width:300});
+      accounts.renderButton(googleButton.current,{theme:'outline',size:'large',text:'continue_with',shape:'pill',width:300});
     };
     if(google()?.accounts.id){setup();return()=>{cancelled=true}};
     const script=document.createElement('script');script.src='https://accounts.google.com/gsi/client';script.async=true;script.defer=true;script.onload=setup;document.head.appendChild(script);
