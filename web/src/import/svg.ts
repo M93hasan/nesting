@@ -38,11 +38,12 @@ export function contoursToParts(contours:Contour[],fileName:string,format:'svg'|
     if(enclosed==='holes'&&depth[i]%2===1)return [];
     const holeContours=enclosed==='holes'?contours.filter((_,j)=>parent[j]===i):[];
     const holes=holeContours.map(h=>h.ring);
+    const sourceBounds=bounds(c.ring);
     const part=localize({...newPart(c.ring,c.entityId),holes,source:{format,fileName,entityId:c.entityId,
       ...(format==='dxf'&&c.dxfColorNumber!==undefined?{dxfColorNumber:c.dxfColorNumber}:{}),
       ...(format==='dxf'&&holeContours.some(h=>h.dxfColorNumber!==undefined)?{dxfHoleColorNumbers:holeContours.map(h=>h.dxfColorNumber??256)}:{})},
       approximationToleranceMm:c.curved||contours.some((h,j)=>parent[j]===i&&h.curved)?tolerance:0});
-    return [part];
+    return [{...part,preparationPosition:[sourceBounds[0],sourceBounds[1]] as Point}];
   });
 }
 function pathContours(commands:Command[],m:Matrix,tolerance:number,id:string):Contour[] {
@@ -109,6 +110,5 @@ export function importSVG(text:string,fileName:string,options:SVGOptions):Import
   if(entities.some(e=>e.length>1))warnings.push('Compound contours may produce separate part types. Holes follow the source fill rule.');
   if(parts.some(p=>p.holes.length))warnings.push('Holes are preserved; nesting inside holes is not supported.');
   if(!parts.length)throw Error('No visible closed vector outlines found.');
-  let offset=0;for(const p of parts){p.preparationPosition=[offset,0];offset+=bounds(p.outer)[2]+10;}
   return {document:normalizeDocument({name:fileName.replace(/\.svg$/i,''),parts,settings:{...DEFAULT_SETTINGS}}),warnings,replace:false};
 }

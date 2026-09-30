@@ -316,12 +316,14 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
       if(strictlyInside)holes.push(contour);else details.push(contour);
     }
     const dxfDetails:DxfDetailContour[]=details.map(detail=>({ring:detail.ring,layer:detail.layer,...(detail.dxfColorNumber!==undefined?{colorNumber:detail.dxfColorNumber}:{})}));
-    return localize({...newPart(outer.ring,outer.entityId),holes:holes.map(h=>h.ring),
+    const sourceBounds=bounds(outer.ring);
+    const part=localize({...newPart(outer.ring,outer.entityId),holes:holes.map(h=>h.ring),
       source:{format:'dxf' as const,fileName,entityId:outer.entityId,
         ...(outer.dxfColorNumber!==undefined?{dxfColorNumber:outer.dxfColorNumber}:{}),
         ...(holes.some(h=>h.dxfColorNumber!==undefined)?{dxfHoleColorNumbers:holes.map(h=>h.dxfColorNumber??256)}:{}),
         ...(dxfDetails.length?{dxfDetails}:{}),dxfSourceEntityCount:group.length},
       approximationToleranceMm:group.some(contour=>contour.curved)?options.tolerance+joined.adjustment:0});
+    return {...part,preparationPosition:[sourceBounds[0],sourceBounds[1]] as Point};
   });
   if(groups.some(group=>group.length>1))warnings.push('İç içe konturlar ve farklı renkte üst üste gelen detaylar ana parçaya kilitlendi; aynı renkteki temas eden parçalar ayrı parça olarak korundu.');
   // Attach POINT/TEXT/MTEXT records to the smallest containing outer contour.
@@ -348,51 +350,12 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
     part.source={...part.source,dxfSpline:{...curve,controlPoints:curve.controlPoints.map(([x,y])=>[x-b[0],y-b[1]])}};
   }
 
-  // Group repeated DXF geometry independently of its source X/Y position.
-  // Orientation remains part of the signature, so rotated variants are not
-  // accidentally merged.
-  const ringSignature=(ring:Ring,origin:Point)=>{
-    const round=(n:number)=>Math.round(n*1e6)/1e6;
-    const points=ring.map(([x,y])=>`${round(x-origin[0])},${round(y-origin[1])}`);
-    // Vertex zero is arbitrary in DXF. Canonicalize the cyclic start point
-    // while preserving winding/orientation so rotated geometry stays distinct.
-    let best='';
-    for(let i=0;i<points.length;i++){
-      const candidate=[...points.slice(i),...points.slice(0,i)].join(';');
-      if(!best||candidate<best)best=candidate;
-    }
-    return best;
-  };
-  const signature=(part:(typeof imported)[number])=>{
-    const b=bounds(part.outer),origin:Point=[b[0],b[1]];
-    const holes=part.holes.map(h=>ringSignature(h,origin)).sort().join('|');
-    const aux=(part.source.dxfAux??[]).map(mark=>JSON.stringify(mark)).sort().join('|');
-    const details=(part.source.dxfDetails??[]).map(detail=>`${detail.layer}:${detail.colorNumber??256}:${ringSignature(detail.ring,[0,0])}`).sort().join('|');
-    return `${ringSignature(part.outer,origin)}#${holes}#${details}#${aux}`;
-  };
-  const grouped=new Map<string,(typeof imported)[number]>();
-  for(const part of imported){
-    const key=signature(part),existing=grouped.get(key);
-    if(existing) existing.quantity+=part.quantity;
-    else grouped.set(key,{...part});
-  }
-  const parts=[...grouped.values()];
+  // Preserve the original source layout exactly in the preparation view.
+  // Repeated outlines stay as separate imported parts so their individual X/Y
+  // positions are not lost by quantity grouping.
+  const parts=imported;
+  const placements=parts.map(p=>({partId:p.id,copyIndex:0,xMm:p.preparationPosition[0],yMm:p.preparationPosition[1],angleDeg:0}));
 
-  // Preparation is deliberately vertical and independent from nesting.
-  // Store every demanded copy explicitly so grouped/repeated DXF parts do not
-  // fall back to the old diagonal copy offset. Source geometry and angle stay
-  // untouched; only the preparation coordinates are arranged top-to-bottom.
-  let offsetY=0;
-  const placements=[];
-  for(const p of parts){
-    const b=bounds(p.outer),height=b[3]-b[1];
-    for(let copyIndex=0;copyIndex<p.quantity;copyIndex++){
-      const position:Point=[-b[0],offsetY-b[1]];
-      if(copyIndex===0)p.preparationPosition=position;
-      placements.push({partId:p.id,copyIndex,xMm:position[0],yMm:position[1],angleDeg:0});
-      offsetY+=height+10;
-    }
-  }
   for(const [type,count] of unsupported)warnings.push(`Excluded ${count} unsupported ${type} entities.`);
   if(parts.some(p=>p.holes.length))warnings.push('Holes are preserved; nesting inside holes is not supported.');
   const document={name:fileName.replace(/\.dxf$/i,''),parts,settings:{...DEFAULT_SETTINGS},placements};

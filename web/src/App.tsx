@@ -275,10 +275,10 @@ export default function App({initialDocument=emptyProject(),initialError='',load
           setAvailableLayers(reply.review.layers??[]);
           setPreviewStale(false);
           if(!reply.review.replace&&reply.review.document.parts.length>0&&!(reply.review.issues?.length)){
-            await addParts(reply.review.document.parts,reply.review.warnings);
+            await addParts(reply.review.document.parts,reply.review.warnings,true);
             setFiles(undefined);setReview(undefined);setFitRequest(n=>n+1);
           }else if(reply.review.document.parts.length>0){
-            await addParts(reply.review.document.parts,reply.review.warnings);
+            await addParts(reply.review.document.parts,reply.review.warnings,true);
             setFiles(undefined);setReview(undefined);setFitRequest(n=>n+1);
             // Keep successfully imported DXF parts usable without flooding the workspace with repeated contour warnings.
           }else{
@@ -295,11 +295,11 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     try {const reply=await geometryTask({type:'import',runId:++operation.current,documentRevision:revision,files,scale,tolerance,enclosed,layers});if(reply.type==='import-review'){setReview(reply.review);setPreviewStale(false);setAvailableLayers(reply.review.layers??[]);}}
     catch(e){setError(String(e));}finally{setBusy(false);}
   }
-  async function addParts(parts:Part[],warnings:string[]=[]) {
+  async function addParts(parts:Part[],warnings:string[]=[],preserveSourceLayout=false) {
     cancelDefaultExample();
     const reply=await geometryTask({type:'normalize',runId:++operation.current,documentRevision:revision,document:{...doc,parts:[...doc.parts,...parts]}});
     if(reply.type!=='normalized')throw Error('Could not add these shapes.');
-    const next=await prepareDocument(reply.document,doc.parts.map(p=>p.id));
+    const next=preserveSourceLayout?reply.document:await prepareDocument(reply.document,doc.parts.map(p=>p.id));
     commit(next);
     setUnusedSelection([]);setSelectedCopies(copyRefsFor(next,parts.map(part=>part.id)));setImportWarnings(previous=>[...previous,...warnings]);
   }
@@ -330,7 +330,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         const document=await prepareDocument(review.document,[],true);
         requestProject({document,result:review.result,warnings:review.warnings,saved:false});
       }
-      else{await addParts(review.document.parts,review.warnings);setFiles(undefined);setReview(undefined);setFitRequest(n=>n+1);}
+      else{await addParts(review.document.parts,review.warnings,true);setFiles(undefined);setReview(undefined);setFitRequest(n=>n+1);}
     }catch(e){setError(String(e));}finally{setBusy(false);}
   }
   function editPart(change:Partial<Part>,geometry=true,field?:string) {if(chosen)commit({...doc,parts:doc.parts.map(p=>selected.includes(p.id)?{...p,...change}:p)},geometry,field);}
