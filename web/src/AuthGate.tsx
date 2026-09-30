@@ -39,6 +39,15 @@ export function UserGate({children}:{children:ReactNode}){
   useEffect(()=>{
     if(!user){setSupport(null);lastRemoteSettings.current='';return;}
     let cancelled=false;
+    const loadInitialSettings=async()=>{
+      try{
+        const response=await fetch('/api/settings/effective',{credentials:'same-origin'});
+        if(response.ok){
+          const data=await response.json();
+          if(!cancelled)window.dispatchEvent(new CustomEvent('serula-user-settings',{detail:data.settings}));
+        }
+      }catch{}
+    };
     const poll=async()=>{
       try{
         const response=await fetch('/api/support/status',{credentials:'same-origin'});
@@ -59,7 +68,7 @@ export function UserGate({children}:{children:ReactNode}){
         }else lastRemoteSettings.current='';
       }catch{if(!cancelled)setSupport(null)}
     };
-    void poll();const timer=setInterval(()=>void poll(),4000);
+    void loadInitialSettings();void poll();const timer=setInterval(()=>void poll(),4000);
     return()=>{cancelled=true;clearInterval(timer)};
   },[user]);
   useEffect(()=>{
