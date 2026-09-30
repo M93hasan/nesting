@@ -1,6 +1,7 @@
 const GOOGLE_CLIENT_ID='249559754500-36grgmm2jucf2159d41efqdcqut02lj6.apps.googleusercontent.com';
 const ADMIN_EMAIL='m93hasan@icloud.com';
 const SESSION_DAYS=30;
+// Build marker: 0.0.38 — force Cloudflare to compile the current Worker source.
 
 const json=(data,status=200,headers={})=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store',...headers}});
 const b64=bytes=>btoa(String.fromCharCode(...bytes));
