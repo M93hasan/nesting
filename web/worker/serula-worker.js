@@ -57,7 +57,20 @@ async function ensureSchema(env){
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_settings (user_id INTEGER PRIMARY KEY, settings_json TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS audit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, actor_type TEXT NOT NULL, actor_user_id INTEGER, target_user_id INTEGER, action TEXT NOT NULL, detail TEXT, success INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at)'),
-    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_audit_logs_target ON audit_logs(target_user_id)')
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_audit_logs_target ON audit_logs(target_user_id)'),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS support_sessions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      expires_at TEXT NOT NULL,
+      approved_at TEXT,
+      ended_at TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_support_sessions_user ON support_sessions(user_id)'),
+    env.DB.prepare("DELETE FROM audit_logs WHERE datetime(created_at)<datetime('now','-10 days')"),
+    env.DB.prepare("UPDATE support_sessions SET status='expired',ended_at=COALESCE(ended_at,CURRENT_TIMESTAMP) WHERE status IN ('pending','approved') AND datetime(expires_at)<=datetime('now')")
   ]);
 }
 async function sessionUser(request,env){
@@ -99,6 +112,23 @@ async function systemDefaults(env){
   try{return cleanSettings(JSON.parse(row.value_json))}catch{return DEFAULT_ADMIN_SETTINGS}
 }
 
+async function googleUserFromCredential(credential,env){
+  const verify=credential&&await fetch('https://oauth2.googleapis.com/tokeninfo?id_token='+encodeURIComponent(credential));
+  if(!verify||!verify.ok)return {error:'Google doğrulaması başarısız.',status:401};
+  const claims=await verify.json(),email=String(claims.email||'').toLowerCase();
+  if(claims.aud!==GOOGLE_CLIENT_ID||claims.email_verified!=='true'||!validEmail(email))return {error:'Google hesabı doğrulanamadı.',status:401};
+  let user=await env.DB.prepare('SELECT id,email,name,role,nesting_credits,unlimited FROM users WHERE email=?').bind(email).first();
+  if(!user){
+    const result=await env.DB.prepare(`INSERT INTO users(email,name,google_id,role,nesting_credits,unlimited,last_login_at)
+      VALUES(?,?,?,'user',5,0,CURRENT_TIMESTAMP)`).bind(email,String(claims.name||'').slice(0,120),String(claims.sub||'')).run();
+    user=await env.DB.prepare('SELECT id,email,name,role,nesting_credits,unlimited FROM users WHERE id=?').bind(result.meta.last_row_id).first();
+  }else{
+    await env.DB.prepare('UPDATE users SET google_id=COALESCE(google_id,?),last_login_at=CURRENT_TIMESTAMP WHERE id=?').bind(String(claims.sub||''),user.id).run();
+  }
+  await audit(env,'login',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:'Google ile giriş'});
+  return {user};
+}
+
 async function handleApi(request,env){
   await ensureSchema(env);
   const url=new URL(request.url),path=url.pathname;
@@ -138,19 +168,9 @@ async function handleApi(request,env){
     return json({user:publicUser(user)},200,{'set-cookie':cookie(await makeSession(user.id,env))});
   }
   if(path==='/api/auth/google'&&request.method==='POST'){
-    const data=await body(request),credential=String(data.credential||'');
-    const verify=credential&&await fetch('https://oauth2.googleapis.com/tokeninfo?id_token='+encodeURIComponent(credential));
-    if(!verify||!verify.ok)return json({error:'Google doğrulaması başarısız.'},401);
-    const claims=await verify.json(),email=String(claims.email||'').toLowerCase();
-    if(claims.aud!==GOOGLE_CLIENT_ID||claims.email_verified!=='true'||!validEmail(email))return json({error:'Google hesabı doğrulanamadı.'},401);
-    let user=await env.DB.prepare('SELECT id,email,name,role,nesting_credits,unlimited FROM users WHERE email=?').bind(email).first();
-    if(!user){
-      const result=await env.DB.prepare(`INSERT INTO users(email,name,google_id,role,nesting_credits,unlimited,last_login_at)
-        VALUES(?,?,?,'user',5,0,CURRENT_TIMESTAMP)`).bind(email,String(claims.name||'').slice(0,120),String(claims.sub||'')).run();
-      user=await env.DB.prepare('SELECT id,email,name,role,nesting_credits,unlimited FROM users WHERE id=?').bind(result.meta.last_row_id).first();
-    }else await env.DB.prepare('UPDATE users SET google_id=COALESCE(google_id,?),last_login_at=CURRENT_TIMESTAMP WHERE id=?').bind(String(claims.sub||''),user.id).run();
-    await audit(env,'login',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:'Google ile giriş'});
-    return json({user:publicUser(user)},200,{'set-cookie':cookie(await makeSession(user.id,env))});
+    const data=await body(request),credential=String(data.credential||''),result=await googleUserFromCredential(credential,env);
+    if(result.error)return json({error:result.error},result.status);
+    return json({user:publicUser(result.user)},200,{'set-cookie':cookie(await makeSession(result.user.id,env))});
   }
   if(path==='/api/auth/reset-password'&&request.method==='POST'){
     const data=await body(request),token=String(data.token||''),newPassword=String(data.password||'');
@@ -209,8 +229,60 @@ async function handleApi(request,env){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
     const rows=await env.DB.prepare(`SELECT l.id,l.actor_type,l.action,l.detail,l.success,l.created_at,au.email actor_email,tu.email target_email
       FROM audit_logs l LEFT JOIN users au ON au.id=l.actor_user_id LEFT JOIN users tu ON tu.id=l.target_user_id
+      WHERE datetime(l.created_at)>=datetime('now','-10 days')
       ORDER BY l.id DESC LIMIT 250`).all();
-    return json({logs:rows.results.map(r=>({id:r.id,actorType:r.actor_type,actorEmail:r.actor_email||'',targetEmail:r.target_email||'',action:r.action,detail:r.detail||'',success:!!r.success,createdAt:r.created_at}))});
+    return json({retentionDays:10,logs:rows.results.map(r=>({id:r.id,actorType:r.actor_type,actorEmail:r.actor_email||'',targetEmail:r.target_email||'',action:r.action,detail:r.detail||'',success:!!r.success,createdAt:r.created_at}))});
+  }
+  if(path==='/api/support/status'&&request.method==='GET'){
+    const user=await sessionUser(request,env);if(!user)return json({support:null},401);
+    const row=await env.DB.prepare("SELECT id,status,expires_at,created_at,approved_at FROM support_sessions WHERE user_id=? AND status IN ('pending','approved') AND datetime(expires_at)>datetime('now') ORDER BY id DESC LIMIT 1").bind(user.id).first();
+    return json({support:row?{id:row.id,status:row.status,expiresAt:row.expires_at,createdAt:row.created_at,approvedAt:row.approved_at}:null});
+  }
+  if(path==='/api/support/respond'&&request.method==='POST'){
+    const user=await sessionUser(request,env);if(!user)return json({error:'Giriş gerekli.'},401);
+    const data=await body(request),id=Number(data.id),approve=!!data.approve;
+    const row=await env.DB.prepare("SELECT id FROM support_sessions WHERE id=? AND user_id=? AND status='pending' AND datetime(expires_at)>datetime('now')").bind(id,user.id).first();
+    if(!row)return json({error:'Destek isteği bulunamadı veya süresi dolmuş.'},404);
+    if(approve){
+      const expires=new Date(Date.now()+60*60*1000).toISOString();
+      await env.DB.prepare("UPDATE support_sessions SET status='approved',approved_at=CURRENT_TIMESTAMP,expires_at=? WHERE id=?").bind(expires,id).run();
+      await audit(env,'remote_support_approved',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:'60 dakika'});
+      return json({support:{id,status:'approved',expiresAt:expires}});
+    }
+    await env.DB.prepare("UPDATE support_sessions SET status='declined',ended_at=CURRENT_TIMESTAMP WHERE id=?").bind(id).run();
+    await audit(env,'remote_support_declined',{actorType:'user',actorUserId:user.id,targetUserId:user.id});
+    return json({support:null});
+  }
+  if(path==='/api/support/end'&&request.method==='POST'){
+    const user=await sessionUser(request,env);if(!user)return json({error:'Giriş gerekli.'},401);
+    const data=await body(request),id=Number(data.id);
+    await env.DB.prepare("UPDATE support_sessions SET status='ended',ended_at=CURRENT_TIMESTAMP WHERE id=? AND user_id=? AND status='approved'").bind(id,user.id).run();
+    await audit(env,'remote_support_ended_by_user',{actorType:'user',actorUserId:user.id,targetUserId:user.id});
+    return json({ok:true});
+  }
+  const adminSupportMatch=path.match(/^\/api\/admin\/users\/(\d+)\/support$/);
+  if(adminSupportMatch&&request.method==='GET'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const id=Number(adminSupportMatch[1]),target=await env.DB.prepare('SELECT id,email FROM users WHERE id=?').bind(id).first();if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
+    const row=await env.DB.prepare("SELECT id,status,expires_at,created_at,approved_at,ended_at FROM support_sessions WHERE user_id=? ORDER BY id DESC LIMIT 1").bind(id).first();
+    return json({support:row?{id:row.id,status:row.status,expiresAt:row.expires_at,createdAt:row.created_at,approvedAt:row.approved_at,endedAt:row.ended_at}:null});
+  }
+  if(adminSupportMatch&&request.method==='POST'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const id=Number(adminSupportMatch[1]),target=await env.DB.prepare('SELECT id,email FROM users WHERE id=?').bind(id).first();if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
+    await env.DB.prepare("UPDATE support_sessions SET status='ended',ended_at=CURRENT_TIMESTAMP WHERE user_id=? AND status IN ('pending','approved')").bind(id).run();
+    const expires=new Date(Date.now()+15*60*1000).toISOString();
+    const result=await env.DB.prepare("INSERT INTO support_sessions(user_id,status,expires_at) VALUES(?,'pending',?)").bind(id,expires).run();
+    const supportId=Number(result.meta.last_row_id);
+    await audit(env,'remote_support_requested',{actorType:'admin',targetUserId:id,detail:target.email});
+    return json({support:{id:supportId,status:'pending',expiresAt:expires}});
+  }
+  if(adminSupportMatch&&request.method==='DELETE'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const id=Number(adminSupportMatch[1]);
+    await env.DB.prepare("UPDATE support_sessions SET status='ended',ended_at=CURRENT_TIMESTAMP WHERE user_id=? AND status IN ('pending','approved')").bind(id).run();
+    await audit(env,'remote_support_ended_by_admin',{actorType:'admin',targetUserId:id});
+    return json({ok:true});
   }
   if(path==='/api/admin/settings'&&request.method==='GET'){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
@@ -282,6 +354,16 @@ async function handleApi(request,env){
 export default {async fetch(request,env){
   const url=new URL(request.url);
   if(url.pathname.startsWith('/api/'))return handleApi(request,env);
+  if(request.method==='POST'&&(request.headers.get('content-type')||'').includes('application/x-www-form-urlencoded')){
+    await ensureSchema(env);
+    const form=await request.formData(),credential=String(form.get('credential')||''),formCsrf=String(form.get('g_csrf_token')||'');
+    const cookieCsrf=request.headers.get('cookie')?.match(/(?:^|;\s*)g_csrf_token=([^;]+)/)?.[1]||'';
+    if(!credential||!formCsrf||!cookieCsrf||decodeURIComponent(cookieCsrf)!==formCsrf)return new Response('Google oturum doğrulaması başarısız.',{status:400});
+    const result=await googleUserFromCredential(credential,env);
+    if(result.error)return new Response(result.error,{status:result.status});
+    const redirect=new URL(url.origin+url.pathname);redirect.searchParams.set('google','ok');
+    return new Response(null,{status:303,headers:{location:redirect.toString(),'set-cookie':cookie(await makeSession(result.user.id,env)),'cache-control':'no-store'}});
+  }
   const response=await env.ASSETS.fetch(request);
   const contentType=response.headers.get('content-type')||'';
   if(request.mode==='navigate'||contentType.includes('text/html')){

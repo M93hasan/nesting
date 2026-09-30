@@ -2,9 +2,11 @@ import {useEffect,useRef,useState,type ReactNode} from 'react';
 import packageInfo from '../package.json';
 
 export type SessionUser={id:number;email:string;name:string;role:string;credits:number;unlimited:boolean};
+type SupportSession={id:number;status:'pending'|'approved';expiresAt?:string};
 const GOOGLE_CLIENT_ID='249559754500-36grgmm2jucf2159d41efqdcqut02lj6.apps.googleusercontent.com';
 type GoogleCredentialResponse={credential?:string};
-type GoogleAccounts={id:{initialize:(options:{client_id:string;callback:(response:GoogleCredentialResponse)=>void;auto_select?:boolean;use_fedcm_for_button?:boolean;itp_support?:boolean})=>void;renderButton:(parent:HTMLElement,options:Record<string,unknown>)=>void}};
+type GoogleInitOptions={client_id:string;callback?:(response:GoogleCredentialResponse)=>void;auto_select?:boolean;use_fedcm_for_button?:boolean;itp_support?:boolean;ux_mode?:'popup'|'redirect';login_uri?:string};
+type GoogleAccounts={id:{initialize:(options:GoogleInitOptions)=>void;renderButton:(parent:HTMLElement,options:Record<string,unknown>)=>void}};
 const google=()=> (window as Window & {google?:{accounts:GoogleAccounts}}).google;
 
 async function request(path:string,options?:RequestInit){
@@ -28,20 +30,62 @@ export function UserGate({children}:{children:ReactNode}){
   const [open,setOpen]=useState(!!resetToken),[mode,setMode]=useState<'login'|'register'|'reset'>(resetToken?'reset':'login');
   const [email,setEmail]=useState(''),[password,setPassword]=useState(''),[name,setName]=useState('');
   const [error,setError]=useState(''),[busy,setBusy]=useState(false);
+  const [support,setSupport]=useState<SupportSession|null>(null);
+  const lastRemoteSettings=useRef('');
   const googleButton=useRef<HTMLDivElement>(null);
 
   const refresh=()=>fetch('/api/auth/me',{credentials:'same-origin'}).then(r=>r.ok?r.json():{user:null}).then(d=>setUser(d.user??null)).catch(()=>setUser(null));
   useEffect(()=>{void refresh();const listener=()=>void refresh();const need=()=>setOpen(true);window.addEventListener('serula-auth-updated',listener);window.addEventListener('serula-login-required',need);return()=>{window.removeEventListener('serula-auth-updated',listener);window.removeEventListener('serula-login-required',need)}},[]);
+  useEffect(()=>{
+    if(!user){setSupport(null);lastRemoteSettings.current='';return;}
+    let cancelled=false;
+    const loadInitialSettings=async()=>{
+      try{
+        const response=await fetch('/api/settings/effective',{credentials:'same-origin'});
+        if(response.ok){
+          const data=await response.json();
+          if(!cancelled)window.dispatchEvent(new CustomEvent('serula-user-settings',{detail:data.settings}));
+        }
+      }catch{}
+    };
+    const poll=async()=>{
+      try{
+        const response=await fetch('/api/support/status',{credentials:'same-origin'});
+        if(!response.ok){if(!cancelled)setSupport(null);return;}
+        const data=await response.json();
+        if(cancelled)return;
+        const next=data.support??null;setSupport(next);
+        if(next?.status==='approved'){
+          const settingsResponse=await fetch('/api/settings/effective',{credentials:'same-origin'});
+          if(settingsResponse.ok){
+            const settingsData=await settingsResponse.json();
+            const signature=JSON.stringify(settingsData.settings??{});
+            if(signature&&signature!==lastRemoteSettings.current){
+              lastRemoteSettings.current=signature;
+              window.dispatchEvent(new CustomEvent('serula-remote-settings',{detail:settingsData.settings}));
+            }
+          }
+        }else lastRemoteSettings.current='';
+      }catch{if(!cancelled)setSupport(null)}
+    };
+    void loadInitialSettings();void poll();const timer=setInterval(()=>void poll(),4000);
+    return()=>{cancelled=true;clearInterval(timer)};
+  },[user]);
   useEffect(()=>{
     if(!open||user)return;
     let cancelled=false;
     const setup=()=>{
       if(!google()?.accounts.id||!googleButton.current)return;
       const accounts=google()?.accounts.id;if(!accounts)return;
-      accounts.initialize({client_id:GOOGLE_CLIENT_ID,auto_select:false,use_fedcm_for_button:false,itp_support:true,callback:async response=>{
-        try{setBusy(true);setError('');const data=await request('/api/auth/google',{method:'POST',body:JSON.stringify({credential:response.credential})});if(!cancelled){setUser(data.user);setOpen(false)}}
-        catch(e){if(!cancelled)setError(e instanceof Error?e.message:String(e))}finally{if(!cancelled)setBusy(false)}
-      }});
+      const ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+      if(ios){
+        accounts.initialize({client_id:GOOGLE_CLIENT_ID,auto_select:false,ux_mode:'redirect',itp_support:true});
+      }else{
+        accounts.initialize({client_id:GOOGLE_CLIENT_ID,auto_select:false,use_fedcm_for_button:false,itp_support:true,ux_mode:'popup',callback:async response=>{
+          try{setBusy(true);setError('');const data=await request('/api/auth/google',{method:'POST',body:JSON.stringify({credential:response.credential})});if(!cancelled){setUser(data.user);setOpen(false)}}
+          catch(e){if(!cancelled)setError(e instanceof Error?e.message:String(e))}finally{if(!cancelled)setBusy(false)}
+        }});
+      }
       googleButton.current.replaceChildren();
       accounts.renderButton(googleButton.current,{theme:'outline',size:'large',text:'continue_with',shape:'pill',width:300});
     };
@@ -58,6 +102,8 @@ export function UserGate({children}:{children:ReactNode}){
   return <>{children}
     {user?<div className="auth-account"><span>{user.name||user.email}</span><strong>{user.unlimited?'Sınırsız':user.credits+' hak'}</strong><button onClick={async()=>{await request('/api/auth/logout',{method:'POST',body:'{}'});setUser(null)}}>Çıkış</button></div>
     :<div className="auth-account"><span>Misafir</span><button onClick={()=>setOpen(true)}>Giriş yap</button></div>}
+    {support?.status==='approved'&&<div className="auth-support-active"><span>Uzaktan destek aktif</span><button onClick={async()=>{await request('/api/support/end',{method:'POST',body:JSON.stringify({id:support.id})});setSupport(null)}}>Bitir</button></div>}
+    {support?.status==='pending'&&<div className="auth-screen auth-overlay"><div className="auth-card auth-support-card"><img src="/serula-logo.svg" alt=""/><h2>Uzaktan destek isteği</h2><p>Serula yöneticisi, yalnızca bu uygulamanın ayarlarını uzaktan düzenlemek istiyor. Tarayıcınızın diğer sekmelerine, dosyalarınıza veya cihazınıza erişim verilmez.</p><div className="auth-support-actions"><button onClick={async()=>{await request('/api/support/respond',{method:'POST',body:JSON.stringify({id:support.id,approve:false})});setSupport(null)}}>Reddet</button><button className="primary" onClick={async()=>{const data=await request('/api/support/respond',{method:'POST',body:JSON.stringify({id:support.id,approve:true})});setSupport(data.support)}}>Onayla</button></div></div></div>}
     {open&&!user&&<div className="auth-screen auth-overlay" onMouseDown={e=>{if(e.currentTarget===e.target)setOpen(false)}}><div className="auth-card">
       <img src="/serula-logo.svg" alt=""/><h1>Serula Nesting</h1><p>DXF indirmek için giriş yapın. Dosya içe aktarma ve yerleştirme giriş yapmadan kullanılabilir.</p>
       {mode!=='reset'&&<div className="auth-tabs"><button className={mode==='login'?'active':''} onClick={()=>setMode('login')}>Giriş yap</button><button className={mode==='register'?'active':''} onClick={()=>setMode('register')}>Kayıt ol</button></div>}{mode==='reset'&&<h2>Yeni parola belirle</h2>}

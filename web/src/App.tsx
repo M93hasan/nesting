@@ -24,6 +24,7 @@ type ProjectSwitch={document:Document;result?:Result;warnings?:string[];saved?:b
 const rotationValue=(rule:RotationRule)=>rule.kind==='continuous'?'free':JSON.stringify([...new Set(rule.degrees.map(d=>((d%360)+360)%360))].sort((a,b)=>a-b));
 const validQuantity=(n:number)=>Number.isInteger(n)&&n>=0&&n<=500;
 const displayedPieceCount=(parts:Part[])=>parts.reduce((total,part)=>total+part.quantity*(part.source.dxfSourceEntityCount??1),0);
+type RemoteAdminSettings={materialWidthMm?:number;clearanceMm?:number;rotation?:'fixed'|'half'|'free';materialType?:'roll'|'sheet';solverPreset?:'standard'|'fast'};
 function download(name:string,text:BlobPart,type='application/json') {
   const url=URL.createObjectURL(new Blob([text],{type})),link=document.createElement('a');
   link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
@@ -161,6 +162,28 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     cancelDefaultExample();setDoc(canonical);setError('');
     if(geometry) {setRevision(r=>r+1);solver.invalidate();}
   }
+  useEffect(()=>{
+    const apply=(event:Event)=>{
+      if(locked)return;
+      const settings=(event as CustomEvent<RemoteAdminSettings>).detail;
+      if(!settings||typeof settings!=='object')return;
+      const nextSettings={...doc.settings};
+      if(Number.isFinite(settings.materialWidthMm)&&Number(settings.materialWidthMm)>0)nextSettings.materialWidthMm=Number(settings.materialWidthMm);
+      if(Number.isFinite(settings.clearanceMm)&&Number(settings.clearanceMm)>=0)nextSettings.clearanceMm=Number(settings.clearanceMm);
+      if(settings.materialType==='roll'||settings.materialType==='sheet')nextSettings.materialType=settings.materialType;
+      if(settings.solverPreset==='standard'||settings.solverPreset==='fast')nextSettings.solverPreset=settings.solverPreset;
+      let parts=doc.parts;
+      if(settings.rotation){
+        const rotations:RotationRule=settings.rotation==='free'?{kind:'continuous'}:settings.rotation==='fixed'?{kind:'discrete',degrees:[0]}:{kind:'discrete',degrees:[0,180]};
+        parts=doc.parts.map(part=>({...part,rotations}));
+      }
+      const changed=JSON.stringify(nextSettings)!==JSON.stringify(doc.settings)||parts!==doc.parts;
+      if(changed)commit({...doc,settings:nextSettings,parts},true,'admin-settings');
+    };
+    window.addEventListener('serula-user-settings',apply);
+    window.addEventListener('serula-remote-settings',apply);
+    return()=>{window.removeEventListener('serula-user-settings',apply);window.removeEventListener('serula-remote-settings',apply)};
+  },[doc,locked]);
   async function prepareDocument(next:Document,pinnedIds:string[]=[],compact=false) {
     const reply=await geometryTask({type:'prepare-layout',runId:++operation.current,documentRevision:revision,document:next,pinnedIds,compact});
     if(reply.type!=='normalized')throw Error('Could not arrange the preparation drawing.');

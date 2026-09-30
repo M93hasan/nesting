@@ -32,3 +32,7 @@
   .admin-selected-user{align-items:flex-start;flex-direction:column}.admin-card-head{flex-wrap:wrap}.admin-card-head>select{width:100%}
   .admin-log-row{grid-template-columns:1fr}.admin-log-row small{grid-column:auto}
 }
+
+.admin-support-box{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin:0 0 18px;padding:14px;border:1px solid var(--border);border-radius:12px;background:color-mix(in srgb,var(--selected) 55%,var(--panel))}
+.admin-support-box>div:first-child{display:grid;gap:4px}.admin-support-box small,.admin-support-box p{font-size:12px;color:var(--muted)}.admin-support-box p{margin:2px 0 0;max-width:650px;line-height:1.45}
+@media(max-width:760px){.admin-support-box{flex-direction:column}.admin-support-box>div:last-child,.admin-support-box button{width:100%}}
