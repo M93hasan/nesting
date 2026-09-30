@@ -169,7 +169,6 @@ export default {async fetch(request,env){
   if(url.pathname.startsWith('/api/'))return handleApi(request,env);
   return env.ASSETS.fetch(request);
 }};
-);
     const iterations=Number(it);
     if(kind!=='pbkdf2_sha256'||!Number.isInteger(iterations)||iterations<1||!saltB64||!digestB64)return false;
     const salt=unb64(saltB64),expected=unb64(digestB64);
