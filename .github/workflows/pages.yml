@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
       run:
@@ -34,6 +34,11 @@ jobs:
         shell: bash
         run: |
           ready=true
+          expected="$(node scripts/wasm-fingerprint.mjs)"
+          actual="$(cat wasm/prebuilt.sha256 2>/dev/null || true)"
+          if [ "$expected" != "$actual" ]; then
+            ready=false
+          fi
           for dir in wasm/pkg wasm/pkg-threads wasm/pkg-nosimd wasm/pkg-threads-nosimd; do
             if [ ! -d "$dir" ] || ! find "$dir" -maxdepth 1 -name '*.wasm' -print -quit | grep -q .; then
               ready=false
