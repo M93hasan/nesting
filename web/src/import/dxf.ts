@@ -1,7 +1,7 @@
 import parseString from 'dxf/lib/parseString';
 import bSpline from 'dxf/lib/util/bSpline';
 import {pointSegmentDistance} from '../geometry/validate';
-import {DEFAULT_SETTINGS,type DxfSpline,type Point,type Ring} from '../model';
+import {DEFAULT_SETTINGS,type DxfAuxEntity,type DxfSpline,type Point,type Ring} from '../model';
 import {apply,multiply,append,ellipse,type Matrix} from '../geometry/flatten';
 import {bounds,inside,normalizeDocument,normalizeRing,ringCrosses} from '../geometry/normalize';
 import {contoursToParts} from './svg';
@@ -16,8 +16,8 @@ type DxfEntity={type:string;handle:string;layer?:string;x?:number;y?:number;z?:n
 type DxfFile={entities:DxfEntity[];blocks:{name:string;x?:number;y?:number;entities:DxfEntity[]}[]};
 type Group=[number,string];
 type DxfRecord={type:string;groups:Group[];children:DxfRecord[];id:string;layer:string};
-type Contour={ring:Ring;entityId:string;curved:boolean};
-type Chain={points:Ring;id:string;curved:boolean};
+type Contour={ring:Ring;entityId:string;curved:boolean;dxfColorNumber?:number};
+type Chain={points:Ring;id:string;curved:boolean;dxfColorNumber?:number};
 export type DXFOptions={scale:number;tolerance:number;enclosed:'holes'|'parts';layers?:string[]};
 const value=(r:DxfRecord,code:number)=>r.groups.find(g=>g[0]===code)?.[1];
 function finite(text:string|undefined,fallback?:number):number {
@@ -164,7 +164,9 @@ function join(chains:Chain[],issues:string[]):{contours:Contour[];gaps:number;ad
       curved ||= chain.curved;current=neighbors[exitIndex][0];
     }while(current!==i*2);
     if(walked.size!==component.size)throw Error('DXF component did not form a single closed chain.');
-    contours.push({ring,entityId:[...component].map(e=>chains[e].id).join(' + '),curved:curved||componentAdjustment>0});
+    const componentColors=[...new Set([...component].map(e=>chains[e].dxfColorNumber).filter((v):v is number=>v!==undefined))];
+    contours.push({ring,entityId:[...component].map(e=>chains[e].id).join(' + '),curved:curved||componentAdjustment>0,
+      ...(componentColors.length===1?{dxfColorNumber:componentColors[0]}:{})});
   }
   return {contours,gaps,adjustment};
 }
@@ -175,9 +177,9 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
   const scale=unitScales[units]??1,warnings:string[]=[],issues:string[]=[],unsupported=new Map<string,number>();
   warnings.push(unitScales[units]?`DXF INSUNITS ${units}: one unit = ${scale} mm.`:`DXF INSUNITS ${units} eksik veya desteklenmiyor. Ölçüyü değiştirmemek için 1 çizim birimi = 1 mm kabul edildi.`);
   const byHandle=new Map(records.map(r=>[r.id,r])),blocks=new Map(parsed.blocks.map(b=>[b.name,b]));
-  const supported=['LINE','ARC','CIRCLE','ELLIPSE','LWPOLYLINE','POLYLINE','SPLINE','INSERT'];
+  const supported=['LINE','ARC','CIRCLE','ELLIPSE','LWPOLYLINE','POLYLINE','SPLINE','INSERT','POINT','TEXT','MTEXT'];
   for(const r of records)if(!supported.includes(r.type)&&!['BLOCK','ENDBLK'].includes(r.type))unsupported.set(r.type,(unsupported.get(r.type)??0)+1);
-  const layers:string[]=[],contours:Contour[]=[],chains:Chain[]=[],sourceSplines=new Map<string,DxfSpline>();let totalVertices=0,expanded=0;
+  const layers:string[]=[],contours:Contour[]=[],chains:Chain[]=[],auxEntities:DxfAuxEntity[]=[],sourceSplines=new Map<string,DxfSpline>();let totalVertices=0,expanded=0;
   const visit=(entity:DxfEntity,parent:Matrix,inheritedLayer:string,path:string[])=>{
     if(++expanded>10_000)throw Error('DXF exceeds 10,000 expanded entities.');
     const r=byHandle.get(entity.handle);if(!r||!supported.includes(entity.type))return;
@@ -212,6 +214,18 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
         return [p.x,p.y];
       };
       let ring:Ring,closed=false,curved=false;
+      const rawColor=value(r,62),dxfColorNumber=rawColor===undefined?undefined:Math.abs(finite(rawColor));
+      if(['POINT','TEXT','MTEXT'].includes(entity.type)) {
+        const at=apply(matrix,[finite(value(r,10)),finite(value(r,20))]);
+        if(entity.type==='POINT') auxEntities.push({kind:'point',point:at,layer,...(dxfColorNumber!==undefined?{colorNumber:dxfColorNumber}:{})});
+        else {
+          const text=entity.type==='MTEXT'?r.groups.filter(([code])=>code===3).map(([,v])=>v).join('')+(value(r,1)??''):(value(r,1)??'');
+          const rawHeight=finite(value(r,40),2.5),scaleY=Math.hypot(matrix[2],matrix[3])||Math.hypot(matrix[0],matrix[1])||1;
+          const baseRotation=finite(value(r,50),0),matrixRotation=Math.atan2(matrix[1],matrix[0])*180/Math.PI;
+          auxEntities.push({kind:entity.type==='MTEXT'?'mtext':'text',point:at,text,heightMm:Math.abs(rawHeight*scaleY),rotationDeg:baseRotation+matrixRotation,layer,...(dxfColorNumber!==undefined?{colorNumber:dxfColorNumber}:{})});
+        }
+        return;
+      }
       if(entity.type==='LINE')ring=[point(entity.start),point(entity.end)];
       else if(entity.type==='SPLINE'){
         ring=spline(entity,tolerance);curved=true;
@@ -254,7 +268,7 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
       ring=ring.map(p=>apply(matrix,p));
       if(ring.some(p=>!p.every(v=>Number.isFinite(v)&&Math.abs(v)<=100_000)))throw Error('Coordinates exceed the 100,000 mm limit.');
       totalVertices+=ring.length;if(totalVertices>100_000)throw Error('DXF exceeds 100,000 vertices.');
-      if(closed)contours.push({ring,entityId:r.id,curved});else chains.push({points:ring,id:r.id,curved});
+      if(closed)contours.push({ring,entityId:r.id,curved,dxfColorNumber});else chains.push({points:ring,id:r.id,curved,dxfColorNumber});
     }catch(error){if(expanded>10_000||totalVertices>100_000)throw error;issues.push(`${r.id} on ${layer}: ${error instanceof Error?error.message:String(error)}`);}
   };
   for(const entity of parsed.entities)visit(entity,[scale,0,0,scale,0,0],'0',[]);
@@ -294,7 +308,21 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
     // that must not make either source contour disappear during import.
     warnings.push('Kaynak DXF içinde temas eden veya kesişen bağımsız konturlar ayrı parçalar olarak korundu.');
   }
-  const imported=contoursToParts(valid.filter((_,i)=>!rejected.has(i)),fileName,'dxf',options.tolerance+joined.adjustment,options.enclosed);
+  const keptContours=valid.filter((_,i)=>!rejected.has(i));
+  const imported=contoursToParts(keptContours,fileName,'dxf',options.tolerance+joined.adjustment,options.enclosed);
+  // Attach POINT/TEXT/MTEXT records to the smallest containing outer contour.
+  // Stored coordinates are local to the part, so every placement/rotation keeps marks rigidly locked to that part.
+  for(const mark of auxEntities) {
+    const candidates=imported.map(part=>{
+      const contour=part.source.entityId?keptContours.find(c=>c.entityId===part.source.entityId):undefined;
+      return contour?{part,contour,size:Math.abs(contour.ring.reduce((sum,p,i)=>{const q=contour.ring[(i+1)%contour.ring.length];return sum+p[0]*q[1]-q[0]*p[1];},0))}:undefined;
+    }).filter((v):v is NonNullable<typeof v>=>!!v&&inside(mark.point,v.contour.ring)).sort((a,b)=>a.size-b.size);
+    const target=candidates[0];
+    if(target){
+      const b=bounds(target.contour.ring),local={...mark,point:[mark.point[0]-b[0],mark.point[1]-b[1]] as Point};
+      target.part.source={...target.part.source,dxfAux:[...(target.part.source.dxfAux??[]),local]};
+    } else warnings.push(`${mark.kind.toUpperCase()} on ${mark.layer} is outside every part and was not attached.`);
+  }
   // Preserve the original compact closed SPLINE when it represents a complete
   // outer part. Nesting still uses the flattened ring, while DXF export can
   // transform the original control points instead of exploding the curve into
@@ -324,7 +352,8 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
   const signature=(part:(typeof imported)[number])=>{
     const b=bounds(part.outer),origin:Point=[b[0],b[1]];
     const holes=part.holes.map(h=>ringSignature(h,origin)).sort().join('|');
-    return `${ringSignature(part.outer,origin)}#${holes}`;
+    const aux=(part.source.dxfAux??[]).map(mark=>JSON.stringify(mark)).sort().join('|');
+    return `${ringSignature(part.outer,origin)}#${holes}#${aux}`;
   };
   const grouped=new Map<string,(typeof imported)[number]>();
   for(const part of imported){

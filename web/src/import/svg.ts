@@ -8,7 +8,7 @@ import { localize,type ImportReview } from './sparrow';
 // Initialized only for SVG imports, not other geometry-worker tasks.
 let svg_paths: typeof import('../../wasm/pkg/sparrow_web').svg_paths;
 export const initializeSVG=async()=>{const wasm=await loadSerialWasm();await wasm.default();svg_paths=wasm.svg_paths;};
-type Contour={ring:Ring;entityId:string;curved:boolean};
+type Contour={ring:Ring;entityId:string;curved:boolean;dxfColorNumber?:number};
 type Command=['M'|'L'|'Q'|'C'|'Z',...number[]];
 type ResolvedSVG={height:number;paths:{id:string;commands:Command[];transform:Matrix;rule:'evenodd'|'nonzero'}[]};
 export type SVGOptions={scale:number;tolerance:number};
@@ -36,8 +36,11 @@ export function contoursToParts(contours:Contour[],fileName:string,format:'svg'|
   const parent=hierarchy(contours,format==='dxf'),depth=parent.map((p)=>{let d=0;while(p!==-1){d++;p=parent[p];}return d;});
   return contours.flatMap((c,i)=>{
     if(enclosed==='holes'&&depth[i]%2===1)return [];
-    const holes=enclosed==='holes'?contours.filter((_,j)=>parent[j]===i).map(h=>h.ring):[];
-    const part=localize({...newPart(c.ring,c.entityId),holes,source:{format,fileName,entityId:c.entityId},
+    const holeContours=enclosed==='holes'?contours.filter((_,j)=>parent[j]===i):[];
+    const holes=holeContours.map(h=>h.ring);
+    const part=localize({...newPart(c.ring,c.entityId),holes,source:{format,fileName,entityId:c.entityId,
+      ...(format==='dxf'&&c.dxfColorNumber!==undefined?{dxfColorNumber:c.dxfColorNumber}:{}),
+      ...(format==='dxf'&&holeContours.some(h=>h.dxfColorNumber!==undefined)?{dxfHoleColorNumbers:holeContours.map(h=>h.dxfColorNumber??256)}:{})},
       approximationToleranceMm:c.curved||contours.some((h,j)=>parent[j]===i&&h.curved)?tolerance:0});
     return [part];
   });
