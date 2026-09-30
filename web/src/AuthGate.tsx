@@ -13,8 +13,12 @@ async function request(path:string,options?:RequestInit){
   return data;
 }
 export async function authorizeExport(projectName:string,sourceFileName:string){
-  try{return await request('/api/export/authorize',{method:'POST',body:JSON.stringify({projectName,sourceFileName})})}
-  catch(e){window.dispatchEvent(new Event('serula-login-required'));throw e}
+  const response=await fetch('/api/export/authorize',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({projectName,sourceFileName})});
+  const data=await response.json().catch(()=>({}));
+  if(response.status===401){window.dispatchEvent(new Event('serula-login-required'));throw Error(data.error||'DXF indirmek için giriş yapmalısınız.')}
+  if(response.status===402)throw Error((data.error||'Nesting hakkınız kalmadı.')+' Yeni hak için m93hasan@gmail.com veya +90 539 348 06 22 üzerinden iletişime geçebilirsiniz.');
+  if(!response.ok)throw Error(data.error||'İndirme yetkisi alınamadı.');
+  return data;
 }
 
 export function UserGate({children}:{children:ReactNode}){
