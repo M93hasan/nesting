@@ -8,7 +8,7 @@ import { prepareIsolation } from './isolation';
 const ADMIN_EMAIL='m93hasan@gmail.com';
 const GOOGLE_CLIENT_ID='249559754500-c8sq1giond6vdrab261fkhl7p5f7omvc.apps.googleusercontent.com';
 
-void prepareIsolation().then(async () => {
+void prepareIsolation().catch(()=>{}).then(async () => {
   if (import.meta.env.PROD && ['sparrowstudio.app', 'www.sparrowstudio.app'].includes(location.hostname)) {
     const beacon = document.createElement('script');
     beacon.type = 'module';
