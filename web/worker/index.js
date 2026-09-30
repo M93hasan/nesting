@@ -15,7 +15,19 @@ async function hashPassword(password,salt=crypto.getRandomValues(new Uint8Array(
 }
 async function verifyPassword(password,stored){
   try{
-    const [kind,it,saltB64,digestB64]=String(stored||'').trim().split('
+    const parts=String(stored||'').trim().split(String.fromCharCode(36));
+    const kind=parts[0],it=parts[1],saltB64=parts[2],digestB64=parts[3];
+    const iterations=Number(it);
+    if(kind!=='pbkdf2_sha256'||!Number.isInteger(iterations)||iterations<1||!saltB64||!digestB64)return false;
+    const salt=unb64(saltB64),expected=unb64(digestB64);
+    const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(String(password)),'PBKDF2',false,['deriveBits']);
+    const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations},key,expected.length*8);
+    const actual=new Uint8Array(bits);
+    if(actual.length!==expected.length)return false;
+    let diff=0;for(let i=0;i<actual.length;i++)diff|=actual[i]^expected[i];
+    return diff===0;
+  }catch{return false}
+}
 function cookieToken(request){
   const match=request.headers.get('cookie')?.match(/(?:^|;\s*)serula_session=([^;]+)/);
   return match?decodeURIComponent(match[1]):'';
