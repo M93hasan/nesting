@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { SOLVER_REVISION, type Document, type Result } from '../model';
 import type { Candidate, GeometryReply, SolverMessage } from './protocol';
 import type {LiveGeometry} from '../geometry/live';
+import {packResultIntoSheets} from '../geometry/multiSheet';
 
 export type RunState='Ready'|'Initializing'|'Running'|'Complete'|'Stopped'|'Error';
 export type Timing={phase?:string;sequence:number;elapsedMs:number;lengthMm:number;validation?:string;validationMs?:number;errors?:string[]};
@@ -125,7 +126,7 @@ export function useSolver() {
           r.diagnostics.history.push({phase:r.diagnostics.phases?.at(-1)?.phase,sequence:data.sequence,elapsedMs:data.elapsedMs,lengthMm:data.solution.strip_width,validation:'passed'});
           if(!r.best||data.solution.strip_width<r.best.usedLengthMm){
             startup.firstValidMs??=performance.now()-requestedAt;
-            r.best={...candidateResult(doc,data,seed),validation:{status:'passed',source:'solver',overlapAreaMm2:null,maxBoundaryViolationMm:null,minClearanceMm:null,errors:[]}};
+            r.best={...packResultIntoSheets(doc,candidateResult(doc,data,seed)),validation:{status:'passed',source:'solver',overlapAreaMm2:null,maxBoundaryViolationMm:null,minClearanceMm:null,errors:[]}};
           }
           break;
         case 'finished': end('Complete');break;
