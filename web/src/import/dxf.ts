@@ -16,8 +16,8 @@ type DxfEntity={type:string;handle:string;layer?:string;x?:number;y?:number;z?:n
 type DxfFile={entities:DxfEntity[];blocks:{name:string;x?:number;y?:number;entities:DxfEntity[]}[]};
 type Group=[number,string];
 type DxfRecord={type:string;groups:Group[];children:DxfRecord[];id:string;layer:string};
-type Contour={ring:Ring;entityId:string;curved:boolean};
-type Chain={points:Ring;id:string;curved:boolean};
+type Contour={ring:Ring;entityId:string;curved:boolean;dxfColorNumber?:number};
+type Chain={points:Ring;id:string;curved:boolean;dxfColorNumber?:number};
 export type DXFOptions={scale:number;tolerance:number;enclosed:'holes'|'parts';layers?:string[]};
 const value=(r:DxfRecord,code:number)=>r.groups.find(g=>g[0]===code)?.[1];
 function finite(text:string|undefined,fallback?:number):number {
@@ -164,7 +164,9 @@ function join(chains:Chain[],issues:string[]):{contours:Contour[];gaps:number;ad
       curved ||= chain.curved;current=neighbors[exitIndex][0];
     }while(current!==i*2);
     if(walked.size!==component.size)throw Error('DXF component did not form a single closed chain.');
-    contours.push({ring,entityId:[...component].map(e=>chains[e].id).join(' + '),curved:curved||componentAdjustment>0});
+    const componentColors=[...new Set([...component].map(e=>chains[e].dxfColorNumber).filter((v):v is number=>v!==undefined))];
+    contours.push({ring,entityId:[...component].map(e=>chains[e].id).join(' + '),curved:curved||componentAdjustment>0,
+      ...(componentColors.length===1?{dxfColorNumber:componentColors[0]}:{})});
   }
   return {contours,gaps,adjustment};
 }
@@ -212,6 +214,7 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
         return [p.x,p.y];
       };
       let ring:Ring,closed=false,curved=false;
+      const rawColor=value(r,62),dxfColorNumber=rawColor===undefined?undefined:Math.abs(finite(rawColor));
       if(entity.type==='LINE')ring=[point(entity.start),point(entity.end)];
       else if(entity.type==='SPLINE'){
         ring=spline(entity,tolerance);curved=true;
@@ -254,7 +257,7 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
       ring=ring.map(p=>apply(matrix,p));
       if(ring.some(p=>!p.every(v=>Number.isFinite(v)&&Math.abs(v)<=100_000)))throw Error('Coordinates exceed the 100,000 mm limit.');
       totalVertices+=ring.length;if(totalVertices>100_000)throw Error('DXF exceeds 100,000 vertices.');
-      if(closed)contours.push({ring,entityId:r.id,curved});else chains.push({points:ring,id:r.id,curved});
+      if(closed)contours.push({ring,entityId:r.id,curved,dxfColorNumber});else chains.push({points:ring,id:r.id,curved,dxfColorNumber});
     }catch(error){if(expanded>10_000||totalVertices>100_000)throw error;issues.push(`${r.id} on ${layer}: ${error instanceof Error?error.message:String(error)}`);}
   };
   for(const entity of parsed.entities)visit(entity,[scale,0,0,scale,0,0],'0',[]);
