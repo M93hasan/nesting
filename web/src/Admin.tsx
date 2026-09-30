@@ -41,6 +41,10 @@ export default function Admin({allowedEmail,clientId}:{allowedEmail:string;clien
   const [auth,setAuth]=useState<'loading'|'signed-out'|'allowed'|'denied'>(localDevelopment?'allowed':'loading');
   const [signedEmail,setSignedEmail]=useState('');
   const googleButton=useRef<HTMLDivElement>(null);
+  const [section,setSection]=useState<Section>('overview');
+  const [query,setQuery]=useState('');
+  const [role,setRole]=useState('Tümü');
+  const title=useMemo(()=>nav.find(item=>item.id===section)?.label??'Yönetim',[section]);
 
   useEffect(()=>{
     if(localDevelopment)return;
@@ -77,11 +81,6 @@ export default function Admin({allowedEmail,clientId}:{allowedEmail:string;clien
       </section>
     </main></div>;
   }
-  const [section,setSection]=useState<Section>('overview');
-  const [query,setQuery]=useState('');
-  const [role,setRole]=useState('Tümü');
-  const title=useMemo(()=>nav.find(item=>item.id===section)?.label??'Yönetim',[section]);
-
   return <div className="admin-page">
     <header className="admin-topbar">
       <div className="admin-brand"><img src={import.meta.env.BASE_URL+'serula-logo.svg'} alt="" /><div><strong>Serula</strong><span>Yönetim Paneli</span></div></div>
