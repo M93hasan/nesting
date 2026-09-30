@@ -124,6 +124,17 @@ async function handleApi(request,env){
     }else await env.DB.prepare('UPDATE users SET google_id=COALESCE(google_id,?),last_login_at=CURRENT_TIMESTAMP WHERE id=?').bind(String(claims.sub||''),user.id).run();
     return json({user:publicUser(user)},200,{'set-cookie':cookie(await makeSession(user.id,env))});
   }
+  if(path==='/api/auth/reset-password'&&request.method==='POST'){
+    const data=await body(request),token=String(data.token||''),newPassword=String(data.password||'');
+    if(!token||!passwordOk(newPassword))return json({error:'Geçerli bağlantı ve en az 8 karakter parola gerekli.'},400);
+    const tokenHash=await sha256(token);
+    const reset=await env.DB.prepare("SELECT user_id FROM password_reset_tokens WHERE token_hash=? AND used_at IS NULL AND datetime(expires_at)>datetime('now')").bind(tokenHash).first();
+    if(!reset)return json({error:'Şifre sıfırlama bağlantısı geçersiz veya süresi dolmuş.'},400);
+    await env.DB.prepare('UPDATE users SET password_hash=? WHERE id=?').bind(await hashPassword(newPassword),reset.user_id).run();
+    await env.DB.prepare('UPDATE password_reset_tokens SET used_at=CURRENT_TIMESTAMP WHERE token_hash=?').bind(tokenHash).run();
+    await env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(reset.user_id).run();
+    return json({ok:true});
+  }
   if(path==='/api/auth/logout'&&request.method==='POST'){
     const raw=cookieToken(request);if(raw)await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(await sha256(raw)).run();
     return json({ok:true},200,{'set-cookie':cookie('',0)});
