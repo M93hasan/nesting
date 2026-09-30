@@ -1,7 +1,7 @@
 import { documentPlacements } from '../geometry/placements';
 import type { Document, Result, Ring } from '../model';
 import { worldParts, netArea, type WorldPart } from '../geometry/validate';
-import { exportDXF, STUDIO_CREDIT } from './dxf';
+import { exportDXF } from './dxf';
 import {DOMParser} from '@xmldom/xmldom';
 import {pathData} from '../geometry/path';
 import {colors} from '../colors';
