@@ -21,6 +21,8 @@ function Metric({label,value,detail}:{label:string;value:string;detail:string}){
   return <article className="admin-metric"><span>{label}</span><strong>{value}</strong><small>{detail}</small></article>;
 }
 
+type AdminUser={id:number;email:string;name:string;role:string;credits:number;unlimited:boolean;createdAt?:string;lastLoginAt?:string};
+
 type GoogleCredentialResponse={credential?:string};
 type GoogleAccounts={id:{initialize:(options:{client_id:string;callback:(response:GoogleCredentialResponse)=>void;auto_select?:boolean})=>void;renderButton:(parent:HTMLElement,options:Record<string,unknown>)=>void;disableAutoSelect:()=>void}};
 declare global { interface Window { google?:{accounts:GoogleAccounts} } }
@@ -45,7 +47,12 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
   const [section,setSection]=useState<Section>('overview');
   const [query,setQuery]=useState('');
   const [role,setRole]=useState('Tümü');
+  const [users,setUsers]=useState<AdminUser[]>([]);
+  const [usersLoading,setUsersLoading]=useState(false);
+  const [usersError,setUsersError]=useState('');
+  const [savingUserId,setSavingUserId]=useState<number>();
   const title=useMemo(()=>nav.find(item=>item.id===section)?.label??'Yönetim',[section]);
+  const filteredUsers=useMemo(()=>users.filter(user=>(!query.trim()||(user.email+' '+user.name).toLowerCase().includes(query.trim().toLowerCase()))&&(role==='Tümü'||(role==='Admin'?user.role==='admin':user.role!=='admin'))),[users,query,role]);
 
   useEffect(()=>{
     if(bypassAuth)return;
@@ -71,6 +78,28 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
     document.head.appendChild(script);
     return()=>{cancelled=true};
   },[allowedEmail,clientId,bypassAuth]);
+
+  async function loadUsers(){
+    setUsersLoading(true);setUsersError('');
+    try{
+      const response=await fetch('/api/admin/users',{credentials:'same-origin'});
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok)throw Error(data.error||'Kullanıcılar alınamadı.');
+      setUsers(data.users??[]);
+    }catch(e){setUsersError(e instanceof Error?e.message:String(e))}
+    finally{setUsersLoading(false)}
+  }
+  useEffect(()=>{if(auth==='allowed')void loadUsers()},[auth]);
+  async function saveCredits(user:AdminUser,credits:number){
+    setSavingUserId(user.id);setUsersError('');
+    try{
+      const response=await fetch(`/api/admin/users/${user.id}/credits`,{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({credits})});
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok)throw Error(data.error||'Hak güncellenemedi.');
+      await loadUsers();
+    }catch(e){setUsersError(e instanceof Error?e.message:String(e))}
+    finally{setSavingUserId(undefined)}
+  }
 
   if(auth!=='allowed'){
     return <div className="admin-page"><main className="admin-main" style={{maxWidth:560,margin:'10vh auto'}}>
@@ -99,24 +128,31 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
 
         {section==='overview'&&<>
           <section className="admin-metrics">
-            <Metric label="Toplam kullanıcı" value="—" detail="Veritabanı bağlı değil"/>
-            <Metric label="Aktif kullanıcı" value="—" detail="Canlı veri bekleniyor"/>
+            <Metric label="Toplam kullanıcı" value="—" detail="D1 kullanıcı veritabanı"/>
+            <Metric label="Aktif kullanıcı" value={String(users.filter(user=>!!user.lastLoginAt).length)} detail="Giriş kaydı olan kullanıcı"/>
             <Metric label="Bugünkü nesting" value="—" detail="İstatistik servisi bağlı değil"/>
             <Metric label="Sistem durumu" value="Hazır" detail={(localDevelopment?'Yerel geliştirme':'İstemci')+' · v'+packageInfo.version}/>
           </section>
           <section className="admin-grid-two">
             <article className="admin-card"><div className="admin-card-head"><h2>Hızlı Durum</h2><span className="admin-badge">İstemci</span></div>
-              <dl className="admin-status-list"><div><dt>Uygulama</dt><dd>Çalışıyor</dd></div><div><dt>Admin rotası</dt><dd>/admin</dd></div><div><dt>Kimlik doğrulama</dt><dd>{localDevelopment?'Yerel test modu':'Google hesabı'}</dd></div><div><dt>Kalıcı veritabanı</dt><dd>Bağlantı gerekli</dd></div></dl>
+              <dl className="admin-status-list"><div><dt>Uygulama</dt><dd>Çalışıyor</dd></div><div><dt>Admin rotası</dt><dd>/admin</dd></div><div><dt>Kimlik doğrulama</dt><dd>{localDevelopment?'Yerel test modu':'E-posta + parola'}</dd></div><div><dt>Kalıcı veritabanı</dt><dd>D1 bağlı</dd></div></dl>
             </article>
             <article className="admin-card"><div className="admin-card-head"><h2>Son İşlemler</h2></div><Empty title="Henüz veri yok">Kalıcı işlem geçmişi bağlandığında burada kullanıcı, proje, nesting ve dışa aktarma kayıtları gösterilecek.</Empty></article>
           </section>
         </>}
 
         {section==='users'&&<section className="admin-card admin-users">
-          <div className="admin-card-head"><div><h2>Kullanıcı Yönetimi</h2><p>Hesapları, durumu ve erişimi yönetin.</p></div><button disabled>＋ Kullanıcı ekle</button></div>
+          <div className="admin-card-head"><div><h2>Kullanıcı Yönetimi</h2><p>Yeni kullanıcılar 5 nesting hakkıyla başlar. Buradan kalan hakkı değiştirebilirsin.</p></div><button onClick={()=>void loadUsers()} disabled={usersLoading}>↻ Yenile</button></div>
           <div className="admin-toolbar"><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Kullanıcı ara…" aria-label="Kullanıcı ara"/><select value={role} onChange={e=>setRole(e.target.value)}><option>Tümü</option><option>Admin</option><option>Operatör</option></select></div>
-          <div className="admin-table"><div className="admin-table-head"><span>Kullanıcı</span><span>Rol</span><span>Durum</span><span>Son aktivite</span><span></span></div>
-            <Empty title="Kullanıcı verisi bağlı değil">Güvenli kullanıcı veritabanı bağlandığında aktif/pasif, rol ve kullanıcı bazlı erişim burada yönetilecek.</Empty>
+          {usersError&&<p className="field-error" role="alert">{usersError}</p>}
+          <div className="admin-table"><div className="admin-table-head"><span>Kullanıcı</span><span>Rol</span><span>Nesting hakkı</span><span>Son giriş</span><span></span></div>
+            {usersLoading?<Empty title="Yükleniyor">Kullanıcı bilgileri D1 veritabanından alınıyor.</Empty>:filteredUsers.length?filteredUsers.map(user=><div className="admin-user-row" key={user.id}>
+              <span><strong>{user.name||'İsimsiz'}</strong><small>{user.email}</small></span>
+              <span>{user.role==='admin'?'Admin':'Kullanıcı'}</span>
+              <span>{user.role==='admin'?<strong>Sınırsız</strong>:<input aria-label={user.email+' nesting hakkı'} type="number" min="0" max="100000" defaultValue={user.credits} key={user.id+'-'+user.credits} onBlur={e=>{const value=Math.max(0,Math.trunc(e.currentTarget.valueAsNumber||0));if(value!==user.credits)void saveCredits(user,value)}}/>}</span>
+              <span>{user.lastLoginAt?new Date(user.lastLoginAt).toLocaleString('tr-TR'):'—'}</span>
+              <span>{savingUserId===user.id?'Kaydediliyor…':''}</span>
+            </div>):<Empty title="Kullanıcı bulunamadı">Filtreye uyan kullanıcı yok.</Empty>}
           </div>
         </section>}
 
