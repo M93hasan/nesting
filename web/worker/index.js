@@ -1,5 +1,5 @@
 const GOOGLE_CLIENT_ID='249559754500-36grgmm2jucf2159d41efqdcqut02lj6.apps.googleusercontent.com';
-const ADMIN_EMAIL='m93hasan@gmail.com';
+const ADMIN_EMAIL='m93hasan@icloud.com';
 const SESSION_DAYS=30;
 
 const json=(data,status=200,headers={})=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store',...headers}});
