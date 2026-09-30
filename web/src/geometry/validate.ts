@@ -65,7 +65,7 @@ export function validate(doc: Document, result: Result, serialized?: WorldPart[]
       const b=bounds(p.outer);
       const boundaryLength=doc.settings.materialType==='sheet'?doc.settings.materialLengthMm:result.usedLengthMm;
       if(!boundaryLength)throw Error('Sheet length is required.');
-      v.maxBoundaryViolationMm=Math.max(v.maxBoundaryViolationMm,-b[0],-b[1],b[2]-boundaryLength,b[3]-doc.settings.materialWidthMm);
+      v.maxBoundaryViolationMm=Math.max(v.maxBoundaryViolationMm,-b[0],-b[1],b[2]-doc.settings.materialWidthMm,b[3]-boundaryLength);
       return b;
     });
     if(v.maxBoundaryViolationMm>POLICY.linearMm) v.errors.push(`Material boundary exceeded by ${v.maxBoundaryViolationMm} mm.`);
