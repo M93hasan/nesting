@@ -13,8 +13,8 @@ test('part IDs and examples work without secure-context crypto APIs',()=>{
 });
 
 
-test('Serula defaults to zero clearance and a 59-second automatic nesting limit',()=>{
+test('Serula defaults to zero clearance and a 30-second nesting limit',()=>{
   expect(DEFAULT_SETTINGS.clearanceMm).toBe(0);
-  expect(wallClockLimitSeconds({name:'test',parts:[],settings:{...DEFAULT_SETTINGS}})).toBe(59);
+  expect(wallClockLimitSeconds({name:'test',parts:[],settings:{...DEFAULT_SETTINGS}})).toBe(30);
   expect(wallClockLimitSeconds({name:'test',parts:[],settings:{...DEFAULT_SETTINGS,timeLimitSeconds:30}})).toBe(30);
 });
