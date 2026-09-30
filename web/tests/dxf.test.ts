@@ -45,6 +45,14 @@ it('lists unsupported entities and blocks nonplanar geometry, duplicates, and bi
   expect(importDXF(dxf(rectangle+rectangle),'duplicate.dxf',options).issues?.join(' ')).toContain('yinelenen kontur');
   expect(()=>importDXF('AutoCAD Binary DXF\0','binary.dxf',options)).toThrow('Binary DXF');
 });
+it('keeps intersecting closed DXF contours as independent parts instead of throwing ambiguous topology',()=>{
+  const a=poly([[0,0],[20,0],[20,20],[0,20]]);
+  const b=poly([[10,-5],[30,-5],[30,10],[10,10]],'cut2');
+  const review=importDXF(dxf(a+b),'intersecting-parts.dxf',options);
+  expect(review.document.parts.reduce((n,p)=>n+p.quantity,0)).toBe(2);
+  expect(review.issues).toEqual([]);
+  expect(review.warnings.join(' ')).toContain('ayrı parçalar olarak korundu');
+});
 
 const withBlocks=(entities:string,blocks:string)=>dxf(entities).replace('0\nSECTION\n2\nENTITIES',`0\nSECTION\n2\nBLOCKS\n${blocks}0\nENDSEC\n0\nSECTION\n2\nENTITIES`);
 const block=(name:string,entities:string,x=0,y=0)=>`0\nBLOCK\n2\n${name}\n10\n${x}\n20\n${y}\n${entities}0\nENDBLK\n`;
