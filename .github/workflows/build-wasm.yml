@@ -5,13 +5,17 @@ on:
   push:
     branches: [main]
     paths:
-      - 'web/wasm/**'
+      - 'web/wasm/Cargo.toml'
+      - 'web/wasm/Cargo.lock'
+      - 'web/wasm/rust-toolchain.toml'
+      - 'web/wasm/src/**'
+      - 'web/wasm/examples/**'
       - 'web/scripts/build-wasm.mjs'
       - 'web/scripts/rayon-helpers.js'
       - '.github/workflows/build-wasm.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   wasm:
@@ -31,6 +35,18 @@ jobs:
           workspaces: web/wasm
       - run: npm install --global wasm-pack@0.15.0
       - run: npm run wasm:build
+      - name: Commit prebuilt WASM packages
+        working-directory: .
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f web/wasm/pkg web/wasm/pkg-threads web/wasm/pkg-nosimd web/wasm/pkg-threads-nosimd
+          if git diff --cached --quiet; then
+            echo "Prebuilt WASM packages are already current."
+          else
+            git commit -m "build: refresh prebuilt WASM packages"
+            git push
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: serula-wasm-packages
