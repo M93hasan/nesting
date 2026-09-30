@@ -335,14 +335,22 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
   const parts=[...grouped.values()];
 
   // Preparation is deliberately vertical and independent from nesting.
+  // Store every demanded copy explicitly so grouped/repeated DXF parts do not
+  // fall back to the old diagonal copy offset. Source geometry and angle stay
+  // untouched; only the preparation coordinates are arranged top-to-bottom.
   let offsetY=0;
+  const placements=[];
   for(const p of parts){
-    const b=bounds(p.outer);
-    p.preparationPosition=[-b[0],offsetY-b[1]];
-    offsetY+=b[3]-b[1]+10;
+    const b=bounds(p.outer),height=b[3]-b[1];
+    for(let copyIndex=0;copyIndex<p.quantity;copyIndex++){
+      const position:Point=[-b[0],offsetY-b[1]];
+      if(copyIndex===0)p.preparationPosition=position;
+      placements.push({partId:p.id,copyIndex,xMm:position[0],yMm:position[1],angleDeg:0});
+      offsetY+=height+10;
+    }
   }
   for(const [type,count] of unsupported)warnings.push(`Excluded ${count} unsupported ${type} entities.`);
   if(parts.some(p=>p.holes.length))warnings.push('Holes are preserved; nesting inside holes is not supported.');
-  const document={name:fileName.replace(/\.dxf$/i,''),parts,settings:{...DEFAULT_SETTINGS}};
+  const document={name:fileName.replace(/\.dxf$/i,''),parts,settings:{...DEFAULT_SETTINGS},placements};
   return {document:parts.length?normalizeDocument(document):document,warnings,issues,layers,replace:false};
 }
