@@ -257,10 +257,43 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
   if(joined.gaps)warnings.push(`Joined ${joined.gaps} gaps within 0.01 mm; largest endpoint adjustment ${joined.adjustment} mm. Confirm this preview before importing.`);
   const valid:Contour[]=[];
   for(const c of contours)try{valid.push({...c,ring:normalizeRing(c.ring)});}catch(e){issues.push(`${c.entityId}: ${String(e)}`);}
+  // Containment is valid DXF topology: an inner loop can be a hole. Only
+  // boundary intersections/touches are rejected here; hierarchy is resolved
+  // later by contoursToParts.
   const rejected=new Set<number>();
-  for(let i=0;i<valid.length;i++)for(let j=0;j<i;j++)if(ringCrosses(valid[i].ring,valid[j].ring)){rejected.add(i);rejected.add(j);issues.push(`${valid[i].entityId} and ${valid[j].entityId}: intersecting or duplicate loops.`);}
-  const parts=contoursToParts(valid.filter((_,i)=>!rejected.has(i)),fileName,'dxf',options.tolerance+joined.adjustment,options.enclosed);
-  let offset=0;for(const p of parts){p.preparationPosition=[offset,0];offset+=bounds(p.outer)[2]+10;}
+  for(let i=0;i<valid.length;i++)for(let j=0;j<i;j++)if(ringCrosses(valid[i].ring,valid[j].ring)){
+    rejected.add(i);rejected.add(j);
+    issues.push('İki kontur kesişiyor veya aynı sınırı paylaşıyor; kaynak DXF konturlarını kontrol edin.');
+  }
+  const imported=contoursToParts(valid.filter((_,i)=>!rejected.has(i)),fileName,'dxf',options.tolerance+joined.adjustment,options.enclosed);
+
+  // Group repeated DXF geometry independently of its source X/Y position.
+  // Orientation remains part of the signature, so rotated variants are not
+  // accidentally merged.
+  const ringSignature=(ring:Ring,origin:Point)=>{
+    const round=(n:number)=>Math.round(n*1e6)/1e6;
+    return ring.map(([x,y])=>`${round(x-origin[0])},${round(y-origin[1])}`).join(';');
+  };
+  const signature=(part:(typeof imported)[number])=>{
+    const b=bounds(part.outer),origin:Point=[b[0],b[1]];
+    const holes=part.holes.map(h=>ringSignature(h,origin)).sort().join('|');
+    return `${ringSignature(part.outer,origin)}#${holes}`;
+  };
+  const grouped=new Map<string,(typeof imported)[number]>();
+  for(const part of imported){
+    const key=signature(part),existing=grouped.get(key);
+    if(existing) existing.quantity+=part.quantity;
+    else grouped.set(key,{...part});
+  }
+  const parts=[...grouped.values()];
+
+  // Preparation is deliberately vertical and independent from nesting.
+  let offsetY=0;
+  for(const p of parts){
+    const b=bounds(p.outer);
+    p.preparationPosition=[-b[0],offsetY-b[1]];
+    offsetY+=b[3]-b[1]+10;
+  }
   for(const [type,count] of unsupported)warnings.push(`Excluded ${count} unsupported ${type} entities.`);
   if(parts.some(p=>p.holes.length))warnings.push('Holes are preserved; nesting inside holes is not supported.');
   const document={name:fileName.replace(/\.dxf$/i,''),parts,settings:{...DEFAULT_SETTINGS}};
