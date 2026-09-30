@@ -4,7 +4,7 @@ import packageInfo from '../package.json';
 export type SessionUser={id:number;email:string;name:string;role:string;credits:number;unlimited:boolean};
 const GOOGLE_CLIENT_ID='249559754500-36grgmm2jucf2159d41efqdcqut02lj6.apps.googleusercontent.com';
 type GoogleCredentialResponse={credential?:string};
-type GoogleAccounts={id:{initialize:(options:{client_id:string;callback:(response:GoogleCredentialResponse)=>void;auto_select?:boolean;use_fedcm_for_button?:boolean})=>void;renderButton:(parent:HTMLElement,options:Record<string,unknown>)=>void}};
+type GoogleAccounts={id:{initialize:(options:{client_id:string;callback:(response:GoogleCredentialResponse)=>void;auto_select?:boolean;use_fedcm_for_button?:boolean;itp_support?:boolean})=>void;renderButton:(parent:HTMLElement,options:Record<string,unknown>)=>void}};
 const google=()=> (window as Window & {google?:{accounts:GoogleAccounts}}).google;
 
 async function request(path:string,options?:RequestInit){
@@ -38,7 +38,7 @@ export function UserGate({children}:{children:ReactNode}){
     const setup=()=>{
       if(!google()?.accounts.id||!googleButton.current)return;
       const accounts=google()?.accounts.id;if(!accounts)return;
-      accounts.initialize({client_id:GOOGLE_CLIENT_ID,auto_select:false,use_fedcm_for_button:true,callback:async response=>{
+      accounts.initialize({client_id:GOOGLE_CLIENT_ID,auto_select:false,use_fedcm_for_button:false,itp_support:true,callback:async response=>{
         try{setBusy(true);setError('');const data=await request('/api/auth/google',{method:'POST',body:JSON.stringify({credential:response.credential})});if(!cancelled){setUser(data.user);setOpen(false)}}
         catch(e){if(!cancelled)setError(e instanceof Error?e.message:String(e))}finally{if(!cancelled)setBusy(false)}
       }});
