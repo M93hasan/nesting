@@ -25,14 +25,18 @@ export function exportDXF(doc:Document,world:WorldPart[],placements:Placement[]=
     return `0\nSPLINE\n5\n${handle()}\n330\n21\n100\nAcDbEntity\n8\n${layer}\n${colorGroup(color)}100\nAcDbSpline\n210\n0\n220\n0\n230\n1\n70\n${curve.flags}\n71\n${curve.degree}\n72\n${curve.knots.length}\n73\n${points.length}\n74\n0\n42\n0.0000000001\n43\n0.0000000001\n${curve.knots.map(k=>`40\n${k}\n`).join('')}${curve.weights?.map(w=>`41\n${w}\n`).join('')??''}${points.map(([x,y])=>`10\n${x}\n20\n${y}\n30\n0\n`).join('')}`;
   };
   const parts=new Map(doc.parts.map(part=>[part.id,part]));
-  const layerNames=[...new Set(['0','PARTS','HOLES',...doc.parts.flatMap(part=>(part.source.dxfAux??[]).map(entity=>entity.layer||'MARKS'))])];
+  const layerNames=[...new Set(['0','PARTS','HOLES',...doc.parts.flatMap(part=>[
+    ...(part.source.dxfAux??[]).map(entity=>entity.layer||'MARKS'),
+    ...(part.source.dxfDetails??[]).map(detail=>detail.layer||'DETAILS')
+  ])])];
   const layers=layerNames.map(layer=>`0\nLAYER\n5\n${handle()}\n330\n10\n100\nAcDbSymbolTableRecord\n100\nAcDbLayerTableRecord\n2\n${layer}\n70\n0\n62\n7\n6\nCONTINUOUS\n`).join('');
   const entities=world.map((p,i)=>{
     const part=parts.get(p.partId),placement=placements[i];
     const compact=part?.source.dxfSpline&&placement&&placement.partId===p.partId&&placement.copyIndex===p.copyIndex
       ?spline(part.source.dxfSpline,placement,'PARTS',part.source.dxfColorNumber):polyline(p.outer,'PARTS',part?.source.dxfColorNumber);
+    const details=part&&placement?(part.source.dxfDetails??[]).map(detail=>polyline(detail.ring.map(point=>transformPoint(point,placement)),detail.layer||'DETAILS',detail.colorNumber)).join(''):'';
     const marks=part&&placement?(part.source.dxfAux??[]).map(entity=>aux(entity,placement)).join(''):'';
-    return compact+p.holes.map((h,holeIndex)=>polyline(h,'HOLES',part?.source.dxfHoleColorNumbers?.[holeIndex])).join('')+marks;
+    return compact+p.holes.map((h,holeIndex)=>polyline(h,'HOLES',part?.source.dxfHoleColorNumbers?.[holeIndex])).join('')+details+marks;
   }).join('');
   // R2000 readers such as QCAD require explicit model/paper-space ownership.
   const spaces=[['*Model_Space','21','23','24'],['*Paper_Space','22','25','26']];
@@ -59,6 +63,12 @@ export function exportDXF(doc:Document,world:WorldPart[],placements:Placement[]=
       if(h?.type!=='LWPOLYLINE'||!h.closed||h.layer!=='HOLES')throw Error('Serialized DXF lost a closed hole.');
       const ring=(h.vertices??[]).map(q=>[q.x,q.y] as Point);
       if(JSON.stringify(ring)!==JSON.stringify(hole))throw Error('Serialized DXF changed canvas coordinates.');
+    }
+    for(const detail of part?.source.dxfDetails??[]){
+      const entity=parsed.entities[at++];
+      if(entity?.type!=='LWPOLYLINE'||!entity.closed||entity.layer!==(detail.layer||'DETAILS'))throw Error('Serialized DXF lost an attached detail contour.');
+      const expected=detail.ring.map(point=>transformPoint(point,placement!)),actual=(entity.vertices??[]).map(q=>[q.x,q.y] as Point);
+      if(JSON.stringify(actual)!==JSON.stringify(expected))throw Error('Serialized DXF changed an attached detail contour.');
     }
     for(const mark of part?.source.dxfAux??[]){
       const entity=parsed.entities[at++];

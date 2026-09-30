@@ -14,7 +14,8 @@ export function localize(part: Part): Part {
   const [x,y]=bounds(part.outer);
   const shift=(ring: Ring): Ring=>ring.map(p=>[p[0]-x,p[1]-y]);
   const dxfAux=part.source.dxfAux?.map(entity=>({...entity,point:[entity.point[0]-x,entity.point[1]-y] as [number,number]}));
-  return {...part,source:{...part.source,...(dxfAux?{dxfAux}: {})},outer:shift(part.outer),holes:part.holes.map(shift)};
+  const dxfDetails=part.source.dxfDetails?.map(detail=>({...detail,ring:shift(detail.ring)}));
+  return {...part,source:{...part.source,...(dxfAux?{dxfAux}: {}),...(dxfDetails?{dxfDetails}: {})},outer:shift(part.outer),holes:part.holes.map(shift)};
 }
 export function importSparrow(text: string,fileName: string,scale: number): ImportReview {
   if(!Number.isFinite(scale) || scale<=0) throw Error('Choose a positive millimeter scale.');
