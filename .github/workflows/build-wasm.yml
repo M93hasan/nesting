@@ -12,14 +12,20 @@ on:
       - 'web/wasm/examples/**'
       - 'web/scripts/build-wasm.mjs'
       - 'web/scripts/rayon-helpers.js'
+      - 'web/scripts/wasm-fingerprint.mjs'
       - '.github/workflows/build-wasm.yml'
 
 permissions:
   contents: write
 
+concurrency:
+  group: wasm-prebuild-main
+  cancel-in-progress: true
+
 jobs:
   wasm:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: web
@@ -35,12 +41,15 @@ jobs:
           workspaces: web/wasm
       - run: npm install --global wasm-pack@0.15.0
       - run: npm run wasm:build
+      - name: Record WASM source fingerprint
+        run: node scripts/wasm-fingerprint.mjs > wasm/prebuilt.sha256
       - name: Commit prebuilt WASM packages
         working-directory: .
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -f web/wasm/pkg web/wasm/pkg-threads web/wasm/pkg-nosimd web/wasm/pkg-threads-nosimd
+          git add web/wasm/prebuilt.sha256
           if git diff --cached --quiet; then
             echo "Prebuilt WASM packages are already current."
           else
@@ -55,4 +64,5 @@ jobs:
             web/wasm/pkg-threads
             web/wasm/pkg-nosimd
             web/wasm/pkg-threads-nosimd
+            web/wasm/prebuilt.sha256
           retention-days: 90
