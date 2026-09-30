@@ -68,7 +68,7 @@ export function UserGate({children}:{children:ReactNode}){
 
 export function AdminGate({children}:{children:ReactNode}){
   const [user,setUser]=useState<SessionUser|null|undefined>(undefined),[password,setPassword]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);
-  useEffect(()=>{fetch('/api/auth/me',{credentials:'same-origin'}).then(async r=>{const d=await r.json().catch(()=>({}));setUser(r.ok&&d.user?.role==='admin'?d.user:null)}).catch(()=>setUser(null))},[]);
+  useEffect(()=>{fetch('/api/auth/admin-me',{credentials:'same-origin'}).then(async r=>{const d=await r.json().catch(()=>({}));setUser(r.ok&&d.user?.role==='admin'?d.user:null)}).catch(()=>setUser(null))},[]);
   async function submit(e:React.FormEvent){e.preventDefault();setBusy(true);setError('');try{const d=await request('/api/auth/admin-login',{method:'POST',body:JSON.stringify({password})});if(d.user.role!=='admin')throw Error('Bu hesabın admin yetkisi yok.');setUser(d.user)}catch(e){setError(e instanceof Error?e.message:String(e))}finally{setBusy(false)}}
   if(user===undefined)return <div className="auth-screen"><div className="auth-card"><p>Admin oturumu kontrol ediliyor…</p></div></div>;
   if(!user)return <div className="auth-screen"><div className="auth-card"><img src="/serula-logo.svg" alt=""/><h1>Serula Yönetim</h1><p>Admin parolanızı girin.</p><form onSubmit={submit}><label>Parola<input type="password" autoComplete="current-password" autoFocus required value={password} onChange={e=>setPassword(e.target.value)}/></label><button disabled={busy}>{busy?'Bekleyin…':'Admin girişi'}</button></form>{error&&<p className="auth-error">{error}</p>}</div></div>;
