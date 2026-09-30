@@ -25,6 +25,7 @@ type AdminUser={id:number;email:string;name:string;role:string;credits:number;un
 type AdminSettings={materialWidthMm:number;clearanceMm:number;marginMm:number;rotation:'fixed'|'half'|'free';materialType:'roll'|'sheet';solverPreset:'standard'|'fast'};
 type AuditLog={id:number;actorType:string;actorEmail:string;targetEmail:string;action:string;detail:string;success:boolean;createdAt:string};
 type Health={adminApi:boolean;auth:boolean;userStore:boolean};
+type SupportSession={id:number;status:'pending'|'approved'|'declined'|'ended'|'expired';expiresAt?:string;createdAt?:string;approvedAt?:string;endedAt?:string};
 const FALLBACK_SETTINGS:AdminSettings={materialWidthMm:1000,clearanceMm:.3,marginMm:5,rotation:'half',materialType:'roll',solverPreset:'standard'};
 
 type GoogleCredentialResponse={credential?:string};
@@ -64,6 +65,7 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
   const [logs,setLogs]=useState<AuditLog[]>([]);
   const [health,setHealth]=useState<Health>();
   const [adminBusy,setAdminBusy]=useState('');
+  const [support,setSupport]=useState<SupportSession|null>(null);
   const title=useMemo(()=>nav.find(item=>item.id===section)?.label??'Yönetim',[section]);
   const filteredUsers=useMemo(()=>users.filter(user=>(!query.trim()||(user.email+' '+user.name).toLowerCase().includes(query.trim().toLowerCase()))&&(role==='Tümü'||(role==='Admin'?user.role==='admin':user.role!=='admin'))),[users,query,role]);
 
@@ -104,6 +106,11 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
   }
   useEffect(()=>{if(auth==='allowed'){void loadUsers();void loadHealth();void loadSystemSettings()}},[auth]);
   useEffect(()=>{if(section==='logs')void loadLogs();if(section==='system')void loadHealth()},[section]);
+  useEffect(()=>{
+    if(section!=='user-settings'||!selectedUserId)return;
+    const timer=setInterval(()=>void loadSupport(selectedUserId),4000);
+    return()=>clearInterval(timer);
+  },[section,selectedUserId]);
   async function getJson(path:string,options?:RequestInit){
     const response=await fetch(path,{credentials:'same-origin',...options,headers:{'content-type':'application/json',...(options?.headers||{})}});
     const data=await response.json().catch(()=>({}));
@@ -114,20 +121,36 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
   async function loadSystemSettings(){try{const data=await getJson('/api/admin/settings');setSystemSettings(data.settings??FALLBACK_SETTINGS)}catch(e){setUsersError(e instanceof Error?e.message:String(e))}}
   async function loadLogs(){try{const data=await getJson('/api/admin/logs');setLogs(data.logs??[])}catch(e){setUsersError(e instanceof Error?e.message:String(e))}}
   async function loadUserSettings(id:number){
-    setSelectedUserId(id);setAdminBusy('user-settings');setUsersError('');
-    try{const data=await getJson(`/api/admin/users/${id}/settings`);setUserSettings(data.settings??systemSettings);setCustomSettings(!!data.custom)}
+    setSelectedUserId(id);setAdminBusy('user-settings');setUsersError('');setSupport(null);
+    try{const data=await getJson(`/api/admin/users/${id}/settings`);setUserSettings(data.settings??systemSettings);setCustomSettings(!!data.custom);await loadSupport(id)}
     catch(e){setUsersError(e instanceof Error?e.message:String(e))}
     finally{setAdminBusy('')}
   }
   async function saveUserSettings(){
     if(!selectedUserId)return;setAdminBusy('user-settings');setUsersError('');
-    try{const data=await getJson(`/api/admin/users/${selectedUserId}/settings`,{method:'POST',body:JSON.stringify({settings:userSettings})});setUserSettings(data.settings);setCustomSettings(true);setUserNotice('Kullanıcıya özel varsayılanlar kaydedildi.')}
+    try{const data=await getJson(`/api/admin/users/${selectedUserId}/settings`,{method:'POST',body:JSON.stringify({settings:userSettings})});setUserSettings(data.settings);setCustomSettings(true);setUserNotice(support?.status==='approved'?'Ayarlar kaydedildi ve kullanıcının açık Serula oturumuna uygulanıyor.':'Kullanıcıya özel varsayılanlar kaydedildi.')}
     catch(e){setUsersError(e instanceof Error?e.message:String(e))}
     finally{setAdminBusy('')}
   }
   async function resetUserSettings(){
     if(!selectedUserId)return;setAdminBusy('user-settings');setUsersError('');
     try{const data=await getJson(`/api/admin/users/${selectedUserId}/settings`,{method:'DELETE',body:'{}'});setUserSettings(data.settings);setCustomSettings(false);setUserNotice('Kullanıcı sistem varsayılanlarına döndürüldü.')}
+    catch(e){setUsersError(e instanceof Error?e.message:String(e))}
+    finally{setAdminBusy('')}
+  }
+  async function loadSupport(id:number){
+    try{const data=await getJson(`/api/admin/users/${id}/support`);setSupport(data.support??null)}
+    catch{setSupport(null)}
+  }
+  async function requestSupport(){
+    if(!selectedUserId)return;setAdminBusy('support');setUsersError('');setUserNotice('');
+    try{const data=await getJson(`/api/admin/users/${selectedUserId}/support`,{method:'POST',body:'{}'});setSupport(data.support);setUserNotice('Uzaktan destek isteği kullanıcıya gönderildi. Kullanıcının onayı bekleniyor.')}
+    catch(e){setUsersError(e instanceof Error?e.message:String(e))}
+    finally{setAdminBusy('')}
+  }
+  async function endSupport(){
+    if(!selectedUserId)return;setAdminBusy('support');setUsersError('');
+    try{await getJson(`/api/admin/users/${selectedUserId}/support`,{method:'DELETE',body:'{}'});setSupport(null);setUserNotice('Uzaktan destek oturumu kapatıldı.')}
     catch(e){setUsersError(e instanceof Error?e.message:String(e))}
     finally{setAdminBusy('')}
   }
@@ -229,7 +252,8 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
 
         {section==='user-settings'&&<section className="admin-card">
           <div className="admin-card-head"><div><h2>Kullanıcıya Özel Varsayılanlar</h2><p>Seçilen kullanıcı için sistem varsayılanlarının üzerine uygulanır.</p></div><select aria-label="Kullanıcı seç" value={selectedUserId??''} onChange={e=>{const id=Number(e.target.value);if(id)void loadUserSettings(id);else setSelectedUserId(undefined)}}><option value="">Kullanıcı seç…</option>{users.map(user=><option key={user.id} value={user.id}>{user.name||user.email} · {user.email}</option>)}</select></div>
-          {usersError&&<p className="field-error" role="alert">{usersError}</p>}{selectedUserId?<><div className="admin-selected-user"><strong>{users.find(u=>u.id===selectedUserId)?.name||users.find(u=>u.id===selectedUserId)?.email}</strong><span>{customSettings?'Özel varsayılanlar aktif':'Sistem varsayılanları kullanılıyor'}</span></div>
+          {usersError&&<p className="field-error" role="alert">{usersError}</p>}{userNotice&&<p className="admin-notice" role="status">{userNotice}</p>}{selectedUserId?<><div className="admin-selected-user"><strong>{users.find(u=>u.id===selectedUserId)?.name||users.find(u=>u.id===selectedUserId)?.email}</strong><span>{customSettings?'Özel varsayılanlar aktif':'Sistem varsayılanları kullanılıyor'}</span></div>
+          <div className="admin-support-box"><div><strong>Uzaktan destek</strong><small>{support?.status==='approved'?'Aktif · kullanıcı onayladı':support?.status==='pending'?'Kullanıcı onayı bekleniyor':'Kapalı'}</small><p>Bu özellik yalnızca Serula içindeki ayarları canlı uygular. Kullanıcının onayı olmadan aktif olmaz.</p></div><div>{support?.status==='approved'||support?.status==='pending'?<button onClick={()=>void endSupport()} disabled={adminBusy==='support'}>Desteği bitir</button>:<button className="primary" onClick={()=>void requestSupport()} disabled={adminBusy==='support'}>{adminBusy==='support'?'Gönderiliyor…':'Uzaktan destek iste'}</button>}</div></div>
           <div className="admin-settings-grid">
             <label>Malzeme genişliği (mm)<input type="number" min="1" value={userSettings.materialWidthMm} onChange={e=>setUserSettings({...userSettings,materialWidthMm:e.target.valueAsNumber})}/></label>
             <label>Parça aralığı (mm)<input type="number" min="0" step="0.1" value={userSettings.clearanceMm} onChange={e=>setUserSettings({...userSettings,clearanceMm:e.target.valueAsNumber})}/></label>
