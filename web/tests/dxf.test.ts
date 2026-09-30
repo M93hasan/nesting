@@ -42,7 +42,7 @@ it('lists unsupported entities and blocks nonplanar geometry, duplicates, and bi
   const review=importDXF(dxf(rectangle+'0\nTEXT\n0\nINSERT\n'+line(20,0,30,0)+'30\n1\n'),'mixed.dxf',options);
   expect(review.document.parts).toHaveLength(1);expect(review.warnings.join(' ')).toContain('unsupported TEXT');expect(review.issues?.join(' ')).toContain('block reference');
   expect(review.issues?.join(' ')).toContain('Nonzero elevation');
-  expect(importDXF(dxf(rectangle+rectangle),'duplicate.dxf',options).issues?.join(' ')).toContain('duplicate');
+  expect(importDXF(dxf(rectangle+rectangle),'duplicate.dxf',options).issues?.join(' ')).toContain('yinelenen kontur');
   expect(()=>importDXF('AutoCAD Binary DXF\0','binary.dxf',options)).toThrow('Binary DXF');
 });
 
@@ -54,7 +54,7 @@ it('expands nested blocks, base points, arrays and nonuniform transforms',()=>{
   const blocks=block('part',shape,5,6)+block('nested',insert('part','10\n2\n20\n3\n'),2,3);
   const input=insert('nested','8\nCUT\n41\n2\n42\n3\n50\n90\n70\n2\n44\n40\n');
   const result=importDXF(withBlocks(input,blocks),'blocks.dxf',options);
-  expect(result.issues).toEqual([]);expect(result.document.parts).toHaveLength(2);
+  expect(result.issues).toEqual([]);expect(result.document.parts).toHaveLength(1);expect(result.document.parts[0].quantity).toBe(2);
   for(const part of result.document.parts){const b=bounds(part.outer);expect(b[2]).toBeCloseTo(15);expect(b[3]).toBeCloseTo(20);}
   expect(result.layers).toContain('CUT');
 });
