@@ -51,6 +51,8 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
   const [usersLoading,setUsersLoading]=useState(false);
   const [usersError,setUsersError]=useState('');
   const [savingUserId,setSavingUserId]=useState<number>();
+  const [resettingUserId,setResettingUserId]=useState<number>();
+  const [userNotice,setUserNotice]=useState('');
   const title=useMemo(()=>nav.find(item=>item.id===section)?.label??'Yönetim',[section]);
   const filteredUsers=useMemo(()=>users.filter(user=>(!query.trim()||(user.email+' '+user.name).toLowerCase().includes(query.trim().toLowerCase()))&&(role==='Tümü'||(role==='Admin'?user.role==='admin':user.role!=='admin'))),[users,query,role]);
 
@@ -101,6 +103,18 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
     finally{setSavingUserId(undefined)}
   }
 
+  async function sendPasswordReset(user:AdminUser){
+    if(!confirm(user.email+' adresine şifre sıfırlama e-postası gönderilsin mi?'))return;
+    setResettingUserId(user.id);setUsersError('');setUserNotice('');
+    try{
+      const response=await fetch(`/api/admin/users/${user.id}/password-reset`,{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:'{}'});
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok)throw Error(data.error||'Şifre sıfırlama e-postası gönderilemedi.');
+      setUserNotice(user.email+' adresine şifre sıfırlama bağlantısı gönderildi.');
+    }catch(e){setUsersError(e instanceof Error?e.message:String(e))}
+    finally{setResettingUserId(undefined)}
+  }
+
   if(auth!=='allowed'){
     return <div className="admin-page"><main className="admin-main" style={{maxWidth:560,margin:'10vh auto'}}>
       <section className="admin-card">
@@ -144,14 +158,14 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
         {section==='users'&&<section className="admin-card admin-users">
           <div className="admin-card-head"><div><h2>Kullanıcı Yönetimi</h2><p>E-posta veya Google ile giriş yapan kullanıcıların hesap, kota ve 375 günlük lisans bilgilerini yönetin.</p></div><button onClick={()=>void loadUsers()} disabled={usersLoading}>↻ Yenile</button></div>
           <div className="admin-toolbar"><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Kullanıcı ara…" aria-label="Kullanıcı ara"/><select value={role} onChange={e=>setRole(e.target.value)}><option>Tümü</option><option>Admin</option><option>Operatör</option></select></div>
-          {usersError&&<p className="field-error" role="alert">{usersError}</p>}
+          {usersError&&<p className="field-error" role="alert">{usersError}</p>}{userNotice&&<p role="status">{userNotice}</p>}
           <div className="admin-table"><div className="admin-table-head"><span>Kullanıcı</span><span>Rol / Giriş</span><span>Nesting hakkı</span><span>Lisans</span><span>Son giriş</span></div>
             {usersLoading?<Empty title="Yükleniyor">Kullanıcı bilgileri D1 veritabanından alınıyor.</Empty>:filteredUsers.length?filteredUsers.map(user=><div className="admin-user-row" key={user.id}>
               <span><strong>{user.name||'İsimsiz'}</strong><small>{user.email}</small></span>
               <span>{user.role==='admin'?'Admin':'Kullanıcı'}<small>{user.authProvider==='google'?'Google / Gmail':'E-posta'}</small></span>
               <span>{user.role==='admin'||user.unlimited?<strong>Sınırsız</strong>:<input aria-label={user.email+' nesting hakkı'} type="number" min="0" max="100000" defaultValue={user.credits} key={user.id+'-'+user.credits} onBlur={e=>{const value=Math.max(0,Math.trunc(e.currentTarget.valueAsNumber||0));if(value!==user.credits)void saveCredits(user,value)}}/>}</span>
               <span><strong>{user.licenseExpiresAt?new Date(user.licenseExpiresAt).toLocaleDateString('tr-TR'):'Lisans yok'}</strong><small>{user.licenseStartedAt?'Başlangıç: '+new Date(user.licenseStartedAt).toLocaleDateString('tr-TR'):'375 gün · etkinleştirme bekliyor'}</small></span>
-              <span>{user.lastLoginAt?new Date(user.lastLoginAt).toLocaleString('tr-TR'):'—'}{user.suspended&&<small>Askıya alınmış</small>}{savingUserId===user.id&&<small>Kaydediliyor…</small>}</span>
+              <span>{user.lastLoginAt?new Date(user.lastLoginAt).toLocaleString('tr-TR'):'—'}{user.suspended&&<small>Askıya alınmış</small>}{savingUserId===user.id&&<small>Kaydediliyor…</small>}<button onClick={()=>void sendPasswordReset(user)} disabled={resettingUserId===user.id}>{resettingUserId===user.id?'Gönderiliyor…':'Şifre sıfırlama e-postası'}</button></span>
             </div>):<Empty title="Kullanıcı bulunamadı">Filtreye uyan kullanıcı yok.</Empty>}
           </div>
         </section>}
