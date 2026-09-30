@@ -8,13 +8,13 @@ export type Part = {
   rotations: RotationRule; preparationPosition: Point;
 };
 export type Settings = { solverPreset?: 'standard' | 'fast'; materialType?: 'roll' | 'sheet'; materialWidthMm: number; materialLengthMm?: number; clearanceMm: number; timeLimitSeconds: 10 | 30 | 60 | 120 | 300 | 600 | null };
-export type Placement = { partId: string; copyIndex: number; xMm: number; yMm: number; angleDeg: number };
+export type Placement = { partId: string; copyIndex: number; xMm: number; yMm: number; angleDeg: number; sheetIndex?: number };
 /** A document keeps the editable position of every demanded copy. */
 export type Document = { name: string; parts: Part[]; settings: Settings; placements?: Placement[] };
 export type Validation = { status: 'pending' | 'passed' | 'failed'; source?: 'solver'; overlapAreaMm2: number | null;
   maxBoundaryViolationMm: number | null; minClearanceMm: number | null; errors: string[] };
 export type Result = { documentRevision: number; solverRevision: string; seed: string;
-  elapsedSeconds: number; usedLengthMm: number; placements: Placement[]; validation: Validation };
+  elapsedSeconds: number; usedLengthMm: number; sheetCount?: number; placements: Placement[]; validation: Validation };
 export type Project = Document & { schemaVersion: 1; revision: number; result?: Result };
 export const DEFAULT_SETTINGS: Settings = { materialType: 'roll', materialWidthMm: 1000, clearanceMm: 0.3, timeLimitSeconds: null };
 export const SOLVER_REVISION = '7f0e10f946f70a86138d3938548a13ee46464f39';

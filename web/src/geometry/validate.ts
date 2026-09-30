@@ -40,8 +40,9 @@ export function validate(doc: Document, result: Result, serialized?: WorldPart[]
     for(const p of result.placements) {
       const part=parts.get(p.partId);
       if(!part || !Number.isInteger(p.copyIndex) || p.copyIndex<0 || p.copyIndex>=part.quantity) throw Error('Unknown part or copy index.');
-      if(Object.keys(p).some(k=>!['partId','copyIndex','xMm','yMm','angleDeg'].includes(k))) throw Error('Placements support rigid rotations and translations only.');
+      if(Object.keys(p).some(k=>!['partId','copyIndex','xMm','yMm','angleDeg','sheetIndex'].includes(k))) throw Error('Placements support rigid rotations and translations only.');
       if(![p.xMm,p.yMm,p.angleDeg].every(Number.isFinite)) throw Error('Placement contains a non-finite transform.');
+      if(doc.settings.materialType==='sheet' && (!Number.isInteger(p.sheetIndex) || (p.sheetIndex??-1)<0 || (p.sheetIndex??0)>=(result.sheetCount??0))) throw Error('Invalid sheet index.');
       const key=JSON.stringify([p.partId,p.copyIndex]);
       if(seen.has(key)) throw Error('Duplicate part copy.');
       seen.add(key);
@@ -58,12 +59,15 @@ export function validate(doc: Document, result: Result, serialized?: WorldPart[]
       }
       normalizePart({...original,outer:p.outer,holes:p.holes});
       const b=bounds(p.outer);
-      v.maxBoundaryViolationMm=Math.max(v.maxBoundaryViolationMm,-b[0],-b[1],b[2]-result.usedLengthMm,b[3]-doc.settings.materialWidthMm);
+      const boundaryLength=doc.settings.materialType==='sheet'?doc.settings.materialLengthMm:result.usedLengthMm;
+      if(!boundaryLength)throw Error('Sheet length is required.');
+      v.maxBoundaryViolationMm=Math.max(v.maxBoundaryViolationMm,-b[0],-b[1],b[2]-boundaryLength,b[3]-doc.settings.materialWidthMm);
       return b;
     });
     if(v.maxBoundaryViolationMm>POLICY.linearMm) v.errors.push(`Material boundary exceeded by ${v.maxBoundaryViolationMm} mm.`);
     let operations=0;
     for(let i=0;i<world.length;i++) for(let j=0;j<i;j++) {
+      if(doc.settings.materialType==='sheet' && result.placements[i].sheetIndex!==result.placements[j].sheetIndex)continue;
       const a=boxes[i],b=boxes[j];
       const boxDistance=Math.hypot(Math.max(0,a[0]-b[2],b[0]-a[2]),Math.max(0,a[1]-b[3],b[1]-a[3]));
       if(boxDistance===0) {

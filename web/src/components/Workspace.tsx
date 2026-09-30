@@ -65,8 +65,9 @@ export default function Workspace({ document: doc, result, live, selected, selec
     const parts = new Map(doc.parts.map((part, index) => [part.id, {part, index}]));
     return placements.slice().reverse().map(placement => {
       const {part, index} = parts.get(placement.partId)!;
+      const sheetOffset=doc.settings.materialType==='sheet'?(placement.sheetIndex??0)*((doc.settings.materialLengthMm??0)+20):0;
       return {...placement, index, path:partPaths[index], outer:part.outer,
-        box:bounds(part.outer) as [number,number,number,number], position:[placement.xMm,placement.yMm] as Point};
+        box:bounds(part.outer) as [number,number,number,number], position:[placement.xMm,placement.yMm] as Point, sheetOffset};
     });
   }, [placements, doc.parts, partPaths]);
 
@@ -75,10 +76,15 @@ export default function Workspace({ document: doc, result, live, selected, selec
     for (const drawing of drawings) {
       const radians = drawing.angleDeg * Math.PI / 180, c = Math.cos(radians), s = Math.sin(radians);
       for (const [x, y] of drawing.outer) all.push(
-        [drawing.position[0] + x * c - y * s, -drawing.position[1] - (x * s + y * c)]
+        [drawing.position[0] + x * c - y * s, -drawing.position[1] - drawing.sheetOffset - (x * s + y * c)]
       );
     }
-    if (world) all.push([0, 0], [doc.settings.materialWidthMm, -result!.usedLengthMm]);
+    if (world) {
+      const materialLength=doc.settings.materialType==='sheet'&&doc.settings.materialLengthMm
+        ? (result!.sheetCount??1)*doc.settings.materialLengthMm+Math.max(0,(result!.sheetCount??1)-1)*20
+        : result!.usedLengthMm;
+      all.push([0,0],[doc.settings.materialWidthMm,-materialLength]);
+    }
     if (!all.length) return;
     const [x0, y0, x1, y1] = bounds(all), pad = Math.max(x1 - x0, y1 - y0) * .07 + 2;
     setCamera({ x: x0 - pad, y: y0 - pad, w: x1 - x0 + 2 * pad, h: y1 - y0 + 2 * pad });
@@ -90,13 +96,11 @@ export default function Workspace({ document: doc, result, live, selected, selec
   // Results are displayed as a vertical strip: material width on X, used length on Y.
   useEffect(() => {
     if (!optimizing || !world || !size.width || !size.height) return;
-    const pad = Math.max(doc.settings.materialWidthMm, result?.usedLengthMm ?? 0) * .07 + 2;
-    setCamera({
-      x: -pad,
-      y: -(result?.usedLengthMm ?? 0) - pad,
-      w: doc.settings.materialWidthMm + 2 * pad,
-      h: (result?.usedLengthMm ?? 0) + 2 * pad
-    });
+    const materialLength=doc.settings.materialType==='sheet'&&doc.settings.materialLengthMm
+      ? (result?.sheetCount??1)*doc.settings.materialLengthMm+Math.max(0,(result?.sheetCount??1)-1)*20
+      : result?.usedLengthMm??0;
+    const pad = Math.max(doc.settings.materialWidthMm, materialLength) * .07 + 2;
+    setCamera({x:-pad,y:-materialLength-pad,w:doc.settings.materialWidthMm+2*pad,h:materialLength+2*pad});
   }, [optimizing, world, size.width, size.height]);
 
   useEffect(() => {
@@ -136,7 +140,7 @@ export default function Workspace({ document: doc, result, live, selected, selec
       `light-dark(#64748b, color-mix(in srgb, ${colors[index % colors.length]} 60%, white))`;
     const strokeWidth = outlines ? (active ? 1.5 : 1) : (active ? 3 : 2);
     const opacity = selected.length && !active ? .5 : 1;
-    const transform = `translate(${position[0]} ${-position[1]}) rotate(${-drawing.angleDeg}) scale(1 -1)`;
+    const transform = `translate(${position[0]} ${-position[1]-drawing.sheetOffset}) rotate(${-drawing.angleDeg}) scale(1 -1)`;
     return <g key={key} data-preparation-copy={!world ? drawing.copyIndex : undefined} data-placement-key={key} opacity={opacity}
       transform={preview?.kind==='scale' && selected.includes(drawing.partId)
         ? screenTransform(active ? preview : {...preview,pivot:position}) : active ? screenTransform(preview) : undefined}>
@@ -245,8 +249,9 @@ export default function Workspace({ document: doc, result, live, selected, selec
       }}
       onPointerCancel={event => { touches.current.delete(event.pointerId); if (!touches.current.size) pinch.current = undefined; touchDraw.current = undefined; setDrag(undefined); setMarquee(undefined); }}
       onLostPointerCapture={event => { touches.current.delete(event.pointerId); if (!touches.current.size) pinch.current = undefined; touchDraw.current = undefined; setDrag(undefined); setMarquee(undefined); }}>
-      {world && <><rect x="0" y={-(doc.settings.materialType==='sheet'&&doc.settings.materialLengthMm?doc.settings.materialLengthMm:result!.usedLengthMm)} width={doc.settings.materialWidthMm} height={doc.settings.materialType==='sheet'&&doc.settings.materialLengthMm?doc.settings.materialLengthMm:result!.usedLengthMm} fill={outlines ? 'none' : 'var(--material-fill)'} stroke="var(--secondary)" vectorEffect="non-scaling-stroke" />
-        <text x="0" y={-result!.usedLengthMm - 2} fontSize={camera.w / 70} fill="var(--muted)">{displayLength(doc.settings.materialWidthMm, displayUnit)} {displayUnit} × {(result!.usedLengthMm / unitScale(displayUnit)).toFixed(2)} {displayUnit}</text></>}
+      {world && (doc.settings.materialType==='sheet'&&doc.settings.materialLengthMm
+        ? Array.from({length:result!.sheetCount??1},(_,sheet)=><g key={sheet} transform={`translate(0 ${-sheet*(doc.settings.materialLengthMm!+20)})`}><rect x="0" y={-doc.settings.materialLengthMm!} width={doc.settings.materialWidthMm} height={doc.settings.materialLengthMm!} fill={outlines ? 'none' : 'var(--material-fill)'} stroke="var(--secondary)" vectorEffect="non-scaling-stroke" /><text x="2" y={-2} fontSize={camera.w/70} fill="var(--muted)">Plaka {sheet+1}</text></g>)
+        : <><rect x="0" y={-result!.usedLengthMm} width={doc.settings.materialWidthMm} height={result!.usedLengthMm} fill={outlines ? 'none' : 'var(--material-fill)'} stroke="var(--secondary)" vectorEffect="non-scaling-stroke" /><text x="0" y={-result!.usedLengthMm - 2} fontSize={camera.w / 70} fill="var(--muted)">{displayLength(doc.settings.materialWidthMm, displayUnit)} {displayUnit} × {(result!.usedLengthMm / unitScale(displayUnit)).toFixed(2)} {displayUnit}</text></>)}
       {showGenişlik && <g className="material-width-band" data-material-width-band={doc.settings.materialWidthMm} pointerEvents="none" aria-hidden="true"><rect x={coordinates.left} y={-doc.settings.materialWidthMm} width={size.width * unit} height={doc.settings.materialWidthMm} /><path d={`M${coordinates.left},0h${size.width * unit}M${coordinates.left},${-doc.settings.materialWidthMm}h${size.width * unit}`} vectorEffect="non-scaling-stroke" /></g>}
       <g className="coordinate-grid" aria-hidden="true" pointerEvents="none" data-grid-step={coordinates.major}>{(['minor', 'major', 'origin'] as const).map(kind => <path key={kind} className={kind} fill="none" vectorEffect="non-scaling-stroke" d={[...coordinates.x.filter(t => (t.value === 0 ? 'origin' : t.major ? 'major' : 'minor') === kind).map(t => `M${t.mm},${coordinates.top}v${size.height * unit}`), ...coordinates.y.filter(t => (t.value === 0 ? 'origin' : t.major ? 'major' : 'minor') === kind).map(t => `M${coordinates.left},${-t.mm}h${size.width * unit}`)].join(' ')} />)}</g>
       {shapes}

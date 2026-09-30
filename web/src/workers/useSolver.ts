@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { SOLVER_REVISION, type Document, type Result } from '../model';
 import type { Candidate, GeometryReply, SolverMessage } from './protocol';
 import type {LiveGeometry} from '../geometry/live';
+import {packResultIntoSheets} from '../geometry/multiSheet';
 
 export type RunState='Ready'|'Initializing'|'Running'|'Complete'|'Stopped'|'Error';
 export type Timing={phase?:string;sequence:number;elapsedMs:number;lengthMm:number;validation?:string;validationMs?:number;errors?:string[]};
@@ -59,9 +60,14 @@ export function useSolver() {
         // Render the latest snapshot at most 10 times/second. Keep one in flight;
         // preview work cannot accumulate while the solver keeps searching.
         if(r.latest&&!r.previewActive&&!r.previewError&&r.latest.sequence>r.previewSequence) {
-          const candidate=r.latest,result=candidateResult(r.doc,candidate,r.seed);
-          r.previewActive={candidate,result};r.previewSequence=candidate.sequence;
-          r.preview.postMessage({type:'live-preview',sequence:candidate.sequence,runId:r.id,documentRevision:r.revision,document:r.doc,result});
+          const candidate=r.latest;
+          let previewResult:Result|undefined;
+          try{previewResult=packResultIntoSheets(r.doc,candidateResult(r.doc,candidate,r.seed));}
+          catch{r.previewSequence=candidate.sequence;}
+          if(previewResult){
+            r.previewActive={candidate,result:previewResult};r.previewSequence=candidate.sequence;
+            r.preview.postMessage({type:'live-preview',sequence:candidate.sequence,runId:r.id,documentRevision:r.revision,document:r.doc,result:previewResult});
+          }
         }
       }
     },100);
@@ -123,9 +129,17 @@ export function useSolver() {
           startup.firstCandidateMs??=performance.now()-requestedAt;
           r.latest=data;r.diagnostics.liveSnapshots!++;
           r.diagnostics.history.push({phase:r.diagnostics.phases?.at(-1)?.phase,sequence:data.sequence,elapsedMs:data.elapsedMs,lengthMm:data.solution.strip_width,validation:'passed'});
-          if(!r.best||data.solution.strip_width<r.best.usedLengthMm){
-            startup.firstValidMs??=performance.now()-requestedAt;
-            r.best={...candidateResult(doc,data,seed),validation:{status:'passed',source:'solver',overlapAreaMm2:null,maxBoundaryViolationMm:null,minClearanceMm:null,errors:[]}};
+          {
+            let packed:Result;
+            try{packed=packResultIntoSheets(doc,candidateResult(doc,data,seed));}
+            catch{break;}
+            const better=!r.best||(doc.settings.materialType==='sheet'
+              ? (packed.sheetCount??1)<(r.best.sheetCount??1)
+              : packed.usedLengthMm<r.best.usedLengthMm);
+            if(better){
+              startup.firstValidMs??=performance.now()-requestedAt;
+              r.best={...packed,validation:{status:'passed',source:'solver',overlapAreaMm2:null,maxBoundaryViolationMm:null,minClearanceMm:null,errors:[]}};
+            }
           }
           break;
         case 'finished': end('Complete');break;
