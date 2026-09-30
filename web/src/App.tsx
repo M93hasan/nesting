@@ -1,4 +1,5 @@
 import RotationControl from './components/RotationControl';
+import packageInfo from '../package.json';
 import {readRecovery,saveRecovery} from './storage/recovery';
 import {useDismissibleMenu} from './components/useDismissibleMenu';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -396,7 +397,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const utilization=result?totalArea/(doc.settings.materialWidthMm*result.usedLengthMm)*100:0;
   const improvement=result&&phaseImprovements(solver.diagnostics.current?.history??[],result.usedLengthMm);
   return <div className="app" onBlurCapture={()=>{fieldEdit.current=undefined;}} onKeyDown={e=>{if(e.key==='Enter'&&e.target instanceof HTMLInputElement&&e.target.hasAttribute('data-undo-field')){e.preventDefault();e.target.blur();}}} onMouseDownCapture={e=>{const target=e.target;focusClick.current=target instanceof HTMLInputElement&&['text','number'].includes(target.type)&&document.activeElement!==target?target:null;}} onMouseUpCapture={e=>{if(focusClick.current===e.target){e.preventDefault();focusClick.current.select();}focusClick.current=null;}} onFocusCapture={e=>{const input=e.target;if(input instanceof HTMLInputElement&&['text','number'].includes(input.type))input.select();}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(!document.querySelector('dialog[open]'))void openFiles(e.dataTransfer.files);}}>
-    <header className="header"><div className="brand-block"><a className="brand serula-brand" aria-label="Serula Nesting Studio" href={import.meta.env.BASE_URL}><img src={`${import.meta.env.BASE_URL}serula-logo.svg`} alt="" /><strong>Serula Nesting</strong><span>/studio · v0.0.5</span></a><p className="tagline">Akıllı DXF yerleştirme ve malzeme optimizasyonu</p></div>
+    <header className="header"><div className="brand-block"><a className="brand serula-brand" aria-label="Serula Nesting Studio" href={import.meta.env.BASE_URL}><img src={`${import.meta.env.BASE_URL}serula-logo.svg`} alt="" /><strong>Serula Nesting</strong><span>/studio · v{packageInfo.version}</span></a><p className="tagline">Akıllı DXF yerleştirme ve malzeme optimizasyonu</p></div>
       <div className="header-primary project-bar"><details className="project-menu" ref={projectMenu}><summary aria-label={`Project: ${doc.name}`}>{doc.name}<span aria-hidden="true"> ▾</span></summary><div>
         <button disabled={locked} onClick={()=>{projectMenu.current!.open=false;setProjectAd('Adsız proje');setNameDialog('new');}}>Yeni proje</button>
         <button disabled={locked} onClick={()=>{projectMenu.current!.open=false;projectInput.current?.click();}}>Proje aç</button>
