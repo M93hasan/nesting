@@ -18,7 +18,7 @@ function fixture() {
 }
 describe('independent layout validation',()=>{
   it('allows touching at zero clearance and serializes the checked coordinates',()=>{
-    const {doc,result}=fixture();result.validation=validate(doc,result);
+    const {doc,result}=fixture();doc.settings.clearanceMm=0;result.validation=validate(doc,result);
     expect(result.validation.status).toBe('passed');
     const exported=exportSVG(doc,result);expect(exported.svg).toContain('width="2.2mm"');
     expect(exported.svg).toContain('nested with sparrow/studio · https://sparrowstudio.app');
