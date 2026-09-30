@@ -24,7 +24,8 @@ export async function authorizeExport(projectName:string,sourceFileName:string){
 
 export function UserGate({children}:{children:ReactNode}){
   const [user,setUser]=useState<SessionUser|null|undefined>(undefined);
-  const [open,setOpen]=useState(false),[mode,setMode]=useState<'login'|'register'>('login');
+  const resetToken=new URLSearchParams(location.search).get('reset')||'';
+  const [open,setOpen]=useState(!!resetToken),[mode,setMode]=useState<'login'|'register'|'reset'>(resetToken?'reset':'login');
   const [email,setEmail]=useState(''),[password,setPassword]=useState(''),[name,setName]=useState('');
   const [error,setError]=useState(''),[busy,setBusy]=useState(false);
   const googleButton=useRef<HTMLDivElement>(null);
@@ -51,7 +52,7 @@ export function UserGate({children}:{children:ReactNode}){
 
   async function submit(e:React.FormEvent){
     e.preventDefault();setBusy(true);setError('');
-    try{const data=await request(mode==='register'?'/api/auth/register':'/api/auth/login',{method:'POST',body:JSON.stringify({email,password,name})});setUser(data.user);setOpen(false)}
+    try{if(mode==='reset'){await request('/api/auth/reset-password',{method:'POST',body:JSON.stringify({token:resetToken,password})});history.replaceState({},'',location.pathname);setMode('login');setPassword('');setError('Parolanız yenilendi. Şimdi giriş yapabilirsiniz.');return;}const data=await request(mode==='register'?'/api/auth/register':'/api/auth/login',{method:'POST',body:JSON.stringify({email,password,name})});setUser(data.user);setOpen(false)}
     catch(e){setError(e instanceof Error?e.message:String(e))}finally{setBusy(false)}
   }
   return <>{children}
@@ -59,8 +60,8 @@ export function UserGate({children}:{children:ReactNode}){
     :<div className="auth-account"><span>Misafir</span><button onClick={()=>setOpen(true)}>Giriş yap</button></div>}
     {open&&!user&&<div className="auth-screen auth-overlay" onMouseDown={e=>{if(e.currentTarget===e.target)setOpen(false)}}><div className="auth-card">
       <img src="/serula-logo.svg" alt=""/><h1>Serula Nesting</h1><p>DXF indirmek için giriş yapın. Dosya içe aktarma ve yerleştirme giriş yapmadan kullanılabilir.</p>
-      <div className="auth-tabs"><button className={mode==='login'?'active':''} onClick={()=>setMode('login')}>Giriş yap</button><button className={mode==='register'?'active':''} onClick={()=>setMode('register')}>Kayıt ol</button></div>
-      <form onSubmit={submit}>{mode==='register'&&<label>Adınız<input required value={name} onChange={e=>setName(e.target.value)}/></label>}<label>E-posta<input type="email" required value={email} onChange={e=>setEmail(e.target.value)}/></label><label>Parola<input type="password" minLength={8} required value={password} onChange={e=>setPassword(e.target.value)}/></label><button disabled={busy}>{busy?'Bekleyin…':mode==='register'?'Hesap oluştur':'Giriş yap'}</button></form>
+      {mode!=='reset'&&<div className="auth-tabs"><button className={mode==='login'?'active':''} onClick={()=>setMode('login')}>Giriş yap</button><button className={mode==='register'?'active':''} onClick={()=>setMode('register')}>Kayıt ol</button></div>}{mode==='reset'&&<h2>Yeni parola belirle</h2>}
+      <form onSubmit={submit}>{mode==='register'&&<label>Adınız<input required value={name} onChange={e=>setName(e.target.value)}/></label>}{mode!=='reset'&&<label>E-posta<input type="email" required value={email} onChange={e=>setEmail(e.target.value)}/></label>}<label>{mode==='reset'?'Yeni parola':'Parola'}<input type="password" minLength={8} required value={password} onChange={e=>setPassword(e.target.value)}/></label><button disabled={busy}>{busy?'Bekleyin…':mode==='reset'?'Parolayı değiştir':mode==='register'?'Hesap oluştur':'Giriş yap'}</button></form>
       {error&&<p className="auth-error">{error}</p>}<div className="auth-or"><span/>veya<span/></div><div ref={googleButton} className="auth-google"/><small>Yeni normal kullanıcılar 5 indirme/nesting hakkıyla başlar.</small>
       <button onClick={()=>setOpen(false)}>Şimdilik kapat</button>
     </div></div>}
