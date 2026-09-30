@@ -11,7 +11,8 @@ export function exportSVG(doc: Document,result?: Result): ExportBundle {
   if(result&&result.validation.status!=='passed') throw Error('Only a checked result can be exported.');
   // JS's shortest round-trip decimal preserves each f64 exactly. Both formats
   // consume these same numbers, including every hole, without display rounding.
-  const world=JSON.parse(JSON.stringify(worldParts(doc,result??{placements:documentPlacements(doc)}))) as WorldPart[];
+  const placements=result?.placements??documentPlacements(doc);
+  const world=JSON.parse(JSON.stringify(worldParts(doc,{placements}))) as WorldPart[];
   if(world.some(part=>[part.outer,...part.holes].some(ring=>ring.some(point=>point.some(value=>!Number.isFinite(value))))))throw Error('Canvas contains invalid coordinates.');
   const height=doc.settings.materialWidthMm;
   const extent=world.reduce((box,part)=>part.outer.reduce((b,[x,y])=>[Math.min(b[0],x),Math.min(b[1],y),Math.max(b[2],x),Math.max(b[3],y)],box),[0,0,1,height]);
@@ -53,5 +54,5 @@ ${paths}
     return {...world[i],outer:rings[0],holes:rings.slice(1)};
   });
   if(JSON.stringify(reparsed)!==JSON.stringify(world))throw Error('Serialized SVG changed canvas coordinates.');
-  return {world,dxf:exportDXF(doc,world),svg};
+  return {world,dxf:exportDXF(doc,world,placements),svg};
 }

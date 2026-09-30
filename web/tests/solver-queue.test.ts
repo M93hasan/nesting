@@ -69,18 +69,16 @@ test('old runs, revisions and messages after Stop cannot overwrite the current r
   expect(render().state).toBe('Stopped');expect(render().result).toMatchObject({documentRevision:8,usedLengthMm:20});
 });
 
-test('timed runs let Sparrow finish its current iteration beyond the requested budget',()=>{
+test('timed runs stop at the wall-clock budget and keep the best valid result',()=>{
   render().start({...doc,settings:{...doc.settings,timeLimitSeconds:10}},7);
   const [solver]=WorkerStub.all;
   vi.advanceTimersByTime(1);
   solver.deliver({type:'phase',runId:1,documentRevision:7,phase:'Exploration',workers:1,initializationMs:0});
   solver.deliver(candidate(1,7,1,20));
-  vi.advanceTimersByTime(9500);
-  solver.deliver({type:'phase',runId:1,documentRevision:7,phase:'Compression',workers:1,initializationMs:0});
-  vi.advanceTimersByTime(3500);
-  expect(render().state).toBe('Running');
+  vi.advanceTimersByTime(9999);
+  expect(render().state).toBe('Complete');
+  expect(render().result?.usedLengthMm).toBe(20);
   solver.deliver({...candidate(1,7,2,18),report:'Final'});
   solver.deliver({type:'finished',runId:1,documentRevision:7});
-  expect(render().state).toBe('Complete');
-  expect(render().result?.usedLengthMm).toBe(18);
+  expect(render().result?.usedLengthMm).toBe(20);
 });

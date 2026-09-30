@@ -1,6 +1,8 @@
 import {it,expect} from 'vitest';
 import {importDXF} from '../src/import/dxf';
 import {area,bounds} from '../src/geometry/normalize';
+import {worldParts} from '../src/geometry/validate';
+import {exportDXF} from '../src/export/dxf';
 
 const options={scale:1,tolerance:.01,enclosed:'holes' as const};
 export const dxf=(entities:string,units=4)=>`0\nSECTION\n2\nHEADER\n9\n$INSUNITS\n70\n${units}\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n${entities}0\nENDSEC\n0\nEOF\n`;
@@ -46,6 +48,15 @@ it('lists unsupported entities and blocks nonplanar geometry, duplicates, and bi
   expect(()=>importDXF('AutoCAD Binary DXF\0','binary.dxf',options)).toThrow('Binary DXF');
 });
 
+it('keeps intersecting closed DXF contours as independent parts instead of throwing ambiguous topology',()=>{
+  const a=poly([[0,0],[20,0],[20,20],[0,20]]);
+  const b=poly([[10,-5],[30,-5],[30,10],[10,10]],'cut2');
+  const review=importDXF(dxf(a+b),'intersecting-parts.dxf',options);
+  expect(review.document.parts.reduce((n,p)=>n+p.quantity,0)).toBe(2);
+  expect(review.issues).toEqual([]);
+  expect(review.warnings.join(' ')).toContain('ayrı parçalar olarak korundu');
+});
+
 const withBlocks=(entities:string,blocks:string)=>dxf(entities).replace('0\nSECTION\n2\nENTITIES',`0\nSECTION\n2\nBLOCKS\n${blocks}0\nENDSEC\n0\nSECTION\n2\nENTITIES`);
 const block=(name:string,entities:string,x=0,y=0)=>`0\nBLOCK\n2\n${name}\n10\n${x}\n20\n${y}\n${entities}0\nENDBLK\n`;
 const insert=(name:string,extra='')=>`0\nINSERT\n2\n${name}\n10\n0\n20\n0\n${extra}`;
@@ -76,6 +87,26 @@ it('imports complete ellipses and closed rational quadratic splines',()=>{
   const curve=importDXF(dxf(spline+line(0,10,0,0)+line(0,0,10,0)),'spline.dxf',options);
   expect(curve.issues).toEqual([]);expect(Math.abs(area(curve.document.parts[0].outer))).toBeCloseTo(25*Math.PI,0);
   for(const [x,y] of curve.document.parts[0].outer)if(x>0&&y>0)expect(Math.hypot(x,y)).toBeCloseTo(10,6);
+});
+
+it('preserves a compact closed source SPLINE through nested DXF export',()=>{
+  const points=[[0,0],[0,10],[20,10],[20,0],[20,-10],[0,-10],[0,0]];
+  const knots=[0,0,0,0,.5,.5,.5,1,1,1,1];
+  const spline='0\nSPLINE\n70\n1\n71\n3\n72\n11\n73\n7\n74\n0\n'+knots.map(k=>`40\n${k}\n`).join('')+
+    points.map(([x,y])=>`10\n${x}\n20\n${y}\n30\n0\n`).join('');
+  const imported=importDXF(dxf(spline),'compact.dxf',options);
+  expect(imported.issues).toEqual([]);
+  const part=imported.document.parts[0];
+  expect(part.source.dxfSpline?.controlPoints).toHaveLength(7);
+  const placement={partId:part.id,copyIndex:0,xMm:30,yMm:40,angleDeg:0};
+  const world=worldParts(imported.document,{placements:[placement]});
+  const exported=exportDXF(imported.document,world,[placement]);
+  expect(exported.match(/\nSPLINE\n/g)).toHaveLength(1);
+  expect(exported).toContain('73\n7\n');
+  expect(exported).not.toContain('SPARROW_INFO');
+  const roundTrip=importDXF(exported,'compact-serula.dxf',options);
+  expect(roundTrip.issues).toEqual([]);
+  expect(roundTrip.document.parts[0].source.dxfSpline?.controlPoints).toHaveLength(7);
 });
 
 it('bounds nested INSERT expansion before allocating large arrays',()=>{

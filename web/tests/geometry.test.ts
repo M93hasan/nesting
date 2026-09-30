@@ -23,10 +23,9 @@ describe('independent layout validation',()=>{
     const exported=exportSVG(doc,result);expect(exported.svg).toContain('width="2.2mm"');
     expect(exported.svg).toContain('nested with sparrow/studio · https://sparrowstudio.app');
     expect(exported.svg).toContain('<a href="https://sparrowstudio.app"');
-    expect(exported.dxf).toContain('nested with sparrow/studio');
-    expect(exported.dxf).toContain('https://sparrowstudio.app');
-    expect(exported.dxf).toContain('SPARROW_INFO');
-    expect(exported.dxf).toContain('290\n0\n');
+    expect(exported.dxf).not.toContain('nested with sparrow/studio');
+    expect(exported.dxf).not.toContain('https://sparrowstudio.app');
+    expect(exported.dxf).not.toContain('SPARROW_INFO');
     expect(exported.world[1].outer).toEqual([[1,0],[2,0],[2,1],[1,1]]);
   });
   it('frames a styled SVG without changing reimported dimensions or adding decorative parts',()=>{
@@ -119,5 +118,5 @@ it('writes unique handles and model-space ownership for strict R2000 importers',
   expect(text).toContain('2\n*Paper_Space\n');
   expect(text).toContain('2\nBLOCKS\n');
   const entities=text.split('2\nENTITIES\n')[1].split('0\nENDSEC')[0];
-  expect(entities.match(/330\n21\n/g)).toHaveLength(3);
+  expect(entities.match(/330\n21\n/g)).toHaveLength(2);
 });
