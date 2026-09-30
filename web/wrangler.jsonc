@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "nesting",
-  "main": "./worker/index.js",
+  "main": "./worker/serula-worker.js",
   "compatibility_date": "2026-09-29",
   "routes": [
     {
