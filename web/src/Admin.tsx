@@ -25,7 +25,7 @@ type AdminUser={id:number;email:string;name:string;role:string;credits:number;un
 type AdminSettings={materialWidthMm:number;clearanceMm:number;marginMm:number;rotation:'fixed'|'half'|'free';materialType:'roll'|'sheet';solverPreset:'standard'|'fast'};
 type AuditLog={id:number;actorType:string;actorEmail:string;targetEmail:string;action:string;detail:string;success:boolean;createdAt:string};
 type Health={adminApi:boolean;auth:boolean;userStore:boolean};
-type SupportSession={id:number;status:'pending'|'approved'|'declined'|'ended'|'expired';expiresAt?:string;createdAt?:string;approvedAt?:string;endedAt?:string};
+type SupportSession={id:number;status:'pending'|'approved'|'declined'|'ended'|'expired';mode?:'settings'|'screen';expiresAt?:string;createdAt?:string;approvedAt?:string;endedAt?:string;offer?:RTCSessionDescriptionInit|null;answer?:RTCSessionDescriptionInit|null};
 const FALLBACK_SETTINGS:AdminSettings={materialWidthMm:1000,clearanceMm:.3,marginMm:5,rotation:'half',materialType:'roll',solverPreset:'standard'};
 
 type GoogleCredentialResponse={credential?:string};
@@ -66,6 +66,9 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
   const [health,setHealth]=useState<Health>();
   const [adminBusy,setAdminBusy]=useState('');
   const [support,setSupport]=useState<SupportSession|null>(null);
+  const screenVideo=useRef<HTMLVideoElement>(null);
+  const screenPeer=useRef<RTCPeerConnection|null>(null);
+  const screenOfferKey=useRef('');
   const title=useMemo(()=>nav.find(item=>item.id===section)?.label??'Yönetim',[section]);
   const filteredUsers=useMemo(()=>users.filter(user=>(!query.trim()||(user.email+' '+user.name).toLowerCase().includes(query.trim().toLowerCase()))&&(role==='Tümü'||(role==='Admin'?user.role==='admin':user.role!=='admin'))),[users,query,role]);
 
@@ -108,9 +111,29 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
   useEffect(()=>{if(section==='logs')void loadLogs();if(section==='system')void loadHealth()},[section]);
   useEffect(()=>{
     if(section!=='user-settings'||!selectedUserId)return;
-    const timer=setInterval(()=>void loadSupport(selectedUserId),4000);
+    const timer=setInterval(()=>void loadSupport(selectedUserId),2500);
     return()=>clearInterval(timer);
   },[section,selectedUserId]);
+  useEffect(()=>{
+    if(!selectedUserId||support?.status!=='approved'||support.mode!=='screen'||!support.offer)return;
+    const key=JSON.stringify(support.offer);
+    if(screenOfferKey.current===key)return;
+    screenOfferKey.current=key;
+    void (async()=>{
+      try{
+        screenPeer.current?.close();
+        const pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
+        screenPeer.current=pc;
+        pc.ontrack=event=>{if(screenVideo.current)screenVideo.current.srcObject=event.streams[0]??new MediaStream([event.track])};
+        await pc.setRemoteDescription(support.offer!);
+        const answer=await pc.createAnswer();await pc.setLocalDescription(answer);
+        if(pc.iceGatheringState!=='complete')await new Promise<void>(resolve=>{const done=()=>{if(pc.iceGatheringState==='complete'){pc.removeEventListener('icegatheringstatechange',done);resolve()}};pc.addEventListener('icegatheringstatechange',done);setTimeout(()=>{pc.removeEventListener('icegatheringstatechange',done);resolve()},5000)});
+        await getJson(`/api/admin/users/${selectedUserId}/support/signal`,{method:'POST',body:JSON.stringify({id:support.id,answer:pc.localDescription})});
+        setUserNotice('Ekran bağlantısı kuruldu.');
+      }catch(e){setUsersError(e instanceof Error?e.message:String(e))}
+    })();
+    return()=>{};
+  },[support,selectedUserId]);
   async function getJson(path:string,options?:RequestInit){
     const response=await fetch(path,{credentials:'same-origin',...options,headers:{'content-type':'application/json',...(options?.headers||{})}});
     const data=await response.json().catch(()=>({}));
@@ -142,15 +165,15 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
     try{const data=await getJson(`/api/admin/users/${id}/support`);setSupport(data.support??null)}
     catch{setSupport(null)}
   }
-  async function requestSupport(){
-    if(!selectedUserId)return;setAdminBusy('support');setUsersError('');setUserNotice('');
-    try{const data=await getJson(`/api/admin/users/${selectedUserId}/support`,{method:'POST',body:'{}'});setSupport(data.support);setUserNotice('Uzaktan destek isteği kullanıcıya gönderildi. Kullanıcının onayı bekleniyor.')}
+  async function requestSupport(mode:'settings'|'screen'='settings',userId=selectedUserId){
+    if(!userId)return;setSelectedUserId(userId);setAdminBusy('support');setUsersError('');setUserNotice('');
+    try{const data=await getJson(`/api/admin/users/${userId}/support`,{method:'POST',body:JSON.stringify({mode})});setSupport(data.support);setUserNotice(mode==='screen'?'Ekran paylaşımı isteği kullanıcıya gönderildi. Onay bekleniyor.':'Uzaktan destek isteği kullanıcıya gönderildi. Kullanıcının onayı bekleniyor.')}
     catch(e){setUsersError(e instanceof Error?e.message:String(e))}
     finally{setAdminBusy('')}
   }
   async function endSupport(){
     if(!selectedUserId)return;setAdminBusy('support');setUsersError('');
-    try{await getJson(`/api/admin/users/${selectedUserId}/support`,{method:'DELETE',body:'{}'});setSupport(null);setUserNotice('Uzaktan destek oturumu kapatıldı.')}
+    try{await getJson(`/api/admin/users/${selectedUserId}/support`,{method:'DELETE',body:'{}'});screenPeer.current?.close();screenPeer.current=null;screenOfferKey.current='';if(screenVideo.current)screenVideo.current.srcObject=null;setSupport(null);setUserNotice('Uzaktan destek oturumu kapatıldı.')}
     catch(e){setUsersError(e instanceof Error?e.message:String(e))}
     finally{setAdminBusy('')}
   }
@@ -239,7 +262,7 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
               <span><strong>{user.role==='admin'?'Admin':'Kullanıcı'}</strong><small>{user.authProvider==='google'?'Google / Gmail':'E-posta'}</small></span>
               <span className="admin-user-quota"><label className="admin-toggle"><input type="checkbox" checked={user.unlimited} disabled={savingUserId===user.id} onChange={e=>void setUnlimited(user,e.target.checked)}/><span>Kotasız / Sınırsız</span></label>{!user.unlimited&&<label>Hak<input aria-label={user.email+' nesting hakkı'} type="number" min="0" max="100000" defaultValue={user.credits} key={user.id+'-'+user.credits} onBlur={e=>{const value=Math.max(0,Math.trunc(e.currentTarget.valueAsNumber||0));if(value!==user.credits)void saveCredits(user,value)}}/></label>}</span>
               <span><strong>{user.licenseExpiresAt?new Date(user.licenseExpiresAt).toLocaleDateString('tr-TR'):'Lisans yok'}</strong><small>{user.licenseStartedAt?'Başlangıç: '+new Date(user.licenseStartedAt).toLocaleDateString('tr-TR'):'375 gün · etkinleştirme bekliyor'}</small></span>
-              <span className="admin-user-actions"><button onClick={()=>{setSection('user-settings');void loadUserSettings(user.id)}}>Ayarlar</button><button onClick={()=>void sendPasswordReset(user)} disabled={resettingUserId===user.id}>{resettingUserId===user.id?'Gönderiliyor…':'Şifre sıfırla'}</button></span>
+              <span className="admin-user-actions"><button onClick={()=>{setSection('user-settings');void loadUserSettings(user.id)}}>Ayarlar</button><button className="screen-support-button" onClick={()=>{setSection('user-settings');void loadUserSettings(user.id).then(()=>requestSupport('screen',user.id))}}>Ekrana bağlan</button><button onClick={()=>void sendPasswordReset(user)} disabled={resettingUserId===user.id}>{resettingUserId===user.id?'Gönderiliyor…':'Şifre sıfırla'}</button></span>
             </div>):<Empty title="Kullanıcı bulunamadı">Filtreye uyan kullanıcı yok.</Empty>}
           </div>
         </section>}
@@ -253,7 +276,8 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
         {section==='user-settings'&&<section className="admin-card">
           <div className="admin-card-head"><div><h2>Kullanıcıya Özel Varsayılanlar</h2><p>Seçilen kullanıcı için sistem varsayılanlarının üzerine uygulanır.</p></div><select aria-label="Kullanıcı seç" value={selectedUserId??''} onChange={e=>{const id=Number(e.target.value);if(id)void loadUserSettings(id);else setSelectedUserId(undefined)}}><option value="">Kullanıcı seç…</option>{users.map(user=><option key={user.id} value={user.id}>{user.name||user.email} · {user.email}</option>)}</select></div>
           {usersError&&<p className="field-error" role="alert">{usersError}</p>}{userNotice&&<p className="admin-notice" role="status">{userNotice}</p>}{selectedUserId?<><div className="admin-selected-user"><strong>{users.find(u=>u.id===selectedUserId)?.name||users.find(u=>u.id===selectedUserId)?.email}</strong><span>{customSettings?'Özel varsayılanlar aktif':'Sistem varsayılanları kullanılıyor'}</span></div>
-          <div className="admin-support-box"><div><strong>Uzaktan destek</strong><small>{support?.status==='approved'?'Aktif · kullanıcı onayladı':support?.status==='pending'?'Kullanıcı onayı bekleniyor':'Kapalı'}</small><p>Bu özellik yalnızca Serula içindeki ayarları canlı uygular. Kullanıcının onayı olmadan aktif olmaz.</p></div><div>{support?.status==='approved'||support?.status==='pending'?<button onClick={()=>void endSupport()} disabled={adminBusy==='support'}>Desteği bitir</button>:<button className="primary" onClick={()=>void requestSupport()} disabled={adminBusy==='support'}>{adminBusy==='support'?'Gönderiliyor…':'Uzaktan destek iste'}</button>}</div></div>
+          <div className="admin-support-box"><div><strong>{support?.mode==='screen'?'Ekran bağlantısı':'Uzaktan destek'}</strong><small>{support?.status==='approved'?'Aktif · kullanıcı onayladı':support?.status==='pending'?'Kullanıcı onayı bekleniyor':'Kapalı'}</small><p>{support?.mode==='screen'?'Kullanıcı onayladığında seçtiği ekranı canlı görebilirsiniz. Kullanıcı istediği an paylaşımı durdurabilir.':'Bu özellik yalnızca Serula içindeki ayarları canlı uygular. Kullanıcının onayı olmadan aktif olmaz.'}</p></div><div>{support?.status==='approved'||support?.status==='pending'?<button onClick={()=>void endSupport()} disabled={adminBusy==='support'}>Desteği bitir</button>:<><button onClick={()=>void requestSupport('screen')} disabled={adminBusy==='support'}>Ekrana bağlan</button><button className="primary" onClick={()=>void requestSupport('settings')} disabled={adminBusy==='support'}>{adminBusy==='support'?'Gönderiliyor…':'Ayar desteği iste'}</button></>}</div></div>
+          {support?.mode==='screen'&&support.status==='approved'&&<div className="admin-screen-view"><video ref={screenVideo} autoPlay playsInline muted/><span>Kullanıcının paylaştığı ekran</span></div>}
           <div className="admin-settings-grid">
             <label>Malzeme genişliği (mm)<input type="number" min="1" value={userSettings.materialWidthMm} onChange={e=>setUserSettings({...userSettings,materialWidthMm:e.target.valueAsNumber})}/></label>
             <label>Parça aralığı (mm)<input type="number" min="0" step="0.1" value={userSettings.clearanceMm} onChange={e=>setUserSettings({...userSettings,clearanceMm:e.target.valueAsNumber})}/></label>
