@@ -1,55 +1,121 @@
 # Serula Nesting
 
-**Web tabanlı DXF otomatik yerleştirme ve malzeme optimizasyon uygulaması.**
+Serula Nesting, DXF parçalarını **rulo veya plaka malzeme üzerine otomatik olarak yerleştirmek** ve malzeme kullanımını iyileştirmek için geliştirilen web tabanlı bir 2D nesting uygulamasıdır.
 
-Serula Nesting; özellikle **ayakkabı üretiminde kullanılan suni deri rulo ve plaka malzemeler** üzerinde DXF parçalarını mümkün olduğunca verimli yerleştirmek için geliştirilmektedir. Amaç, kesim kurallarını korurken malzeme tüketimini ve fireyi azaltmaktır.
+Proje özellikle **ayakkabı üretimi, suni deri, tekstil, lazer kesim ve CNC** gibi alanlardaki düzensiz parça yerleşimleri için geliştirilmektedir.
 
-🌐 **Uygulama:** https://serula.site/  
-📦 **Güncel sürüm:** **0.0.13**
+**Güncel sürüm:** 0.0.13  
+**Uygulama:** https://serula.site/
 
-## Özellikler
+## Temel Özellikler
 
 - DXF dosyalarını içe aktarma
-- Gerçek parça geometrisine göre 2D nesting
-- Rulo ve plaka malzeme seçenekleri
-- Çoklu plaka yerleşimi
-- Sağ alt / sağ üst başlangıç yönü seçimi
-- Malzeme genişliği ve plaka ölçüsü ayarları
-- Parça adetleri ve dönüş açıları
+- DXF parçalarının gerçek ölçülerini koruma
+- Rulo ve sabit ölçülü plaka desteği
+- Tek ve çoklu plaka yerleşimi
+- Otomatik nesting
+- Manuel parça düzenleme
+- Parça adetlerini değiştirme
 - Parçalar arası boşluk ayarı
-- Otomatik yerleştirme ve manuel düzenleme
-- Yerleşim sonucunu görsel olarak kontrol etme
-- **DXF çıktı alma**
-- WebAssembly tabanlı yüksek performanslı hesaplama
-- Ayrı WASM build akışı ve yeniden kullanılabilir build çıktıları
-- `/admin` yönetim arayüzü
-- Web Worker desteği sayesinde yerleştirme sırasında arayüzün kullanılabilir kalması
+- 0°, 0°/180° ve serbest dönüş seçenekleri
+- Sağ alt ve sağ üst başlangıç yönü seçimi
+- Yerleşim sonucunda malzeme verimliliği ve fire bilgisi
+- DXF çıktı alma
+- Web Worker üzerinde arka plan hesaplama
+- Rust + WebAssembly tabanlı yerleştirme motoru
+- Yönetim alanı için `/admin` arayüzü
 
-## Kullanım Amacı
+## Yerleştirme ve Geometri
 
-Projenin ana kullanım alanı ayakkabı üretimidir. Özellikle suni deri ve benzeri malzemelerde farklı şekil ve ölçülerdeki parçaların rulo veya plaka üzerine daha verimli yerleştirilmesi hedeflenmektedir.
+Serula Nesting'in temel amacı yalnızca parçaları yan yana dizmek değil, gerçek geometrileri dikkate alarak kullanılabilir malzeme alanını daha verimli değerlendirmektir.
 
-Serula Nesting geliştirilirken şu konular önceliklidir:
+DXF içe aktarımında desteklenen başlıca geometriler:
 
-- Daha düşük fire
-- Gerçek DXF geometrisinin korunması
-- Küçük parçaların uygun boşluklarda değerlendirilmesi
-- Kesim yönü ve izin verilen dönüşlerin korunması
-- Rulo ve plaka çalışma biçimlerinin desteklenmesi
-- Üretimde kullanılabilecek temiz DXF çıktısı
+- LINE
+- ARC
+- CIRCLE
+- ELLIPSE
+- LWPOLYLINE
+- POLYLINE
+- SPLINE
+- INSERT
+
+İçe aktarılan parçaların ölçüleri otomatik olarak değiştirilmez. Geometri milimetre tabanlı işlenir ve açık veya geçersiz konturlar mümkün olduğunca kullanıcıya bildirilir.
+
+## Malzeme Türleri
+
+### Rulo
+
+Kullanıcı malzeme genişliğini belirler. Yerleştirme motoru parçaları bu genişlik içerisinde mümkün olduğunca az uzunluk kullanacak şekilde yerleştirmeye çalışır.
+
+### Plaka
+
+Kullanıcı plakanın genişlik ve uzunluğunu belirler. Parçalar tek plakaya sığmadığında sistem birden fazla plaka kullanabilir.
+
+## Dönüş ve Başlangıç Yönü
+
+Parçalar için izin verilen dönüş seçenekleri:
+
+- **0°** — parça yönü korunur
+- **0° / 180°** — parça ters çevrilebilir
+- **Serbest** — uygun açılar değerlendirilebilir
+
+Yerleşim başlangıç yönü olarak **Sağ Alt** veya **Sağ Üst** seçilebilir.
 
 ## Teknoloji
 
-Arayüz **React + TypeScript + Vite** ile geliştirilmiştir. Yerleştirme motoru Rust tabanlıdır ve tarayıcıda **WebAssembly (WASM)** üzerinden çalışır. Hesaplama işlemleri Web Worker üzerinde yürütülür.
+Web uygulaması:
 
-Ana web uygulaması `web/` klasöründedir.
+- React
+- TypeScript
+- Vite
 
-## Geliştirme
+Yerleştirme motoru:
+
+- Rust
+- WebAssembly (WASM)
+- Web Worker
+- Sparrow tabanlı nesting altyapısı
+
+WASM motoru farklı tarayıcı yetenekleri için birden fazla yapılandırmada derlenir. Ayrı WASM build akışı sayesinde hazır derleme çıktılarının yeniden kullanılabilmesi hedeflenmektedir.
+
+## Proje Yapısı
+
+Ana uygulama:
+
+```text
+web/
+```
+
+Önemli bölümler:
+
+```text
+web/src/          React / TypeScript uygulaması
+web/src/geometry/ Geometri ve yerleşim yardımcıları
+web/src/import/   DXF / SVG içe aktarma
+web/src/workers/  Yerleştirme worker altyapısı
+web/wasm/         Rust / WebAssembly motoru
+web/scripts/      Build ve yardımcı scriptler
+```
+
+## Yerel Geliştirme
 
 ```bash
 cd web
 npm ci
 npm run dev
+```
+
+TypeScript kontrolü:
+
+```bash
+npm run typecheck
+```
+
+Testler:
+
+```bash
+npm test
 ```
 
 Üretim derlemesi:
@@ -58,46 +124,65 @@ npm run dev
 npm run build
 ```
 
-Test:
+## Cloudflare Yayını
 
-```bash
-npm test
-```
-
-## Yayınlama
-
-Proje GitHub üzerinden yönetilir ve üretim sitesi **Cloudflare Workers** altyapısında yayınlanmak üzere yapılandırılmıştır.
-
-Cloudflare build ayarları:
+Üretim ortamı **Cloudflare Workers** üzerinde çalışacak şekilde yapılandırılmıştır.
 
 ```text
 Production branch: main
-Build command: bash web/scripts/build-cloudflare.sh
-Deploy command: cd web && npx --yes wrangler@4 deploy
-Version command: cd web && npx --yes wrangler@4 versions upload
-Root directory: (boş)
+Build command:      bash web/scripts/build-cloudflare.sh
+Deploy command:     cd web && npx --yes wrangler@4 deploy
+Version command:    cd web && npx --yes wrangler@4 versions upload
+Root directory:     boş
 ```
 
-Ana domain:
+Cloudflare yapılandırması:
 
-**https://serula.site/**
+```text
+web/wrangler.jsonc
+```
+
+## Yönetim
+
+Yönetim arayüzü:
+
+```text
+/admin
+```
+
+Yönetim alanı kullanıcılar, roller, kullanıcı ayarları, sistem varsayılanları ve işlem geçmişi gibi yönetim özelliklerinin geliştirileceği ayrı bölümdür.
+
+Güvenli kullanıcı yetkilendirmesi ve kalıcı kullanıcı verileri için sunucu tarafı kimlik doğrulama ve veritabanı altyapısı gereklidir.
+
+## Projenin Öncelikleri
+
+- DXF ölçülerini değiştirmemek
+- Yerleştirme sırasında çakışmayı önlemek
+- Malzeme firesini azaltmak
+- Küçük parçaları kullanılabilir boşluklarda değerlendirmek
+- Kesim ve esneme yönlerini korumak
+- Rulo ve plaka çalışma biçimlerini desteklemek
+- Güvenilir DXF çıktısı üretmek
+- Büyük işlemlerde arayüzün donmasını önlemek
 
 ## Proje Sahibi
 
 **Muhammet Hasanoğlu**
 
-İletişim:
-
-- E-posta: m93hasan@gmail.com
-- Telefon: +90 539 348 06 22
+E-posta: m93hasan@gmail.com  
+Telefon: +90 539 348 06 22
 
 ## Açık Kaynak Bileşenler
 
-Serula Nesting çeşitli açık kaynak kütüphane ve algoritmalardan yararlanır. Kullanılan üçüncü taraf bileşenlerin lisans ve atıfları kendi koşullarına tabidir. Ayrıntılar için `web/public/THIRD_PARTY_NOTICES.txt` dosyasına bakılabilir.
+Projede kullanılan üçüncü taraf kütüphane ve bileşenlerin lisans bilgileri:
+
+```text
+web/public/THIRD_PARTY_NOTICES.txt
+```
 
 ## Lisans
 
-Bu repository'deki lisans koşulları için [LICENSE](LICENSE) dosyasına bakın.
+Repository lisans koşulları için [LICENSE](LICENSE) dosyasına bakabilirsiniz.
 
 ---
 
