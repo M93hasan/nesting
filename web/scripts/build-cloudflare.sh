@@ -7,7 +7,8 @@ toolchain=nightly-2026-08-30
 
 npm ci --prefer-offline --no-audit --no-fund
 
-# Cloudflare cache'inde hazır WASM paketleri varsa pahalı Rust derlemesini atla.
+# Rust/WASM kaynaklari degismediyse, repodaki hazir paketleri kullan.
+# Dört varyantin yeniden derlenmesi yalnizca paketler eksikse gerekir.
 wasm_ready=true
 for dir in wasm/pkg wasm/pkg-threads wasm/pkg-nosimd wasm/pkg-threads-nosimd; do
   if [ ! -d "$dir" ] || ! find "$dir" -maxdepth 1 -name '*.wasm' -print -quit | grep -q .; then
@@ -31,7 +32,7 @@ if [ "$wasm_ready" = false ]; then
   fi
   npm run wasm:build
 else
-  echo "WASM unchanged/cached: Rust compilation skipped."
+  echo "WASM packages present: skipping all four Rust/WASM builds."
 fi
 
 npm run typecheck
