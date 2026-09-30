@@ -19,7 +19,6 @@ import {displayLength,unitScale,type DisplayUnit} from './units';
 import {selectionBounds,type GeometryEdit} from './geometry/manipulate';
 import {isEditableTarget,preparationShortcut} from './geometry/gestures';
 import {copyRefsFor,documentPlacements,duplicateCopies,removeCopies,rotateToNextOrientation,movePlacements,placementLayoutsEqual,syncQuantity,updatePlacements,withDocumentPlacements,type CopyRef} from './geometry/placements';
-import {authorizeExport} from './AuthGate';
 
 const emptyProject=(name='Adsız proje'):Document=>({name,parts:[],settings:{...DEFAULT_SETTINGS}});
 type ProjectSwitch={document:Document;result?:Result;warnings?:string[];saved?:boolean;nest?:boolean};
@@ -370,8 +369,6 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     if(busy||invalidSettings||showingLive||(running&&!result))return false;
     setBusy(true);setError('');
     try {
-      await authorizeExport(doc.name,doc.parts.find(part=>part.source.fileName)?.source.fileName??doc.name);
-      window.dispatchEvent(new Event('serula-auth-updated'));
       const reply=await geometryTask({type:'export',runId:++operation.current,documentRevision:revision,document:canvasDocument,result});
       if(reply.type==='export-result'){
         const content=reply.bundle.dxf;
