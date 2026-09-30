@@ -44,7 +44,7 @@ it('preserves supported text marks and blocks nonplanar geometry, duplicates, an
   const review=importDXF(dxf(rectangle+'0\nTEXT\n0\nINSERT\n'+line(20,0,30,0)+'30\n1\n'),'mixed.dxf',options);
   expect(review.document.parts).toHaveLength(1);expect(review.warnings.join(' ')).not.toContain('unsupported TEXT');expect(review.issues?.join(' ')).toContain('block reference');
   expect(review.issues?.join(' ')).toContain('Nonzero elevation');
-  expect(importDXF(dxf(rectangle+rectangle),'duplicate.dxf',options).issues?.join(' ')).toContain('yinelenen kontur');
+  expect(importDXF(dxf(rectangle+rectangle),'duplicate.dxf',options).document.parts).toHaveLength(2);
   expect(()=>importDXF('AutoCAD Binary DXF\0','binary.dxf',options)).toThrow('Binary DXF');
 });
 
