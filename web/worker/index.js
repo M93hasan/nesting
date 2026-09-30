@@ -1,4 +1,4 @@
-const GOOGLE_CLIENT_ID='249559754500-c8sq1giond6vdrab261fkhl7p5f7omvc.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID='249559754500-36grgmm2jucf2159d41efqdcqut02lj6.apps.googleusercontent.com';
 const ADMIN_EMAIL='m93hasan@gmail.com';
 const SESSION_DAYS=30;
 
