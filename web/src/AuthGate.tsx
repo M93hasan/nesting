@@ -2,7 +2,7 @@ import {useEffect,useRef,useState,type ReactNode} from 'react';
 import packageInfo from '../package.json';
 
 export type SessionUser={id:number;email:string;name:string;role:string;credits:number;unlimited:boolean};
-type SupportSession={id:number;status:'pending'|'approved';expiresAt?:string};
+type SupportSession={id:number;status:'pending'|'approved';mode?:'settings'|'screen';expiresAt?:string;offer?:RTCSessionDescriptionInit|null;answer?:RTCSessionDescriptionInit|null};
 const GOOGLE_CLIENT_ID='249559754500-36grgmm2jucf2159d41efqdcqut02lj6.apps.googleusercontent.com';
 type GoogleCredentialResponse={credential?:string};
 type GoogleInitOptions={client_id:string;callback?:(response:GoogleCredentialResponse)=>void;auto_select?:boolean;use_fedcm_for_button?:boolean;itp_support?:boolean;ux_mode?:'popup'|'redirect';login_uri?:string};
@@ -32,9 +32,25 @@ export function UserGate({children}:{children:ReactNode}){
   const [error,setError]=useState(''),[busy,setBusy]=useState(false);
   const [support,setSupport]=useState<SupportSession|null>(null);
   const lastRemoteSettings=useRef('');
+  const supportPeer=useRef<RTCPeerConnection|null>(null);
+  const supportStream=useRef<MediaStream|null>(null);
+  const supportAnswer=useRef('');
   const googleButton=useRef<HTMLDivElement>(null);
 
   const refresh=()=>fetch('/api/auth/me',{credentials:'same-origin'}).then(r=>r.ok?r.json():{user:null}).then(d=>setUser(d.user??null)).catch(()=>setUser(null));
+  const stopScreenSupport=()=>{
+    supportPeer.current?.close();supportPeer.current=null;
+    supportStream.current?.getTracks().forEach(track=>track.stop());supportStream.current=null;
+    supportAnswer.current='';
+  };
+  const waitIce=async(pc:RTCPeerConnection)=>{
+    if(pc.iceGatheringState==='complete')return;
+    await new Promise<void>(resolve=>{
+      const done=()=>{if(pc.iceGatheringState==='complete'){pc.removeEventListener('icegatheringstatechange',done);resolve()}};
+      pc.addEventListener('icegatheringstatechange',done);
+      setTimeout(()=>{pc.removeEventListener('icegatheringstatechange',done);resolve()},5000);
+    });
+  };
   useEffect(()=>{void refresh();const listener=()=>void refresh();const need=()=>setOpen(true);window.addEventListener('serula-auth-updated',listener);window.addEventListener('serula-login-required',need);return()=>{window.removeEventListener('serula-auth-updated',listener);window.removeEventListener('serula-login-required',need)}},[]);
   useEffect(()=>{
     if(!user){setSupport(null);lastRemoteSettings.current='';return;}
@@ -55,7 +71,14 @@ export function UserGate({children}:{children:ReactNode}){
         const data=await response.json();
         if(cancelled)return;
         const next=data.support??null;setSupport(next);
-        if(next?.status==='approved'){
+        if(!next&&supportStream.current)stopScreenSupport();
+        if(next?.status==='approved'&&next.mode==='screen'){
+          const answerSignature=JSON.stringify(next.answer??null);
+          if(next.answer&&supportPeer.current&&!supportPeer.current.remoteDescription&&answerSignature!==supportAnswer.current){
+            supportAnswer.current=answerSignature;
+            try{await supportPeer.current.setRemoteDescription(next.answer)}catch{}
+          }
+        }else if(next?.status==='approved'){
           const settingsResponse=await fetch('/api/settings/effective',{credentials:'same-origin'});
           if(settingsResponse.ok){
             const settingsData=await settingsResponse.json();
@@ -117,16 +140,49 @@ export function UserGate({children}:{children:ReactNode}){
     return()=>{cancelled=true};
   },[open,user]);
 
-  async function submit(e:React.FormEvent){
-    e.preventDefault();setBusy(true);setError('');
+  async function approveSupport(){
+    if(!support)return;
+    if(support.mode!=='screen'){
+      const data=await request('/api/support/respond',{method:'POST',body:JSON.stringify({id:support.id,approve:true})});
+      setSupport(data.support);return;
+    }
+    if(!navigator.mediaDevices?.getDisplayMedia){setError('Bu tarayıcı ekran paylaşımını desteklemiyor. Masaüstü Chrome, Edge veya Safari kullanın.');return;}
+    setBusy(true);setError('');
+    try{
+      const stream=await navigator.mediaDevices.getDisplayMedia({video:true,audio:false});
+      supportStream.current=stream;
+      const data=await request('/api/support/respond',{method:'POST',body:JSON.stringify({id:support.id,approve:true})});
+      setSupport(data.support);
+      const pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
+      supportPeer.current=pc;
+      stream.getTracks().forEach(track=>{pc.addTrack(track,stream);track.addEventListener('ended',()=>{void request('/api/support/end',{method:'POST',body:JSON.stringify({id:support.id})}).catch(()=>{});stopScreenSupport();setSupport(null)},{once:true})});
+      const offer=await pc.createOffer();await pc.setLocalDescription(offer);await waitIce(pc);
+      await request('/api/support/signal',{method:'POST',body:JSON.stringify({id:support.id,offer:pc.localDescription})});
+    }catch(e){
+      stopScreenSupport();
+      setError(e instanceof Error?e.message:String(e));
+    }finally{setBusy(false)}
+  }
+  async function declineSupport(){
+    if(!support)return;
+    await request('/api/support/respond',{method:'POST',body:JSON.stringify({id:support.id,approve:false})});
+    stopScreenSupport();setSupport(null);
+  }
+  async function endSupportFromUser(){
+    if(!support)return;
+    await request('/api/support/end',{method:'POST',body:JSON.stringify({id:support.id})});
+    stopScreenSupport();setSupport(null);
+  }
+
+  async function submit(e:React.FormEvent){    e.preventDefault();setBusy(true);setError('');
     try{if(mode==='reset'){await request('/api/auth/reset-password',{method:'POST',body:JSON.stringify({token:resetToken,password})});history.replaceState({},'',location.pathname);setMode('login');setPassword('');setError('Parolanız yenilendi. Şimdi giriş yapabilirsiniz.');return;}const data=await request(mode==='register'?'/api/auth/register':'/api/auth/login',{method:'POST',body:JSON.stringify({email,password,name})});setUser(data.user);setOpen(false)}
     catch(e){setError(e instanceof Error?e.message:String(e))}finally{setBusy(false)}
   }
   return <>{children}
     {user?<div className="auth-account"><span>{user.name||user.email}</span><strong>{user.unlimited?'Sınırsız':user.credits+' hak'}</strong><button onClick={async()=>{await request('/api/auth/logout',{method:'POST',body:'{}'});setUser(null)}}>Çıkış</button></div>
     :<div className="auth-account"><span>Misafir</span><button onClick={()=>setOpen(true)}>Giriş yap</button></div>}
-    {support?.status==='approved'&&<div className="auth-support-active"><span>Uzaktan destek aktif</span><button onClick={async()=>{await request('/api/support/end',{method:'POST',body:JSON.stringify({id:support.id})});setSupport(null)}}>Bitir</button></div>}
-    {support?.status==='pending'&&<div className="auth-screen auth-overlay"><div className="auth-card auth-support-card"><img src="/serula-logo.svg" alt=""/><h2>Uzaktan destek isteği</h2><p>Serula yöneticisi, yalnızca bu uygulamanın ayarlarını uzaktan düzenlemek istiyor. Tarayıcınızın diğer sekmelerine, dosyalarınıza veya cihazınıza erişim verilmez.</p><div className="auth-support-actions"><button onClick={async()=>{await request('/api/support/respond',{method:'POST',body:JSON.stringify({id:support.id,approve:false})});setSupport(null)}}>Reddet</button><button className="primary" onClick={async()=>{const data=await request('/api/support/respond',{method:'POST',body:JSON.stringify({id:support.id,approve:true})});setSupport(data.support)}}>Onayla</button></div></div></div>}
+    {support?.status==='approved'&&<div className="auth-support-active"><span>{support.mode==='screen'?'Ekran paylaşımı aktif':'Uzaktan destek aktif'}</span><button onClick={()=>void endSupportFromUser()}>Bitir</button></div>}
+    {support?.status==='pending'&&<div className="auth-screen auth-overlay"><div className="auth-card auth-support-card"><img src="/serula-logo.svg" alt=""/><h2>{support.mode==='screen'?'Ekran paylaşımı isteği':'Uzaktan destek isteği'}</h2><p>{support.mode==='screen'?'Serula yöneticisi ekranınızı canlı görmek istiyor. Paylaşılacak ekranı siz seçersiniz; izin vermeden görüntü aktarılmaz ve istediğiniz an durdurabilirsiniz.':'Serula yöneticisi yalnızca bu uygulamanın ayarlarını uzaktan düzenlemek istiyor. Tarayıcınızın diğer sekmelerine, dosyalarınıza veya cihazınıza erişim verilmez.'}</p>{error&&<p className="auth-error">{error}</p>}<div className="auth-support-actions"><button disabled={busy} onClick={()=>void declineSupport()}>Reddet</button><button disabled={busy} className="primary" onClick={()=>void approveSupport()}>{busy?'Bağlanıyor…':support.mode==='screen'?'Onayla ve ekranı paylaş':'Onayla'}</button></div></div></div>}
     {open&&!user&&<div className="auth-screen auth-overlay" onMouseDown={e=>{if(e.currentTarget===e.target)setOpen(false)}}><div className="auth-card">
       <img src="/serula-logo.svg" alt=""/><h1>Serula Nesting</h1><p>DXF indirmek için giriş yapın. Dosya içe aktarma ve yerleştirme giriş yapmadan kullanılabilir.</p>
       {mode!=='reset'&&<div className="auth-tabs"><button className={mode==='login'?'active':''} onClick={()=>setMode('login')}>Giriş yap</button><button className={mode==='register'?'active':''} onClick={()=>setMode('register')}>Kayıt ol</button></div>}{mode==='reset'&&<h2>Yeni parola belirle</h2>}

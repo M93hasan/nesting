@@ -69,6 +69,14 @@ async function ensureSchema(env){
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )`),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_support_sessions_user ON support_sessions(user_id)'),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS support_signals (
+      session_id INTEGER PRIMARY KEY,
+      mode TEXT NOT NULL DEFAULT 'settings',
+      offer_json TEXT,
+      answer_json TEXT,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (session_id) REFERENCES support_sessions(id) ON DELETE CASCADE
+    )`),
     env.DB.prepare("DELETE FROM audit_logs WHERE datetime(created_at)<datetime('now','-10 days')"),
     env.DB.prepare("UPDATE support_sessions SET status='expired',ended_at=COALESCE(ended_at,CURRENT_TIMESTAMP) WHERE status IN ('pending','approved') AND datetime(expires_at)<=datetime('now')")
   ]);
@@ -246,23 +254,35 @@ async function handleApi(request,env){
   }
   if(path==='/api/support/status'&&request.method==='GET'){
     const user=await sessionUser(request,env);if(!user)return json({support:null},401);
-    const row=await env.DB.prepare("SELECT id,status,expires_at,created_at,approved_at FROM support_sessions WHERE user_id=? AND status IN ('pending','approved') AND datetime(expires_at)>datetime('now') ORDER BY id DESC LIMIT 1").bind(user.id).first();
-    return json({support:row?{id:row.id,status:row.status,expiresAt:row.expires_at,createdAt:row.created_at,approvedAt:row.approved_at}:null});
+    const row=await env.DB.prepare(`SELECT s.id,s.status,s.expires_at,s.created_at,s.approved_at,COALESCE(g.mode,'settings') mode,g.offer_json,g.answer_json
+      FROM support_sessions s LEFT JOIN support_signals g ON g.session_id=s.id
+      WHERE s.user_id=? AND s.status IN ('pending','approved') AND datetime(s.expires_at)>datetime('now') ORDER BY s.id DESC LIMIT 1`).bind(user.id).first();
+    return json({support:row?{id:row.id,status:row.status,mode:row.mode,expiresAt:row.expires_at,createdAt:row.created_at,approvedAt:row.approved_at,offer:row.offer_json?JSON.parse(row.offer_json):null,answer:row.answer_json?JSON.parse(row.answer_json):null}:null});
   }
   if(path==='/api/support/respond'&&request.method==='POST'){
     const user=await sessionUser(request,env);if(!user)return json({error:'Giriş gerekli.'},401);
     const data=await body(request),id=Number(data.id),approve=!!data.approve;
-    const row=await env.DB.prepare("SELECT id FROM support_sessions WHERE id=? AND user_id=? AND status='pending' AND datetime(expires_at)>datetime('now')").bind(id,user.id).first();
+    const row=await env.DB.prepare("SELECT s.id,COALESCE(g.mode,'settings') mode FROM support_sessions s LEFT JOIN support_signals g ON g.session_id=s.id WHERE s.id=? AND s.user_id=? AND s.status='pending' AND datetime(s.expires_at)>datetime('now')").bind(id,user.id).first();
     if(!row)return json({error:'Destek isteği bulunamadı veya süresi dolmuş.'},404);
     if(approve){
       const expires=new Date(Date.now()+60*60*1000).toISOString();
       await env.DB.prepare("UPDATE support_sessions SET status='approved',approved_at=CURRENT_TIMESTAMP,expires_at=? WHERE id=?").bind(expires,id).run();
       await audit(env,'remote_support_approved',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:'60 dakika'});
-      return json({support:{id,status:'approved',expiresAt:expires}});
+      return json({support:{id,status:'approved',mode:row.mode,expiresAt:expires}});
     }
     await env.DB.prepare("UPDATE support_sessions SET status='declined',ended_at=CURRENT_TIMESTAMP WHERE id=?").bind(id).run();
     await audit(env,'remote_support_declined',{actorType:'user',actorUserId:user.id,targetUserId:user.id});
     return json({support:null});
+  }
+  if(path==='/api/support/signal'&&request.method==='POST'){
+    const user=await sessionUser(request,env);if(!user)return json({error:'Giriş gerekli.'},401);
+    const data=await body(request),id=Number(data.id),offer=data.offer;
+    const row=await env.DB.prepare("SELECT s.id FROM support_sessions s JOIN support_signals g ON g.session_id=s.id WHERE s.id=? AND s.user_id=? AND s.status='approved' AND g.mode='screen' AND datetime(s.expires_at)>datetime('now')").bind(id,user.id).first();
+    if(!row)return json({error:'Aktif ekran desteği bulunamadı.'},404);
+    if(!offer||typeof offer!=='object')return json({error:'Geçersiz ekran paylaşım teklifi.'},400);
+    await env.DB.prepare("UPDATE support_signals SET offer_json=?,answer_json=NULL,updated_at=CURRENT_TIMESTAMP WHERE session_id=?").bind(JSON.stringify(offer).slice(0,200000),id).run();
+    await audit(env,'screen_share_offer',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:String(id)});
+    return json({ok:true});
   }
   if(path==='/api/support/end'&&request.method==='POST'){
     const user=await sessionUser(request,env);if(!user)return json({error:'Giriş gerekli.'},401);
@@ -275,18 +295,31 @@ async function handleApi(request,env){
   if(adminSupportMatch&&request.method==='GET'){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
     const id=Number(adminSupportMatch[1]),target=await env.DB.prepare('SELECT id,email FROM users WHERE id=?').bind(id).first();if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
-    const row=await env.DB.prepare("SELECT id,status,expires_at,created_at,approved_at,ended_at FROM support_sessions WHERE user_id=? ORDER BY id DESC LIMIT 1").bind(id).first();
-    return json({support:row?{id:row.id,status:row.status,expiresAt:row.expires_at,createdAt:row.created_at,approvedAt:row.approved_at,endedAt:row.ended_at}:null});
+    const row=await env.DB.prepare(`SELECT s.id,s.status,s.expires_at,s.created_at,s.approved_at,s.ended_at,COALESCE(g.mode,'settings') mode,g.offer_json,g.answer_json
+      FROM support_sessions s LEFT JOIN support_signals g ON g.session_id=s.id WHERE s.user_id=? ORDER BY s.id DESC LIMIT 1`).bind(id).first();
+    return json({support:row?{id:row.id,status:row.status,mode:row.mode,expiresAt:row.expires_at,createdAt:row.created_at,approvedAt:row.approved_at,endedAt:row.ended_at,offer:row.offer_json?JSON.parse(row.offer_json):null,answer:row.answer_json?JSON.parse(row.answer_json):null}:null});
   }
   if(adminSupportMatch&&request.method==='POST'){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
-    const id=Number(adminSupportMatch[1]),target=await env.DB.prepare('SELECT id,email FROM users WHERE id=?').bind(id).first();if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
+    const id=Number(adminSupportMatch[1]),data=await body(request),mode=data.mode==='screen'?'screen':'settings',target=await env.DB.prepare('SELECT id,email FROM users WHERE id=?').bind(id).first();if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
     await env.DB.prepare("UPDATE support_sessions SET status='ended',ended_at=CURRENT_TIMESTAMP WHERE user_id=? AND status IN ('pending','approved')").bind(id).run();
     const expires=new Date(Date.now()+15*60*1000).toISOString();
     const result=await env.DB.prepare("INSERT INTO support_sessions(user_id,status,expires_at) VALUES(?,'pending',?)").bind(id,expires).run();
     const supportId=Number(result.meta.last_row_id);
-    await audit(env,'remote_support_requested',{actorType:'admin',targetUserId:id,detail:target.email});
-    return json({support:{id:supportId,status:'pending',expiresAt:expires}});
+    await env.DB.prepare("INSERT INTO support_signals(session_id,mode) VALUES(?,?)").bind(supportId,mode).run();
+    await audit(env,mode==='screen'?'screen_support_requested':'remote_support_requested',{actorType:'admin',targetUserId:id,detail:target.email});
+    return json({support:{id:supportId,status:'pending',mode,expiresAt:expires}});
+  }
+  const adminSupportSignalMatch=path.match(/^\/api\/admin\/users\/(\d+)\/support\/signal$/);
+  if(adminSupportSignalMatch&&request.method==='POST'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const id=Number(adminSupportSignalMatch[1]),data=await body(request),sessionId=Number(data.id),answer=data.answer;
+    const row=await env.DB.prepare("SELECT s.id FROM support_sessions s JOIN support_signals g ON g.session_id=s.id WHERE s.id=? AND s.user_id=? AND s.status='approved' AND g.mode='screen' AND datetime(s.expires_at)>datetime('now')").bind(sessionId,id).first();
+    if(!row)return json({error:'Aktif ekran desteği bulunamadı.'},404);
+    if(!answer||typeof answer!=='object')return json({error:'Geçersiz ekran paylaşım yanıtı.'},400);
+    await env.DB.prepare("UPDATE support_signals SET answer_json=?,updated_at=CURRENT_TIMESTAMP WHERE session_id=?").bind(JSON.stringify(answer).slice(0,200000),sessionId).run();
+    await audit(env,'screen_share_answer',{actorType:'admin',targetUserId:id,detail:String(sessionId)});
+    return json({ok:true});
   }
   if(adminSupportMatch&&request.method==='DELETE'){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
