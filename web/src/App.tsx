@@ -14,7 +14,6 @@ import type { ImportReview } from './import/sparrow';
 import Workspace,{colors} from './components/Workspace';
 import Modal from './components/Modal';
 import SelectionControls from './components/SelectionControls';
-import ShapeLibrary from './components/ShapeLibrary';
 import {displayLength,unitScale,type DisplayUnit} from './units';
 import {selectionBounds,type GeometryEdit} from './geometry/manipulate';
 import {isEditableTarget,preparationShortcut} from './geometry/gestures';
@@ -37,7 +36,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const [busy,setBusy]=useState(false),[error,setError]=useState(initialError);
   const [fitRequest,setFitRequest]=useState(0);
   const [resultMode,setResultMode]=useState<'live'|'checked'>('live');
-  const [threads,setThreads]=useState(0),[library,setLibrary]=useState(false);
+  const [threads,setThreads]=useState(0);
   const [sizeValid,setSizeValid]=useState(true),[downloadedResult,setDownloadedResult]=useState(false);
   const [theme,setTheme]=useState<'system'|'light'|'dark'>(()=>{try{const saved=localStorage.getItem('serula-theme');return saved==='light'||saved==='dark'||saved==='system'?saved:'system';}catch{return 'system';}});
   useEffect(()=>{document.documentElement.dataset.theme=theme;try{localStorage.setItem('serula-theme',theme);}catch{/* The theme still works when storage is unavailable. */}},[theme]);
@@ -426,7 +425,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         </div>;})}</div>
         {doc.parts.reduce((n,p)=>n+(Number.isFinite(p.quantity)?p.quantity:0),0)>500&&<p role="alert" className="field-error quantity-total">This drawing exceeds the 500-copy limit. Reduce quantities to continue.</p>}
         {doc.parts.some(part=>part.quantity===0)&&<button className="text-button clear-unused" disabled={locked} onClick={()=>commit({...doc,parts:doc.parts.filter(part=>part.quantity!==0)})}>Adedi sıfır olan parçaları kaldır</button>}
-        <div className="add-shape"><button disabled={locked} onClick={()=>setShape('rectangle')}>Şekil çiz</button><button className="primary" disabled={locked} onClick={()=>input.current?.click()}>DXF İçe Aktar</button><button disabled={locked} onClick={()=>setLibrary(true)}>Şekil kütüphanesi</button></div>
+        <div className="add-shape"><button disabled={locked} onClick={()=>setShape('rectangle')}>Şekil çiz</button><button className="primary" disabled={locked} onClick={()=>input.current?.click()}>DXF İçe Aktar</button></div>
         <p className="import-formats">SVG, DXF veya Sparrow JSON dosyası içe aktarın.</p>
         <div className="row-actions history"><button disabled={locked||!history.current.length} onClick={()=>restore()}>Geri al</button><button disabled={locked||!future.current.length} onClick={()=>restore(true)}>Yinele</button></div>
         <section className="settings"><h2>Malzeme ve Yerleşim</h2>
@@ -481,7 +480,6 @@ export default function App({initialDocument=emptyProject(),initialError='',load
       {shape==='polygon'&&<p>Click each vertex in the canvas. Enter closes the polygon; Escape cancels. The contour is checked before it is added.</p>}{error&&<p role="alert" className="field-error">{error}</p>}
       <div className="modal-actions"><button type="button" disabled={busy} onClick={()=>setShape(undefined)}>İptal</button><button disabled={busy} className="primary">{shape==='polygon'?'Start drawing':'Şekil ekle'}</button></div></form>
     </Modal>}
-    {library&&<ShapeLibrary unit={unit} selectedParts={doc.parts.filter(p=>selected.includes(p.id))} onClose={()=>setLibrary(false)} onAdd={async parts=>{setBusy(true);try{await addParts(parts);}finally{setBusy(false);}}}/>}
     {nameDialog&&<Modal title={nameDialog==='new'?'Yeni proje':'Projeyi yeniden adlandır'} onClose={()=>setNameDialog(undefined)}><form onSubmit={e=>{e.preventDefault();const name=projectName.trim();if(!name)return;if(nameDialog==='new')requestProject({document:emptyProject(name),saved:true});else if(name!==doc.name)commit({...doc,name},false);setNameDialog(undefined);}}><label>Proje adı<input autoFocus onFocus={e=>e.currentTarget.select()} required maxLength={200} value={projectName} onChange={e=>setProjectAd(e.target.value)}/></label><div className="modal-actions"><button type="button" onClick={()=>setNameDialog(undefined)}>İptal</button><button className="primary" disabled={!projectName.trim()}>{nameDialog==='new'?'Proje oluştur':'Yeniden adlandır'}</button></div></form></Modal>}
     {pendingProject&&<Modal title="Projeyi değiştir" locked={busy} onClose={()=>setPendingProject(undefined)}><p><strong>{pendingProject.document.name}</strong> açıldığında mevcut <strong>{doc.name}</strong> projesi değiştirilecek.</p><p className="muted">İsterseniz mevcut yerleşimi önce DXF olarak indirin.</p>{polygon&&<p>DXF indirmeden önce çizimi tamamlayın veya iptal edin.</p>}{error&&<p role="alert" className="field-error">{error}</p>}<div className="project-switch-actions"><button className="primary" disabled={busy||invalidSettings||!!polygon} onClick={async()=>{if(await exportLayout())switchProject(pendingProject);}}>DXF indir ve geç</button><button className="discard-project" disabled={busy} onClick={()=>switchProject(pendingProject)}>İndirmeden geç</button><button className="text-button" disabled={busy} onClick={()=>setPendingProject(undefined)}>İptal</button></div></Modal>}
     {info&&<Modal title={info==='admin'?'Admin Paneli':info==='about'?'Serula Nesting Hakkında':info==='contact'?'İletişim':'Kısayollar ve formatlar'} onClose={()=>setInfo(undefined)}>
