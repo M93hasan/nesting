@@ -8,6 +8,7 @@ export type LiveGeometry={world:WorldPart[];overlaps:Ring[][];errors:string[]};
 export function liveGeometry(doc:Document,result:Result):LiveGeometry {
   const world=worldParts(doc,result),boxes=world.map(p=>bounds(p.outer)),overlaps:Ring[][]=[],errors:string[]=[];
   for(let i=0;i<world.length;i++)for(let j=0;j<i;j++) {
+    if(doc.settings.materialType==='sheet' && result.placements[i].sheetIndex!==result.placements[j].sheetIndex)continue;
     const a=boxes[i],b=boxes[j];
     if(a[0]>=b[2]||b[0]>=a[2]||a[1]>=b[3]||b[1]>=a[3])continue;
     try { overlaps.push(...polygonClipping.intersection([world[i].outer],[world[j].outer])); }
