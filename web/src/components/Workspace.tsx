@@ -76,10 +76,15 @@ export default function Workspace({ document: doc, result, live, selected, selec
     for (const drawing of drawings) {
       const radians = drawing.angleDeg * Math.PI / 180, c = Math.cos(radians), s = Math.sin(radians);
       for (const [x, y] of drawing.outer) all.push(
-        [drawing.position[0] + x * c - y * s, -drawing.position[1] - (x * s + y * c)]
+        [drawing.position[0] + x * c - y * s, -drawing.position[1] - drawing.sheetOffset - (x * s + y * c)]
       );
     }
-    if (world) all.push([0, 0], [doc.settings.materialWidthMm, -result!.usedLengthMm]);
+    if (world) {
+      const materialLength=doc.settings.materialType==='sheet'&&doc.settings.materialLengthMm
+        ? (result!.sheetCount??1)*doc.settings.materialLengthMm+Math.max(0,(result!.sheetCount??1)-1)*20
+        : result!.usedLengthMm;
+      all.push([0,0],[doc.settings.materialWidthMm,-materialLength]);
+    }
     if (!all.length) return;
     const [x0, y0, x1, y1] = bounds(all), pad = Math.max(x1 - x0, y1 - y0) * .07 + 2;
     setCamera({ x: x0 - pad, y: y0 - pad, w: x1 - x0 + 2 * pad, h: y1 - y0 + 2 * pad });
@@ -91,13 +96,11 @@ export default function Workspace({ document: doc, result, live, selected, selec
   // Results are displayed as a vertical strip: material width on X, used length on Y.
   useEffect(() => {
     if (!optimizing || !world || !size.width || !size.height) return;
-    const pad = Math.max(doc.settings.materialWidthMm, result?.usedLengthMm ?? 0) * .07 + 2;
-    setCamera({
-      x: -pad,
-      y: -(result?.usedLengthMm ?? 0) - pad,
-      w: doc.settings.materialWidthMm + 2 * pad,
-      h: (result?.usedLengthMm ?? 0) + 2 * pad
-    });
+    const materialLength=doc.settings.materialType==='sheet'&&doc.settings.materialLengthMm
+      ? (result?.sheetCount??1)*doc.settings.materialLengthMm+Math.max(0,(result?.sheetCount??1)-1)*20
+      : result?.usedLengthMm??0;
+    const pad = Math.max(doc.settings.materialWidthMm, materialLength) * .07 + 2;
+    setCamera({x:-pad,y:-materialLength-pad,w:doc.settings.materialWidthMm+2*pad,h:materialLength+2*pad});
   }, [optimizing, world, size.width, size.height]);
 
   useEffect(() => {
