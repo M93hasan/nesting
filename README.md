@@ -5,13 +5,15 @@
 Serula Nesting; özellikle **ayakkabı üretiminde kullanılan suni deri rulo ve plaka malzemeler** üzerinde DXF parçalarını mümkün olduğunca verimli yerleştirmek için geliştirilmektedir. Amaç, kesim kurallarını korurken malzeme tüketimini ve fireyi azaltmaktır.
 
 🌐 **Uygulama:** https://serula.site/  
-📦 **Sürüm:** `web/package.json` içindeki uygulama sürümü kullanılır.
+📦 **Güncel sürüm:** **0.0.13**
 
 ## Özellikler
 
 - DXF dosyalarını içe aktarma
 - Gerçek parça geometrisine göre 2D nesting
 - Rulo ve plaka malzeme seçenekleri
+- Çoklu plaka yerleşimi
+- Sağ alt / sağ üst başlangıç yönü seçimi
 - Malzeme genişliği ve plaka ölçüsü ayarları
 - Parça adetleri ve dönüş açıları
 - Parçalar arası boşluk ayarı
@@ -19,6 +21,8 @@ Serula Nesting; özellikle **ayakkabı üretiminde kullanılan suni deri rulo ve
 - Yerleşim sonucunu görsel olarak kontrol etme
 - **DXF çıktı alma**
 - WebAssembly tabanlı yüksek performanslı hesaplama
+- Ayrı WASM build akışı ve yeniden kullanılabilir build çıktıları
+- `/admin` yönetim arayüzü
 - Web Worker desteği sayesinde yerleştirme sırasında arayüzün kullanılabilir kalması
 
 ## Kullanım Amacı
@@ -62,7 +66,17 @@ npm test
 
 ## Yayınlama
 
-Proje GitHub üzerinden yönetilir ve üretim sitesi **Cloudflare** altyapısında yayınlanmak üzere yapılandırılmıştır.
+Proje GitHub üzerinden yönetilir ve üretim sitesi **Cloudflare Workers** altyapısında yayınlanmak üzere yapılandırılmıştır.
+
+Cloudflare build ayarları:
+
+```text
+Production branch: main
+Build command: bash web/scripts/build-cloudflare.sh
+Deploy command: cd web && npx --yes wrangler@4 deploy
+Version command: cd web && npx --yes wrangler@4 versions upload
+Root directory: (boş)
+```
 
 Ana domain:
 
