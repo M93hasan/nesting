@@ -282,7 +282,15 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
   // groups and nest each group as ONE rigid part. Only the largest contour drives
   // collision/nesting; contained loops become holes and crossing/overlaid loops
   // remain attached detail contours with their own layer/color.
-  const connected=(a:Contour,b:Contour)=>ringCrosses(a.ring,b.ring)||inside(a.ring[0],b.ring)||inside(b.ring[0],a.ring);
+  const connected=(a:Contour,b:Contour)=>{
+    const contains=inside(a.ring[0],b.ring)||inside(b.ring[0],a.ring);
+    if(contains)return true;
+    // Touching/overlapping cut parts of the same source color are still separate
+    // physical pieces. Only cross-color overlaps are treated as locked detail
+    // geometry belonging to one footwear pattern.
+    const differentExplicitColors=a.dxfColorNumber!==undefined&&b.dxfColorNumber!==undefined&&a.dxfColorNumber!==b.dxfColorNumber;
+    return differentExplicitColors&&ringCrosses(a.ring,b.ring);
+  };
   const seenContours=new Set<number>(),groups:Contour[][]=[];
   for(let i=0;i<valid.length;i++){
     if(seenContours.has(i))continue;
@@ -309,7 +317,7 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
         ...(dxfDetails.length?{dxfDetails}:{})},
       approximationToleranceMm:group.some(contour=>contour.curved)?options.tolerance+joined.adjustment:0});
   });
-  if(groups.some(group=>group.length>1))warnings.push('Üst üste, kesişen veya iç içe DXF konturları tek fiziksel parça olarak kilitlendi; nesting sırasında dağıtılmaz.');
+  if(groups.some(group=>group.length>1))warnings.push('İç içe konturlar ve farklı renkte üst üste gelen detaylar ana parçaya kilitlendi; aynı renkteki temas eden parçalar ayrı parça olarak korundu.');
   // Attach POINT/TEXT/MTEXT records to the smallest containing outer contour.
   // Stored coordinates are local to the part, so every placement/rotation keeps marks rigidly locked to that part.
   for(const mark of auxEntities) {
