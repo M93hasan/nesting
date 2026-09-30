@@ -61,11 +61,13 @@ export function useSolver() {
         // preview work cannot accumulate while the solver keeps searching.
         if(r.latest&&!r.previewActive&&!r.previewError&&r.latest.sequence>r.previewSequence) {
           const candidate=r.latest;
-          let result:Result;
-          try{result=packResultIntoSheets(r.doc,candidateResult(r.doc,candidate,r.seed));}
-          catch{r.previewSequence=candidate.sequence;continue;}
-          r.previewActive={candidate,result};r.previewSequence=candidate.sequence;
-          r.preview.postMessage({type:'live-preview',sequence:candidate.sequence,runId:r.id,documentRevision:r.revision,document:r.doc,result});
+          let previewResult:Result|undefined;
+          try{previewResult=packResultIntoSheets(r.doc,candidateResult(r.doc,candidate,r.seed));}
+          catch{r.previewSequence=candidate.sequence;}
+          if(previewResult){
+            r.previewActive={candidate,result:previewResult};r.previewSequence=candidate.sequence;
+            r.preview.postMessage({type:'live-preview',sequence:candidate.sequence,runId:r.id,documentRevision:r.revision,document:r.doc,result:previewResult});
+          }
         }
       }
     },100);
