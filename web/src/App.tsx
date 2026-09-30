@@ -393,7 +393,8 @@ export default function App({initialDocument=emptyProject(),initialError='',load
       download(`${exportAd}.zip`,reply.archive,'application/zip');if(result)setDownloadedResult(true);setExported({document:doc,result});return true;
     }catch(e){setError(String(e));return false;}finally{setBusy(false);}
   }
-  const exportAd='serula_nesting_'+(doc.name.trim().replace(/[<>:"/\\|?*\x00-\x1f]/g,'-').replace(/[. ]+$/g,'').slice(0,100)||'project');
+  const sourceAd=(doc.parts.find(part=>part.source.format==='dxf')?.source.fileName??doc.name).replace(/\.dxf$/i,'').trim().replace(/[<>:"/\\|?*\x00-\x1f]/g,'-').replace(/[. ]+$/g,'').slice(0,100)||'project';
+  const exportAd=`${sourceAd}-serula`;
   const totalArea=useMemo(()=>doc.parts.reduce((n,p)=>n+netArea(p)*p.quantity,0),[doc.parts]);
   const materialArea=result?(doc.settings.materialType==='sheet'&&doc.settings.materialLengthMm
     ? doc.settings.materialWidthMm*doc.settings.materialLengthMm*(result.sheetCount??1)
