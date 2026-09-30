@@ -272,16 +272,21 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
     const a=valid[i].ring,b=valid[j].ring;
     if(!ringCrosses(a,b))continue;
     // Pure containment is valid and is resolved into outer/hole hierarchy by
-    // contoursToParts. A true boundary contact/crossing remains invalid.
+    // contoursToParts.
     const nested=inside(a[0],b)||inside(b[0],a);
     if(nested)continue;
     const duplicate=translatedSignature(a)===translatedSignature(b)
       && Math.abs(bounds(a)[0]-bounds(b)[0])<1e-6
       && Math.abs(bounds(a)[1]-bounds(b)[1])<1e-6;
-    rejected.add(i);rejected.add(j);
-    issues.push(duplicate
-      ? 'Aynı konumda yinelenen kontur bulundu; kaynak DXF içindeki kopyayı kaldırın.'
-      : 'İki konturun sınırları kesişiyor veya birbirine temas ediyor; kaynak DXF konturlarını kontrol edin.');
+    if(duplicate){
+      rejected.add(i);rejected.add(j);
+      issues.push('Aynı konumda yinelenen kontur bulundu; kaynak DXF içindeki kopyayı kaldırın.');
+      continue;
+    }
+    // Independent closed DXF entities are separate cut parts. Footwear CAD
+    // exports can contain parts that touch or overlap in the source drawing;
+    // that must not make either source contour disappear during import.
+    warnings.push('Kaynak DXF içinde temas eden veya kesişen bağımsız konturlar ayrı parçalar olarak korundu.');
   }
   const imported=contoursToParts(valid.filter((_,i)=>!rejected.has(i)),fileName,'dxf',options.tolerance+joined.adjustment,options.enclosed);
 
