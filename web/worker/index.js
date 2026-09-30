@@ -129,8 +129,14 @@ async function handleApi(request,env){
   const m=path.match(/^\/api\/admin\/users\/(\d+)\/credits$/);
   if(m&&request.method==='POST'){
     const admin=await sessionUser(request,env);if(!admin||admin.role!=='admin')return json({error:'Yetkisiz.'},403);
-    const data=await body(request),credits=Math.max(0,Math.min(100000,Math.trunc(Number(data.credits)||0))),unlimited=data.unlimited?1:0;
-    await env.DB.prepare('UPDATE users SET nesting_credits=?,unlimited=? WHERE id=?').bind(credits,unlimited,Number(m[1])).run();
+    const data=await body(request),id=Number(m[1]),credits=Math.max(0,Math.min(100000,Math.trunc(Number(data.credits)||0)));
+    const target=await env.DB.prepare('SELECT id,role FROM users WHERE id=?').bind(id).first();
+    if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
+    if(target.role==='admin'){
+      await env.DB.prepare('UPDATE users SET nesting_credits=?,unlimited=1 WHERE id=?').bind(credits,id).run();
+    }else{
+      await env.DB.prepare('UPDATE users SET nesting_credits=?,unlimited=0 WHERE id=?').bind(credits,id).run();
+    }
     return json({ok:true});
   }
   return json({error:'Bulunamadı.'},404);
