@@ -1,8 +1,7 @@
 name: Fast Cloudflare trigger
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
