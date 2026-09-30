@@ -1,7 +1,7 @@
 const GOOGLE_CLIENT_ID='249559754500-36grgmm2jucf2159d41efqdcqut02lj6.apps.googleusercontent.com';
 const SESSION_DAYS=30;
 const ADMIN_LOGIN_EMAIL='m93hasan@icloud.com';
-// Build marker: 0.0.46
+// Build marker: 0.0.48
 
 const json=(data,status=200,headers={})=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store',...headers}});
 const b64=bytes=>btoa(String.fromCharCode(...bytes));
@@ -51,7 +51,8 @@ async function ensureSchema(env){
     )`),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token_hash)'),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)'),
-    env.DB.prepare(`CREATE TABLE IF NOT EXISTS admin_sessions (token_hash TEXT PRIMARY KEY, expires_at TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`)
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS admin_sessions (token_hash TEXT PRIMARY KEY, expires_at TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS password_reset_tokens (token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL, expires_at TEXT NOT NULL, used_at TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`)
   ]);
 }
 async function sessionUser(request,env){
@@ -155,6 +156,18 @@ async function handleApi(request,env){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
     const rows=await env.DB.prepare('SELECT id,email,name,role,nesting_credits,unlimited,created_at,last_login_at FROM users ORDER BY created_at DESC LIMIT 500').all();
     return json({users:rows.results.map(u=>({...publicUser(u),createdAt:u.created_at,lastLoginAt:u.last_login_at}))});
+  }
+  const resetMatch=path.match(/^\/api\/admin\/users\/(\d+)\/password-reset$/);
+  if(resetMatch&&request.method==='POST'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const id=Number(resetMatch[1]),target=await env.DB.prepare('SELECT id,email FROM users WHERE id=?').bind(id).first();
+    if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
+    if(!env.EMAIL)return json({error:'E-posta gönderim servisi yapılandırılmamış.'},503);
+    const raw=randomToken(),expires=new Date(Date.now()+3600000).toISOString();
+    await env.DB.prepare('INSERT INTO password_reset_tokens(token_hash,user_id,expires_at) VALUES(?,?,?)').bind(await sha256(raw),id,expires).run();
+    const resetUrl=new URL(request.url).origin+'/?reset='+encodeURIComponent(raw);
+    await env.EMAIL.send({to:target.email,from:'noreply@serula.site',subject:'Serula Nesting - Şifre Sıfırlama',text:'Şifrenizi yenilemek için bu bağlantıyı 1 saat içinde açın: '+resetUrl});
+    return json({ok:true});
   }
   const m=path.match(/^\/api\/admin\/users\/(\d+)\/credits$/);
   if(m&&request.method==='POST'){
