@@ -1,44 +1,56 @@
 import type {Document,Part,Placement,Point,Result,Ring} from '../model';
 
-type Box={x:number;y:number;w:number;h:number};
+type IntervalItem={placement:Placement;index:number;part:Part;minY:number;maxY:number};
+type Band={items:IntervalItem[];minY:number;maxY:number};
+
 const rotatedBounds=(ring:Ring,angleDeg:number)=>{
   const a=angleDeg*Math.PI/180,c=Math.cos(a),s=Math.sin(a);
   let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
-  for(const [x,y] of ring){const rx=x*c-y*s,ry=x*s+y*c;x0=Math.min(x0,rx);y0=Math.min(y0,ry);x1=Math.max(x1,rx);y1=Math.max(y1,ry);}
+  for(const [x,y] of ring){
+    const rx=x*c-y*s,ry=x*s+y*c;
+    x0=Math.min(x0,rx);y0=Math.min(y0,ry);x1=Math.max(x1,rx);y1=Math.max(y1,ry);
+  }
   return [x0,y0,x1,y1] as const;
 };
-const fits=(candidate:Box,placed:Box[],width:number,length:number,gap:number)=>
-  candidate.x>=0&&candidate.y>=0&&candidate.x+candidate.w<=width+1e-7&&candidate.y+candidate.h<=length+1e-7&&
-  placed.every(p=>candidate.x+candidate.w+gap<=p.x||p.x+p.w+gap<=candidate.x||candidate.y+candidate.h+gap<=p.y||p.y+p.h+gap<=candidate.y);
 
 export function packResultIntoSheets(doc:Document,result:Result):Result {
   if(doc.settings.materialType!=='sheet')return result;
   const width=doc.settings.materialWidthMm,length=doc.settings.materialLengthMm,gap=Math.max(0,doc.settings.clearanceMm);
   if(!length||!Number.isFinite(length)||length<=0)throw Error('Plaka uzunluğu pozitif bir değer olmalıdır.');
+
   const parts=new Map(doc.parts.map(p=>[p.id,p] as const));
-  const items=result.placements.map((placement,index)=>{
+  const items:IntervalItem[]=result.placements.map((placement,index)=>{
     const part=parts.get(placement.partId);if(!part)throw Error('Yerleşimde bilinmeyen parça bulundu.');
     const b=rotatedBounds(part.outer,placement.angleDeg);
-    return {placement,index,part,b,w:b[2]-b[0],h:b[3]-b[1]};
-  }).sort((a,b)=>Math.max(b.w,b.h)-Math.max(a.w,a.h)||b.w*b.h-a.w*a.h);
-  const sheets:{boxes:Box[]}[]=[];const packed=new Array<Placement>(items.length),corner=doc.settings.startCorner??'right-bottom';
+    const minX=placement.xMm+b[0],maxX=placement.xMm+b[2],minY=placement.yMm+b[1],maxY=placement.yMm+b[3];
+    if(minX<-1e-7||maxX>width+1e-7)throw Error(`${part.name} malzeme genişliğinin dışına taşıyor.`);
+    if(maxY-minY>length+1e-7)throw Error(`${part.name} seçilen plaka uzunluğuna sığmıyor.`);
+    return {placement,index,part,minY,maxY};
+  }).sort((a,b)=>a.minY-b.minY||a.maxY-b.maxY);
+
+  // Preserve the irregular nesting produced by Sparrow. Consecutive parts that
+  // overlap in the material-length direction form one rigid band; moving a full
+  // band keeps all interlocking relationships intact instead of repacking parts
+  // as bounding-box rectangles.
+  const bands:Band[]=[];
   for(const item of items){
-    if(item.w>width+1e-7||item.h>length+1e-7)throw Error(`${item.part.name} seçilen plaka ölçüsüne sığmıyor.`);
-    let chosen:{sheet:number;x:number;y:number}|undefined;
-    for(let sheet=0;sheet<=sheets.length&&!chosen;sheet++){
-      const boxes=sheet<sheets.length?sheets[sheet].boxes:[];
-      const xs=[0,...boxes.map(b=>b.x+b.w+gap)].filter(x=>x+item.w<=width+1e-7);
-      const ys=[0,...boxes.map(b=>b.y+b.h+gap)].filter(y=>y+item.h<=length+1e-7);
-      let best:{x:number;y:number;score:number}|undefined;
-      for(const y of ys)for(const x of xs){const box={x,y,w:item.w,h:item.h};if(!fits(box,boxes,width,length,gap))continue;const score=y*width+x;if(!best||score<best.score)best={x,y,score};}
-      if(best)chosen={sheet,x:best.x,y:best.y};
-    }
-    if(!chosen)throw Error('Plaka yerleşimi oluşturulamadı.');
-    if(chosen.sheet===sheets.length)sheets.push({boxes:[]});
-    sheets[chosen.sheet].boxes.push({x:chosen.x,y:chosen.y,w:item.w,h:item.h});
-    const targetX=width-chosen.x-item.w;
-    const targetY=corner==='right-top'?length-chosen.y-item.h:chosen.y;
-    packed[item.index]={...item.placement,sheetIndex:chosen.sheet,xMm:targetX-item.b[0],yMm:targetY-item.b[1]};
+    const last=bands.at(-1);
+    if(last&&item.minY<=last.maxY+gap+1e-7){
+      last.items.push(item);last.maxY=Math.max(last.maxY,item.maxY);last.minY=Math.min(last.minY,item.minY);
+    }else bands.push({items:[item],minY:item.minY,maxY:item.maxY});
   }
-  return {...result,sheetCount:sheets.length,usedLengthMm:length*sheets.length,placements:packed};
+
+  const packed=new Array<Placement>(result.placements.length);
+  let sheet=0,cursor=0;
+  for(const band of bands){
+    const height=band.maxY-band.minY;
+    if(height>length+1e-7)throw Error('Bir yerleşim bandı seçilen plaka uzunluğuna sığmıyor.');
+    if(cursor>0&&cursor+height>length+1e-7){sheet++;cursor=0;}
+    const offset=cursor-band.minY;
+    for(const item of band.items)packed[item.index]={...item.placement,sheetIndex:sheet,yMm:item.placement.yMm+offset};
+    cursor+=height+gap;
+  }
+
+  const sheetCount=packed.length?sheet+1:1;
+  return {...result,sheetCount,usedLengthMm:length*sheetCount,placements:packed};
 }
