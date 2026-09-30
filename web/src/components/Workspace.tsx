@@ -74,9 +74,9 @@ export default function Workspace({ document: doc, result, live, selected, selec
     const all: Point[] = [];
     for (const drawing of drawings) {
       const radians = drawing.angleDeg * Math.PI / 180, c = Math.cos(radians), s = Math.sin(radians);
-      for (const [x, y] of drawing.outer) all.push(world
-        ? [drawing.position[1] + x * c - y * s, -drawing.position[0] - (x * s + y * c)]
-        : [drawing.position[0] + x * c - y * s, -drawing.position[1] - (x * s + y * c)]);
+      for (const [x, y] of drawing.outer) all.push(
+        [drawing.position[0] + x * c - y * s, -drawing.position[1] - (x * s + y * c)]
+      );
     }
     if (world) all.push([0, 0], [doc.settings.materialWidthMm, -result!.usedLengthMm]);
     if (!all.length) return;
@@ -136,9 +136,7 @@ export default function Workspace({ document: doc, result, live, selected, selec
       `light-dark(#64748b, color-mix(in srgb, ${colors[index % colors.length]} 60%, white))`;
     const strokeWidth = outlines ? (active ? 1.5 : 1) : (active ? 3 : 2);
     const opacity = selected.length && !active ? .5 : 1;
-    const transform = world
-      ? `translate(${position[1]} ${-position[0]}) rotate(${-drawing.angleDeg}) scale(1 -1)`
-      : `translate(${position[0]} ${-position[1]}) rotate(${-drawing.angleDeg}) scale(1 -1)`;
+    const transform = `translate(${position[0]} ${-position[1]}) rotate(${-drawing.angleDeg}) scale(1 -1)`;
     return <g key={key} data-preparation-copy={!world ? drawing.copyIndex : undefined} data-placement-key={key} opacity={opacity}
       transform={preview?.kind==='scale' && selected.includes(drawing.partId)
         ? screenTransform(active ? preview : {...preview,pivot:position}) : active ? screenTransform(preview) : undefined}>
