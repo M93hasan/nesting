@@ -88,7 +88,7 @@ async function handleApi(request,env){
   }
   if(path==='/api/auth/admin-login'&&request.method==='POST'){
     const data=await body(request),password=String(data.password||'');
-    const user=await env.DB.prepare("SELECT id,email,name,role,nesting_credits,unlimited,password_hash FROM users WHERE role='admin' ORDER BY id LIMIT 1").first();
+    const user=await env.DB.prepare("SELECT id,email,name,role,nesting_credits,unlimited,password_hash FROM users WHERE email=? AND role='admin' LIMIT 1").bind(ADMIN_EMAIL).first();
     if(!user||!await verifyPassword(password,user.password_hash))return json({error:'Parola hatalı.'},401);
     await env.DB.prepare('UPDATE users SET last_login_at=CURRENT_TIMESTAMP WHERE id=?').bind(user.id).run();
     return json({user:publicUser(user)},200,{'set-cookie':cookie(await makeSession(user.id,env))});
