@@ -1,4 +1,3 @@
-import packageInfo from '../package.json';
 
 const sections=[
   ['Genel Bakış','Sistem sürümü, proje durumu ve çalışma bilgileri.'],
@@ -9,7 +8,7 @@ const sections=[
   ['Geçmiş ve Loglar','Yerleştirme geçmişi, dışa aktarma ve sistem olayları.'],
 ];
 export default function Admin(){
-  return <div className="admin-page"><header><a href={import.meta.env.BASE_URL}>← Çalışma alanı</a><h1>Serula Yönetim</h1><span>v{packageInfo.version}</span></header>
+  return <div className="admin-page"><header><a href={import.meta.env.BASE_URL}>← Çalışma alanı</a><h1>Serula Yönetim</h1></header>
     <main><aside>{sections.map(([name])=><a key={name} href={'#'+name.toLowerCase().replaceAll(' ','-')}>{name}</a>)}</aside>
-    <section className="admin-content">{sections.map(([name,desc])=><article id={name.toLowerCase().replaceAll(' ','-')} key={name}><h2>{name}</h2><p>{desc}</p>{name==='Genel Bakış'&&<dl><dt>Sürüm</dt><dd>v{packageInfo.version}</dd><dt>Durum</dt><dd>İstemci hazır</dd></dl>}{name!=='Genel Bakış'&&<p className="muted">Bu bölüm güvenli sunucu kimlik doğrulaması ve kalıcı kullanıcı veritabanına bağlandığında yönetilebilir olacaktır. İstemci tarafında sahte yetki oluşturulmaz.</p>}</article>)}</section></main></div>;
+    <section className="admin-content">{sections.map(([name,desc])=><article id={name.toLowerCase().replaceAll(' ','-')} key={name}><h2>{name}</h2><p>{desc}</p>{name==='Genel Bakış'&&<dl><dt>Durum</dt><dd>İstemci hazır</dd></dl>}{name!=='Genel Bakış'&&<p className="muted">Bu bölüm güvenli sunucu kimlik doğrulaması ve kalıcı kullanıcı veritabanına bağlandığında yönetilebilir olacaktır. İstemci tarafında sahte yetki oluşturulmaz.</p>}</article>)}</section></main></div>;
 }
