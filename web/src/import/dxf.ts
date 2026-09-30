@@ -1,11 +1,10 @@
 import parseString from 'dxf/lib/parseString';
 import bSpline from 'dxf/lib/util/bSpline';
 import {pointSegmentDistance} from '../geometry/validate';
-import {DEFAULT_SETTINGS,type DxfAuxEntity,type DxfSpline,type Point,type Ring} from '../model';
+import {DEFAULT_SETTINGS,newPart,type DxfAuxEntity,type DxfDetailContour,type DxfSpline,type Point,type Ring} from '../model';
 import {apply,multiply,append,ellipse,type Matrix} from '../geometry/flatten';
-import {bounds,inside,normalizeDocument,normalizeRing,ringCrosses} from '../geometry/normalize';
-import {contoursToParts} from './svg';
-import type {ImportReview} from './sparrow';
+import {area,bounds,inside,normalizeDocument,normalizeRing,ringCrosses} from '../geometry/normalize';
+import {localize,type ImportReview} from './sparrow';
 
 type DxfPoint={x:number;y:number;z?:number;bulge?:number};
 type DxfEntity={type:string;handle:string;layer?:string;x?:number;y?:number;z?:number;
@@ -16,8 +15,8 @@ type DxfEntity={type:string;handle:string;layer?:string;x?:number;y?:number;z?:n
 type DxfFile={entities:DxfEntity[];blocks:{name:string;x?:number;y?:number;entities:DxfEntity[]}[]};
 type Group=[number,string];
 type DxfRecord={type:string;groups:Group[];children:DxfRecord[];id:string;layer:string};
-type Contour={ring:Ring;entityId:string;curved:boolean;dxfColorNumber?:number};
-type Chain={points:Ring;id:string;curved:boolean;dxfColorNumber?:number};
+type Contour={ring:Ring;entityId:string;curved:boolean;layer:string;dxfColorNumber?:number};
+type Chain={points:Ring;id:string;curved:boolean;layer:string;dxfColorNumber?:number};
 export type DXFOptions={scale:number;tolerance:number;enclosed:'holes'|'parts';layers?:string[]};
 const value=(r:DxfRecord,code:number)=>r.groups.find(g=>g[0]===code)?.[1];
 function finite(text:string|undefined,fallback?:number):number {
@@ -165,8 +164,9 @@ function join(chains:Chain[],issues:string[]):{contours:Contour[];gaps:number;ad
     }while(current!==i*2);
     if(walked.size!==component.size)throw Error('DXF component did not form a single closed chain.');
     const componentColors=[...new Set([...component].map(e=>chains[e].dxfColorNumber).filter((v):v is number=>v!==undefined))];
+    const componentLayers=[...new Set([...component].map(e=>chains[e].layer))];
     contours.push({ring,entityId:[...component].map(e=>chains[e].id).join(' + '),curved:curved||componentAdjustment>0,
-      ...(componentColors.length===1?{dxfColorNumber:componentColors[0]}:{})});
+      layer:componentLayers.length===1?componentLayers[0]:'0',...(componentColors.length===1?{dxfColorNumber:componentColors[0]}:{})});
   }
   return {contours,gaps,adjustment};
 }
@@ -268,7 +268,7 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
       ring=ring.map(p=>apply(matrix,p));
       if(ring.some(p=>!p.every(v=>Number.isFinite(v)&&Math.abs(v)<=100_000)))throw Error('Coordinates exceed the 100,000 mm limit.');
       totalVertices+=ring.length;if(totalVertices>100_000)throw Error('DXF exceeds 100,000 vertices.');
-      if(closed)contours.push({ring,entityId:r.id,curved,dxfColorNumber});else chains.push({points:ring,id:r.id,curved,dxfColorNumber});
+      if(closed)contours.push({ring,entityId:r.id,curved,layer,dxfColorNumber});else chains.push({points:ring,id:r.id,curved,layer,dxfColorNumber});
     }catch(error){if(expanded>10_000||totalVertices>100_000)throw error;issues.push(`${r.id} on ${layer}: ${error instanceof Error?error.message:String(error)}`);}
   };
   for(const entity of parsed.entities)visit(entity,[scale,0,0,scale,0,0],'0',[]);
@@ -277,43 +277,39 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
   if(joined.gaps)warnings.push(`Joined ${joined.gaps} gaps within 0.01 mm; largest endpoint adjustment ${joined.adjustment} mm. Confirm this preview before importing.`);
   const valid:Contour[]=[];
   for(const c of contours)try{valid.push({...c,ring:normalizeRing(c.ring)});}catch(e){issues.push(`${c.entityId}: ${String(e)}`);}
-  // Containment is valid DXF topology: an inner loop can be a hole. Only
-  // boundary intersections/touches are rejected here; hierarchy is resolved
-  // later by contoursToParts.
-  const rejected=new Set<number>();
-  const translatedSignature=(ring:Ring)=>{
-    const b=bounds(ring),round=(n:number)=>Math.round(n*1e6)/1e6;
-    const pts=ring.map(([x,y])=>`${round(x-b[0])},${round(y-b[1])}`);
-    let best='';
-    for(let i=0;i<pts.length;i++){const candidate=[...pts.slice(i),...pts.slice(0,i)].join(';');if(!best||candidate<best)best=candidate;}
-    return best;
-  };
-  for(let i=0;i<valid.length;i++)for(let j=0;j<i;j++){
-    const a=valid[i].ring,b=valid[j].ring;
-    if(!ringCrosses(a,b))continue;
-    // Pure containment is valid and is resolved into outer/hole hierarchy by
-    // contoursToParts.
-    const nested=inside(a[0],b)||inside(b[0],a);
-    if(nested)continue;
-    const duplicate=translatedSignature(a)===translatedSignature(b)
-      && Math.abs(bounds(a)[0]-bounds(b)[0])<1e-6
-      && Math.abs(bounds(a)[1]-bounds(b)[1])<1e-6;
-    if(duplicate){
-      rejected.add(i);rejected.add(j);
-      issues.push('Aynı konumda yinelenen kontur bulundu; kaynak DXF içindeki kopyayı kaldırın.');
-      continue;
+  // Footwear CAD often stores one physical pattern as several colored contours
+  // drawn on top of, inside, or partly across each other. Build connected contour
+  // groups and nest each group as ONE rigid part. Only the largest contour drives
+  // collision/nesting; contained loops become holes and crossing/overlaid loops
+  // remain attached detail contours with their own layer/color.
+  const connected=(a:Contour,b:Contour)=>ringCrosses(a.ring,b.ring)||inside(a.ring[0],b.ring)||inside(b.ring[0],a.ring);
+  const seenContours=new Set<number>(),groups:Contour[][]=[];
+  for(let i=0;i<valid.length;i++){
+    if(seenContours.has(i))continue;
+    const indices=[i],component:Contour[]=[];seenContours.add(i);
+    for(let at=0;at<indices.length;at++){
+      const current=indices[at];component.push(valid[current]);
+      for(let j=0;j<valid.length;j++)if(!seenContours.has(j)&&connected(valid[current],valid[j])){seenContours.add(j);indices.push(j);}
     }
-    // Independent closed DXF entities are separate cut parts. Footwear CAD
-    // exports can contain parts that touch or overlap in the source drawing;
-    // that must not make either source contour disappear during import.
-    warnings.push('Kaynak DXF içinde temas eden veya kesişen bağımsız konturlar ayrı parçalar olarak korundu.');
+    groups.push(component);
   }
-  const keptContours=valid.filter((_,i)=>!rejected.has(i));
-  // Footwear DXF semantics: every closed contour contained by another contour belongs to that same physical part.
-  // Never promote an enclosed contour to a separately nestable part; that would scatter holes/marks away from the upper.
-  // The inner contour remains rigidly attached as a hole/detail and keeps its own DXF color through export.
-  const imported=contoursToParts(keptContours,fileName,'dxf',options.tolerance+joined.adjustment,'holes');
-  if(options.enclosed==='parts'&&keptContours.length>imported.length)warnings.push('İç kapalı konturlar güvenlik için ayrı parça yapılmadı; ana parçaya kilitli tutuldu.');
+  const keptContours=valid;
+  const imported=groups.map(group=>{
+    const ranked=[...group].sort((a,b)=>Math.abs(area(b.ring))-Math.abs(area(a.ring)));
+    const outer=ranked[0],holes:Contour[]=[],details:Contour[]=[];
+    for(const contour of ranked.slice(1)){
+      const strictlyInside=inside(contour.ring[0],outer.ring)&&!ringCrosses(contour.ring,outer.ring);
+      if(strictlyInside)holes.push(contour);else details.push(contour);
+    }
+    const dxfDetails:DxfDetailContour[]=details.map(detail=>({ring:detail.ring,layer:detail.layer,...(detail.dxfColorNumber!==undefined?{colorNumber:detail.dxfColorNumber}:{})}));
+    return localize({...newPart(outer.ring,outer.entityId),holes:holes.map(h=>h.ring),
+      source:{format:'dxf' as const,fileName,entityId:outer.entityId,
+        ...(outer.dxfColorNumber!==undefined?{dxfColorNumber:outer.dxfColorNumber}:{}),
+        ...(holes.some(h=>h.dxfColorNumber!==undefined)?{dxfHoleColorNumbers:holes.map(h=>h.dxfColorNumber??256)}:{}),
+        ...(dxfDetails.length?{dxfDetails}:{})},
+      approximationToleranceMm:group.some(contour=>contour.curved)?options.tolerance+joined.adjustment:0});
+  });
+  if(groups.some(group=>group.length>1))warnings.push('Üst üste, kesişen veya iç içe DXF konturları tek fiziksel parça olarak kilitlendi; nesting sırasında dağıtılmaz.');
   // Attach POINT/TEXT/MTEXT records to the smallest containing outer contour.
   // Stored coordinates are local to the part, so every placement/rotation keeps marks rigidly locked to that part.
   for(const mark of auxEntities) {
@@ -357,7 +353,8 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
     const b=bounds(part.outer),origin:Point=[b[0],b[1]];
     const holes=part.holes.map(h=>ringSignature(h,origin)).sort().join('|');
     const aux=(part.source.dxfAux??[]).map(mark=>JSON.stringify(mark)).sort().join('|');
-    return `${ringSignature(part.outer,origin)}#${holes}#${aux}`;
+    const details=(part.source.dxfDetails??[]).map(detail=>`${detail.layer}:${detail.colorNumber??256}:${ringSignature(detail.ring,[0,0])}`).sort().join('|');
+    return `${ringSignature(part.outer,origin)}#${holes}#${details}#${aux}`;
   };
   const grouped=new Map<string,(typeof imported)[number]>();
   for(const part of imported){
