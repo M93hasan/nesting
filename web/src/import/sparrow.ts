@@ -52,7 +52,10 @@ export function importSparrow(text: string,fileName: string,scale: number): Impo
 export function solverInput(doc: Document): string {
   if(!doc.parts.some(part=>part.quantity>0))throw Error('Add at least one copy before nesting.');
   return JSON.stringify({name:doc.name,strip_height:doc.settings.materialWidthMm,items:doc.parts.filter(part=>part.quantity>0).map((p,id)=>({
-    id,demand:p.quantity,allowed_orientations:p.rotations.kind==='continuous'?undefined:p.rotations.degrees,
-    shape:{type:'simple_polygon',data:p.outer},
+    // Sparrow packs along +X with strip_height on Y. The workspace uses
+    // material width on X and material length on Y, so solve a transposed
+    // copy and map the result back. Imported geometry stays unchanged.
+    id,demand:p.quantity,allowed_orientations:p.rotations.kind==='continuous'?undefined:p.rotations.degrees.map(angle=>-angle),
+    shape:{type:'simple_polygon',data:p.outer.map(([x,y])=>[y,x])},
   }))});
 }
