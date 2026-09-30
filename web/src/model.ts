@@ -16,7 +16,7 @@ export type Settings = { solverPreset?: 'standard' | 'fast'; startCorner?: 'righ
 export type Placement = { partId: string; copyIndex: number; xMm: number; yMm: number; angleDeg: number; sheetIndex?: number };
 /** A document keeps the editable position of every demanded copy. */
 export type Document = { name: string; parts: Part[]; settings: Settings; placements?: Placement[] };
-export type Validation = { status: 'pending' | 'passed' | 'failed'; source?: 'solver'; overlapAreaMm2: number | null;
+export type Validation = { status: 'pending' | 'passed' | 'failed'; source?: 'solver' | 'local'; overlapAreaMm2: number | null;
   maxBoundaryViolationMm: number | null; minClearanceMm: number | null; errors: string[] };
 export type Result = { documentRevision: number; solverRevision: string; seed: string;
   elapsedSeconds: number; usedLengthMm: number; sheetCount?: number; placements: Placement[]; validation: Validation };

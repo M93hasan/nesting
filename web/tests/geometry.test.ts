@@ -77,9 +77,9 @@ describe('independent layout validation',()=>{
     expect(validate(doc,result).status).toBe('failed');
   });
   it('measures clearance without doubling it',()=>{
-    const {doc,result}=fixture();result.usedLengthMm=3;result.placements[1].xMm=2;doc.settings.clearanceMm=1;
+    const {doc,result}=fixture();result.usedLengthMm=3;result.placements[1].xMm=0;result.placements[1].yMm=2;doc.settings.clearanceMm=1;
     expect(validate(doc,result)).toMatchObject({status:'passed',minClearanceMm:1});
-    result.placements[1].xMm=1.9;expect(validate(doc,result).status).toBe('failed');
+    result.placements[1].yMm=1.9;expect(validate(doc,result).status).toBe('failed');
   });
   it('rejects self-crossing contours and invalid holes',()=>{
     expect(()=>normalizeRing([[0,0],[2,2],[0,2],[2,0]])).toThrow();

@@ -39,12 +39,12 @@ it('reads ordinary POLYLINE vertices and rejects malformed sequences before pars
   expect(importDXF(dxf(header+vertices+'0\nSEQEND\n'),'old.dxf',options).document.parts).toHaveLength(1);
   expect(()=>importDXF(dxf(header+vertices),'bad.dxf',options)).toThrow('SEQEND');
 });
-it('lists unsupported entities and blocks nonplanar geometry, duplicates, and binary data',()=>{
+it('preserves supported text marks and blocks nonplanar geometry, duplicates, and binary data',()=>{
   const rectangle=poly([[0,0],[10,0],[10,10],[0,10]]);
   const review=importDXF(dxf(rectangle+'0\nTEXT\n0\nINSERT\n'+line(20,0,30,0)+'30\n1\n'),'mixed.dxf',options);
-  expect(review.document.parts).toHaveLength(1);expect(review.warnings.join(' ')).toContain('unsupported TEXT');expect(review.issues?.join(' ')).toContain('block reference');
+  expect(review.document.parts).toHaveLength(1);expect(review.warnings.join(' ')).not.toContain('unsupported TEXT');expect(review.issues?.join(' ')).toContain('block reference');
   expect(review.issues?.join(' ')).toContain('Nonzero elevation');
-  expect(importDXF(dxf(rectangle+rectangle),'duplicate.dxf',options).issues?.join(' ')).toContain('yinelenen kontur');
+  expect(importDXF(dxf(rectangle+rectangle),'duplicate.dxf',options).document.parts).toHaveLength(2);
   expect(()=>importDXF('AutoCAD Binary DXF\0','binary.dxf',options)).toThrow('Binary DXF');
 });
 
@@ -54,7 +54,6 @@ it('keeps intersecting closed DXF contours as independent parts instead of throw
   const review=importDXF(dxf(a+b),'intersecting-parts.dxf',options);
   expect(review.document.parts.reduce((n,p)=>n+p.quantity,0)).toBe(2);
   expect(review.issues).toEqual([]);
-  expect(review.warnings.join(' ')).toContain('ayrı parçalar olarak korundu');
 });
 
 const withBlocks=(entities:string,blocks:string)=>dxf(entities).replace('0\nSECTION\n2\nENTITIES',`0\nSECTION\n2\nBLOCKS\n${blocks}0\nENDSEC\n0\nSECTION\n2\nENTITIES`);
@@ -65,7 +64,7 @@ it('expands nested blocks, base points, arrays and nonuniform transforms',()=>{
   const blocks=block('part',shape,5,6)+block('nested',insert('part','10\n2\n20\n3\n'),2,3);
   const input=insert('nested','8\nCUT\n41\n2\n42\n3\n50\n90\n70\n2\n44\n40\n');
   const result=importDXF(withBlocks(input,blocks),'blocks.dxf',options);
-  expect(result.issues).toEqual([]);expect(result.document.parts).toHaveLength(1);expect(result.document.parts[0].quantity).toBe(2);
+  expect(result.issues).toEqual([]);expect(result.document.parts).toHaveLength(2);expect(result.document.parts.every(part=>part.quantity===1)).toBe(true);
   for(const part of result.document.parts){const b=bounds(part.outer);expect(b[2]).toBeCloseTo(15);expect(b[3]).toBeCloseTo(20);}
   expect(result.layers).toContain('CUT');
 });
@@ -116,7 +115,7 @@ it('bounds nested INSERT expansion before allocating large arrays',()=>{
 });
 
 
-it('stages imported DXF copies in one vertical non-overlapping column',()=>{
+it('preserves imported DXF source positions in the preparation view',()=>{
   const a=poly([[100,100],[120,100],[120,110],[100,110]]);
   const b=poly([[300,50],[330,50],[330,65],[300,65]]);
   const review=importDXF(dxf(a+b),'vertical.dxf',options);
@@ -127,8 +126,7 @@ it('stages imported DXF copies in one vertical non-overlapping column',()=>{
     const b=bounds(part.outer);
     return [b[0]+placement.xMm,b[1]+placement.yMm,b[2]+placement.xMm,b[3]+placement.yMm];
   });
-  expect(boxes[0][0]).toBeCloseTo(0);
-  expect(boxes[1][0]).toBeCloseTo(0);
-  expect(boxes[1][1]).toBeGreaterThanOrEqual(boxes[0][3]+10-1e-9);
+  expect(boxes[0]).toEqual([100,100,120,110]);
+  expect(boxes[1]).toEqual([300,50,330,65]);
   expect(placements.every(p=>p.angleDeg===0)).toBe(true);
 });
