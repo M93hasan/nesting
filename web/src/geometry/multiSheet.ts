@@ -21,7 +21,7 @@ export function packResultIntoSheets(doc:Document,result:Result):Result {
     const b=rotatedBounds(part.outer,placement.angleDeg);
     return {placement,index,part,b,w:b[2]-b[0],h:b[3]-b[1]};
   }).sort((a,b)=>Math.max(b.w,b.h)-Math.max(a.w,a.h)||b.w*b.h-a.w*a.h);
-  const sheets:{boxes:Box[]}[]=[];const packed=new Array<Placement>(items.length);
+  const sheets:{boxes:Box[]}[]=[];const packed=new Array<Placement>(items.length),corner=doc.settings.startCorner??'right-bottom';
   for(const item of items){
     if(item.w>length+1e-7||item.h>width+1e-7)throw Error(`${item.part.name} seçilen plaka ölçüsüne sığmıyor.`);
     let chosen:{sheet:number;x:number;y:number}|undefined;
@@ -36,7 +36,9 @@ export function packResultIntoSheets(doc:Document,result:Result):Result {
     if(!chosen)throw Error('Plaka yerleşimi oluşturulamadı.');
     if(chosen.sheet===sheets.length)sheets.push({boxes:[]});
     sheets[chosen.sheet].boxes.push({x:chosen.x,y:chosen.y,w:item.w,h:item.h});
-    packed[item.index]={...item.placement,sheetIndex:chosen.sheet,xMm:chosen.x-item.b[0],yMm:chosen.y-item.b[1]};
+    const targetX=length-chosen.x-item.w;
+    const targetY=corner==='right-top'?width-chosen.y-item.h:chosen.y;
+    packed[item.index]={...item.placement,sheetIndex:chosen.sheet,xMm:targetX-item.b[0],yMm:targetY-item.b[1]};
   }
   return {...result,sheetCount:sheets.length,usedLengthMm:length*sheets.length,placements:packed};
 }
