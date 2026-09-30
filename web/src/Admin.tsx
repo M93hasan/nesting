@@ -37,11 +37,13 @@ function decodeGoogleEmail(credential:string){
 }
 
 export default function Admin({allowedEmail,clientId}:{allowedEmail:string;clientId:string}){
-  const [auth,setAuth]=useState<'loading'|'signed-out'|'allowed'|'denied'>('loading');
+  const localDevelopment=import.meta.env.DEV&&(location.hostname==='127.0.0.1'||location.hostname==='localhost');
+  const [auth,setAuth]=useState<'loading'|'signed-out'|'allowed'|'denied'>(localDevelopment?'allowed':'loading');
   const [signedEmail,setSignedEmail]=useState('');
   const googleButton=useRef<HTMLDivElement>(null);
 
   useEffect(()=>{
+    if(localDevelopment)return;
     let cancelled=false;
     const onCredential=(response:GoogleCredentialResponse)=>{
       const email=response.credential?decodeGoogleEmail(response.credential):'';
@@ -63,7 +65,7 @@ export default function Admin({allowedEmail,clientId}:{allowedEmail:string;clien
     script.onerror=()=>!cancelled&&setAuth('signed-out');
     document.head.appendChild(script);
     return()=>{cancelled=true};
-  },[allowedEmail,clientId]);
+  },[allowedEmail,clientId,localDevelopment]);
 
   if(auth!=='allowed'){
     return <div className="admin-page"><main className="admin-main" style={{maxWidth:560,margin:'10vh auto'}}>
@@ -83,7 +85,7 @@ export default function Admin({allowedEmail,clientId}:{allowedEmail:string;clien
   return <div className="admin-page">
     <header className="admin-topbar">
       <div className="admin-brand"><img src={import.meta.env.BASE_URL+'serula-logo.svg'} alt="" /><div><strong>Serula</strong><span>Yönetim Paneli</span></div></div>
-      <div className="admin-top-actions"><span className="admin-version">v{packageInfo.version}</span><a className="admin-workspace-link" href={import.meta.env.BASE_URL}>Çalışma alanına dön</a></div>
+      <div className="admin-top-actions">{localDevelopment&&<span className="admin-badge">Yerel test</span>}<span className="admin-version">v{packageInfo.version}</span><a className="admin-workspace-link" href={import.meta.env.BASE_URL}>Çalışma alanına dön</a></div>
     </header>
 
     <div className="admin-shell">
@@ -100,11 +102,11 @@ export default function Admin({allowedEmail,clientId}:{allowedEmail:string;clien
             <Metric label="Toplam kullanıcı" value="—" detail="Veritabanı bağlı değil"/>
             <Metric label="Aktif kullanıcı" value="—" detail="Canlı veri bekleniyor"/>
             <Metric label="Bugünkü nesting" value="—" detail="İstatistik servisi bağlı değil"/>
-            <Metric label="Sistem durumu" value="Hazır" detail={'İstemci · v'+packageInfo.version}/>
+            <Metric label="Sistem durumu" value="Hazır" detail={(localDevelopment?'Yerel geliştirme':'İstemci')+' · v'+packageInfo.version}/>
           </section>
           <section className="admin-grid-two">
             <article className="admin-card"><div className="admin-card-head"><h2>Hızlı Durum</h2><span className="admin-badge">İstemci</span></div>
-              <dl className="admin-status-list"><div><dt>Uygulama</dt><dd>Çalışıyor</dd></div><div><dt>Admin rotası</dt><dd>/admin</dd></div><div><dt>Kimlik doğrulama</dt><dd>Bağlantı gerekli</dd></div><div><dt>Kalıcı veritabanı</dt><dd>Bağlantı gerekli</dd></div></dl>
+              <dl className="admin-status-list"><div><dt>Uygulama</dt><dd>Çalışıyor</dd></div><div><dt>Admin rotası</dt><dd>/admin</dd></div><div><dt>Kimlik doğrulama</dt><dd>{localDevelopment?'Yerel test modu':'Google hesabı'}</dd></div><div><dt>Kalıcı veritabanı</dt><dd>Bağlantı gerekli</dd></div></dl>
             </article>
             <article className="admin-card"><div className="admin-card-head"><h2>Son İşlemler</h2></div><Empty title="Henüz veri yok">Kalıcı işlem geçmişi bağlandığında burada kullanıcı, proje, nesting ve dışa aktarma kayıtları gösterilecek.</Empty></article>
           </section>
