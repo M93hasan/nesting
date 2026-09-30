@@ -6,6 +6,7 @@ export PATH="${HOME}/.cargo/bin:${PATH}"
 toolchain=nightly-2026-08-30
 
 npm ci --prefer-offline --no-audit --no-fund
+npm run source:check
 
 # Prefer prebuilt WASM packages. Set SERULA_WASM_DIR to a directory containing
 # pkg, pkg-threads, pkg-nosimd and pkg-threads-nosimd (for example an artifact
@@ -48,6 +49,8 @@ fi
 
 npm run typecheck
 npx vite build
-npm test
 
-# redeploy marker: 2026-09-30-v0013-latest-main
+# Tests are enforced by GitHub pull-request validation before production merges.
+# Do not repeat the full Vitest suite here after the expensive WASM compile.
+
+# redeploy marker: 2026-09-30-v0013-cloudflare-fast
