@@ -119,7 +119,16 @@ async function handleApi(request,env){
     return json({ok:true,user:publicUser(fresh)});
   }
   if(path==='/api/export/authorize'&&request.method==='POST'){
-    return await sessionUser(request,env)?json({ok:true}):json({error:'DXF indirmek için giriş yapmalısınız.'},401);
+    const user=await sessionUser(request,env);if(!user)return json({error:'DXF indirmek için giriş yapmalısınız.'},401);
+    if(!user.unlimited){
+      const updated=await env.DB.prepare('UPDATE users SET nesting_credits=nesting_credits-1 WHERE id=? AND nesting_credits>0').bind(user.id).run();
+      if(!updated.meta.changes)return json({error:'Nesting hakkınız kalmadı. Admin yeni hak verebilir.'},402);
+    }
+    const data=await body(request);
+    await env.DB.prepare('INSERT INTO nesting_history(user_id,project_name,source_file_name,used_credit) VALUES(?,?,?,?)')
+      .bind(user.id,String(data.projectName||'').slice(0,200),String(data.sourceFileName||'').slice(0,255),user.unlimited?0:1).run();
+    const fresh=await env.DB.prepare('SELECT id,email,name,role,nesting_credits,unlimited FROM users WHERE id=?').bind(user.id).first();
+    return json({ok:true,user:publicUser(fresh)});
   }
   if(path==='/api/admin/users'&&request.method==='GET'){
     const admin=await sessionUser(request,env);if(!admin||admin.role!=='admin')return json({error:'Yetkisiz.'},403);
@@ -129,8 +138,14 @@ async function handleApi(request,env){
   const m=path.match(/^\/api\/admin\/users\/(\d+)\/credits$/);
   if(m&&request.method==='POST'){
     const admin=await sessionUser(request,env);if(!admin||admin.role!=='admin')return json({error:'Yetkisiz.'},403);
-    const data=await body(request),credits=Math.max(0,Math.min(100000,Math.trunc(Number(data.credits)||0))),unlimited=data.unlimited?1:0;
-    await env.DB.prepare('UPDATE users SET nesting_credits=?,unlimited=? WHERE id=?').bind(credits,unlimited,Number(m[1])).run();
+    const data=await body(request),id=Number(m[1]),credits=Math.max(0,Math.min(100000,Math.trunc(Number(data.credits)||0)));
+    const target=await env.DB.prepare('SELECT id,role FROM users WHERE id=?').bind(id).first();
+    if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
+    if(target.role==='admin'){
+      await env.DB.prepare('UPDATE users SET nesting_credits=?,unlimited=1 WHERE id=?').bind(credits,id).run();
+    }else{
+      await env.DB.prepare('UPDATE users SET nesting_credits=?,unlimited=0 WHERE id=?').bind(credits,id).run();
+    }
     return json({ok:true});
   }
   return json({error:'Bulunamadı.'},404);
