@@ -309,7 +309,11 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
     warnings.push('Kaynak DXF içinde temas eden veya kesişen bağımsız konturlar ayrı parçalar olarak korundu.');
   }
   const keptContours=valid.filter((_,i)=>!rejected.has(i));
-  const imported=contoursToParts(keptContours,fileName,'dxf',options.tolerance+joined.adjustment,options.enclosed);
+  // Footwear DXF semantics: every closed contour contained by another contour belongs to that same physical part.
+  // Never promote an enclosed contour to a separately nestable part; that would scatter holes/marks away from the upper.
+  // The inner contour remains rigidly attached as a hole/detail and keeps its own DXF color through export.
+  const imported=contoursToParts(keptContours,fileName,'dxf',options.tolerance+joined.adjustment,'holes');
+  if(options.enclosed==='parts'&&keptContours.length>imported.length)warnings.push('İç kapalı konturlar güvenlik için ayrı parça yapılmadı; ana parçaya kilitli tutuldu.');
   // Attach POINT/TEXT/MTEXT records to the smallest containing outer contour.
   // Stored coordinates are local to the part, so every placement/rotation keeps marks rigidly locked to that part.
   for(const mark of auxEntities) {
