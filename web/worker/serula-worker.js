@@ -1,6 +1,6 @@
 const GOOGLE_CLIENT_ID='249559754500-36grgmm2jucf2159d41efqdcqut02lj6.apps.googleusercontent.com';
 const SESSION_DAYS=30;
-// Build marker: 0.0.44
+// Build marker: 0.0.46
 
 const json=(data,status=200,headers={})=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store',...headers}});
 const b64=bytes=>btoa(String.fromCharCode(...bytes));
@@ -92,15 +92,15 @@ async function handleApi(request,env){
     return await adminSessionValid(request,env)?json({user:{id:0,email:'',name:'Admin',role:'admin',credits:0,unlimited:true}}):json({user:null},401);
   }
   if(path==='/api/auth/admin-login'&&request.method==='POST'){
-    const data=await body(request),password=String(data.password||'');
-    if(!password)return json({error:'Parola gerekli.'},400);
+    const data=await body(request),email=String(data.email||'').trim().toLowerCase(),password=String(data.password||'');
+    if(email!=='m93hasan@icloud.com'||!password)return json({error:'E-posta veya parola hatalı.'},401);
     let valid=false;
     if(env.ADMIN_PASSWORD)valid=await secureEqual(password,env.ADMIN_PASSWORD);
     if(!valid){
       const admins=await env.DB.prepare("SELECT password_hash FROM users WHERE role='admin' AND password_hash IS NOT NULL ORDER BY id").all();
       for(const candidate of admins.results||[]){if(await verifyPassword(password,candidate.password_hash)){valid=true;break;}}
     }
-    if(!valid)return json({error:'Parola hatalı.'},401);
+    if(!valid)return json({error:'E-posta veya parola hatalı.'},401);
     return json({user:{id:0,email:'',name:'Admin',role:'admin',credits:0,unlimited:true}},200,{'set-cookie':adminCookie(await makeAdminSession(env))});
   }
   if(path==='/api/auth/login'&&request.method==='POST'){
