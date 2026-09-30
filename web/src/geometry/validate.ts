@@ -42,7 +42,11 @@ export function validate(doc: Document, result: Result, serialized?: WorldPart[]
       if(!part || !Number.isInteger(p.copyIndex) || p.copyIndex<0 || p.copyIndex>=part.quantity) throw Error('Unknown part or copy index.');
       if(Object.keys(p).some(k=>!['partId','copyIndex','xMm','yMm','angleDeg','sheetIndex'].includes(k))) throw Error('Placements support rigid rotations and translations only.');
       if(![p.xMm,p.yMm,p.angleDeg].every(Number.isFinite)) throw Error('Placement contains a non-finite transform.');
-      if(doc.settings.materialType==='sheet' && (!Number.isInteger(p.sheetIndex) || (p.sheetIndex??-1)<0 || (p.sheetIndex??0)>=(result.sheetCount??0))) throw Error('Invalid sheet index.');
+      if(doc.settings.materialType==='sheet') {
+        const sheetCount=result.sheetCount??1;
+        const sheetIndex=p.sheetIndex??0;
+        if(!Number.isInteger(sheetIndex)||sheetIndex<0||sheetIndex>=sheetCount) throw Error('Invalid sheet index.');
+      }
       const key=JSON.stringify([p.partId,p.copyIndex]);
       if(seen.has(key)) throw Error('Duplicate part copy.');
       seen.add(key);
