@@ -235,7 +235,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     if(locked||selected.length!==1||!chosen)return;
     if((doc.settings.materialType??'roll')!=='sheet') {setError('Tam plaka için malzeme tipini Plaka seçin.');return;}
     const plateLength=doc.settings.materialLengthMm;
-    if(!Number.isFinite(plateLength)||plateLength!<=0){setError('Geçerli bir plaka uzunluğu girin.');return;}
+    if(typeof plateLength!=='number'||!Number.isFinite(plateLength)||plateLength<=0){setError('Geçerli bir plaka uzunluğu girin.');return;}
     const clearance=doc.settings.clearanceMm;
     const usableWidth=doc.settings.materialWidthMm-2*clearance;
     const usableLength=plateLength-2*clearance;
