@@ -21,7 +21,7 @@ function Metric({label,value,detail}:{label:string;value:string;detail:string}){
   return <article className="admin-metric"><span>{label}</span><strong>{value}</strong><small>{detail}</small></article>;
 }
 
-type AdminUser={id:number;email:string;name:string;role:string;credits:number;unlimited:boolean;createdAt?:string;lastLoginAt?:string};
+type AdminUser={id:number;email:string;name:string;role:string;credits:number;unlimited:boolean;authProvider?:string;suspended?:boolean;licenseStartedAt?:string;licenseExpiresAt?:string;createdAt?:string;lastLoginAt?:string};
 
 type GoogleCredentialResponse={credential?:string};
 type GoogleAccounts={id:{initialize:(options:{client_id:string;callback:(response:GoogleCredentialResponse)=>void;auto_select?:boolean})=>void;renderButton:(parent:HTMLElement,options:Record<string,unknown>)=>void;disableAutoSelect:()=>void}};
@@ -142,16 +142,16 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
         </>}
 
         {section==='users'&&<section className="admin-card admin-users">
-          <div className="admin-card-head"><div><h2>Kullanıcı Yönetimi</h2><p>Yeni kullanıcılar 5 nesting hakkıyla başlar. Buradan kalan hakkı değiştirebilirsin.</p></div><button onClick={()=>void loadUsers()} disabled={usersLoading}>↻ Yenile</button></div>
+          <div className="admin-card-head"><div><h2>Kullanıcı Yönetimi</h2><p>E-posta veya Google ile giriş yapan kullanıcıların hesap, kota ve 375 günlük lisans bilgilerini yönetin.</p></div><button onClick={()=>void loadUsers()} disabled={usersLoading}>↻ Yenile</button></div>
           <div className="admin-toolbar"><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Kullanıcı ara…" aria-label="Kullanıcı ara"/><select value={role} onChange={e=>setRole(e.target.value)}><option>Tümü</option><option>Admin</option><option>Operatör</option></select></div>
           {usersError&&<p className="field-error" role="alert">{usersError}</p>}
-          <div className="admin-table"><div className="admin-table-head"><span>Kullanıcı</span><span>Rol</span><span>Nesting hakkı</span><span>Son giriş</span><span></span></div>
+          <div className="admin-table"><div className="admin-table-head"><span>Kullanıcı</span><span>Rol / Giriş</span><span>Nesting hakkı</span><span>Lisans</span><span>Son giriş</span></div>
             {usersLoading?<Empty title="Yükleniyor">Kullanıcı bilgileri D1 veritabanından alınıyor.</Empty>:filteredUsers.length?filteredUsers.map(user=><div className="admin-user-row" key={user.id}>
               <span><strong>{user.name||'İsimsiz'}</strong><small>{user.email}</small></span>
-              <span>{user.role==='admin'?'Admin':'Kullanıcı'}</span>
-              <span>{user.role==='admin'?<strong>Sınırsız</strong>:<input aria-label={user.email+' nesting hakkı'} type="number" min="0" max="100000" defaultValue={user.credits} key={user.id+'-'+user.credits} onBlur={e=>{const value=Math.max(0,Math.trunc(e.currentTarget.valueAsNumber||0));if(value!==user.credits)void saveCredits(user,value)}}/>}</span>
-              <span>{user.lastLoginAt?new Date(user.lastLoginAt).toLocaleString('tr-TR'):'—'}</span>
-              <span>{savingUserId===user.id?'Kaydediliyor…':''}</span>
+              <span>{user.role==='admin'?'Admin':'Kullanıcı'}<small>{user.authProvider==='google'?'Google / Gmail':'E-posta'}</small></span>
+              <span>{user.role==='admin'||user.unlimited?<strong>Sınırsız</strong>:<input aria-label={user.email+' nesting hakkı'} type="number" min="0" max="100000" defaultValue={user.credits} key={user.id+'-'+user.credits} onBlur={e=>{const value=Math.max(0,Math.trunc(e.currentTarget.valueAsNumber||0));if(value!==user.credits)void saveCredits(user,value)}}/>}</span>
+              <span><strong>{user.licenseExpiresAt?new Date(user.licenseExpiresAt).toLocaleDateString('tr-TR'):'Lisans yok'}</strong><small>{user.licenseStartedAt?'Başlangıç: '+new Date(user.licenseStartedAt).toLocaleDateString('tr-TR'):'375 gün · etkinleştirme bekliyor'}</small></span>
+              <span>{user.lastLoginAt?new Date(user.lastLoginAt).toLocaleString('tr-TR'):'—'}{user.suspended&&<small>Askıya alınmış</small>}{savingUserId===user.id&&<small>Kaydediliyor…</small>}</span>
             </div>):<Empty title="Kullanıcı bulunamadı">Filtreye uyan kullanıcı yok.</Empty>}
           </div>
         </section>}
