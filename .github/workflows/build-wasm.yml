@@ -1,0 +1,42 @@
+name: Build WASM packages
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'web/wasm/**'
+      - 'web/scripts/build-wasm.mjs'
+      - 'web/scripts/rayon-helpers.js'
+      - '.github/workflows/build-wasm.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  wasm:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-08-30
+          targets: wasm32-unknown-unknown
+          components: rust-src
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: web/wasm
+      - run: npm install --global wasm-pack@0.15.0
+      - run: npm run wasm:build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: serula-wasm-packages
+          path: |
+            web/wasm/pkg
+            web/wasm/pkg-threads
+            web/wasm/pkg-nosimd
+            web/wasm/pkg-threads-nosimd
+          retention-days: 90
