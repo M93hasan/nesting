@@ -1,6 +1,7 @@
 const GOOGLE_CLIENT_ID='249559754500-36grgmm2jucf2159d41efqdcqut02lj6.apps.googleusercontent.com';
 const SESSION_DAYS=30;
-// Build marker: 0.0.43
+const ADMIN_LOGIN_EMAIL='m93hasan@icloud.com';
+// Build marker: 0.0.46
 
 const json=(data,status=200,headers={})=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store',...headers}});
 const b64=bytes=>btoa(String.fromCharCode(...bytes));
@@ -33,7 +34,7 @@ function cookieToken(request){
   return match?decodeURIComponent(match[1]):'';
 }
 function cookie(value,maxAge=SESSION_DAYS*86400){return `serula_session=${encodeURIComponent(value)}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${maxAge}`;}
-function adminCookieToken(request){const match=request.headers.get('cookie')?.match(/(?:^|;\\s*)serula_admin_session=([^;]+)/);return match?decodeURIComponent(match[1]):'';}
+function adminCookieToken(request){const match=request.headers.get('cookie')?.match(/(?:^|;\s*)serula_admin_session=([^;]+)/);return match?decodeURIComponent(match[1]):'';}
 function adminCookie(value,maxAge=SESSION_DAYS*86400){return `serula_admin_session=${encodeURIComponent(value)}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${maxAge}`;}
 async function secureEqual(a,b){const [x,y]=await Promise.all([sha256(String(a)),sha256(String(b))]);let d=x.length^y.length;const n=Math.max(x.length,y.length);for(let i=0;i<n;i++)d|=(x.charCodeAt(i%x.length)||0)^(y.charCodeAt(i%y.length)||0);return d===0;}
 async function makeAdminSession(env){const raw=randomToken(),expires=new Date(Date.now()+SESSION_DAYS*86400000).toISOString();await env.DB.prepare('INSERT INTO admin_sessions(token_hash,expires_at) VALUES(?,?)').bind(await sha256(raw),expires).run();return raw;}
@@ -92,12 +93,16 @@ async function handleApi(request,env){
     return await adminSessionValid(request,env)?json({user:{id:0,email:'',name:'Admin',role:'admin',credits:0,unlimited:true}}):json({user:null},401);
   }
   if(path==='/api/auth/admin-login'&&request.method==='POST'){
-    const data=await body(request),password=String(data.password||'');
-    if(!env.ADMIN_PASSWORD)return json({error:'Admin parolası sunucuda tanımlı değil.'},503);
-    if(!await secureEqual(password,env.ADMIN_PASSWORD))return json({error:'Parola hatalı.'},401);
-    return json({user:{id:0,email:'',name:'Admin',role:'admin',credits:0,unlimited:true}},200,{'set-cookie':adminCookie(await makeAdminSession(env))});
+    const data=await body(request),email=String(data.email||'').trim().toLowerCase(),password=String(data.password||'');
+    if(email!==ADMIN_LOGIN_EMAIL||!password)return json({error:'E-posta veya parola hatalı.'},401);
+    let valid=false;
+    const admin=await env.DB.prepare("SELECT password_hash FROM users WHERE lower(email)=? AND role='admin' LIMIT 1").bind(email).first();
+    if(admin?.password_hash)valid=await verifyPassword(password,admin.password_hash);
+    if(!valid&&env.ADMIN_PASSWORD)valid=await secureEqual(password,env.ADMIN_PASSWORD);
+    if(!valid)return json({error:'E-posta veya parola hatalı.'},401);
+    return json({user:{id:0,email:ADMIN_LOGIN_EMAIL,name:'Admin',role:'admin',credits:0,unlimited:true}},200,{'set-cookie':adminCookie(await makeAdminSession(env))});
   }
-  if(path==='/api/auth/login'&&request.method==='POST'){
+    if(path==='/api/auth/login'&&request.method==='POST'){
     const data=await body(request),email=String(data.email||'').trim().toLowerCase(),password=String(data.password||'');
     const user=await env.DB.prepare('SELECT id,email,name,role,nesting_credits,unlimited,password_hash FROM users WHERE email=?').bind(email).first();
     if(!user||!await verifyPassword(password,user.password_hash))return json({error:'E-posta veya parola hatalı.'},401);
