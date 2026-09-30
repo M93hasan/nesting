@@ -279,7 +279,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
           }else if(reply.review.document.parts.length>0){
             await addParts(reply.review.document.parts,reply.review.warnings);
             setFiles(undefined);setReview(undefined);setFitRequest(n=>n+1);
-            if(reply.review.issues?.length)setError(`Bazı konturlar içe aktarılamadı: ${reply.review.issues.join(' ')}`);
+            // Keep successfully imported DXF parts usable without flooding the workspace with repeated contour warnings.
           }else{
             setFiles(undefined);setReview(undefined);
             setError(reply.review.issues?.join(' ')||'DXF içinde içe aktarılabilir kapalı kontur bulunamadı.');
