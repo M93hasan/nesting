@@ -1,6 +1,6 @@
 import polygonClipping from 'polygon-clipping';
 import { LIMITS, POLICY, type Document, type Part, type Placement, type Point, type Result, type Ring, type Validation } from '../model';
-import { area, bounds, intersects, normalizeDocument, normalizePart } from './normalize';
+import { area, bounds, intersects, normalizeDocument, normalizePart, normalizeRing } from './normalize';
 
 export type WorldPart = { partId: string; copyIndex: number; outer: Ring; holes: Ring[] };
 const RESULT_LINEAR_TOLERANCE_MM=0.01;
@@ -38,7 +38,8 @@ export function collisionRing(part:Part):Ring {
   if(!details.length)return part.outer;
   const source=[part.outer,...details];
   try{
-    const merged=polygonClipping.union(...source.map(ring=>[ring]));
+    const union=polygonClipping.union as unknown as (...polygons:Ring[][])=>Ring[][][];
+    const merged=union(...source.map(ring=>[ring]));
     if(merged.length===1&&merged[0]?.[0]?.length>=3)return normalizeRing(merged[0][0]);
     const exterior=merged.flatMap(polygon=>polygon[0]??[]) as Point[];
     if(exterior.length>=3)return convexHull(exterior);
