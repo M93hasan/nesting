@@ -54,12 +54,10 @@ jobs:
         run: npm install --global wasm-pack@0.15.0
       - name: Build WASM fallback
         if: steps.wasm.outputs.ready != 'true'
-        run: npm run wasm:build
-      - name: Source integrity
-        run: npm run source:check
-      - name: Typecheck
-        run: npm run typecheck
-      - name: Vite build
-        run: npx vite build
+        run: |
+          npm run wasm:build
+          node scripts/wasm-fingerprint.mjs > wasm/prebuilt.sha256
+      - name: Production build
+        run: npm run build
       - name: Test
         run: npm test
