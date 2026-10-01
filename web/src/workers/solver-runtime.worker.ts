@@ -15,10 +15,10 @@ function ringArea(part:Part){
   for(let i=0,j=ring.length-1;i<ring.length;j=i++)area+=ring[j][0]*ring[i][1]-ring[i][0]*ring[j][1];
   return Math.max(1e-6,Math.abs(area)/2);
 }
-function perSheetSeconds(total:number|null|undefined,estimatedSheets:number){
+function perSheetSeconds(total:number|null|undefined,estimatedSheets:number):(typeof ALLOWED_SECONDS)[number]{
   if(total==null)return 30;
   const target=Math.max(10,Math.floor(total/Math.max(1,estimatedSheets)));
-  return [...ALLOWED_SECONDS].reverse().find(value=>value<=target)??10;
+  return ([...ALLOWED_SECONDS].reverse().find(value=>value<=target)??10) as (typeof ALLOWED_SECONDS)[number];
 }
 function batchCounts(tokens:number[],count:number,partCount:number){
   const counts=new Array<number>(partCount).fill(0);
