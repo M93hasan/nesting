@@ -116,7 +116,7 @@ async function testDxfAllowed(userId,env){
   return !!row?.test_dxf_enabled;
 }
 
-const DEFAULT_ADMIN_SETTINGS={materialWidthMm:1000,clearanceMm:0.3,marginMm:5,rotation:'half',materialType:'roll',solverPreset:'standard'};
+const DEFAULT_ADMIN_SETTINGS={materialWidthMm:1000,clearanceMm:0.3,marginMm:5,rotation:'half',materialType:'roll',solverPreset:'fast'};
 function cleanSettings(value){
   const input=value&&typeof value==='object'?value:{};
   const num=(v,fallback,min,max)=>{const n=Number(v);return Number.isFinite(n)?Math.min(max,Math.max(min,n)):fallback};
