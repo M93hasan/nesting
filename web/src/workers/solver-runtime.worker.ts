@@ -44,8 +44,7 @@ function solveOneSheet(wasm:WasmApi,doc:Document,counts:number[],seconds:(typeof
     if(message.type==='live'||message.type==='finished')return;
     send(message);
   },control?(reset:boolean)=>{if(reset)Atomics.compareExchange(control,0,1,0);return Atomics.load(control,0)===1;}:undefined);
-  if(!best)throw Error('Sparrow bu plaka için geçerli yerleşim üretemedi.');
-  return {candidate:best,localToGlobal};
+  return best?{candidate:best,localToGlobal}:undefined;
 }
 function solveSheetMode(wasm:WasmApi,doc:Document,data:Extract<Start,{type:'start'}>,send:(message:object)=>void,solverBinary:SolverBinary,control?:Int32Array){
   const length=doc.settings.materialLengthMm,width=doc.settings.materialWidthMm,clearance=doc.settings.clearanceMm,preset=doc.settings.solverPreset??'standard';
@@ -68,17 +67,26 @@ function solveSheetMode(wasm:WasmApi,doc:Document,data:Extract<Start,{type:'star
       area=next;count++;
     }
     count=Math.max(1,count);
-    let solved:ReturnType<typeof solveOneSheet>|undefined;
-    for(let attempt=0;attempt<8;attempt++){
+    let solved:Exclude<ReturnType<typeof solveOneSheet>,undefined>|undefined;
+    for(let attempt=0;attempt<10;attempt++){
       const counts=batchCounts(remaining,count,parts.length);
-      const attemptSeed=(BigInt(data.seed)+BigInt(sheetIndex*17+attempt+1)).toString();
+      const attemptSeed=(BigInt(data.seed)+BigInt(sheetIndex*29+attempt+1)).toString();
       const started=performance.now();
       const result=solveOneSheet(wasm,doc,counts,seconds,attemptSeed,clearance,preset,send,solverBinary,control);
       elapsedMs+=performance.now()-started;
-      if(result.candidate.solution.strip_width<=length+1e-6){solved=result;break;}
+      if(result&&result.candidate.solution.strip_width<=length+1e-6){solved=result;break;}
       if(count===1){
+        // A single copy can occasionally miss a candidate within a short stochastic
+        // Sparrow run. Retry it with fresh seeds before declaring it impossible.
+        if(attempt<9)continue;
         const part=parts[remaining[0]];
-        throw Error(`${part.name} tek başına ${width} × ${length} mm plakaya izin verilen dönüşlerle sığmıyor.`);
+        throw Error(`${part.name} tek başına ${width} × ${length} mm plakaya Sparrow ile yerleştirilemedi.`);
+      }
+      if(!result){
+        // No candidate for this batch: reduce the batch and let the same upstream
+        // Sparrow/Jagua engine solve a simpler physical plate instead of aborting.
+        count=Math.max(1,Math.floor(count/2));
+        continue;
       }
       const ratio=length/result.candidate.solution.strip_width;
       const reduced=Math.max(1,Math.min(count-1,Math.floor(count*ratio*.92)));

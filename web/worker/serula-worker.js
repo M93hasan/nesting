@@ -116,7 +116,7 @@ async function testDxfAllowed(userId,env){
   return !!row?.test_dxf_enabled;
 }
 
-const DEFAULT_ADMIN_SETTINGS={materialWidthMm:1000,clearanceMm:0.3,marginMm:5,rotation:'half',materialType:'roll',solverPreset:'standard'};
+const DEFAULT_ADMIN_SETTINGS={materialWidthMm:1400,clearanceMm:0,marginMm:0,rotation:'half',materialType:'roll',solverPreset:'standard'};
 function cleanSettings(value){
   const input=value&&typeof value==='object'?value:{};
   const num=(v,fallback,min,max)=>{const n=Number(v);return Number.isFinite(n)?Math.min(max,Math.max(min,n)):fallback};
@@ -135,7 +135,17 @@ async function audit(env,action,{actorType='system',actorUserId=null,targetUserI
 async function systemDefaults(env){
   const row=await env.DB.prepare("SELECT value_json FROM system_settings WHERE key='defaults'").first();
   if(!row?.value_json)return DEFAULT_ADMIN_SETTINGS;
-  try{return cleanSettings(JSON.parse(row.value_json))}catch{return DEFAULT_ADMIN_SETTINGS}
+  try{
+    const raw=JSON.parse(row.value_json);
+    // One-time compatibility migration for the historical Serula defaults that
+    // could overwrite the frontend's 1400 mm / 0 mm production defaults.
+    if(Number(raw?.materialWidthMm)===1000&&Number(raw?.clearanceMm)===0.3&&Number(raw?.marginMm??5)===5){
+      const migrated={...cleanSettings(raw),materialWidthMm:1400,clearanceMm:0,marginMm:0};
+      await env.DB.prepare("UPDATE system_settings SET value_json=?,updated_at=CURRENT_TIMESTAMP WHERE key='defaults'").bind(JSON.stringify(migrated)).run();
+      return migrated;
+    }
+    return cleanSettings(raw);
+  }catch{return DEFAULT_ADMIN_SETTINGS}
 }
 
 async function googleUserFromCredential(credential,env){
