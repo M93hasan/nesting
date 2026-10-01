@@ -1,6 +1,7 @@
 export type Point = [number, number];
 export type Ring = Point[];
 export type RotationRule = { kind: 'discrete'; degrees: number[] } | { kind: 'continuous' };
+export const FIVE_DEGREE_ROTATIONS = Array.from({length:72},(_,i)=>i*5);
 export type DxfSpline = { degree:number; knots:number[]; controlPoints:Point[]; weights?:number[]; flags:number };
 export type DxfAuxEntity =
   | { kind:'point'; point:Point; layer:string; colorNumber?:number }
@@ -21,8 +22,8 @@ export type Validation = { status: 'pending' | 'passed' | 'failed'; source?: 'so
 export type Result = { documentRevision: number; solverRevision: string; seed: string;
   elapsedSeconds: number; usedLengthMm: number; sheetCount?: number; placements: Placement[]; validation: Validation };
 export type Project = Document & { schemaVersion: 1; revision: number; result?: Result };
-export const DEFAULT_SETTINGS: Settings = { startCorner: 'right-bottom', materialType: 'roll', materialWidthMm: 1000, clearanceMm: 0, timeLimitSeconds: 30 };
-export const SOLVER_REVISION = '7f0e10f946f70a86138d3938548a13ee46464f39';
+export const DEFAULT_SETTINGS: Settings = { startCorner: 'right-bottom', materialType: 'roll', materialWidthMm: 1000, clearanceMm: 0, timeLimitSeconds: 10, solverPreset:'fast' };
+export const SOLVER_REVISION = '5901a79b6c5a74d8b9c356ee2916736567308108';
 export const LIMITS = { copies: 500, verticesPerPart: 5000, verticesTotal: 100000, extent: 100000 };
 export const POLICY = { linearMm: 1e-6, overlapMm2: 1e-8, angleDeg: 1e-4 };
 // getRandomValues also works on HTTP LAN addresses, unlike randomUUID.
@@ -43,10 +44,10 @@ export function example(): Document {
 }
 
 export function rotationSummary(rule: RotationRule): string {
-  if (rule.kind === 'continuous') return 'Free rotation';
+  if (rule.kind === 'continuous') return 'Her yön · 5°';
   const degrees = [...new Set(rule.degrees.map(d => ((d % 360) + 360) % 360))].sort((a,b) => a-b);
   if (degrees.length === 1) return 'Fixed';
   if (degrees.length === 2 && degrees[1]-degrees[0] === 180) return 'Half-turns';
-  if (degrees.length === 4 && degrees.every((d,i) => d-degrees[0] === i*90)) return 'Quarter-turns';
-  return `${degrees.length} angles`;
+  if (degrees.length === 72 && degrees.every((d,i) => d === i*5)) return 'Her yön · 5°';
+  return `${degrees.length} açı`;
 }

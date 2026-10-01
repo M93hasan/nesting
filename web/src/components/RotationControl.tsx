@@ -1,4 +1,4 @@
-import type {RotationRule} from '../model';
+import {FIVE_DEGREE_ROTATIONS,type RotationRule} from '../model';
 
 const same=(rule:RotationRule,degrees:number[]|'free')=>{
   if(degrees==='free')return rule.kind==='continuous';
@@ -14,8 +14,7 @@ export default function RotationControl({rule,mixed,disabled,required=false,onCh
     <div className="row-actions">
       <button type="button" aria-pressed={!mixed&&same(rule,[0])} disabled={disabled} onClick={()=>onChange({kind:'discrete',degrees:[0]})}>0°</button>
       <button type="button" aria-pressed={!mixed&&same(rule,[0,180])} disabled={disabled} onClick={()=>onChange({kind:'discrete',degrees:[0,180]})}>0° / 180°</button>
-      <button type="button" aria-pressed={!mixed&&same(rule,[0,90,180,270])} disabled={disabled} onClick={()=>onChange({kind:'discrete',degrees:[0,90,180,270]})}>0° / 90° / 180° / 270°</button>
-      <button type="button" aria-pressed={!mixed&&same(rule,'free')} disabled={disabled} onClick={()=>onChange({kind:'continuous'})}>Her yöne</button>
+      <button type="button" aria-pressed={!mixed&&same(rule,FIVE_DEGREE_ROTATIONS)} disabled={disabled} onClick={()=>onChange({kind:'discrete',degrees:[...FIVE_DEGREE_ROTATIONS]})}>Her yön · 5°</button>
     </div>
   </div>;
 }

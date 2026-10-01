@@ -48,14 +48,14 @@ it('deletes copies down to zero without deleting the type and duplicates within 
   expect(cloned.placements![0]).toEqual(restored.placements![0]);
   expect(cloned.placements![1].xMm).toBeLessThan(cloned.placements![0].xMm);
 });
-it('R cycles discrete allowed orientations and uses quarter turns for free rotation',()=>{
+it('R cycles discrete allowed orientations and advances legacy free rotation by 5 degrees',()=>{
   let doc=withDocumentPlacements(source());const ref={partId:'plate',copyIndex:0};
   doc=rotateToNextOrientation(doc,[ref]);expect(doc.placements![0].angleDeg).toBe(180);
   doc=rotateToNextOrientation(doc,[ref]);expect(doc.placements![0].angleDeg).toBe(0);
   doc={...doc,parts:doc.parts.map(part=>({...part,rotations:{kind:'discrete',degrees:[270,30,120]}}))};
   for(const angle of [30,120,270,30]){doc=rotateToNextOrientation(doc,[ref]);expect(doc.placements![0].angleDeg).toBe(angle);}
   doc={...doc,parts:doc.parts.map(part=>({...part,rotations:{kind:'continuous'}}))};
-  doc=rotateToNextOrientation(doc,[ref]);expect(doc.placements![0].angleDeg).toBe(120);
+  doc=rotateToNextOrientation(doc,[ref]);expect(doc.placements![0].angleDeg).toBe(275);
   expect(doc.placements![1].angleDeg).toBe(0);
 });
 

@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS, newPart, type Document, type Part, type Ring } from '../model';
+import { DEFAULT_SETTINGS, FIVE_DEGREE_ROTATIONS, newPart, type Document, type Part, type Ring } from '../model';
 import { bounds, normalizeDocument, normalizeRing } from '../geometry/normalize';
 
 export type ImportReview = { document: Document; warnings: string[]; replace: boolean; issues?:string[]; layers?:string[]; result?:import('../model').Result };
@@ -39,11 +39,28 @@ export function importSparrow(text: string,fileName: string,scale: number): Impo
       if(w<=0 || h<=0) throw Error('Rectangle dimensions must be positive.');
       outer=scaled([[x,y],[x+w,y],[x+w,y+h],[x,y+h]]);
     } else throw Error(`Item ${id}: ${String(shape.type)} is unsupported. Disjoint JSON items cannot be split without changing demand.`);
-    const orientations=item.allowed_orientations;
-    if(orientations!==undefined && orientations!==null && (!Array.isArray(orientations) || !orientations.length || !orientations.every(a=>typeof a==='number' && Number.isFinite(a)))) throw Error(`Item ${id}: allowed_orientations must be omitted for free rotation or a nonempty degree list.`);
+    let rotations:Part['rotations'];
+    if(item.orientation!==undefined){
+      const orientation=record(item.orientation),rotation=record(orientation.rotation);
+      if(rotation.mode==='continuous')rotations={kind:'discrete',degrees:[...FIVE_DEGREE_ROTATIONS]};
+      else if(rotation.mode==='stepped'){
+        const step=number(rotation.step);
+        if(step<=0||step>360)throw Error(`Item ${id}: rotation step must be in (0, 360].`);
+        const count=Math.round(360/step);
+        if(Math.abs(count*step-360)>1e-4)throw Error(`Item ${id}: rotation step must divide 360 degrees.`);
+        rotations={kind:'discrete',degrees:Array.from({length:count},(_,i)=>i*360/count)};
+      }else if(rotation.mode==='discrete'){
+        const angles=rotation.angles;
+        if(!Array.isArray(angles)||!angles.length||!angles.every(a=>typeof a==='number'&&Number.isFinite(a)))throw Error(`Item ${id}: discrete rotation angles must be a nonempty finite list.`);
+        rotations={kind:'discrete',degrees:angles as number[]};
+      }else throw Error(`Item ${id}: unsupported rotation mode.`);
+    }else{
+      const orientations=item.allowed_orientations;
+      if(orientations!==undefined && orientations!==null && (!Array.isArray(orientations) || !orientations.length || !orientations.every(a=>typeof a==='number' && Number.isFinite(a)))) throw Error(`Item ${id}: allowed_orientations must be omitted for free rotation or a nonempty degree list.`);
+      rotations=orientations==null?{kind:'discrete',degrees:[...FIVE_DEGREE_ROTATIONS]}:{kind:'discrete',degrees:orientations as number[]};
+    }
     return localize({...newPart(outer,`Part ${id}`),holes,quantity:number(item.demand),
-      source:{format:'sparrow',fileName,entityId:String(id)},
-      rotations: orientations==null?{kind:'continuous'}:{kind:'discrete',degrees:orientations as number[]},
+      source:{format:'sparrow',fileName,entityId:String(id)},rotations,
       preparationPosition:[index*50,0]});
   });
   return {document:normalizeDocument({name:input.name,parts,settings:{...DEFAULT_SETTINGS,materialWidthMm:number(input.strip_height)*scale}}),
@@ -53,11 +70,18 @@ export function importSparrow(text: string,fileName: string,scale: number): Impo
 }
 export function solverInput(doc: Document): string {
   if(!doc.parts.some(part=>part.quantity>0))throw Error('Add at least one copy before nesting.');
-  return JSON.stringify({name:doc.name,strip_height:doc.settings.materialWidthMm,items:doc.parts.filter(part=>part.quantity>0).map((p,id)=>({
-    // Sparrow packs along +X with strip_height on Y. The workspace uses
-    // material width on X and material length on Y, so solve a transposed
-    // copy and map the result back. Imported geometry stays unchanged.
-    id,demand:p.quantity,allowed_orientations:p.rotations.kind==='continuous'?undefined:p.rotations.degrees.map(angle=>-angle),
-    shape:{type:'simple_polygon',data:p.outer.map(([x,y])=>[y,x])},
-  }))});
+  return JSON.stringify({name:doc.name,strip_height:doc.settings.materialWidthMm,min_item_separation:doc.settings.clearanceMm,
+    items:doc.parts.filter(part=>part.quantity>0).map((p,id)=>{
+      const degrees=p.rotations.kind==='continuous'?FIVE_DEGREE_ROTATIONS:p.rotations.degrees;
+      const normalized=[...new Set(degrees.map(angle=>((angle%360)+360)%360))].sort((a,b)=>a-b);
+      const everyFive=normalized.length===FIVE_DEGREE_ROTATIONS.length&&normalized.every((angle,index)=>Math.abs(angle-FIVE_DEGREE_ROTATIONS[index])<1e-7);
+      return {
+        // Sparrow packs along +X with strip_height on Y. The workspace uses
+        // material width on X and material length on Y, so solve a transposed
+        // copy and map the result back. Imported geometry stays unchanged.
+        id,demand:p.quantity,
+        orientation:{rotation:everyFive?{mode:'stepped',step:5}:{mode:'discrete',angles:normalized.map(angle=>((360-angle)%360))}},
+        shape:{type:'simple_polygon',data:p.outer.map(([x,y])=>[y,x])},
+      };
+    })});
 }

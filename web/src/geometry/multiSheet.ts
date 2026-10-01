@@ -1,4 +1,4 @@
-import type {Document,Part,Placement,Result,Ring} from '../model';
+import {FIVE_DEGREE_ROTATIONS,type Document,type Part,type Placement,type Result,type Ring} from '../model';
 import {collisionRing} from './validate';
 
 type IntervalItem={placement:Placement;index:number;part:Part;minY:number;maxY:number};
@@ -50,7 +50,7 @@ type QuickShelf={y:number;height:number;x:number};
 type QuickSheet={shelves:QuickShelf[];usedHeight:number};
 
 function rotationCandidates(part:Part):number[] {
-  const source=part.rotations.kind==='continuous'?[0,90,180,270]:part.rotations.degrees;
+  const source=part.rotations.kind==='continuous'?FIVE_DEGREE_ROTATIONS:part.rotations.degrees;
   const seen=new Set<number>(),result:number[]=[];
   for(const raw of source){
     const angle=((raw%360)+360)%360;
