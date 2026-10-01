@@ -30,6 +30,12 @@ const lockVersions = [String(lock.version || ''), String(lock.packages?.['']?.ve
 for (const value of lockVersions) {
   if (value !== expectedVersion) failures.push(`package-lock version "${value}" does not match package.json "${expectedVersion}"`);
 }
+const readme = readFileSync(join(webRoot, '..', 'README.md'), 'utf8');
+const expectedBadge = `version-${expectedVersion}-`;
+const expectedReadmeVersion = `v${expectedVersion}`;
+if (!readme.includes(expectedBadge)) failures.push(`README version badge does not match package.json "${expectedVersion}"`);
+if (!readme.includes(expectedReadmeVersion)) failures.push(`README current version does not match package.json "${expectedVersion}"`);
+
 for (const workerPath of [join(webRoot, 'worker', 'serula-worker.js'), join(webRoot, 'worker', 'index.js')]) {
   const source = readFileSync(workerPath, 'utf8');
   const marker = source.match(/Build marker:\s*([0-9]+\.[0-9]+\.[0-9]+)/)?.[1] || '';
