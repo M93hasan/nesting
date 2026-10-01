@@ -2,11 +2,11 @@
 
 <div align="center">
 
-<img src="web/public/serula-logo.svg" alt="Serula Nesting" width="96" />
+<img src="web/public/serula-logo.svg" alt="Serula Nesting Pro" width="96" />
 
-### Web tabanlı profesyonel DXF nesting ve malzeme optimizasyon sistemi
+### Web tabanlı DXF nesting ve üretim hazırlık sistemi
 
-**Rulo ve plaka malzemelerde düzensiz parçaları verimli yerleştirmek, fireyi azaltmak ve üretim hazırlığını hızlandırmak için geliştirilmiştir.**
+**Rulo ve plaka malzemelerde düzensiz parçaları gerçek geometrileriyle yerleştirir, üretim ölçülerini korur ve DXF çıktısını üretime hazırlar.**
 
 [![Version](https://img.shields.io/github/package-json/v/M93hasan/nesting?filename=web%2Fpackage.json&style=flat-square)](web/package.json)
 [![React](https://img.shields.io/badge/React-19-20232a?style=flat-square&logo=react)](https://react.dev/)
@@ -14,142 +14,39 @@
 [![Rust](https://img.shields.io/badge/Rust-WASM-000000?style=flat-square&logo=rust)](web/wasm/)
 [![Cloudflare](https://img.shields.io/badge/Cloudflare-Workers-f38020?style=flat-square&logo=cloudflare&logoColor=white)](web/wrangler.jsonc)
 
-**Canlı Uygulama:** [serula.site](https://serula.site/) · **Yönetim Paneli:** [serula.site/admin](https://serula.site/admin)
+**Canlı uygulama:** [serula.site](https://serula.site/) · **Yönetim:** [serula.site/admin](https://serula.site/admin)
 
 </div>
 
 ---
 
-## İçindekiler
+## Serula nedir?
 
-- [Genel Bakış](#genel-bakış)
-- [Öne Çıkan Özellikler](#öne-çıkan-özellikler)
-- [Kullanım Alanları](#kullanım-alanları)
-- [Nesting ve Geometri](#nesting-ve-geometri)
-- [Desteklenen Dosya ve Geometri Türleri](#desteklenen-dosya-ve-geometri-türleri)
-- [Malzeme Yönetimi](#malzeme-yönetimi)
-- [Kullanıcı ve Yönetim Sistemi](#kullanıcı-ve-yönetim-sistemi)
-- [Mimari](#mimari)
-- [Teknoloji Yığını](#teknoloji-yığını)
-- [Proje Yapısı](#proje-yapısı)
-- [Yerel Geliştirme](#yerel-geliştirme)
-- [Test ve Kalite Kontrolü](#test-ve-kalite-kontrolü)
-- [Cloudflare Dağıtımı](#cloudflare-dağıtımı)
-- [Güvenlik ve Veri Yönetimi](#güvenlik-ve-veri-yönetimi)
-- [Tasarım İlkeleri](#tasarım-ilkeleri)
-- [Sürümleme](#sürümleme)
-- [İletişim](#iletişim)
-- [Lisans ve Üçüncü Taraf Bileşenler](#lisans-ve-üçüncü-taraf-bileşenler)
+**Serula Nesting Pro**, özellikle ayakkabı, suni deri, tekstil, lazer kesim ve CNC üretim akışları için geliştirilen tarayıcı tabanlı bir 2D nesting uygulamasıdır.
+
+Amaç yalnızca parçaları bir yüzeye sığdırmak değildir. Serula; gerçek DXF geometrisini, iç boşlukları, dönüş izinlerini, malzeme sınırlarını, parça aralığını ve üretim yönünü koruyarak mümkün olduğunca verimli bir yerleşim üretmeye çalışır.
+
+Uygulama iki temel malzeme tipini destekler:
+
+- **Rulo:** Sabit genişlik, optimize edilen kullanılan uzunluk.
+- **Plaka:** Sabit genişlik × uzunluk, gerektiğinde Plaka 1, Plaka 2, Plaka 3… şeklinde çoklu plaka.
+
+Varsayılan üretim ayarları:
+
+- **Malzeme genişliği:** 1400 mm
+- **Parça aralığı:** 0 mm
+- **Başlangıç yönü:** Sağ alt
+- **Varsayılan dönüş:** 0° / 180°
 
 ---
 
-## Genel Bakış
+## Temel özellikler
 
-**Serula Nesting Pro**, DXF ve desteklenen vektör geometrilerini üretim malzemesi üzerine otomatik olarak yerleştiren web tabanlı bir 2D nesting uygulamasıdır.
+### DXF içe aktarma
 
-Projenin temel hedefi yalnızca parçaları yüzeye sığdırmak değil; gerçek geometrileri, parça yönlerini, malzeme sınırlarını ve üretim kurallarını koruyarak daha verimli bir yerleşim üretmektir.
+Serula kapalı üretim konturlarını içe aktarır ve geçersiz geometrileri sessizce düzeltmek yerine kullanıcıya bildirir.
 
-Sistem özellikle ayakkabı üretimi, suni deri, tekstil, lazer kesim, CNC ve benzeri üretim süreçlerinde kullanılmak üzere geliştirilmektedir.
-
-### Temel hedefler
-
-- Malzeme firesini azaltmak
-- Parça ölçülerini değiştirmeden yerleşim yapmak
-- İçbükey ve düzensiz geometrileri doğru işlemek
-- Rulo ve plaka çalışma biçimlerini desteklemek
-- Parça yönü ve dönüş kurallarını korumak
-- Büyük hesaplamalarda arayüzü mümkün olduğunca akıcı tutmak
-- Üretime uygun DXF çıktısı oluşturmak
-- Kullanıcı, kota ve sistem ayarlarını merkezi olarak yönetmek
-
----
-
-## Öne Çıkan Özellikler
-
-### DXF ve parça hazırlığı
-
-- DXF dosyalarını içe aktarma
-- SVG içe aktarma desteği
-- Parçaların gerçek ölçülerini koruma
-- Açık ve geçersiz konturları kontrol etme
-- İç boşlukları koruma
-- Katman bazlı içe aktarma
-- Parça adetlerini değiştirme
-- Manuel parça düzenleme
-- Parça çoğaltma ve silme
-- Klavye kısayolları ile hızlı hazırlık
-
-### Otomatik nesting
-
-- WebAssembly tabanlı yüksek performanslı yerleştirme
-- Web Worker üzerinde arka plan hesaplama
-- Rulo malzeme desteği
-- Sabit ölçülü plaka desteği
-- Çoklu plaka yerleşimi
-- Parça aralığı kontrolü
-- Başlangıç yönü seçenekleri
-- Rotasyon kuralları
-- Canlı ve kontrol edilmiş yerleşim sonucu
-- Kullanılabilir malzeme alanını daha verimli değerlendirmeye yönelik optimizasyon
-
-### Kullanıcı deneyimi
-
-- Tarayıcı tabanlı çalışma
-- Kurulum gerektirmeyen üretim arayüzü
-- Proje kurtarma / tarayıcıya kaydetme
-- Koyu ve açık görünüm desteği
-- Milimetre ve inç görüntüleme
-- Mobil uyumlu kullanıcı ve admin ekranları
-- DXF dışa aktarma
-
----
-
-## Kullanım Alanları
-
-Serula Nesting Pro aşağıdaki üretim alanlarına odaklanır:
-
-| Alan | Kullanım |
-|---|---|
-| Ayakkabı üretimi | Saya, astar, taban ve yardımcı parçaların yerleşimi |
-| Suni deri | Rulo malzemede fire azaltma |
-| Tekstil | Düzensiz kalıp parçalarının yerleşimi |
-| Lazer kesim | DXF tabanlı üretim hazırlığı |
-| CNC | Vektör parçalarının plaka üzerine yerleşimi |
-| Prototipleme | Hızlı parça hazırlama ve yerleşim denemeleri |
-
----
-
-## Nesting ve Geometri
-
-Serula, parçaları yalnızca bounding-box seviyesinde değerlendirmek yerine gerçek konturları temel alan bir geometri akışı kullanır.
-
-Geometri işlemleri uygulama içinde ayrı modüllere ayrılmıştır:
-
-- Normalizasyon
-- Kontur doğrulama
-- Yerleşim geometrisi
-- Çoklu plaka yönetimi
-- Parça hareket ve dönüş işlemleri
-- Yerleşim sonuçlarının çalışma alanına uygulanması
-- DXF/SVG dışa aktarma hazırlığı
-
-Yerleştirme motoru Rust + WebAssembly üzerinden çalışır ve hesaplama yükünün kullanıcı arayüzünü bloke etmemesi için worker altyapısından yararlanır.
-
-> **Önemli:** İçe aktarılan parçaların üretim ölçüleri otomatik olarak küçültülmez veya büyütülmez. DXF'te nesting ve çakışma hesabını ana dış kontur belirler; bağlı renkli/detay konturları parçayla birlikte korunur ancak parçanın fiziksel nesting sınırını büyütmez. Kontrol edilmiş nesting DXF'i doğrulanan poligon geometrisini kullanır.
-
----
-
-## Desteklenen Dosya ve Geometri Türleri
-
-### İçe aktarma
-
-- DXF
-- SVG
-- Serula/Sparrow proje verileri
-
-### DXF geometrileri
-
-Projede işlenen başlıca geometri türleri:
+Desteklenen başlıca DXF varlıkları:
 
 - LINE
 - ARC
@@ -160,226 +57,288 @@ Projede işlenen başlıca geometri türleri:
 - SPLINE
 - INSERT
 
-İçe aktarma sırasında kapalı konturlar değerlendirilir; açık veya geçersiz geometriler kullanıcıya bildirilir.
+Desteklenen ek davranışlar:
 
----
+- Katman seçimi
+- İç boşlukların korunması
+- DXF renk ve bağlı detay geometrilerinin korunması
+- Milimetre birimlerinin korunması
+- Açık/geçersiz kontur raporlama
+- Kaynak SPLINE bilgisinin uygun durumlarda korunması
 
-## Malzeme Yönetimi
+SVG ve Serula/Sparrow proje verileri de içe aktarılabilir.
 
-### Rulo
+### Nesting
 
-Rulo modunda kullanıcı malzeme genişliğini belirler. Yerleştirme motoru bu genişlik içerisinde kullanılan toplam uzunluğu azaltmaya çalışır.
+Yerleştirme motoru tarayıcı içinde **Rust + WebAssembly** ile çalışır. Ağır hesaplamalar Web Worker üzerinde yürütülür; böylece UI ana iş parçacığı mümkün olduğunca serbest kalır.
 
-### Plaka
+Serula kendi yerine bağımsız bir nesting motoru icat etmez. Üretim yerleşiminin temel motoru doğrudan upstream Sparrow projesidir:
 
-Plaka modunda genişlik ve uzunluk birlikte tanımlanır. Tüm parçalar tek plakaya sığmadığında sistem çoklu plaka çalışma biçimini destekler. Sparrow'un iç içe geçen yerleşim grupları bozulmadan tutulur ve bu rijit bantlar plakalara best-fit yöntemiyle dağıtılır.
+```text
+https://github.com/JeroenGar/sparrow.git
+```
 
-### Yerleşim ayarları
+Projede sabitlenen Sparrow revizyonu:
 
-Yönetilebilen temel parametreler:
+```text
+7f0e10f946f70a86138d3938548a13ee46464f39
+```
 
-- Malzeme genişliği
-- Plaka uzunluğu
-- Parça aralığı
-- Kenar payı
-- Malzeme türü
-- Rotasyon kuralı
-- Yerleşim başlangıç yönü
-- Solver profili
+Sparrow, çakışma ve yerleşim geometrisi için Jagua tabanlı altyapı kullanır.
 
 ### Rotasyon seçenekleri
 
-- **0°** — yön korunur
-- **0° / 180°** — parça ters çevrilebilir
-- **0° / 90° / 180° / 270°** — dört çeyrek dönüşten biri kullanılabilir
-- **Serbest** — desteklenen serbest dönüş davranışı kullanılır
+Kullanıcı arayüzündeki üretim seçenekleri:
+
+- **0°**
+- **0° / 180°**
+- **Her yöne**
+
+Parçanın izin verilen dönüşleri nesting motoruna aktarılır; yerleşim sonrası parça yönleri keyfî olarak değiştirilmez.
+
+### Başlangıç yönü
+
+Desteklenen başlangıç yönleri:
+
+- **Sağ alt**
+- **Sağ üst**
+
+Sonuç geometrisi seçilen görsel başlangıç köşesine göre konumlandırılır. Bu işlem parçaların kendi aralarındaki Sparrow yerleşimini bozmaz.
 
 ---
 
-## Kullanıcı ve Yönetim Sistemi
+## Rulo modu
 
-Serula yalnızca bir nesting arayüzü değil, aynı zamanda sunucu tarafı kullanıcı ve yönetim altyapısına sahiptir.
+Rulo modunda kullanıcı malzeme genişliğini belirler. Sparrow bu genişlik içerisinde parçaları yerleştirir ve kullanılan rulo uzunluğunu azaltmaya çalışır.
 
-### Kullanıcı tarafı
-
-- E-posta ve parola ile giriş
-- Google hesabı ile giriş
-- Oturum yönetimi
-- Nesting hakkı / kota sistemi
-- Sınırsız kullanıcı desteği
-- Şifre sıfırlama
-- Kullanıcıya özel varsayılan ayarlar
-- Kullanıcı oturumunda merkezi ayarların uygulanması
-
-### Admin paneli
-
-Yönetim rotası:
+Örnek:
 
 ```text
-/admin
+Genişlik: 1400 mm
+Uzunluk: nesting sonucuna göre değişir
 ```
 
-Admin panelinde:
+Rulo DXF dışa aktarma davranışı, plaka modundaki çoklu plaka düzeninden bağımsızdır.
 
-- Kullanıcı listesi
-- Kullanıcı arama ve filtreleme
-- Nesting hakkı yönetimi
-- Sınırsız / kotasız kullanım anahtarı
-- Kullanıcıya özel ayarlar
+---
+
+## Plaka modu
+
+Plaka modunda hem genişlik hem uzunluk sabittir.
+
+Örnek:
+
+```text
+1400 × 2000 mm
+```
+
+Birinci plakaya bütün parçalar sığmıyorsa Serula kalan kopyaları **aynı Sparrow/Jagua motoruyla** sonraki fiziksel plakada yeniden çözer:
+
+```text
+Plaka 1 → sığan parçalar
+Plaka 2 → kalan parçalar
+Plaka 3 → hâlâ kalan parçalar
+...
+```
+
+Serula plaka modunda ikinci bir shelf/grid nesting algoritmasına geçmez. Her fiziksel plakanın gerçek yerleşimi Sparrow tarafından üretilir; Serula çoklu plaka orkestrasyonunu ve plaka sınırı kontrolünü yönetir.
+
+Bu yaklaşım, upstream Sparrow'un doğal olarak bir **irregular strip packing** çözücüsü olması nedeniyle çoklu fiziksel plaka davranışını uygulama katmanında koordine eder.
+
+---
+
+## DXF dışa aktarma
+
+Üretim çıktısı **DXF** olarak alınır ve CorelDRAW gibi CAD/vektör uygulamalarında kullanılmak üzere hazırlanır.
+
+### Tek plaka
+
+Tek plaka varsa mevcut yerleşim koordinatları korunur.
+
+### Çoklu plaka
+
+Birden fazla plaka varsa çıktı yine **tek bir DXF dosyasıdır**.
+
+Plakaların içindeki Sparrow/Jagua yerleşimi kesinlikle değiştirilmez. Yalnızca dışa aktarım sırasında her plakanın gerçek çizim geometrisine yatay X ofseti uygulanır.
+
+Plakalar arasında sabit **50 mm** boşluk bulunur.
+
+1400 mm genişlik örneği:
+
+```text
+Plaka 1 başlangıcı: X = 0 mm
+Plaka 2 başlangıcı: X = 1450 mm
+Plaka 3 başlangıcı: X = 2900 mm
+```
+
+Genel kural:
+
+```text
+X ofseti = plakaIndex × (malzemeGenişliği + 50 mm)
+```
+
+Önemli:
+
+- DXF içine plaka çerçevesi eklenmez.
+- Ek dikdörtgen/kutu çizilmez.
+- Yalnızca gerçek üretim geometrisi dışa aktarılır.
+- Parçaların plaka içindeki göreli X/Y konumu korunur.
+- Dönüş açısı korunur.
+- Ölçek ve gerçek ölçü korunur.
+- İç boşluk ve bağlı detay geometrileri aynı ofsetle taşınır.
+- Rulo modu bu davranıştan etkilenmez.
+
+---
+
+## Geometri doğruluğu
+
+Serula'nın temel üretim kuralları:
+
+1. **Gerçek ölçü korunur.** Nesting parçaları otomatik küçültmez veya büyütmez.
+2. **Gerçek kontur kullanılır.** İçbükey dış sınırlar korunur.
+3. **Bounding box / convex hull gerçek yerleşimin yerine kullanılmaz.** Bunlar yalnızca gerekli ön kontroller veya güvenli yardımcı durumlar için kullanılabilir.
+4. **Geçersiz geometri sessizce düzeltilmez.**
+5. **İç boşluklar korunur.**
+6. **Parça aralığı ayrı bir üretim parametresidir.**
+7. **Kontrol edilmiş sonuç doğrulanmadan üretim DXF'i oluşturulmaz.**
+
+---
+
+## Kullanıcı arayüzü
+
+Serula çalışma alanı CAD benzeri sade bir üretim arayüzü sunar.
+
+Başlıca işlevler:
+
+- DXF seçme ve içe aktarma
+- Parça adedi değiştirme
+- Parça seçme, taşıma, silme ve çoğaltma
+- Rotasyon kuralı seçme
+- Rulo / Plaka seçimi
+- Malzeme genişliği ve plaka uzunluğu girişi
+- Parça aralığı ayarı
+- Sağ alt / sağ üst başlangıç yönü
+- Otomatik nesting
+- Canlı yerleşim görüntüsü
+- Geometri doğrulaması
+- DXF indirme
+- Tarayıcıda proje kurtarma
+- Açık / koyu görünüm
+- mm / inç görüntüleme
+
+---
+
+## Kullanıcı ve yönetim altyapısı
+
+Serula'nın Cloudflare tabanlı sunucu katmanı kullanıcı ve yönetim işlemlerini yürütür.
+
+Başlıca özellikler:
+
+- E-posta/parola ile giriş
+- Google ile giriş
+- Oturum yönetimi
+- Kullanıcı kotası / nesting hakkı
+- Sınırsız kullanıcı
+- Kullanıcıya özel varsayılanlar
 - Sistem varsayılanları
 - Şifre sıfırlama
-- Sistem sağlık durumu
-- Admin API durumu
-- Kimlik doğrulama durumu
-- Kalıcı kullanıcı deposu durumu
-- Sistem logları
-- Onay tabanlı uzaktan destek oturumu
+- Admin kullanıcı yönetimi
+- Audit / sistem logları
+- Kullanıcı onaylı uzaktan destek
 
-### Uzaktan destek
+Yönetim paneli:
 
-Uzaktan destek özelliği yalnızca **Serula uygulamasının kendi ayarlarını** yönetmek için tasarlanmıştır.
-
-- Admin destek isteği gönderir
-- Kullanıcı isteği açıkça onaylar veya reddeder
-- Onaylanan oturum sınırlı süreyle aktif olur
-- Kullanıcı istediği anda desteği kapatabilir
-- Tarayıcının diğer sekmelerine, yerel dosyalara veya cihazın diğer bölümlerine erişim verilmez
+```text
+https://serula.site/admin
+```
 
 ---
 
 ## Mimari
 
 ```text
-                    ┌───────────────────────┐
-                    │      Kullanıcı        │
-                    │ Safari / Chrome / vb. │
-                    └───────────┬───────────┘
-                                │
-                                ▼
-                    ┌───────────────────────┐
-                    │   React + TypeScript  │
-                    │      Vite SPA         │
-                    └───────┬───────┬───────┘
-                            │       │
-                  Geometri  │       │  API / Auth
-                            ▼       ▼
-              ┌────────────────┐  ┌────────────────────┐
-              │   Web Worker   │  │ Cloudflare Worker  │
-              │ Geometry/Solver│  │ Auth / Admin / API │
-              └───────┬────────┘  └─────────┬──────────┘
-                      │                     │
-                      ▼                     ▼
-              ┌────────────────┐  ┌────────────────────┐
-              │ Rust + WASM    │  │ Cloudflare D1     │
-              │ Sparrow/Jagua  │  │ Kullanıcı / Log   │
-              └────────────────┘  └────────────────────┘
+┌──────────────────────────┐
+│      React + TypeScript  │
+│        Vite SPA          │
+└────────────┬─────────────┘
+             │
+       ┌─────┴─────┐
+       │           │
+       ▼           ▼
+┌──────────────┐  ┌──────────────────┐
+│ Web Workers  │  │ Cloudflare Worker│
+│ Geometry /   │  │ Auth / Admin/API │
+│ Solver       │  └────────┬─────────┘
+└──────┬───────┘           │
+       │                   ▼
+       ▼             ┌──────────────┐
+┌──────────────┐     │ Cloudflare D1│
+│ Rust + WASM  │     └──────────────┘
+│ Sparrow/Jagua│
+└──────────────┘
 ```
 
 ### İstemci
 
-React ve TypeScript arayüzü dosya içe aktarma, çalışma alanı, ayar kontrolleri, kullanıcı etkileşimleri ve sonuç görselleştirmesini yönetir.
+React + TypeScript; çalışma alanı, içe aktarma, ayarlar, sonuç görüntüleme ve kullanıcı etkileşimlerini yönetir.
 
 ### Worker katmanı
 
-Yoğun geometri ve solver görevleri ana UI iş parçacığından ayrılır.
+Geometri hazırlığı ve solver işlemleri UI iş parçacığından ayrılır.
 
-### WASM motoru
+### WASM
 
-Rust tabanlı motor tarayıcı içerisinde WebAssembly olarak çalışır. Projede Sparrow ve Jagua tabanlı bileşenler kullanılır.
-
-### Sunucu katmanı
-
-Cloudflare Worker:
-
-- API yönlendirme
-- Kullanıcı kimlik doğrulama
-- Google giriş doğrulama
-- Admin işlemleri
-- Kota yönetimi
-- Kullanıcı ayarları
-- Sistem logları
-- Şifre sıfırlama
-- D1 erişimi
-
-işlevlerini yürütür.
-
----
-
-## Teknoloji Yığını
-
-### Frontend
-
-- React 19
-- TypeScript 5.8
-- Vite 6
-- Native browser APIs
-- Web Workers
-
-### Geometri / Nesting
-
-- Rust
-- WebAssembly
-- Sparrow
-- Jagua
-- polygon-clipping
-- polylabel
-- robust-predicates
+Rust wrapper, sabitlenen upstream Sparrow sürümünü tarayıcıda çalıştırır.
 
 ### Sunucu
 
-- Cloudflare Workers
-- Cloudflare D1
-- Cloudflare Assets
-- Cloudflare Email binding
-
-### Kimlik doğrulama
-
-- E-posta / parola
-- PBKDF2-SHA256 parola türetme
-- Google Identity Services
-- HttpOnly + Secure oturum çerezleri
-
-### Test ve geliştirme
-
-- Vitest
-- Playwright
-- TypeScript typecheck
-- Kaynak bütünlüğü kontrolü
+Cloudflare Worker; auth, admin API, kota, ayarlar, loglar ve D1 erişimini yönetir.
 
 ---
 
-## Proje Yapısı
+## Teknoloji yığını
+
+| Katman | Teknoloji |
+|---|---|
+| UI | React 19, TypeScript, Vite |
+| Nesting | Sparrow |
+| Çakışma / geometri altyapısı | Jagua |
+| WASM | Rust, wasm-bindgen / wasm-pack |
+| Arka plan hesaplama | Web Workers |
+| Sunucu | Cloudflare Workers |
+| Veri | Cloudflare D1 |
+| Test | Vitest, Playwright |
+
+---
+
+## Proje yapısı
 
 ```text
 nesting/
 ├── README.md
 ├── LICENSE
 └── web/
-    ├── public/                 Statik dosyalar ve örnek veri setleri
-    ├── scripts/                Build ve yardımcı scriptler
+    ├── public/
+    ├── scripts/
     ├── src/
-    │   ├── components/         Arayüz bileşenleri
-    │   ├── export/             DXF / SVG / PDF / ZIP dışa aktarma
-    │   ├── geometry/           Geometri ve yerleşim yardımcıları
-    │   ├── import/             DXF / SVG / proje içe aktarma
-    │   ├── storage/            Tarayıcı tarafı proje kurtarma
-    │   ├── workers/            Worker protokolü ve solver iş parçacıkları
-    │   ├── Admin.tsx           Yönetim paneli
-    │   ├── App.tsx             Ana çalışma alanı
-    │   ├── AuthGate.tsx        Kullanıcı/admin kimlik doğrulama
-    │   └── main.tsx            Uygulama başlangıcı
-    ├── wasm/
-    │   ├── Cargo.toml
-    │   └── ...
-    ├── worker/
-    │   └── serula-worker.js    Cloudflare API Worker
+    │   ├── components/      UI bileşenleri
+    │   ├── export/          DXF dışa aktarma
+    │   ├── geometry/        Geometri ve çoklu plaka işlemleri
+    │   ├── import/          DXF / SVG / proje içe aktarma
+    │   ├── storage/         Tarayıcı proje kurtarma
+    │   ├── workers/         Solver ve geometri worker'ları
+    │   ├── App.tsx
+    │   └── Admin.tsx
+    ├── wasm/                Rust/WASM Sparrow wrapper
+    ├── worker/              Cloudflare sunucu kodu
+    ├── tests/
     ├── package.json
     └── wrangler.jsonc
 ```
 
 ---
 
-## Yerel Geliştirme
+## Yerel geliştirme
 
 ### Gereksinimler
 
@@ -394,97 +353,32 @@ nesting/
 git clone https://github.com/M93hasan/nesting.git
 cd nesting/web
 npm ci
-```
-
-### Geliştirme sunucusu
-
-```bash
 npm run dev
-```
-
-Varsayılan geliştirme adresi:
-
-```text
-http://127.0.0.1:5173
 ```
 
 ### Üretim derlemesi
 
 ```bash
+cd web
 npm run build
 ```
 
-### Önizleme
+### Test
 
 ```bash
-npm run preview
-```
-
----
-
-## Test ve Kalite Kontrolü
-
-### TypeScript kontrolü
-
-```bash
-npm run typecheck
-```
-
-### Birim testleri
-
-```bash
+cd web
 npm test
 ```
 
-### Uçtan uca test
+Uçtan uca testler:
 
 ```bash
 npm run test:e2e
 ```
 
-### Kaynak bütünlüğü
-
-```bash
-npm run source:check
-```
-
-Kaynak bütünlüğü adımı ayrıca sürüm numarasının aşağıdaki yerlerde senkron kalmasını kontrol eder:
-
-- `web/package.json`
-- `web/package-lock.json`
-- Worker build marker'ları
-
-Bu kontrol, farklı dosyalarda farklı sürüm numarasıyla yayın yapılmasını engeller.
-
 ---
 
-## Cloudflare Dağıtımı
-
-Üretim ortamı Cloudflare Workers üzerinde çalışır.
-
-### Yapılandırma
-
-```text
-web/wrangler.jsonc
-```
-
-### Ana bileşenler
-
-| Bileşen | Kullanım |
-|---|---|
-| Worker | API ve sunucu iş mantığı |
-| Assets | Vite üretim çıktısı |
-| D1 | Kalıcı kullanıcı ve yönetim verileri |
-| Email binding | Şifre sıfırlama e-postaları |
-| Custom Domain | serula.site |
-
-### Dağıtım
-
-```bash
-cd web
-npm run build
-npx wrangler deploy
-```
+## Yayın ve sürümleme
 
 Üretim branch'i:
 
@@ -492,115 +386,64 @@ npx wrangler deploy
 main
 ```
 
----
-
-## Güvenlik ve Veri Yönetimi
-
-Projede güvenlik açısından temel olarak şu uygulamalar kullanılır:
-
-- Parolalar düz metin olarak tutulmaz
-- PBKDF2-SHA256 tabanlı parola türetme
-- Oturum anahtarları hashlenerek saklanır
-- HttpOnly oturum çerezleri
-- Secure cookie kullanımı
-- SameSite koruması
-- Same-origin POST kontrolü
-- Google ID token doğrulaması
-- Şifre sıfırlama tokenlarının hashlenmesi
-- Tek kullanımlık şifre sıfırlama bağlantıları
-- Admin işlemlerinin sunucu tarafında doğrulanması
-- Onay tabanlı uzaktan destek
-
-### Sistem logları
-
-Audit / sistem logları:
-
-- Giriş
-- Çıkış
-- Nesting başlatma
-- Dışa aktarma yetkilendirme
-- Kota değişikliği
-- Sınırsız kullanım değişikliği
-- Kullanıcı ayarı değişikliği
-- Sistem varsayılanı değişikliği
-- Şifre sıfırlama işlemleri
-- Uzaktan destek işlemleri
-
-gibi olayları kaydeder.
-
-**Log saklama süresi: 10 gün.**
-
-10 günden eski audit logları otomatik temizlenir.
-
----
-
-## Tasarım İlkeleri
-
-Serula geliştirilirken aşağıdaki kurallar önceliklidir:
-
-1. **Geometri doğruluğu** — üretim ölçüsü korunmalıdır.
-2. **Sessiz veri düzeltme yapılmamalıdır** — geçersiz konturlar kullanıcıya bildirilmelidir.
-3. **Nesting motoru arayüzden ayrılmalıdır** — hesaplama UI'ı mümkün olduğunca engellememelidir.
-4. **Sunucu tarafı kontroller zorunludur** — kota ve yetki yalnızca istemciye bırakılmamalıdır.
-5. **Kullanıcı ayarları merkezi yönetilebilir olmalıdır.**
-6. **Mobil arayüz yönetilebilir kalmalıdır.**
-7. **Yayınlanan sürüm numarası sistemin her yerinde aynı olmalıdır.**
-
----
-
-## Sürümleme
-
-Tek sürüm kaynağı:
+Ana sürüm kaynağı:
 
 ```text
 web/package.json
 ```
 
-Serula'da yayınlanan her değişiklikte yalnızca `web/package.json` içindeki sürüm numarası değiştirilir. Uygulama, admin paneli, giriş ekranı ve Worker API sürümü bu değeri doğrudan kullanır.
+Yayın sürümü ayrıca lockfile ve deploy marker ile senkron tutulur.
+
+Cloudflare üretim dağıtımı repository entegrasyonu üzerinden `main` branch'ini takip eder.
+
+Canlı adres:
+
+```text
+https://serula.site/
+```
 
 ---
 
-## Yol Haritası
+## Geliştirme ilkeleri
 
-Proje aktif olarak geliştirilmektedir. Öncelikli geliştirme alanları:
+Serula'da değişiklik yapılırken şu kurallar korunmalıdır:
 
-- Nesting verimliliğinin artırılması
-- Büyük DXF dosyalarında performans geliştirmeleri
-- Daha kapsamlı kullanıcı ve lisans yönetimi
-- Admin raporlama ekranlarının geliştirilmesi
-- Üretim makinesi profilleri
-- Kullanıcı bazlı daha kapsamlı varsayılanlar
-- DXF dışa aktarma uyumluluğunun genişletilmesi
-- Hata teşhis ve üretim loglarının geliştirilmesi
+- Üretim geometrisi ve ölçüleri bozulmamalıdır.
+- Sparrow/Jagua yerleşiminin yerine ayrı bir gizli nesting algoritması konulmamalıdır.
+- Plaka ve rulo davranışları açık biçimde ayrılmalıdır.
+- Geçersiz DXF geometrisi kullanıcıdan saklanmamalıdır.
+- Export, ekrandaki doğrulanmış yerleşimi temsil etmelidir.
+- CorelDRAW uyumluluğu üretim gereksinimi olarak korunmalıdır.
+- Değişiklikler test edilmeden `main` branch'ine alınmamalıdır.
+- Her yayınlanan değişiklikte sürüm artırılmalıdır.
 
 ---
 
 ## İletişim
 
-**Proje Sahibi / Geliştirici:** Muhammet Hasanoğlu
+**Geliştirici:** Muhammet Hasanoğlu
 
 - E-posta: [m93hasan@gmail.com](mailto:m93hasan@gmail.com)
-- Telefon: [+90 539 348 06 22](tel:+905393480622)
 - GitHub: [M93hasan](https://github.com/M93hasan)
-- Uygulama: [https://serula.site](https://serula.site)
+- Uygulama: [serula.site](https://serula.site/)
 
 ---
 
-## Lisans ve Üçüncü Taraf Bileşenler
+## Lisans ve üçüncü taraf bileşenler
 
-Repository lisans koşulları için:
+Repository lisansı:
 
 ```text
 LICENSE
 ```
 
-Üçüncü taraf kütüphane ve bileşen bildirimleri:
+Üçüncü taraf bildirimleri:
 
 ```text
 web/public/THIRD_PARTY_NOTICES.txt
 ```
 
-Rust / WASM tarafında kullanılan bağımlılıkların lisans ve sürüm bilgileri ilgili proje dosyalarında tutulur.
+Sparrow ve diğer Rust/WASM bağımlılıklarının kesin sürüm ve revizyonları ilgili `Cargo.toml` / lock dosyalarında sabitlenir.
 
 ---
 
@@ -608,7 +451,7 @@ Rust / WASM tarafında kullanılan bağımlılıkların lisans ve sürüm bilgil
 
 ### Serula Nesting Pro
 
-**DXF yerleştirme · Malzeme optimizasyonu · Üretim hazırlığı**
+**DXF nesting · Rulo ve plaka · Sparrow/Jagua · Üretim DXF**
 
 [Uygulamayı Aç](https://serula.site/) · [Admin Paneli](https://serula.site/admin)
 

@@ -166,16 +166,18 @@ it('allows a sheet edge fit when part clearance is nonzero',()=>{
   expect(validate(doc,packed).status).toBe('passed');
 });
 
-it('anchors results to the selected right-side start corner without reflecting parts',()=>{
+it('anchors results to the selected visual right-side start corner without reflecting parts',()=>{
   const {doc,result}=fixture();
-  doc.settings={...doc.settings,materialWidthMm:10,clearanceMm:1,startCorner:'right-top'};
+  doc.settings={...doc.settings,materialWidthMm:10,clearanceMm:1,startCorner:'right-bottom'};
   result.usedLengthMm=10;result.placements=[{partId:'square',copyIndex:0,xMm:2,yMm:3,angleDeg:0},{partId:'square',copyIndex:1,xMm:4,yMm:5,angleDeg:0}];
-  const top=packResultIntoSheets(doc,result);
-  expect(Math.max(...worldParts(doc,top).flatMap(part=>part.outer.map(point=>point[0])))).toBeCloseTo(10);
-  expect(Math.min(...worldParts(doc,top).flatMap(part=>part.outer.map(point=>point[1])))).toBeCloseTo(0);
-  doc.settings.startCorner='right-bottom';
   const bottom=packResultIntoSheets(doc,result);
-  expect(Math.max(...worldParts(doc,bottom).flatMap(part=>part.outer.map(point=>point[1])))).toBeCloseTo(10);
+  const bottomWorld=worldParts(doc,bottom);
+  expect(Math.max(...bottomWorld.flatMap(part=>part.outer.map(point=>point[0])))).toBeCloseTo(10);
+  // The workspace flips SVG Y, so manufacturing y=0 is the visible bottom edge.
+  expect(Math.min(...bottomWorld.flatMap(part=>part.outer.map(point=>point[1])))).toBeCloseTo(0);
+  doc.settings.startCorner='right-top';
+  const top=packResultIntoSheets(doc,result);
+  expect(Math.max(...worldParts(doc,top).flatMap(part=>part.outer.map(point=>point[1])))).toBeCloseTo(10);
 });
 
 it('preserves Sparrow-assigned plate numbers without re-packing them',()=>{
