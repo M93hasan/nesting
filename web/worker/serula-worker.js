@@ -350,6 +350,7 @@ async function handleApi(request,env){
       env.DB.prepare('DELETE FROM chat_messages WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM user_presence WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM support_frames WHERE user_id=?').bind(id),
+      env.DB.prepare('DELETE FROM support_signals WHERE session_id IN (SELECT id FROM support_sessions WHERE user_id=?)').bind(id),
       env.DB.prepare('DELETE FROM support_sessions WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM user_features WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM user_settings WHERE user_id=?').bind(id),
