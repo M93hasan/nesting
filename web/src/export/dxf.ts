@@ -23,12 +23,6 @@ export function exportDXF(doc:Document,world:WorldPart[],placements:Placement[]=
     const dx=sheetOffset(placements[index]);
     return dx===0?part:{...part,outer:shiftRing(part.outer,dx),holes:part.holes.map(ring=>shiftRing(ring,dx))};
   });
-  const sheetLength=doc.settings.materialLengthMm??0;
-  const sheetCount=sheetMode&&placements.length?Math.max(...placements.map(placement=>placement.sheetIndex??0))+1:0;
-  const plateRings:Ring[]=sheetMode&&sheetLength>0?Array.from({length:sheetCount},(_,sheetIndex)=>{
-    const x=sheetIndex*sheetPitch;
-    return [[x,0],[x+doc.settings.materialWidthMm,0],[x+doc.settings.materialWidthMm,sheetLength],[x,sheetLength]];
-  }):[];
 
   const aux=(entity:DxfAuxEntity,p:Placement)=>{
     const [x,y]=transformPoint(entity.point,p),layer=entity.layer||'MARKS',color=colorGroup(entity.colorNumber);
@@ -42,7 +36,7 @@ export function exportDXF(doc:Document,world:WorldPart[],placements:Placement[]=
     return `0\nSPLINE\n5\n${handle()}\n330\n21\n100\nAcDbEntity\n8\n${layer}\n${colorGroup(color)}100\nAcDbSpline\n210\n0\n220\n0\n230\n1\n70\n${curve.flags}\n71\n${curve.degree}\n72\n${curve.knots.length}\n73\n${points.length}\n74\n0\n42\n0.0000000001\n43\n0.0000000001\n${curve.knots.map(k=>`40\n${k}\n`).join('')}${curve.weights?.map(w=>`41\n${w}\n`).join('')??''}${points.map(([x,y])=>`10\n${x}\n20\n${y}\n30\n0\n`).join('')}`;
   };
   const parts=new Map(doc.parts.map(part=>[part.id,part]));
-  const layerNames=[...new Set(['0','PARTS','HOLES',...(plateRings.length?['PLATES']:[]),...doc.parts.flatMap(part=>[
+  const layerNames=[...new Set(['0','PARTS','HOLES',...doc.parts.flatMap(part=>[
     ...(part.source.dxfAux??[]).map(entity=>entity.layer||'MARKS'),
     ...(part.source.dxfDetails??[]).map(detail=>detail.layer||'DETAILS')
   ])])];
@@ -55,8 +49,7 @@ export function exportDXF(doc:Document,world:WorldPart[],placements:Placement[]=
     const marks=part&&placement?(part.source.dxfAux??[]).map(entity=>aux(entity,placement)).join(''):'';
     return compact+p.holes.map((h,holeIndex)=>polyline(h,'HOLES',part?.source.dxfHoleColorNumbers?.[holeIndex])).join('')+details+marks;
   }).join('');
-  const plateEntities=plateRings.map(ring=>polyline(ring,'PLATES')).join('');
-  const entities=partEntities+plateEntities;
+  const entities=partEntities;
   // R2000 readers such as QCAD require explicit model/paper-space ownership.
   const spaces=[['*Model_Space','21','23','24'],['*Paper_Space','22','25','26']];
   const records=spaces.map(([name,id])=>`0\nBLOCK_RECORD\n5\n${id}\n330\n20\n100\nAcDbSymbolTableRecord\n100\nAcDbBlockTableRecord\n2\n${name}\n70\n0\n`).join('');
@@ -94,12 +87,6 @@ export function exportDXF(doc:Document,world:WorldPart[],placements:Placement[]=
       const expectedType=mark.kind==='point'?'POINT':mark.kind==='mtext'?'MTEXT':'TEXT';
       if(entity?.type!==expectedType)throw Error('Serialized DXF lost an attached point or text mark.');
     }
-  }
-  for(const expected of plateRings){
-    const entity=parsed.entities[at++];
-    if(entity?.type!=='LWPOLYLINE'||!entity.closed||entity.layer!=='PLATES')throw Error('Serialized DXF lost a plate boundary.');
-    const ring=(entity.vertices??[]).map(q=>[q.x,q.y] as Point);
-    if(JSON.stringify(ring)!==JSON.stringify(expected))throw Error('Serialized DXF changed a plate boundary.');
   }
   if(at!==parsed.entities.length)throw Error('Serialized DXF changed contour count.');
   return text;
