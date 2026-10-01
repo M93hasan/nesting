@@ -47,9 +47,11 @@ function decodeGoogleEmail(credential:string){
   }catch{return '';}
 }
 
-export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEmail:string;clientId:string;skipAuth?:boolean}){
+export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=false}:{allowedEmail:string;clientId:string;skipAuth?:boolean;mobileMode?:boolean}){
   const localDevelopment=import.meta.env.DEV&&(location.hostname==='127.0.0.1'||location.hostname==='localhost');
   const bypassAuth=skipAuth||localDevelopment;
+  const adminPath=mobileMode?'/admin2':'/admin';
+  const adminPageClass='admin-page'+(mobileMode?' admin-mobile-page':'');
   const [auth,setAuth]=useState<'loading'|'signed-out'|'allowed'|'denied'>(bypassAuth?'allowed':'loading');
   const [signedEmail,setSignedEmail]=useState('');
   const googleButton=useRef<HTMLDivElement>(null);
@@ -332,7 +334,7 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
   }
 
   if(auth!=='allowed'){
-    return <div className="admin-page"><main className="admin-main" style={{maxWidth:560,margin:'10vh auto'}}>
+    return <div className={adminPageClass}><main className="admin-main" style={{maxWidth:560,margin:'10vh auto'}}>
       <section className="admin-card">
         <h1>Serula Yönetim</h1>
         <p>{auth==='denied'?signedEmail+' hesabının admin yetkisi yok.':'Admin paneline yalnızca yetkili Google hesabı ile giriş yapılabilir.'}</p>
@@ -341,7 +343,7 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
       </section>
     </main></div>;
   }
-  return <div className="admin-page">
+  return <div className={adminPageClass}>
     <header className="admin-topbar">
       <div className="admin-brand"><img src={import.meta.env.BASE_URL+'serula-logo.svg'} alt="" /><div><strong>Serula</strong><span>Yönetim Paneli</span></div></div>
       <div className="admin-top-actions">{localDevelopment&&<span className="admin-badge">Yerel test</span>}<span className="admin-version">v{packageInfo.version}</span><a className="admin-workspace-link" href={import.meta.env.BASE_URL}>Çalışma alanına dön</a></div>
@@ -365,7 +367,7 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
           </section>
           <section className="admin-grid-two">
             <article className="admin-card"><div className="admin-card-head"><h2>Hızlı Durum</h2><span className="admin-badge">İstemci</span></div>
-              <dl className="admin-status-list"><div><dt>Uygulama</dt><dd>Çalışıyor</dd></div><div><dt>Admin rotası</dt><dd>/admin</dd></div><div><dt>Kimlik doğrulama</dt><dd>{localDevelopment?'Yerel test modu':'E-posta + parola'}</dd></div><div><dt>Kalıcı veritabanı</dt><dd>D1 bağlı</dd></div></dl>
+              <dl className="admin-status-list"><div><dt>Uygulama</dt><dd>Çalışıyor</dd></div><div><dt>Admin rotası</dt><dd>{adminPath}</dd></div><div><dt>Kimlik doğrulama</dt><dd>{localDevelopment?'Yerel test modu':'E-posta + parola'}</dd></div><div><dt>Kalıcı veritabanı</dt><dd>D1 bağlı</dd></div></dl>
             </article>
             <article className="admin-card"><div className="admin-card-head"><h2>Son İşlemler</h2></div><Empty title="Henüz veri yok">Kalıcı işlem geçmişi bağlandığında burada kullanıcı, proje, nesting ve dışa aktarma kayıtları gösterilecek.</Empty></article>
           </section>
@@ -377,7 +379,7 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
           {usersError&&<p className="field-error" role="alert">{usersError}</p>}{userNotice&&<p className="admin-notice" role="status">{userNotice}</p>}
           <div className="admin-table"><div className="admin-table-head"><span>Kullanıcı</span><span>Rol / Giriş</span><span>Nesting hakkı</span><span>Lisans</span><span>İşlemler</span></div>
             {usersLoading?<Empty title="Yükleniyor">Kullanıcı bilgileri D1 veritabanından alınıyor.</Empty>:filteredUsers.length?filteredUsers.map(user=><div className="admin-user-row" key={user.id}>
-              <span className="admin-user-identity"><strong><i className={'admin-presence-dot '+(user.online?'online':'')} aria-label={user.online?'Çevrim içi':'Çevrim dışı'}/>{user.name||'İsimsiz'}</strong><small>{user.email}</small><small>{user.online?'Şu anda çevrim içi':user.lastLoginAt?'Son giriş: '+new Date(user.lastLoginAt).toLocaleString('tr-TR'):'Henüz giriş yok'}</small></span>
+              <span className="admin-user-identity"><strong>{user.online&&<i className="admin-presence-tick" aria-label="Çevrim içi">✓</i>}{user.name||'İsimsiz'}</strong><small>{user.email}</small><small>{user.online?'Şu anda çevrim içi':user.lastLoginAt?'Son giriş: '+new Date(user.lastLoginAt).toLocaleString('tr-TR'):'Henüz giriş yok'}</small></span>
               <span><strong>{user.role==='admin'?'Admin':'Kullanıcı'}</strong><small>{user.authProvider==='google'?'Google / Gmail':'E-posta'}</small></span>
               <span className="admin-user-quota"><div className="admin-switch-row"><label className="switch"><input type="checkbox" checked={user.unlimited} disabled={savingUserId===user.id} onChange={e=>void setUnlimited(user,e.target.checked)}/><span className="slider"><span className="glow"/><span className="icon-on">✓</span><span className="icon-off">○</span></span></label><span>Kotasız / Sınırsız</span></div>{!user.unlimited&&<label>Hak<input aria-label={user.email+' nesting hakkı'} type="number" min="0" max="100000" defaultValue={user.credits} key={user.id+'-'+user.credits} onBlur={e=>{const value=Math.max(0,Math.trunc(e.currentTarget.valueAsNumber||0));if(value!==user.credits)void saveCredits(user,value)}}/></label>}</span>
               <span><strong>{user.licenseExpiresAt?new Date(user.licenseExpiresAt).toLocaleDateString('tr-TR'):'Lisans yok'}</strong><small>{user.licenseStartedAt?'Başlangıç: '+new Date(user.licenseStartedAt).toLocaleDateString('tr-TR'):'375 gün · etkinleştirme bekliyor'}</small></span>
@@ -387,19 +389,19 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
         </section>}
 
         {section==='messages'&&<section className="admin-card admin-chat-card">
-          <div className="admin-card-head"><div><h2>Canlı Destek Mesajları</h2><p>Kullanıcıların İletişim bölümünden yazdığı mesajlar kalıcı olarak burada tutulur.</p></div><div className="admin-online-count"><i className="admin-presence-dot online"/><strong>{onlineCount}</strong> çevrim içi</div></div>
+          <div className="admin-card-head"><div><h2>Canlı Destek Mesajları</h2><p>Kullanıcıların İletişim bölümünden yazdığı mesajlar kalıcı olarak burada tutulur.</p></div><div className="admin-online-count"><i className="admin-presence-tick" aria-hidden="true">✓</i><strong>{onlineCount}</strong> çevrim içi</div></div>
           {usersError&&<p className="field-error" role="alert">{usersError}</p>}
           <div className="admin-chat-layout">
             <aside className="admin-conversation-list" aria-label="Destek konuşmaları">
               <div className="admin-conversation-head"><strong>Konuşmalar</strong><button onClick={()=>void loadChats()}>↻</button></div>
               {conversations.length?conversations.map(chat=><button key={chat.userId} className={selectedChatUserId===chat.userId?'active':''} onClick={()=>void loadChat(chat.userId)}>
-                <span className="admin-conversation-name"><i className={'admin-presence-dot '+(chat.online?'online':'')}/><strong>{chat.name||chat.email}</strong>{chat.unread>0&&<b>{chat.unread}</b>}</span>
+                <span className="admin-conversation-name">{chat.online&&<i className="admin-presence-tick" aria-label="Çevrim içi">✓</i>}<strong>{chat.name||chat.email}</strong>{chat.unread>0&&<b>{chat.unread}</b>}</span>
                 <small>{chat.email}</small>
                 <time>{chat.lastMessageAt?new Date(chat.lastMessageAt).toLocaleString('tr-TR'):''}</time>
               </button>):<Empty title="Henüz konuşma yok">Kullanıcı mesaj gönderdiğinde burada görünecek.</Empty>}
             </aside>
             <div className="admin-chat-thread">
-              {selectedChatUserId&&chatUser?<><div className="admin-chat-user"><div><strong><i className={'admin-presence-dot '+(chatUser.online?'online':'')}/>{chatUser.name||chatUser.email}</strong><small>{chatUser.email}</small></div><span>{chatUser.online?'Çevrim içi':'Çevrim dışı'}</span></div>
+              {selectedChatUserId&&chatUser?<><div className="admin-chat-user"><div><strong>{chatUser.online&&<i className="admin-presence-tick" aria-label="Çevrim içi">✓</i>}{chatUser.name||chatUser.email}</strong><small>{chatUser.email}</small></div><span>{chatUser.online?'Çevrim içi':'Çevrim dışı'}</span></div>
                 <div className="admin-chat-messages">{chatMessages.length?chatMessages.map(message=><div key={message.id} className={'admin-chat-message '+(message.sender==='admin'?'from-admin':'from-user')}><span>{message.sender==='admin'?'Admin':'Kullanıcı'}</span><p>{message.body}</p><time>{new Date(message.createdAt).toLocaleString('tr-TR')}</time></div>):<p className="admin-chat-empty">Bu kullanıcıyla henüz mesaj yok.</p>}</div>
                 <form className="admin-chat-compose" onSubmit={e=>{e.preventDefault();void sendChatReply()}}><textarea rows={3} maxLength={2000} value={chatReply} onChange={e=>setChatReply(e.target.value)} placeholder="Cevabınızı yazın…"/><button className="primary" disabled={chatBusy||!chatReply.trim()}>{chatBusy?'Gönderiliyor…':'Cevapla'}</button></form>
               </>:<Empty title="Konuşma seçin">Soldaki listeden bir kullanıcı seçin.</Empty>}
@@ -461,7 +463,7 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
         </section>}
 
         {section==='system'&&<section className="admin-grid-two">
-          <article className="admin-card"><h2>Uygulama</h2><dl className="admin-status-list"><div><dt>Ürün</dt><dd>Serula Nesting</dd></div><div><dt>Sürüm</dt><dd>v{packageInfo.version}</dd></div><div><dt>Yönetim yolu</dt><dd>/admin</dd></div><div><dt>Dağıtım</dt><dd>Cloudflare</dd></div></dl></article>
+          <article className="admin-card"><h2>Uygulama</h2><dl className="admin-status-list"><div><dt>Ürün</dt><dd>Serula Nesting</dd></div><div><dt>Sürüm</dt><dd>v{packageInfo.version}</dd></div><div><dt>Yönetim yolu</dt><dd>{adminPath}</dd></div><div><dt>Dağıtım</dt><dd>Cloudflare</dd></div></dl></article>
           <article className="admin-card"><div className="admin-card-head"><h2>Güvenlik</h2><button onClick={()=>void loadHealth()}>Kontrol et</button></div><dl className="admin-status-list"><div><dt>Admin API</dt><dd className={health?.adminApi?'status-ok':'status-error'}>{health?.adminApi?'Aktif':health?'Hata':'Kontrol ediliyor'}</dd></div><div><dt>Kimlik doğrulama</dt><dd className={health?.auth?'status-ok':'status-error'}>{health?.auth?'Aktif':health?'Hata':'Kontrol ediliyor'}</dd></div><div><dt>Kalıcı kullanıcı deposu</dt><dd className={health?.userStore?'status-ok':'status-error'}>{health?.userStore?'Aktif':health?'Hata':'Kontrol ediliyor'}</dd></div></dl></article>
         </section>}
       </main>
