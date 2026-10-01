@@ -1,3 +1,4 @@
+import parseString from 'dxf/lib/parseString';
 import {it,expect} from 'vitest';
 import {importDXF} from '../src/import/dxf';
 import {area,bounds} from '../src/geometry/normalize';
@@ -127,7 +128,7 @@ it('exports multiple plates side by side with 50 mm gaps and plate frames',()=>{
   ];
   const world=worldParts(doc,{placements});
   const text=exportDXF(doc,world,placements,false);
-  const parsed=(await import('dxf/lib/parseString')).default(text) as {entities:{type:string;layer:string;vertices?:{x:number;y:number}[]}[]};
+  const parsed=parseString(text) as {entities:{type:string;layer:string;vertices?:{x:number;y:number}[]}[]};
   const parts=parsed.entities.filter(entity=>entity.layer==='PARTS');
   const plates=parsed.entities.filter(entity=>entity.layer==='PLATES');
   expect(parts).toHaveLength(2);
