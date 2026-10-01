@@ -84,8 +84,9 @@ pub fn run(input: &str, seconds: Option<u32>, seed: &str, clearance: f32, preset
         return Err(JsValue::from_str("Invalid duration or oversized input"));
     }
     let seed = seed.parse::<u64>().map_err(|e| JsValue::from_str(&e.to_string()))?;
-    let external: ExtSPInstance = serde_json::from_str(input)
+    let mut external: ExtSPInstance = serde_json::from_str(input)
         .map_err(|e| JsValue::from_str(&e.to_string()))?;
+    external.min_item_separation = clearance;
     if !external.strip_height.is_finite() || external.strip_height <= clearance || external.strip_height > 100_000.0
         || !external.min_item_separation.is_finite() || external.min_item_separation < 0.0
         || external.items.is_empty() || external.items.len() > 500
