@@ -1,6 +1,6 @@
 import polygonClipping from 'polygon-clipping';
 import { LIMITS, POLICY, type Document, type Part, type Placement, type Point, type Result, type Ring, type Validation } from '../model';
-import { area, bounds, intersects, normalizeDocument, normalizePart } from './normalize';
+import { area, bounds, intersects, normalizeDocument, normalizePart, normalizeRing } from './normalize';
 
 export type WorldPart = { partId: string; copyIndex: number; outer: Ring; holes: Ring[] };
 export const transform = (ring: Ring, p: Placement): Ring => {
@@ -13,6 +13,21 @@ export function worldParts(doc: Document, result: Pick<Result,'placements'>): Wo
     const part = parts.get(p.partId);
     if (!part) throw Error(`Unknown part ${p.partId}.`);
     return { partId: p.partId, copyIndex: p.copyIndex, outer: transform(part.outer,p), holes: part.holes.map(h=>transform(h,p)) };
+  });
+}
+export function collisionRing(part:Part):Ring {
+  const details=part.source.dxfDetails?.map(detail=>detail.ring).filter(ring=>ring.length>=3)??[];
+  if(!details.length)return part.outer;
+  const merged=polygonClipping.union([part.outer],...details.map(ring=>[ring]));
+  if(merged.length!==1||!merged[0]?.length)throw Error(`${part.name}: attached DXF detail contours must stay connected to the nesting contour.`);
+  return normalizeRing(merged[0][0]);
+}
+export function collisionWorldRings(doc:Document,result:Pick<Result,'placements'>):Ring[] {
+  const parts=new Map(doc.parts.map(part=>[part.id,part]));
+  return result.placements.map(placement=>{
+    const part=parts.get(placement.partId);
+    if(!part)throw Error(`Unknown part ${placement.partId}.`);
+    return transform(collisionRing(part),placement);
   });
 }
 export function pointSegmentDistance(p: Point, a: Point, b: Point): number {
@@ -52,7 +67,7 @@ export function validate(doc: Document, result: Result, serialized?: WorldPart[]
       seen.add(key);
       if(part.rotations.kind==='discrete' && !part.rotations.degrees.some(a=>Math.abs(((p.angleDeg-a)%360+540)%360-180)<=POLICY.angleDeg)) throw Error(`Disallowed rotation for ${part.name}.`);
     }
-    const expected=worldParts(doc,result),world=serialized ?? expected;
+    const expected=worldParts(doc,result),world=serialized ?? expected,collision=collisionWorldRings(doc,result);
     if(world.length!==result.placements.length) throw Error('Serialized contour count differs from the layout.');
     const boxes=world.map((p,i)=>{
       const original=parts.get(p.partId);
@@ -62,7 +77,7 @@ export function validate(doc: Document, result: Result, serialized?: WorldPart[]
         if([p.outer,...p.holes].some((ring,j)=>ring.length!==expectedRings[j].length||ring.some((point,k)=>point.length!==2||point.some((coordinate,axis)=>coordinate!==expectedRings[j][k][axis]))))throw Error('Serialized contours differ from the rigidly transformed input geometry.');
       }
       normalizePart({...original,outer:p.outer,holes:p.holes});
-      const b=bounds(p.outer);
+      const b=bounds(collision[i]);
       const boundaryLength=doc.settings.materialType==='sheet'?doc.settings.materialLengthMm:result.usedLengthMm;
       if(!boundaryLength)throw Error('Sheet length is required.');
       v.maxBoundaryViolationMm=Math.max(v.maxBoundaryViolationMm,-b[0],-b[1],b[2]-doc.settings.materialWidthMm,b[3]-boundaryLength);
@@ -75,16 +90,16 @@ export function validate(doc: Document, result: Result, serialized?: WorldPart[]
       const a=boxes[i],b=boxes[j];
       const boxDistance=Math.hypot(Math.max(0,a[0]-b[2],b[0]-a[2]),Math.max(0,a[1]-b[3],b[1]-a[3]));
       if(boxDistance===0) {
-        const clipped=polygonClipping.intersection([world[i].outer],[world[j].outer]);
+        const clipped=polygonClipping.intersection([collision[i]],[collision[j]]);
         const overlap=clipped.reduce((total,poly)=>total+Math.abs(area(poly[0]))-poly.slice(1).reduce((n,h)=>n+Math.abs(area(h)),0),0);
         if(!Number.isFinite(overlap)) throw Error('Intersection returned a non-finite area.');
         v.overlapAreaMm2=Math.max(v.overlapAreaMm2,overlap);
         if(overlap>POLICY.overlapMm2 && v.errors.length<20) v.errors.push(`Copies ${j+1} and ${i+1} overlap by ${overlap} mm².`);
       }
       if(doc.settings.clearanceMm>0 && (v.minClearanceMm===null || boxDistance<v.minClearanceMm)) {
-        operations+=world[i].outer.length*world[j].outer.length;
+        operations+=collision[i].length*collision[j].length;
         if(operations>50_000_000) throw Error('Clearance check exceeded its segment budget. Use fewer vertices or parts.');
-        const gap=distance(world[i].outer,world[j].outer);
+        const gap=distance(collision[i],collision[j]);
         if(!Number.isFinite(gap)) throw Error('Clearance check returned a non-finite distance.');
         v.minClearanceMm=Math.min(v.minClearanceMm ?? Infinity,gap);
       }

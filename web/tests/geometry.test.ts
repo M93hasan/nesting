@@ -3,7 +3,8 @@ import { describe,it,expect } from 'vitest';
 import { newPart,DEFAULT_SETTINGS,type Document,type Result } from '../src/model';
 import { normalizePart,normalizeRing } from '../src/geometry/normalize';
 import { validate,worldParts } from '../src/geometry/validate';
-import { importSparrow } from '../src/import/sparrow';
+import { importSparrow,solverInput } from '../src/import/sparrow';
+import { packResultIntoSheets } from '../src/geometry/multiSheet';
 import { exportSVG } from '../src/export/svg';
 import { importSVG } from '../src/import/svg';
 import { bounds } from '../src/geometry/normalize';
@@ -119,4 +120,42 @@ it('writes unique handles and model-space ownership for strict R2000 importers',
   expect(text).toContain('2\nBLOCKS\n');
   const entities=text.split('2\nENTITIES\n')[1].split('0\nENDSEC')[0];
   expect(entities.match(/330\n21\n/g)).toHaveLength(2);
+});
+
+
+it('uses attached DXF detail contours for solver and local collision checks',()=>{
+  const {doc,result}=fixture();
+  doc.settings.materialWidthMm=4;result.usedLengthMm=2;
+  doc.parts[0].source={...doc.parts[0].source,dxfDetails:[{ring:[[0,0],[1.5,0],[1.5,1],[0,1]],layer:'DETAIL'}]};
+  result.placements[1].xMm=1.2;
+  const checked=validate(doc,result);
+  expect(checked.status).toBe('failed');
+  expect(checked.overlapAreaMm2).toBeGreaterThan(0);
+  const native=JSON.parse(solverInput(doc));
+  expect(Math.max(...native.items[0].shape.data.map((point:number[])=>point[1]))).toBeCloseTo(1.5);
+});
+
+it('anchors results to the selected right-side start corner without reflecting parts',()=>{
+  const {doc,result}=fixture();
+  doc.settings={...doc.settings,materialWidthMm:10,clearanceMm:1,startCorner:'right-top'};
+  result.usedLengthMm=10;result.placements=[{partId:'square',copyIndex:0,xMm:2,yMm:3,angleDeg:0},{partId:'square',copyIndex:1,xMm:4,yMm:5,angleDeg:0}];
+  const top=packResultIntoSheets(doc,result);
+  expect(Math.max(...worldParts(doc,top).flatMap(part=>part.outer.map(point=>point[0])))).toBeCloseTo(9);
+  expect(Math.min(...worldParts(doc,top).flatMap(part=>part.outer.map(point=>point[1])))).toBeCloseTo(1);
+  doc.settings.startCorner='right-bottom';
+  const bottom=packResultIntoSheets(doc,result);
+  expect(Math.max(...worldParts(doc,bottom).flatMap(part=>part.outer.map(point=>point[1])))).toBeCloseTo(9);
+});
+
+it('best-fit sheet packing reuses residual band space',()=>{
+  const heights=[6,6,4,4];
+  const parts=heights.map((height,index)=>({...newPart([[0,0],[1,0],[1,height],[0,height]]),id:`p${index}`,name:`p${index}`,quantity:1}));
+  const doc:Document={name:'sheets',parts,settings:{...DEFAULT_SETTINGS,materialType:'sheet',materialWidthMm:20,materialLengthMm:10,clearanceMm:0,startCorner:'right-top'}};
+  const starts=[0,7,14,19];
+  const result:Result={documentRevision:1,solverRevision:'test',seed:'1',elapsedSeconds:1,usedLengthMm:23,
+    placements:parts.map((part,index)=>({partId:part.id,copyIndex:0,xMm:index*2,yMm:starts[index],angleDeg:0})),
+    validation:{status:'pending',overlapAreaMm2:0,maxBoundaryViolationMm:0,minClearanceMm:null,errors:[]}};
+  const packed=packResultIntoSheets(doc,result);
+  expect(packed.sheetCount).toBe(2);
+  expect(validate(doc,packed).status).toBe('passed');
 });

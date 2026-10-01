@@ -4,7 +4,7 @@ import type {WorldPart} from '../geometry/validate';
 
 export const STUDIO_CREDIT='nested with sparrow/studio · https://sparrowstudio.app';
 
-export function exportDXF(doc:Document,world:WorldPart[],placements:Placement[]=[]):string {
+export function exportDXF(doc:Document,world:WorldPart[],placements:Placement[]=[],preserveSourceCurves=true):string {
   let nextHandle=0x100;
   const handle=()=> (nextHandle++).toString(16).toUpperCase();
   const colorGroup=(color?:number)=>color!==undefined&&color>=1&&color<=255?`62\n${color}\n`:'';
@@ -32,7 +32,7 @@ export function exportDXF(doc:Document,world:WorldPart[],placements:Placement[]=
   const layers=layerNames.map(layer=>`0\nLAYER\n5\n${handle()}\n330\n10\n100\nAcDbSymbolTableRecord\n100\nAcDbLayerTableRecord\n2\n${layer}\n70\n0\n62\n7\n6\nCONTINUOUS\n`).join('');
   const entities=world.map((p,i)=>{
     const part=parts.get(p.partId),placement=placements[i];
-    const compact=part?.source.dxfSpline&&placement&&placement.partId===p.partId&&placement.copyIndex===p.copyIndex
+    const compact=preserveSourceCurves&&part?.source.dxfSpline&&placement&&placement.partId===p.partId&&placement.copyIndex===p.copyIndex
       ?spline(part.source.dxfSpline,placement,'PARTS',part.source.dxfColorNumber):polyline(p.outer,'PARTS',part?.source.dxfColorNumber);
     const details=part&&placement?(part.source.dxfDetails??[]).map(detail=>polyline(detail.ring.map(point=>transformPoint(point,placement)),detail.layer||'DETAILS',detail.colorNumber)).join(''):'';
     const marks=part&&placement?(part.source.dxfAux??[]).map(entity=>aux(entity,placement)).join(''):'';

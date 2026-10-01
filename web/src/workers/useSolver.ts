@@ -56,12 +56,12 @@ export function useSolver() {
     const r=run.current;
     if(r) {
       r.solver?.postMessage({type:'stop'});r.preview.terminate();clearTimeout(r.watchdog);if(r.deadline)clearTimeout(r.deadline);
-      if(r.visibilityHandler)document.removeEventListener('visibilitychange',r.visibilityHandler);
+      if(r.visibilityHandler&&typeof document!=='undefined')document.removeEventListener('visibilitychange',r.visibilityHandler);
     }
     run.current=undefined;setPhase(undefined);setSkipping(false);setCanSkip(false);
   }
   function scheduleDeadline(r:Run) {
-    if(r.ended||document.hidden)return;
+    if(r.ended||(typeof document!=='undefined'&&document.hidden))return;
     if(r.deadline)clearTimeout(r.deadline);
     const remaining=Math.max(0,r.deadlineRemainingMs??0);
     r.deadlineStartedAt=performance.now();
@@ -91,7 +91,7 @@ export function useSolver() {
   },[]);
   function end(reason:'Complete'|'Stopped'|'Error',message?:string) {
     const r=run.current;if(!r) return;
-    r.solver?.postMessage({type:'stop'});r.solver=undefined;clearTimeout(r.watchdog);if(r.deadline)clearTimeout(r.deadline);if(r.visibilityHandler)document.removeEventListener('visibilitychange',r.visibilityHandler);r.ended=reason;
+    r.solver?.postMessage({type:'stop'});r.solver=undefined;clearTimeout(r.watchdog);if(r.deadline)clearTimeout(r.deadline);if(r.visibilityHandler&&typeof document!=='undefined')document.removeEventListener('visibilitychange',r.visibilityHandler);r.ended=reason;
     r.diagnostics.stopReason=message ?? reason;
     if(message) setError(message);
     setElapsed((performance.now()-r.requestedAt)/1000);
@@ -114,14 +114,14 @@ export function useSolver() {
     r.deadlineRemainingMs=Math.max(0,wallClockSeconds*1000-(performance.now()-requestedAt));
     r.visibilityHandler=()=>{
       if(run.current!==r||r.ended)return;
-      if(document.hidden){
+      if(typeof document!=='undefined'&&document.hidden){
         if(r.deadline){
           clearTimeout(r.deadline);r.deadline=undefined;
           if(r.deadlineStartedAt!==undefined)r.deadlineRemainingMs=Math.max(0,(r.deadlineRemainingMs??0)-(performance.now()-r.deadlineStartedAt));
         }
       }else scheduleDeadline(r);
     };
-    document.addEventListener('visibilitychange',r.visibilityHandler);
+    if(typeof document!=='undefined')document.addEventListener('visibilitychange',r.visibilityHandler);
     scheduleDeadline(r);
     preview.onmessage=({data}:MessageEvent<GeometryReply>)=>{
       if(run.current!==r||data.runId!==r.id||data.documentRevision!==r.revision)return;

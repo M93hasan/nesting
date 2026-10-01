@@ -135,7 +135,7 @@ Geometri işlemleri uygulama içinde ayrı modüllere ayrılmıştır:
 
 Yerleştirme motoru Rust + WebAssembly üzerinden çalışır ve hesaplama yükünün kullanıcı arayüzünü bloke etmemesi için worker altyapısından yararlanır.
 
-> **Önemli:** İçe aktarılan parçaların üretim ölçüleri otomatik olarak küçültülmez veya büyütülmez.
+> **Önemli:** İçe aktarılan parçaların üretim ölçüleri otomatik olarak küçültülmez veya büyütülmez. DXF'te ana konturun dışına taşan bağlı detay konturları da nesting ve çakışma kontrolünde güvenlik zarfına dahil edilir; kontrol edilmiş nesting DXF'i doğrulanan poligon geometrisini kullanır.
 
 ---
 
@@ -172,7 +172,7 @@ Rulo modunda kullanıcı malzeme genişliğini belirler. Yerleştirme motoru bu 
 
 ### Plaka
 
-Plaka modunda genişlik ve uzunluk birlikte tanımlanır. Tüm parçalar tek plakaya sığmadığında sistem çoklu plaka çalışma biçimini destekler.
+Plaka modunda genişlik ve uzunluk birlikte tanımlanır. Tüm parçalar tek plakaya sığmadığında sistem çoklu plaka çalışma biçimini destekler. Sparrow'un iç içe geçen yerleşim grupları bozulmadan tutulur ve bu rijit bantlar plakalara best-fit yöntemiyle dağıtılır.
 
 ### Yerleşim ayarları
 
@@ -191,6 +191,7 @@ Yönetilebilen temel parametreler:
 
 - **0°** — yön korunur
 - **0° / 180°** — parça ters çevrilebilir
+- **0° / 90° / 180° / 270°** — dört çeyrek dönüşten biri kullanılabilir
 - **Serbest** — desteklenen serbest dönüş davranışı kullanılır
 
 ---
