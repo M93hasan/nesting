@@ -37,7 +37,7 @@ export function example(): Document {
   const shapes: Ring[] = [ [[0,0],[36,0],[36,12],[12,12],[12,38],[0,38]],
     [[0,0],[28,0],[36,20],[14,32],[0,20]], [[0,0],[38,0],[38,10],[26,10],[26,26],[12,26],[12,10],[0,10]],
     [[0,0],[30,0],[30,30],[0,30]] ];
-  return { name: 'Workshop parts', settings: { materialWidthMm: 100, clearanceMm: 0, timeLimitSeconds: null },
+  return { name: 'Workshop parts', settings: { materialWidthMm: 1400, clearanceMm: 0, timeLimitSeconds: null },
     parts: shapes.map((ring, i) => ({ ...newPart(ring, ['Bracket', 'Shield', 'Tab', 'Plate'][i]), quantity: 3,
       preparationPosition: [[0,0],[40,0],[0,42],[42,42]][i] as Point })) };
 }

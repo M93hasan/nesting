@@ -26,7 +26,7 @@ type AdminSettings={materialWidthMm:number;clearanceMm:number;marginMm:number;ro
 type AuditLog={id:number;actorType:string;actorEmail:string;targetEmail:string;action:string;detail:string;success:boolean;createdAt:string};
 type Health={adminApi:boolean;auth:boolean;userStore:boolean};
 type SupportSession={id:number;status:'pending'|'approved'|'declined'|'ended'|'expired';mode?:'settings'|'screen';expiresAt?:string;createdAt?:string;approvedAt?:string;endedAt?:string;offer?:RTCSessionDescriptionInit|null;answer?:RTCSessionDescriptionInit|null};
-const FALLBACK_SETTINGS:AdminSettings={materialWidthMm:1400,clearanceMm:.3,marginMm:0,rotation:'half',materialType:'roll',solverPreset:'standard'};
+const FALLBACK_SETTINGS:AdminSettings={materialWidthMm:1400,clearanceMm:0,marginMm:0,rotation:'half',materialType:'roll',solverPreset:'standard'};
 
 type GoogleCredentialResponse={credential?:string};
 type GoogleAccounts={id:{initialize:(options:{client_id:string;callback:(response:GoogleCredentialResponse)=>void;auto_select?:boolean})=>void;renderButton:(parent:HTMLElement,options:Record<string,unknown>)=>void;disableAutoSelect:()=>void}};
