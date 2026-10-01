@@ -21,7 +21,7 @@ function Metric({label,value,detail}:{label:string;value:string;detail:string}){
   return <article className="admin-metric"><span>{label}</span><strong>{value}</strong><small>{detail}</small></article>;
 }
 
-type AdminUser={id:number;email:string;name:string;role:string;credits:number;unlimited:boolean;authProvider?:string;suspended?:boolean;licenseStartedAt?:string;licenseExpiresAt?:string;createdAt?:string;lastLoginAt?:string};
+type AdminUser={id:number;email:string;name:string;role:string;credits:number;unlimited:boolean;testDxfEnabled?:boolean;authProvider?:string;suspended?:boolean;licenseStartedAt?:string;licenseExpiresAt?:string;createdAt?:string;lastLoginAt?:string};
 type AdminSettings={materialWidthMm:number;clearanceMm:number;marginMm:number;rotation:'fixed'|'half'|'free';materialType:'roll'|'sheet';solverPreset:'standard'|'fast'};
 type AuditLog={id:number;actorType:string;actorEmail:string;targetEmail:string;action:string;detail:string;success:boolean;createdAt:string};
 type Health={adminApi:boolean;auth:boolean;userStore:boolean};
@@ -224,6 +224,15 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
     catch(e){setUsersError(e instanceof Error?e.message:String(e))}
     finally{setSavingUserId(undefined)}
   }
+  async function setTestDxf(user:AdminUser,enabled:boolean){
+    setSavingUserId(user.id);setUsersError('');setUserNotice('');
+    try{
+      await getJson(`/api/admin/users/${user.id}/test-dxf`,{method:'POST',body:JSON.stringify({enabled})});
+      setUserNotice(user.email+' için Test DXF '+(enabled?'açıldı.':'kapatıldı.'));
+      await loadUsers();
+    }catch(e){setUsersError(e instanceof Error?e.message:String(e))}
+    finally{setSavingUserId(undefined)}
+  }
   async function saveCredits(user:AdminUser,credits:number){
     setSavingUserId(user.id);setUsersError('');
     try{
@@ -297,7 +306,7 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
               <span><strong>{user.role==='admin'?'Admin':'Kullanıcı'}</strong><small>{user.authProvider==='google'?'Google / Gmail':'E-posta'}</small></span>
               <span className="admin-user-quota"><label className="admin-toggle"><input type="checkbox" checked={user.unlimited} disabled={savingUserId===user.id} onChange={e=>void setUnlimited(user,e.target.checked)}/><span>Kotasız / Sınırsız</span></label>{!user.unlimited&&<label>Hak<input aria-label={user.email+' nesting hakkı'} type="number" min="0" max="100000" defaultValue={user.credits} key={user.id+'-'+user.credits} onBlur={e=>{const value=Math.max(0,Math.trunc(e.currentTarget.valueAsNumber||0));if(value!==user.credits)void saveCredits(user,value)}}/></label>}</span>
               <span><strong>{user.licenseExpiresAt?new Date(user.licenseExpiresAt).toLocaleDateString('tr-TR'):'Lisans yok'}</strong><small>{user.licenseStartedAt?'Başlangıç: '+new Date(user.licenseStartedAt).toLocaleDateString('tr-TR'):'375 gün · etkinleştirme bekliyor'}</small></span>
-              <span className="admin-user-actions"><button onClick={()=>{setSection('user-settings');void loadUserSettings(user.id)}}>Ayarlar</button><button className="screen-support-button" onClick={()=>{setSection('user-settings');void loadUserSettings(user.id).then(()=>requestSupport('screen',user.id))}}>Ekrana bağlan</button><button onClick={()=>void sendPasswordReset(user)} disabled={resettingUserId===user.id}>{resettingUserId===user.id?'Gönderiliyor…':'Şifre sıfırla'}</button></span>
+              <span className="admin-user-actions"><button className={user.testDxfEnabled?'primary':''} onClick={()=>void setTestDxf(user,!user.testDxfEnabled)} disabled={savingUserId===user.id}>{user.testDxfEnabled?'Test DXF Kapat':'Test DXF Aç'}</button><button onClick={()=>{setSection('user-settings');void loadUserSettings(user.id)}}>Ayarlar</button><button className="screen-support-button" onClick={()=>{setSection('user-settings');void loadUserSettings(user.id).then(()=>requestSupport('screen',user.id))}}>Ekrana bağlan</button><button onClick={()=>void sendPasswordReset(user)} disabled={resettingUserId===user.id}>{resettingUserId===user.id?'Gönderiliyor…':'Şifre sıfırla'}</button></span>
             </div>):<Empty title="Kullanıcı bulunamadı">Filtreye uyan kullanıcı yok.</Empty>}
           </div>
         </section>}

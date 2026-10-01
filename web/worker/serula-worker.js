@@ -1,8 +1,8 @@
 const GOOGLE_CLIENT_ID='249559754500-36grgmm2jucf2159d41efqdcqut02lj6.apps.googleusercontent.com';
 const SESSION_DAYS=30;
 const ADMIN_LOGIN_EMAIL='m93hasan@icloud.com';
-const APP_VERSION='0.0.60';
-// Build marker: 0.0.60
+const APP_VERSION='0.0.61';
+// Build marker: 0.0.61
 
 const json=(data,status=200,headers={})=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store',...headers}});
 const b64=bytes=>btoa(String.fromCharCode(...bytes));
@@ -56,6 +56,7 @@ async function ensureSchema(env){
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS password_reset_tokens (token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL, expires_at TEXT NOT NULL, used_at TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS system_settings (key TEXT PRIMARY KEY, value_json TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_settings (user_id INTEGER PRIMARY KEY, settings_json TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_features (user_id INTEGER PRIMARY KEY, test_dxf_enabled INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS audit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, actor_type TEXT NOT NULL, actor_user_id INTEGER, target_user_id INTEGER, action TEXT NOT NULL, detail TEXT, success INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at)'),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_audit_logs_target ON audit_logs(target_user_id)'),
@@ -99,6 +100,12 @@ function sameOrigin(request){const origin=request.headers.get('origin');return !
 async function body(request){try{return await request.json()}catch{return {}}}
 const validEmail=e=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 const passwordOk=p=>typeof p==='string'&&p.length>=8&&p.length<=200;
+const TEST_DXF_FILES=['1003.dxf','1239.dxf','test.dxf'];
+async function testDxfAllowed(userId,env){
+  if(!userId)return false;
+  const row=await env.DB.prepare('SELECT test_dxf_enabled FROM user_features WHERE user_id=?').bind(userId).first();
+  return !!row?.test_dxf_enabled;
+}
 
 const DEFAULT_ADMIN_SETTINGS={materialWidthMm:1000,clearanceMm:0.3,marginMm:5,rotation:'half',materialType:'roll',solverPreset:'standard'};
 function cleanSettings(value){
@@ -148,7 +155,12 @@ async function handleApi(request,env){
   if(request.method!=='GET'&&!sameOrigin(request))return json({error:'Geçersiz istek.'},403);
 
   if(path==='/api/version'&&request.method==='GET')return json({version:APP_VERSION});
-  if(path==='/api/auth/me'&&request.method==='GET'){
+  if(path==='/api/test-dxf'&&request.method==='GET'){
+    const user=await sessionUser(request,env);if(!user)return json({allowed:false},401);
+    const allowed=await testDxfAllowed(user.id,env);
+    return allowed?json({allowed:true,files:TEST_DXF_FILES}):json({allowed:false},403);
+  }
+    if(path==='/api/auth/me'&&request.method==='GET'){
     const user=await sessionUser(request,env);return user?json({user:publicUser(user)}):json({user:null},401);
   }
   if(path==='/api/auth/register'&&request.method==='POST'){
@@ -231,8 +243,8 @@ async function handleApi(request,env){
   }
   if(path==='/api/admin/users'&&request.method==='GET'){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
-    const rows=await env.DB.prepare('SELECT id,email,name,role,nesting_credits,unlimited,google_id,created_at,last_login_at FROM users ORDER BY created_at DESC LIMIT 500').all();
-    return json({users:rows.results.map(u=>({...publicUser(u),authProvider:u.google_id?'google':'email',createdAt:u.created_at,lastLoginAt:u.last_login_at}))});
+    const rows=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,u.google_id,u.created_at,u.last_login_at,COALESCE(f.test_dxf_enabled,0) test_dxf_enabled FROM users u LEFT JOIN user_features f ON f.user_id=u.id ORDER BY u.created_at DESC LIMIT 500`).all();
+    return json({users:rows.results.map(u=>({...publicUser(u),testDxfEnabled:!!u.test_dxf_enabled,authProvider:u.google_id?'google':'email',createdAt:u.created_at,lastLoginAt:u.last_login_at}))});
   }
   if(path==='/api/admin/health'&&request.method==='GET'){
     const auth=await adminSessionValid(request,env);if(!auth)return json({error:'Yetkisiz.'},403);
@@ -358,7 +370,17 @@ async function handleApi(request,env){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
     const id=Number(userSettingsMatch[1]);await env.DB.prepare('DELETE FROM user_settings WHERE user_id=?').bind(id).run();await audit(env,'user_settings_reset',{actorType:'admin',targetUserId:id});return json({settings:await systemDefaults(env),custom:false});
   }
-  const unlimitedMatch=path.match(/^\/api\/admin\/users\/(\d+)\/unlimited$/);
+  const testDxfMatch=path.match(/^\/api\/admin\/users\/(\d+)\/test-dxf$/);
+  if(testDxfMatch&&request.method==='POST'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const id=Number(testDxfMatch[1]),data=await body(request),enabled=!!data.enabled;
+    const target=await env.DB.prepare('SELECT id FROM users WHERE id=?').bind(id).first();
+    if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
+    await env.DB.prepare(`INSERT INTO user_features(user_id,test_dxf_enabled,updated_at) VALUES(?,?,CURRENT_TIMESTAMP) ON CONFLICT(user_id) DO UPDATE SET test_dxf_enabled=excluded.test_dxf_enabled,updated_at=CURRENT_TIMESTAMP`).bind(id,enabled?1:0).run();
+    await audit(env,'test_dxf_changed',{actorType:'admin',targetUserId:id,detail:enabled?'Açık':'Kapalı'});
+    return json({ok:true,enabled});
+  }
+    const unlimitedMatch=path.match(/^\/api\/admin\/users\/(\d+)\/unlimited$/);
   if(unlimitedMatch&&request.method==='POST'){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
     const id=Number(unlimitedMatch[1]),data=await body(request),unlimited=!!data.unlimited,target=await env.DB.prepare('SELECT id FROM users WHERE id=?').bind(id).first();if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
@@ -393,6 +415,15 @@ async function handleApi(request,env){
 export default {async fetch(request,env){
   const url=new URL(request.url);
   if(url.pathname.startsWith('/api/'))return handleApi(request,env);
+  let decodedPath=url.pathname;try{decodedPath=decodeURIComponent(url.pathname)}catch{}
+  if(decodedPath.startsWith('/examples/test klasoru dxf/')){
+    await ensureSchema(env);
+    const user=await sessionUser(request,env);
+    const file=decodedPath.split('/').pop()||'';
+    if(!user||!TEST_DXF_FILES.includes(file)||!await testDxfAllowed(user.id,env)){
+      return new Response('Test DXF yetkisi kapalı.',{status:403,headers:{'cache-control':'no-store'}});
+    }
+  }
   const response=await env.ASSETS.fetch(request);
   const contentType=response.headers.get('content-type')||'';
   if(request.mode==='navigate'||contentType.includes('text/html')){

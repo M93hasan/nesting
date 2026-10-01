@@ -48,6 +48,27 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const inputLength=(mm:number)=>Number.isFinite(mm)?displayLength(mm,unit):'';
   const [panel,setPanel]=useState(true),[info,setInfo]=useState<'admin'|'about'|'contact'|'help'>();
   const [testDxfOpen,setTestDxfOpen]=useState(false),[testDxfBusy,setTestDxfBusy]=useState('');
+  const [testDxfAllowed,setTestDxfAllowed]=useState(false);
+  useEffect(()=>{
+    let cancelled=false;
+    const refresh=async()=>{
+      try{
+        const response=await fetch('/api/test-dxf',{credentials:'same-origin',cache:'no-store'});
+        const data=await response.json().catch(()=>({}));
+        if(!cancelled){
+          const allowed=response.ok&&data.allowed===true;
+          setTestDxfAllowed(allowed);
+          if(!allowed)setTestDxfOpen(false);
+        }
+      }catch{if(!cancelled){setTestDxfAllowed(false);setTestDxfOpen(false)}}
+    };
+    void refresh();
+    const timer=setInterval(()=>void refresh(),10000);
+    const changed=()=>void refresh();
+    window.addEventListener('serula-auth-updated',changed);
+    window.addEventListener('focus',changed);
+    return()=>{cancelled=true;clearInterval(timer);window.removeEventListener('serula-auth-updated',changed);window.removeEventListener('focus',changed)};
+  },[]);
   const [files,setFiles]=useState<{name:string;text:string}[]>(),[scale,setScale]=useState(1),[review,setReview]=useState<ImportReview>();
   const [tolerance,setTolerance]=useState(.01),[enclosed,setEnclosed]=useState<'holes'|'parts'>('holes');
   const [layers,setLayers]=useState<string[]>(),[availableLayers,setAvailableLayers]=useState<string[]>([]),[excludeIssues,setExcludeIssues]=useState(false);
@@ -318,8 +339,8 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     if(locked)return;
     setTestDxfBusy(name);setError('');
     try{
-      const response=await fetch('/examples/test%20klasoru%20dxf/'+encodeURIComponent(name),{cache:'no-store'});
-      if(!response.ok)throw Error('Test DXF dosyası alınamadı.');
+      const response=await fetch('/examples/test%20klasoru%20dxf/'+encodeURIComponent(name),{credentials:'same-origin',cache:'no-store'});
+      if(!response.ok)throw Error(response.status===403?'Bu kullanıcı için Test DXF yetkisi kapalı.':'Test DXF dosyası alınamadı.');
       const text=await response.text();
       await openFiles([new File([text],name,{type:'application/dxf'})],'shapes');
       setTestDxfOpen(false);
@@ -430,7 +451,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         
         <button disabled={locked} onClick={()=>{projectMenu.current!.open=false;setProjectAd(doc.name);setNameDialog('rename');}}>Projeyi yeniden adlandır</button>
       </div></details><small className="project-status" data-save-state={browserSaveState} aria-live="polite" title={recoveryError||(invalidSettings?'Fix invalid values to save changes.':polygon?.length?'Finish or cancel the polygon to save changes.':'Bu tarayıcıda bu cihaza otomatik kaydedilir.')}><span aria-hidden="true">{browserSaveState==='saved'?'✓':browserSaveState==='error'||browserSaveState==='unsaved'?'!':'◷'}</span>{browserSaveLabel}</small></div>
-      <nav><button className="test-dxf-tab" disabled={locked} onClick={()=>setTestDxfOpen(true)}>Test DXF</button><button className="mobile-settings" aria-expanded={panel} aria-controls="parts-settings" onClick={()=>setPanel(!panel)}>Parçalar &amp; ayarlar</button><button className="theme-toggle" title="Toggle light/dark mode" aria-label="Toggle light/dark mode" onClick={()=>setTheme(theme==='dark'||theme==='system'&&matchMedia('(prefers-color-scheme: dark)').matches?'light':'dark')}><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16Z" fill="currentColor" stroke="none"/></svg></button><button aria-label="Serula Nesting Hakkında" onClick={()=>setInfo('about')}><span aria-hidden="true">ⓘ</span>Hakkında</button><button className="hello-button" aria-label="İletişim" onClick={()=>setInfo('contact')}><span className={downloadedResult?'hello-wave':undefined} aria-hidden="true">☎</span>İletişim</button></nav>
+      <nav>{testDxfAllowed&&<button className="test-dxf-tab" disabled={locked} onClick={()=>setTestDxfOpen(true)}>Test DXF</button>}<button className="mobile-settings" aria-expanded={panel} aria-controls="parts-settings" onClick={()=>setPanel(!panel)}>Parçalar &amp; ayarlar</button><button className="theme-toggle" title="Toggle light/dark mode" aria-label="Toggle light/dark mode" onClick={()=>setTheme(theme==='dark'||theme==='system'&&matchMedia('(prefers-color-scheme: dark)').matches?'light':'dark')}><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16Z" fill="currentColor" stroke="none"/></svg></button><button aria-label="Serula Nesting Hakkında" onClick={()=>setInfo('about')}><span aria-hidden="true">ⓘ</span>Hakkında</button><button className="hello-button" aria-label="İletişim" onClick={()=>setInfo('contact')}><span className={downloadedResult?'hello-wave':undefined} aria-hidden="true">☎</span>İletişim</button></nav>
       <input ref={input} hidden type="file" multiple accept=".json,.svg,.dxf" onChange={e=>{if(e.target.files)void openFiles(e.target.files,'shapes');e.target.value='';}}/>
       <input ref={projectInput} hidden type="file" accept=".zip,.sparrow-project.json,.json" onChange={e=>{if(e.target.files)void openFiles(e.target.files,'project');e.target.value='';}}/>
       {solver.state==='Running'&&<span className="background-hint">En iyi performans için bu sekmeyi açık tutun</span>}
