@@ -49,7 +49,7 @@ export function exportDXF(doc:Document,world:WorldPart[],placements:Placement[]=
   for(let i=0;i<world.length;i++){
     const p=world[i],part=parts.get(p.partId),placement=placements[i],curve=part?.source.dxfSpline;
     const entity=parsed.entities[at++];
-    if(curve&&placement&&placement.partId===p.partId&&placement.copyIndex===p.copyIndex){
+    if(preserveSourceCurves&&curve&&placement&&placement.partId===p.partId&&placement.copyIndex===p.copyIndex){
       if(entity?.type!=='SPLINE'||entity.layer!=='PARTS'||entity.degree!==curve.degree)throw Error('Serialized DXF lost its compact spline.');
       const expected=curve.controlPoints.map(point=>transformPoint(point,placement)),actual=(entity.controlPoints??[]).map(q=>[q.x,q.y] as Point);
       if(JSON.stringify(entity.knots??[])!==JSON.stringify(curve.knots)||JSON.stringify(actual)!==JSON.stringify(expected))throw Error('Serialized DXF changed spline control points.');
