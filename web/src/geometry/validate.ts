@@ -38,7 +38,7 @@ export function collisionRing(part:Part):Ring {
   if(!details.length)return part.outer;
   const source=[part.outer,...details];
   try{
-    const union=polygonClipping.union as unknown as (...polygons:Ring[][])=>Ring[][][];
+    const union=polygonClipping.union as unknown as (...polygons:Ring[][])=>Ring[][];
     const merged=union(...source.map(ring=>[ring]));
     if(merged.length===1&&merged[0]?.[0]?.length>=3)return normalizeRing(merged[0][0]);
     const exterior=merged.flatMap(polygon=>polygon[0]??[]) as Point[];
