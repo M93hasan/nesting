@@ -125,14 +125,21 @@ it('writes unique handles and model-space ownership for strict R2000 importers',
 });
 
 
-it('keeps attached DXF detail contours out of solver and collision checks',()=>{
+it('includes protruding attached DXF contours in solver and collision checks',()=>{
   const {doc,result}=fixture();
   doc.settings.materialWidthMm=4;result.usedLengthMm=2;
   doc.parts[0].source={...doc.parts[0].source,dxfDetails:[{ring:[[0,0],[1.5,0],[1.5,1],[0,1]],layer:'DETAIL'}]};
   result.placements[1].xMm=1.2;
   const checked=validate(doc,result);
-  expect(checked.status).toBe('passed');
-  expect(checked.overlapAreaMm2).toBe(0);
+  expect(checked.status).toBe('failed');
+  expect(checked.overlapAreaMm2).toBeGreaterThan(.05);
+  const native=JSON.parse(solverInput(doc));
+  expect(Math.max(...native.items[0].shape.data.map((point:number[])=>point[1]))).toBeCloseTo(1.5);
+});
+
+it('does not enlarge the collision envelope for a contained DXF detail',()=>{
+  const {doc}=fixture();
+  doc.parts[0].source={...doc.parts[0].source,dxfDetails:[{ring:[[.2,.2],[.8,.2],[.8,.8],[.2,.8]],layer:'MARK'}]};
   const native=JSON.parse(solverInput(doc));
   expect(Math.max(...native.items[0].shape.data.map((point:number[])=>point[1]))).toBeCloseTo(1);
 });
