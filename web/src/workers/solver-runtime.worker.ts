@@ -25,7 +25,7 @@ function batchCounts(tokens:number[],count:number,partCount:number){
   for(let i=0;i<count;i++)counts[tokens[i]]++;
   return counts;
 }
-function solveOneSheet(wasm:WasmApi,doc:Document,counts:number[],seconds:number,seed:string,clearance:number,preset:string,
+function solveOneSheet(wasm:WasmApi,doc:Document,counts:number[],seconds:(typeof ALLOWED_SECONDS)[number],seed:string,clearance:number,preset:string,
   send:(message:object)=>void,solverBinary:SolverBinary,control?:Int32Array){
   const parts=doc.parts.filter(part=>part.quantity>0);
   const selected=parts.map((part,index)=>({...part,quantity:counts[index]}));
