@@ -9,7 +9,7 @@ let skip = () => {};
 self.onmessage = ({ data }: MessageEvent<Start | { type: 'stop' } | { type: 'skip' }>) => {
   if (data.type === 'stop') { dispose(); self.close(); return; }
   if (data.type === 'skip') { skip(); return; }
-  const requested = data.threads ?? Math.min(3, Math.max(1, (navigator.hardwareConcurrency || 2) - 1));
+  const requested = data.threads ?? 1;
   const threads = self.crossOriginIsolated && typeof SharedArrayBuffer !== 'undefined' ? requested : 1;
   if (!Number.isInteger(requested) || requested < 1 || requested > 3) {
     self.postMessage({ type: 'error', runId: data.runId, documentRevision: data.documentRevision, message: 'Choose 1–3 solver threads.' });
