@@ -15,7 +15,7 @@ try {
     const outDir = `pkg${threaded ? '-threads' : ''}${simd ? '' : '-nosimd'}`;
     const features = [threaded && 'threads', simd && 'sparrow/simd'].filter(Boolean);
     const args = ['build', fileURLToPath(new URL('../wasm', import.meta.url)),
-      '--target', 'web', '--release', '--out-dir', outDir, '--locked'];
+      '--target', 'web', '--release', '--out-dir', outDir];
     if (features.length) args.push('--features', features.join(','));
     if (threaded) args.push('-Z', 'build-std=panic_abort,std');
     const result = spawnSync('wasm-pack', args, {
