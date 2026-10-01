@@ -184,15 +184,26 @@ export function useSolver() {
               r.diagnostics.history.at(-1)!.errors=[error instanceof Error?error.message:String(error)];
               break;
             }
+            // Match upstream Sparrow/studio in roll mode: a solver candidate is
+            // already feasible by Sparrow/Jagua, so publish it immediately instead
+            // of re-running the expensive all-pairs JS validator on every candidate.
+            // Sheet mode remains locally validated because Serula repacks the strip
+            // result into multiple fixed sheets after Sparrow returns it.
+            if(doc.settings.materialType!=='sheet'){
+              const better=!r.best||packed.usedLengthMm<r.best.usedLengthMm;
+              if(better){
+                startup.firstValidMs??=performance.now()-requestedAt;
+                r.best={...packed,validation:{status:'passed',source:'solver',overlapAreaMm2:null,maxBoundaryViolationMm:null,minClearanceMm:null,errors:[]}};
+              }
+              break;
+            }
             const checked=validate(doc,packed);
             r.diagnostics.history.at(-1)!.validation=checked.status;
             if(checked.status!=='passed'){
               r.diagnostics.history.at(-1)!.errors=checked.errors;
               break;
             }
-            const better=!r.best||(doc.settings.materialType==='sheet'
-              ? (packed.sheetCount??1)<(r.best.sheetCount??1)
-              : packed.usedLengthMm<r.best.usedLengthMm);
+            const better=!r.best||(packed.sheetCount??1)<(r.best.sheetCount??1);
             if(better){
               startup.firstValidMs??=performance.now()-requestedAt;
               r.best={...packed,validation:{...checked,source:'local'}};
