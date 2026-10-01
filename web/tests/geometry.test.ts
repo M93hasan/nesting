@@ -123,16 +123,16 @@ it('writes unique handles and model-space ownership for strict R2000 importers',
 });
 
 
-it('uses attached DXF detail contours for solver and local collision checks',()=>{
+it('keeps attached DXF detail contours out of solver and collision checks',()=>{
   const {doc,result}=fixture();
   doc.settings.materialWidthMm=4;result.usedLengthMm=2;
   doc.parts[0].source={...doc.parts[0].source,dxfDetails:[{ring:[[0,0],[1.5,0],[1.5,1],[0,1]],layer:'DETAIL'}]};
   result.placements[1].xMm=1.2;
   const checked=validate(doc,result);
-  expect(checked.status).toBe('failed');
-  expect(checked.overlapAreaMm2).toBeGreaterThan(0);
+  expect(checked.status).toBe('passed');
+  expect(checked.overlapAreaMm2).toBe(0);
   const native=JSON.parse(solverInput(doc));
-  expect(Math.max(...native.items[0].shape.data.map((point:number[])=>point[1]))).toBeCloseTo(1.5);
+  expect(Math.max(...native.items[0].shape.data.map((point:number[])=>point[1]))).toBeCloseTo(1);
 });
 
 it('anchors results to the selected right-side start corner without reflecting parts',()=>{
