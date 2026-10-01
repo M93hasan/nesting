@@ -56,6 +56,20 @@ test('sheet mode starts from Sparrow and keeps the result inside plate bounds',(
   expect(render().result).toMatchObject({solverRevision:expect.not.stringContaining('quick-sheet'),sheetCount:1,validation:{status:'passed',source:'local'}});
 });
 
+test('sheet candidates decode stacked Sparrow coordinates into Plate 1 and Plate 2',()=>{
+  const sheetDoc:Document={...doc,parts:[{...doc.parts[0],quantity:2}],settings:{...doc.settings,materialType:'sheet',materialWidthMm:20,materialLengthMm:20,timeLimitSeconds:120}};
+  render().start(sheetDoc,7);
+  const [solver]=WorkerStub.all;
+  solver.deliver({type:'candidate',runId:1,documentRevision:7,sequence:1,report:'SheetFeas',elapsedMs:100,
+    solution:{strip_width:40,layout:{placed_items:[
+      {item_id:0,transformation:{rotation:0,translation:[0,0]}},
+      {item_id:0,transformation:{rotation:0,translation:[20,0]}}
+    ]}}});
+  vi.advanceTimersByTime(100);
+  expect(render().result?.placements.map(p=>p.sheetIndex)).toEqual([0,1]);
+  expect(render().result?.sheetCount).toBe(2);
+});
+
 test('live clip failures are logged without stopping the preview worker',()=>{
   render().start(doc,7);const [solver,preview]=WorkerStub.all;
   solver.deliver({...candidate(1,7,1,20),type:'live'});

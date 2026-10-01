@@ -178,6 +178,18 @@ it('anchors results to the selected right-side start corner without reflecting p
   expect(Math.max(...worldParts(doc,bottom).flatMap(part=>part.outer.map(point=>point[1])))).toBeCloseTo(10);
 });
 
+it('preserves Sparrow-assigned plate numbers without re-packing them',()=>{
+  const part={...newPart([[0,0],[4,0],[4,4],[0,4]]),id:'assigned',quantity:2};
+  const doc:Document={name:'assigned-sheets',parts:[part],settings:{...DEFAULT_SETTINGS,materialType:'sheet',materialWidthMm:10,materialLengthMm:8,clearanceMm:0,startCorner:'right-top'}};
+  const result:Result={documentRevision:1,solverRevision:'test',seed:'1',elapsedSeconds:1,usedLengthMm:16,sheetCount:2,
+    placements:[{partId:part.id,copyIndex:0,xMm:0,yMm:0,angleDeg:0,sheetIndex:0},{partId:part.id,copyIndex:1,xMm:0,yMm:0,angleDeg:0,sheetIndex:1}],
+    validation:{status:'pending',overlapAreaMm2:0,maxBoundaryViolationMm:0,minClearanceMm:null,errors:[]}};
+  const packed=packResultIntoSheets(doc,result);
+  expect(packed.sheetCount).toBe(2);
+  expect(packed.placements.map(p=>p.sheetIndex)).toEqual([0,1]);
+  expect(validate(doc,packed).status).toBe('passed');
+});
+
 it('accepts aggregate used length beyond 100000 mm across valid separate sheets',()=>{
   const part={...newPart([[0,0],[1,0],[1,1],[0,1]]),id:'long-sheets',quantity:2};
   const doc:Document={name:'long-sheets',parts:[part],settings:{...DEFAULT_SETTINGS,materialType:'sheet',materialWidthMm:1,materialLengthMm:100000,clearanceMm:0}};
