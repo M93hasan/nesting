@@ -30,9 +30,9 @@ export function UserGate({children}:{children:ReactNode}){
   const supportPeer=useRef<RTCPeerConnection|null>(null);
   const supportStream=useRef<MediaStream|null>(null);
   const supportAnswer=useRef('');
-  const fallbackTimer=useRef<number>();
+  const fallbackTimer=useRef<number|undefined>(undefined);
   const fallbackVideo=useRef<HTMLVideoElement|null>(null);
-  const fallbackSession=useRef<number>();
+  const fallbackSession=useRef<number|undefined>(undefined);
   const [screenConnection,setScreenConnection]=useState<'idle'|'connecting'|'connected'|'fallback'|'failed'>('idle');
   const [accountHost,setAccountHost]=useState<HTMLElement|null>(null);
 
