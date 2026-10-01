@@ -56,10 +56,211 @@
 
 .admin-screen-fallback{display:block;width:100%;height:100%;object-fit:contain;background:#000}
 
-/* Serula violet admin switch */
-.admin-switch-row{display:flex;align-items:center;gap:10px}.switch{--button-width:4em;--button-height:2.2em;--circle-diameter:1.8em;--circle-offset:3px;font-size:14px;position:relative;display:inline-block;width:var(--button-width);height:var(--button-height);outline:none;filter:drop-shadow(0 2px 4px rgba(0,0,0,.1));flex:0 0 auto}.switch:focus-within{outline:2px solid #6d5dfc;outline-offset:3px;border-radius:var(--button-height)}
-.switch input{position:absolute;width:1px!important;height:1px!important;min-height:0!important;padding:0!important;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;box-shadow:none!important}.switch .slider{position:absolute;inset:0;background:linear-gradient(135deg,#eceaf4,#d8d3e8);border-radius:var(--button-height);transition:all .4s cubic-bezier(.4,0,.2,1);cursor:pointer;overflow:hidden;box-shadow:inset 0 1px 3px rgba(0,0,0,.1),0 1px 2px rgba(0,0,0,.1)}
-.switch .slider::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.18),transparent 50%,rgba(0,0,0,.05));border-radius:inherit;pointer-events:none}.switch .slider::before{content:"";position:absolute;top:50%;left:var(--circle-offset);width:var(--circle-diameter);height:var(--circle-diameter);background:linear-gradient(145deg,#fff,#f0eef8);border-radius:50%;transform:translateY(-50%);transition:left .45s cubic-bezier(.68,-.55,.265,1.55),width .3s,transform .3s;box-shadow:0 2px 8px rgba(0,0,0,.16);z-index:2}
-.switch .glow{position:absolute;top:50%;left:calc(var(--circle-diameter)/2 + var(--circle-offset));width:0;height:0;background:#6d5dfc;border-radius:50%;transform:translate(-50%,-50%);transition:all .5s ease;opacity:0;z-index:1}.switch .icon-on,.switch .icon-off{position:absolute;top:50%;transform:translateY(-50%);z-index:1;opacity:0;transition:opacity .3s ease;pointer-events:none;font-size:12px}.switch .icon-on{left:11px;color:#fff}.switch .icon-off{right:11px;color:#7b748d}
-.switch input:checked + .slider{background:linear-gradient(135deg,#9588ff,#6554eb);box-shadow:inset 0 1px 3px rgba(0,0,0,.2),0 2px 10px rgba(109,93,252,.34)}.switch input:checked + .slider .glow{width:100%;height:100%;opacity:.25}.switch input:checked + .slider::before{left:calc(100% - var(--circle-diameter) - var(--circle-offset))}.switch input:checked + .slider .icon-on{opacity:1}.switch input:not(:checked) + .slider .icon-off{opacity:1}.switch input:disabled + .slider{opacity:.5;cursor:not-allowed}
-.admin input:not([type=checkbox]):not([type=radio]):not([type=file]),.admin-shell input:not([type=checkbox]):not([type=radio]):not([type=file]){background:light-dark(#f1efff,#29253d);border:none;border-radius:1rem;color:light-dark(#5a4be7,#c7c0ff);box-shadow:0 .3rem light-dark(#dcd5f5,#191625);padding:.78rem .9rem}
+/* Serula v0.0.87 admin palette — kirli beyaz / grafit / buz mavisi */
+.admin-page{
+  --admin-surface:light-dark(#fbf9f4,#20242b);
+  --admin-surface-soft:light-dark(#f5f3ee,#1b2026);
+  --admin-surface-raised:light-dark(#fffdfa,#252b33);
+  --admin-border:light-dark(#ddd8cf,#353d47);
+  --admin-accent:light-dark(#2ea8f2,#55bdf8);
+  --admin-accent-strong:light-dark(#168fd8,#79cbfb);
+  --admin-accent-soft:light-dark(#e7f4fc,#203746);
+  --admin-text:light-dark(#1f2b3a,#edf4fb);
+  --admin-muted:light-dark(#66717f,#a7b4c2);
+  --admin-danger:light-dark(#b42318,#ff9b95);
+  background:var(--page);
+  color:var(--admin-text);
+}
+.admin-topbar{
+  background:light-dark(#f8f5ef,#1d2228);
+  border-color:var(--admin-border);
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none;
+  box-shadow:0 4px 18px light-dark(rgba(31,43,58,.05),rgba(0,0,0,.18));
+}
+.admin-sidebar{background:light-dark(#f7f4ee,#1c2127);border-color:var(--admin-border)}
+.admin-card,.admin-metric,.admin-user-row{background:var(--admin-surface);border-color:var(--admin-border)}
+.admin-security-note,.admin-selected-user,.admin-table-head{background:var(--admin-surface-soft);border-color:var(--admin-border)}
+.admin-empty{background:light-dark(#f7f5f0,#1b2026);border-color:var(--admin-border)}
+.admin-heading h1,.admin-card h2,.admin-brand strong,.admin-user-row strong{color:var(--admin-text)}
+.admin-heading p,.admin-brand span,.admin-card-head p,.admin-user-row small,.admin-metric span,.admin-metric small,.admin-check-list,.admin-selected-user span{color:var(--admin-muted)}
+.admin-version,.admin-badge,.admin-connection{
+  background:var(--admin-surface-raised);
+  border-color:var(--admin-border);
+  color:var(--admin-muted);
+}
+.admin-connection{color:var(--admin-accent-strong)}
+.admin-sidebar nav button{
+  color:var(--admin-muted);
+  border:1px solid transparent!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  transform:none!important;
+}
+.admin-sidebar nav button:hover:enabled{
+  color:var(--admin-text);
+  background:var(--hover)!important;
+  border-color:var(--admin-border)!important;
+  transform:none!important;
+  box-shadow:none!important;
+}
+.admin-sidebar nav button.active{
+  background:var(--admin-accent-soft)!important;
+  color:var(--admin-accent-strong)!important;
+  border-color:light-dark(#c8e7f7,#35566b)!important;
+  font-weight:700;
+}
+.admin-notice,.admin-support-box{
+  background:var(--admin-accent-soft);
+  border-color:light-dark(#c8e7f7,#35566b);
+}
+.admin-table{border-color:var(--admin-border)}
+.admin-status-list div,.admin-check-list li,.admin-lock-row,.admin-save-row,.admin-user-row{border-color:var(--admin-border)}
+.admin-workspace-link{color:var(--admin-accent-strong)}
+.admin-workspace-link:hover{background:var(--admin-accent-soft)}
+.admin-log-window{background:light-dark(#1d2731,#0b1014);color:#c6d4df}
+.admin-log-row{border-bottom-color:#ffffff1c}
+.status-ok{color:light-dark(#137a42,#78d69a)!important}
+.status-error{color:var(--admin-danger)!important}
+
+/* Admin form controls must not fall back to the old purple palette. */
+.admin-page input:not([type=checkbox]):not([type=radio]):not([type=file]),
+.admin-page select{
+  background:var(--admin-surface-raised)!important;
+  border:1px solid var(--admin-border)!important;
+  border-radius:9px!important;
+  color:var(--admin-text)!important;
+  box-shadow:none!important;
+}
+.admin-page input:not([type=checkbox]):not([type=radio]):not([type=file]):focus,
+.admin-page select:focus{
+  outline:2px solid color-mix(in srgb,var(--admin-accent) 55%,white)!important;
+  outline-offset:1px;
+  box-shadow:0 0 0 3px rgba(46,168,242,.10)!important;
+}
+.admin-page button:not(.danger-button):not(.primary){
+  background:light-dark(#f5f8fa,#252c34)!important;
+  color:var(--admin-text)!important;
+  border:1px solid var(--admin-border)!important;
+  box-shadow:none!important;
+}
+.admin-page button:not(.danger-button):not(.primary):hover:enabled{
+  background:var(--hover)!important;
+  border-color:var(--hover-border)!important;
+  transform:translateY(-1px);
+  box-shadow:0 4px 12px rgba(31,43,58,.08)!important;
+}
+.admin-page .primary{
+  background:linear-gradient(180deg,#39b4fb,#2399df)!important;
+  color:#fff!important;
+  border:1px solid #2094d8!important;
+  box-shadow:0 6px 16px rgba(46,168,242,.22)!important;
+}
+.admin-page .primary:hover:enabled{
+  background:linear-gradient(180deg,#53c1fb,#168bd0)!important;
+  border-color:#168bd0!important;
+}
+.admin-page .danger-button{
+  background:light-dark(#fff0eb,#432a28)!important;
+  color:light-dark(#b42318,#ffb4a6)!important;
+  border:1px solid light-dark(#f1c4b8,#6c403a)!important;
+  box-shadow:none!important;
+}
+
+/* Ice-blue admin switch */
+.admin-switch-row{display:flex;align-items:center;gap:10px}
+.switch{
+  --button-width:4em;
+  --button-height:2.2em;
+  --circle-diameter:1.8em;
+  --circle-offset:3px;
+  font-size:14px;
+  position:relative;
+  display:inline-block;
+  width:var(--button-width);
+  height:var(--button-height);
+  outline:none;
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,.08));
+  flex:0 0 auto;
+}
+.switch:focus-within{outline:2px solid var(--admin-accent);outline-offset:3px;border-radius:var(--button-height)}
+.switch input{
+  position:absolute;
+  width:1px!important;
+  height:1px!important;
+  min-height:0!important;
+  padding:0!important;
+  margin:-1px;
+  overflow:hidden;
+  clip:rect(0,0,0,0);
+  white-space:nowrap;
+  border:0;
+  box-shadow:none!important;
+}
+.switch .slider{
+  position:absolute;
+  inset:0;
+  background:light-dark(#e6ebef,#303943);
+  border:1px solid var(--admin-border);
+  border-radius:var(--button-height);
+  transition:all .3s ease;
+  cursor:pointer;
+  overflow:hidden;
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.08);
+}
+.switch .slider::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:linear-gradient(180deg,rgba(255,255,255,.18),transparent 50%);
+  border-radius:inherit;
+  pointer-events:none;
+}
+.switch .slider::before{
+  content:"";
+  position:absolute;
+  top:50%;
+  left:var(--circle-offset);
+  width:var(--circle-diameter);
+  height:var(--circle-diameter);
+  background:light-dark(#fff,#e8eef3);
+  border-radius:50%;
+  transform:translateY(-50%);
+  transition:left .3s ease,transform .3s ease;
+  box-shadow:0 2px 7px rgba(0,0,0,.16);
+  z-index:2;
+}
+.switch .glow{
+  position:absolute;
+  inset:0;
+  background:var(--admin-accent);
+  opacity:0;
+  transition:opacity .3s ease;
+  border-radius:inherit;
+}
+.switch .icon-on,.switch .icon-off{
+  position:absolute;
+  top:50%;
+  transform:translateY(-50%);
+  z-index:1;
+  opacity:0;
+  transition:opacity .2s ease;
+  pointer-events:none;
+  font-size:12px;
+}
+.switch .icon-on{left:11px;color:#fff}
+.switch .icon-off{right:11px;color:var(--admin-muted)}
+.switch input:checked + .slider{
+  background:linear-gradient(180deg,#55c0fa,#218fd2);
+  border-color:#168fd8;
+  box-shadow:0 4px 12px rgba(46,168,242,.25);
+}
+.switch input:checked + .slider .glow{opacity:.16}
+.switch input:checked + .slider::before{left:calc(100% - var(--circle-diameter) - var(--circle-offset))}
+.switch input:checked + .slider .icon-on{opacity:1}
+.switch input:not(:checked) + .slider .icon-off{opacity:1}
+.switch input:disabled + .slider{opacity:.5;cursor:not-allowed}
+
+@media(max-width:760px){
+  .admin-user-row{background:var(--admin-surface)}
+}
