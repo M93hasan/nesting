@@ -8,9 +8,9 @@ const same=(rule:RotationRule,degrees:number[]|'free')=>{
   return a.length===b.length&&a.every((value,index)=>value===b[index]);
 };
 
-export default function RotationControl({rule,mixed,disabled,onChange}:{rule:RotationRule;mixed:boolean;disabled:boolean;onChange:(rule:RotationRule)=>void}) {
-  return <div className="rotation-choice" role="group" aria-label="İzin verilen dönüşler">
-    <span>İzin verilen dönüşler</span>
+export default function RotationControl({rule,mixed,disabled,required=false,onChange}:{rule:RotationRule;mixed:boolean;disabled:boolean;required?:boolean;onChange:(rule:RotationRule)=>void}) {
+  return <div className="rotation-choice" role="group" aria-label="İzin verilen dönüşler" aria-required={required}>
+    <span>İzin verilen dönüşler{required&&<> <strong aria-hidden="true">*</strong></>}</span>
     <div className="row-actions">
       <button type="button" aria-pressed={!mixed&&same(rule,[0])} disabled={disabled} onClick={()=>onChange({kind:'discrete',degrees:[0]})}>0°</button>
       <button type="button" aria-pressed={!mixed&&same(rule,[0,180])} disabled={disabled} onClick={()=>onChange({kind:'discrete',degrees:[0,180]})}>0° / 180°</button>

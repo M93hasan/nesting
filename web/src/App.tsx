@@ -21,7 +21,10 @@ import {copyRefsFor,documentPlacements,duplicateCopies,removeCopies,rotateToNext
 
 const emptyProject=(name='Adsız proje'):Document=>({name,parts:[],settings:{...DEFAULT_SETTINGS}});
 type ProjectSwitch={document:Document;result?:Result;warnings?:string[];saved?:boolean;nest?:boolean};
-const rotationValue=(rule:RotationRule)=>rule.kind==='continuous'?'free':JSON.stringify([...new Set(rule.degrees.map(d=>((d%360)+360)%360))].sort((a,b)=>a-b));
+const DEFAULT_ROTATIONS:RotationRule={kind:'discrete',degrees:[0,180]};
+const validRotationRule=(rule:RotationRule|undefined)=>!!rule&&(rule.kind==='continuous'||(rule.kind==='discrete'&&Array.isArray(rule.degrees)&&rule.degrees.length>0&&rule.degrees.every(Number.isFinite)));
+const normalizedRotationRule=(rule:RotationRule|undefined):RotationRule=>validRotationRule(rule)?rule!:DEFAULT_ROTATIONS;
+const rotationValue=(rule:RotationRule|undefined)=>!validRotationRule(rule)?'invalid':rule!.kind==='continuous'?'free':JSON.stringify([...new Set(rule!.degrees.map(d=>((d%360)+360)%360))].sort((a,b)=>a-b));
 const validQuantity=(n:number)=>Number.isInteger(n)&&n>=0&&n<=500;
 const displayedPieceCount=(parts:Part[])=>parts.reduce((total,part)=>total+part.quantity*(part.source.dxfSourceEntityCount??1),0);
 const TEST_DXF_FILES=['1003.dxf','1239.dxf','test.dxf'] as const;
@@ -147,7 +150,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const chosen=doc.parts.find(p=>p.id===selected[0]);
   const mixedRotations=chosen&&doc.parts.some(part=>selected.includes(part.id)&&rotationValue(part.rotations)!==rotationValue(chosen.rotations));
   const selectedBox=useMemo(()=>selectionBounds(canvasDocument,selected,selectedCopies),[canvasDocument,selected,selectedCopies]);
-  const invalidSettings=!sizeValid||!Number.isFinite(doc.settings.materialWidthMm)||doc.settings.materialWidthMm<=0||doc.settings.materialWidthMm>100_000||((doc.settings.materialType??'roll')==='sheet'&&(!Number.isFinite(doc.settings.materialLengthMm)||doc.settings.materialLengthMm!<=0||doc.settings.materialLengthMm!>100_000))||!Number.isFinite(doc.settings.clearanceMm)||doc.settings.clearanceMm<0||doc.settings.clearanceMm>=doc.settings.materialWidthMm||doc.parts.some(p=>!validQuantity(p.quantity))||doc.parts.reduce((n,p)=>n+p.quantity,0)>500;
+  const invalidSettings=!sizeValid||!Number.isFinite(doc.settings.materialWidthMm)||doc.settings.materialWidthMm<=0||doc.settings.materialWidthMm>100_000||((doc.settings.materialType??'roll')==='sheet'&&(!Number.isFinite(doc.settings.materialLengthMm)||doc.settings.materialLengthMm!<=0||doc.settings.materialLengthMm!>100_000))||!Number.isFinite(doc.settings.clearanceMm)||doc.settings.clearanceMm<0||doc.settings.clearanceMm>=doc.settings.materialWidthMm||doc.parts.some(p=>!validQuantity(p.quantity)||(p.quantity>0&&!validRotationRule(p.rotations)))||doc.parts.reduce((n,p)=>n+p.quantity,0)>500;
   const recoveryResult=running?undefined:result;
   const browserSavePending=browserSaved?.document!==doc||browserSaved?.result!==recoveryResult||browserSaved?.revision!==revision;
   const browserSaveState=recoveryError?'error':!recoveryReady||loadingExample?'loading':invalidSettings||!!polygon?.length?'unsaved':browserSavePending?'saving':'saved';
@@ -295,6 +298,12 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     await run(next,revision+1);
   }
   async function run(document=doc,rev=revision) {
+    const missingRotation=document.parts.find(part=>part.quantity>0&&!validRotationRule(part.rotations));
+    if(missingRotation){
+      setError('İzin verilen dönüşler zorunludur. Her parça için 0°, 0° / 180° veya Her yöne seçeneklerinden birini seçin.');
+      setUnusedSelection([]);setSelectedCopies(copyRefsFor(document,[missingRotation.id]));
+      return;
+    }
     const requestedAt=performance.now();
     setBusy(true);setError('');setResultMode('live');
     const id=++operation.current;
@@ -354,7 +363,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   }
   async function addParts(parts:Part[],warnings:string[]=[],preserveSourceLayout=false) {
     cancelDefaultExample();
-    const reply=await geometryTask({type:'normalize',runId:++operation.current,documentRevision:revision,document:{...doc,parts:[...doc.parts,...parts]}});
+    const reply=await geometryTask({type:'normalize',runId:++operation.current,documentRevision:revision,document:{...doc,parts:[...doc.parts,...parts.map(part=>({...part,rotations:normalizedRotationRule(part.rotations)}))]}});
     if(reply.type!=='normalized')throw Error('Could not add these shapes.');
     const next=preserveSourceLayout?reply.document:await prepareDocument(reply.document,doc.parts.map(p=>p.id));
     commit(next);
@@ -363,7 +372,8 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   function switchProject(next:ProjectSwitch) {
     cancelDefaultExample();
     const nextRevision=revision+1,checked=next.result?{...next.result,documentRevision:nextRevision}:undefined;
-    const document=withDocumentPlacements(next.document,checked?.placements ?? next.document.placements);
+    const normalizedDocument={...next.document,parts:next.document.parts.map(part=>({...part,rotations:normalizedRotationRule(part.rotations)}))};
+    const document=withDocumentPlacements(normalizedDocument,checked?.placements ?? next.document.placements);
     ++operation.current;solver.invalidate();setRevision(nextRevision);setDoc(document);
     history.current=[];future.current=[];fieldEdit.current=undefined;partAnchor.current=0;setUnusedSelection([]);setSelectedCopies([]);setPolygon(undefined);setFiles(undefined);setReview(undefined);setPendingProject(undefined);setError('');setImportWarnings(next.warnings??[]);setFitRequest(n=>n+1);setResultMode(checked?'checked':'live');
     if(checked)solver.load(checked);
@@ -510,7 +520,8 @@ export default function App({initialDocument=emptyProject(),initialError='',load
       </section>
         {chosen&&<aside className="selection-panel" aria-label="Parça özellikleri"><div className="panel-title"><h2>Parça özellikleri</h2><button aria-label="Clear selection" onClick={()=>{setUnusedSelection([]);setSelectedCopies([]);}}>×</button></div><section className="part-settings">{selected.length===1?<label>Ad<input data-undo-field value={chosen.name} disabled={locked} onChange={e=>editPart({name:e.target.value},false,`name:${chosen.id}`)}/></label>:<h2>{selected.length} parts selected</h2>}
           {selectedBox?<SelectionControls key={JSON.stringify(selectedCopies)} unit={unit} box={selectedBox} disabled={locked} sizeLocked={selected.some(id=>doc.parts.some(part=>part.id===id&&part.source.format==='dxf'))} onPosition={positionSelection} onSize={(axis,value)=>void transformSelection({kind:'scale',factor:value/(selectedBox[axis+2]-selectedBox[axis]),pivot:[selectedBox[0],selectedBox[1]]})} onRotate={degrees=>void transformSelection({kind:'rotate',degrees,pivot:[(selectedBox[0]+selectedBox[2])/2,(selectedBox[1]+selectedBox[3])/2]})} onValidity={setSizeValid}/>:<p className="muted">No kopya selected. Add a copy using its quantity to move or resize this part.</p>}
-          <RotationControl key={JSON.stringify([selected,mixedRotations,chosen.rotations])} rule={chosen.rotations} mixed={!!mixedRotations} disabled={locked} onChange={rotations=>editPart({rotations})}/>
+          <RotationControl key={JSON.stringify([selected,mixedRotations,chosen.rotations])} rule={normalizedRotationRule(chosen.rotations)} mixed={!!mixedRotations} disabled={locked} required onChange={rotations=>editPart({rotations})}/>
+          {!validRotationRule(chosen.rotations)&&<small role="alert" className="field-error">İzin verilen dönüşler zorunludur.</small>}
           {selected.length===1&&<div className="row-actions"><button className="primary" disabled={locked||(doc.settings.materialType??'roll')!=='sheet'} title={(doc.settings.materialType??'roll')!=='sheet'?'Önce malzeme tipini Plaka seçin.':'Seçili parçayı plakanın tamamına yerleştir.'} onClick={()=>void fullPlateSelected()}>Tam plaka</button><button disabled={locked||!history.current.length} onClick={()=>restore()}>Tam plaka iptal</button></div>}
 
         </section></aside>}

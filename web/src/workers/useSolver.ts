@@ -96,7 +96,7 @@ export function useSolver() {
     if(message) setError(message);
     setElapsed((performance.now()-r.requestedAt)/1000);
     setResult(r.best);setState(reason);
-    if(!r.best&&reason==='Complete'){setState('Error');setError('Geçerli bir yerleşim bulunamadı. Malzeme ölçüsünü, parça aralığını ve izin verilen dönüşleri kontrol edip yeniden deneyin.');}
+    if(!r.best&&reason==='Complete'){setState('Error');setError('Geçerli bir yerleşim bulunamadı. Malzeme ölçüsünü ve parça aralığını kontrol edip yeniden deneyin.');}
   }
   function start(doc:Document,revision:number,threads?:number,requestedAt=performance.now()) {
     const startup:StartupTiming={preparedMs:performance.now()-requestedAt};
