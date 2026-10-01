@@ -1,7 +1,7 @@
 {
   "name": "serula-nesting",
   "private": true,
-  "version": "0.0.80",
+  "version": "0.0.81",
   "type": "module",
   "scripts": {
     "source:check": "node scripts/check-source-integrity.mjs",
