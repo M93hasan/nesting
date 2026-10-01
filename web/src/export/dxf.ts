@@ -3,6 +3,7 @@ import type {Document,DxfAuxEntity,DxfSpline,Placement,Point,Ring} from '../mode
 import type {WorldPart} from '../geometry/validate';
 
 export const STUDIO_CREDIT='nested with sparrow/studio · https://sparrowstudio.app';
+export const SHEET_EXPORT_GAP_MM=50;
 
 export function exportDXF(doc:Document,world:WorldPart[],placements:Placement[]=[],preserveSourceCurves=true):string {
   let nextHandle=0x100;
@@ -13,6 +14,22 @@ export function exportDXF(doc:Document,world:WorldPart[],placements:Placement[]=
     const angle=p.angleDeg*Math.PI/180,cos=Math.cos(angle),sin=Math.sin(angle);
     return [x*cos-y*sin+p.xMm,x*sin+y*cos+p.yMm];
   };
+  const sheetMode=doc.settings.materialType==='sheet'&&placements.some(placement=>placement.sheetIndex!==undefined);
+  const sheetPitch=doc.settings.materialWidthMm+SHEET_EXPORT_GAP_MM;
+  const sheetOffset=(placement:Placement|undefined)=>sheetMode?(placement?.sheetIndex??0)*sheetPitch:0;
+  const shiftRing=(ring:Ring,dx:number):Ring=>dx===0?ring:ring.map(([x,y])=>[x+dx,y]);
+  const exportPlacements=placements.map(placement=>({...placement,xMm:placement.xMm+sheetOffset(placement)}));
+  const exportWorld=world.map((part,index)=>{
+    const dx=sheetOffset(placements[index]);
+    return dx===0?part:{...part,outer:shiftRing(part.outer,dx),holes:part.holes.map(ring=>shiftRing(ring,dx))};
+  });
+  const sheetLength=doc.settings.materialLengthMm??0;
+  const sheetCount=sheetMode&&placements.length?Math.max(...placements.map(placement=>placement.sheetIndex??0))+1:0;
+  const plateRings:Ring[]=sheetMode&&sheetLength>0?Array.from({length:sheetCount},(_,sheetIndex)=>{
+    const x=sheetIndex*sheetPitch;
+    return [[x,0],[x+doc.settings.materialWidthMm,0],[x+doc.settings.materialWidthMm,sheetLength],[x,sheetLength]];
+  }):[];
+
   const aux=(entity:DxfAuxEntity,p:Placement)=>{
     const [x,y]=transformPoint(entity.point,p),layer=entity.layer||'MARKS',color=colorGroup(entity.colorNumber);
     if(entity.kind==='point') return `0\nPOINT\n5\n${handle()}\n330\n21\n100\nAcDbEntity\n8\n${layer}\n${color}100\nAcDbPoint\n10\n${x}\n20\n${y}\n30\n0\n`;
@@ -25,19 +42,21 @@ export function exportDXF(doc:Document,world:WorldPart[],placements:Placement[]=
     return `0\nSPLINE\n5\n${handle()}\n330\n21\n100\nAcDbEntity\n8\n${layer}\n${colorGroup(color)}100\nAcDbSpline\n210\n0\n220\n0\n230\n1\n70\n${curve.flags}\n71\n${curve.degree}\n72\n${curve.knots.length}\n73\n${points.length}\n74\n0\n42\n0.0000000001\n43\n0.0000000001\n${curve.knots.map(k=>`40\n${k}\n`).join('')}${curve.weights?.map(w=>`41\n${w}\n`).join('')??''}${points.map(([x,y])=>`10\n${x}\n20\n${y}\n30\n0\n`).join('')}`;
   };
   const parts=new Map(doc.parts.map(part=>[part.id,part]));
-  const layerNames=[...new Set(['0','PARTS','HOLES',...doc.parts.flatMap(part=>[
+  const layerNames=[...new Set(['0','PARTS','HOLES',...(plateRings.length?['PLATES']:[]),...doc.parts.flatMap(part=>[
     ...(part.source.dxfAux??[]).map(entity=>entity.layer||'MARKS'),
     ...(part.source.dxfDetails??[]).map(detail=>detail.layer||'DETAILS')
   ])])];
   const layers=layerNames.map(layer=>`0\nLAYER\n5\n${handle()}\n330\n10\n100\nAcDbSymbolTableRecord\n100\nAcDbLayerTableRecord\n2\n${layer}\n70\n0\n62\n7\n6\nCONTINUOUS\n`).join('');
-  const entities=world.map((p,i)=>{
-    const part=parts.get(p.partId),placement=placements[i];
+  const partEntities=exportWorld.map((p,i)=>{
+    const part=parts.get(p.partId),placement=exportPlacements[i];
     const compact=preserveSourceCurves&&part?.source.dxfSpline&&placement&&placement.partId===p.partId&&placement.copyIndex===p.copyIndex
       ?spline(part.source.dxfSpline,placement,'PARTS',part.source.dxfColorNumber):polyline(p.outer,'PARTS',part?.source.dxfColorNumber);
     const details=part&&placement?(part.source.dxfDetails??[]).map(detail=>polyline(detail.ring.map(point=>transformPoint(point,placement)),detail.layer||'DETAILS',detail.colorNumber)).join(''):'';
     const marks=part&&placement?(part.source.dxfAux??[]).map(entity=>aux(entity,placement)).join(''):'';
     return compact+p.holes.map((h,holeIndex)=>polyline(h,'HOLES',part?.source.dxfHoleColorNumbers?.[holeIndex])).join('')+details+marks;
   }).join('');
+  const plateEntities=plateRings.map(ring=>polyline(ring,'PLATES')).join('');
+  const entities=partEntities+plateEntities;
   // R2000 readers such as QCAD require explicit model/paper-space ownership.
   const spaces=[['*Model_Space','21','23','24'],['*Paper_Space','22','25','26']];
   const records=spaces.map(([name,id])=>`0\nBLOCK_RECORD\n5\n${id}\n330\n20\n100\nAcDbSymbolTableRecord\n100\nAcDbBlockTableRecord\n2\n${name}\n70\n0\n`).join('');
@@ -46,8 +65,8 @@ export function exportDXF(doc:Document,world:WorldPart[],placements:Placement[]=
   const parsed=parseString(text) as {header:{insUnits:number};entities:{type:string;closed?:boolean;layer:string;vertices?:{x:number;y:number}[];controlPoints?:{x:number;y:number}[];knots?:number[];degree?:number;weights?:number[]}[]};
   if(parsed.header.insUnits!==4)throw Error('Serialized DXF lost its millimeter units.');
   let at=0;
-  for(let i=0;i<world.length;i++){
-    const p=world[i],part=parts.get(p.partId),placement=placements[i],curve=part?.source.dxfSpline;
+  for(let i=0;i<exportWorld.length;i++){
+    const p=exportWorld[i],part=parts.get(p.partId),placement=exportPlacements[i],curve=part?.source.dxfSpline;
     const entity=parsed.entities[at++];
     if(preserveSourceCurves&&curve&&placement&&placement.partId===p.partId&&placement.copyIndex===p.copyIndex){
       if(entity?.type!=='SPLINE'||entity.layer!=='PARTS'||entity.degree!==curve.degree)throw Error('Serialized DXF lost its compact spline.');
@@ -75,6 +94,12 @@ export function exportDXF(doc:Document,world:WorldPart[],placements:Placement[]=
       const expectedType=mark.kind==='point'?'POINT':mark.kind==='mtext'?'MTEXT':'TEXT';
       if(entity?.type!==expectedType)throw Error('Serialized DXF lost an attached point or text mark.');
     }
+  }
+  for(const expected of plateRings){
+    const entity=parsed.entities[at++];
+    if(entity?.type!=='LWPOLYLINE'||!entity.closed||entity.layer!=='PLATES')throw Error('Serialized DXF lost a plate boundary.');
+    const ring=(entity.vertices??[]).map(q=>[q.x,q.y] as Point);
+    if(JSON.stringify(ring)!==JSON.stringify(expected))throw Error('Serialized DXF changed a plate boundary.');
   }
   if(at!==parsed.entities.length)throw Error('Serialized DXF changed contour count.');
   return text;
