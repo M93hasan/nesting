@@ -10,16 +10,25 @@
 
 .account-slot{display:flex;align-items:center;position:relative}
 .auth-account-menu{position:relative}
-.auth-account-menu>summary{list-style:none;display:flex;align-items:center;gap:7px;min-height:36px;padding:4px 8px;border:1px solid var(--border,#dfe3ea);border-radius:10px;background:var(--panel,#fff);cursor:pointer;color:var(--ink,#18212f)}
+.auth-account-menu>summary{list-style:none;display:flex;align-items:center;gap:9px;min-height:44px;padding:5px 11px;border:1px solid color-mix(in srgb,var(--accent,#2ea8f2) 48%,var(--border,#dfe3ea));border-radius:12px;background:color-mix(in srgb,var(--selected,#e7f4fc) 78%,var(--panel,#fff));cursor:pointer;color:var(--ink,#18212f);box-shadow:0 4px 14px rgba(31,43,58,.08)}
 .auth-account-menu>summary::-webkit-details-marker{display:none}
-.auth-avatar{width:25px;height:25px;border-radius:50%;display:grid;place-items:center;flex:0 0 auto;background:var(--selected,#eef5f1);color:var(--accent,#176b58);font-size:12px;font-weight:750}
-.auth-account-name{max-width:135px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:600}
-.auth-chevron{font-size:10px;color:var(--muted,#657080)}
-.auth-account-dropdown{position:absolute;right:0;top:calc(100% + 8px);z-index:80;width:240px;padding:12px;border:1px solid var(--border,#dfe3ea);border-radius:12px;background:var(--panel,#fff);box-shadow:0 14px 40px #0003;display:grid;gap:7px}
-.auth-account-dropdown>strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.auth-account-dropdown>small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.auth-account-meta{padding:8px 0;border-top:1px solid var(--border,#dfe3ea);border-bottom:1px solid var(--border,#dfe3ea);font-size:12px;color:var(--muted,#657080)}
+.auth-account-menu>summary:hover{border-color:var(--accent,#2ea8f2);background:color-mix(in srgb,var(--selected,#e7f4fc) 92%,var(--panel,#fff))}
+.auth-avatar{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;flex:0 0 auto;background:var(--accent,#2ea8f2);color:#fff;font-size:13px;font-weight:800;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent,#2ea8f2) 16%,transparent)}
+.auth-account-name{max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:700}
+.auth-chevron{font-size:11px;color:var(--muted,#657080)}
+.auth-account-dropdown{position:absolute;right:0;top:calc(100% + 8px);z-index:80;width:270px;padding:14px;border:1px solid var(--border,#dfe3ea);border-radius:14px;background:var(--panel,#fff);box-shadow:0 16px 42px #0003;display:grid;gap:8px}
+.auth-account-dropdown>strong{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.auth-account-dropdown>small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.auth-account-meta{padding:9px 0;border-top:1px solid var(--border,#dfe3ea);border-bottom:1px solid var(--border,#dfe3ea);font-size:12px;color:var(--muted,#657080)}
 .auth-account-dropdown button{width:100%;margin-top:2px}
-.auth-login-header{display:flex;align-items:center;gap:7px;min-height:36px;padding:4px 9px}
-@media(max-width:760px){.auth-account-name{display:none}.auth-chevron{display:none}.auth-account-menu>summary{padding:4px}.auth-account-dropdown{right:-2px;width:min(240px,80vw)}}
+.auth-login-header{display:flex;align-items:center;gap:8px;min-height:44px;padding:5px 11px;border-color:color-mix(in srgb,var(--accent,#2ea8f2) 40%,var(--border,#dfe3ea))}
+@media(max-width:760px){
+  .account-slot{max-width:160px}
+  .auth-account-menu>summary{min-height:42px;padding:4px 8px;gap:7px}
+  .auth-avatar{width:30px;height:30px}
+  .auth-account-name{display:block;max-width:88px;font-size:12px}
+  .auth-chevron{display:block}
+  .auth-account-dropdown{position:fixed;right:12px;top:64px;width:min(280px,calc(100vw - 24px))}
+  .auth-login-header{min-height:42px;padding:4px 8px}
+}
 
 .auth-card input:not([type=checkbox]):not([type=radio]){background:light-dark(#f1efff,#29253d);border:none;border-radius:1rem;color:light-dark(#5a4be7,#c7c0ff);box-shadow:0 .3rem light-dark(#dcd5f5,#191625);padding:.85rem .95rem}.auth-card input:focus{outline:2px solid #8a7bff;outline-offset:2px}

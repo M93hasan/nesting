@@ -332,3 +332,32 @@ input:not([type=checkbox]):not([type=radio]):not([type=file]):focus,select:focus
   box-shadow:none!important;
   font-weight:500;
 }
+
+
+/* Serula v0.0.89 — persistent user/admin support chat */
+.support-chat{margin-top:18px;border:1px solid var(--border);border-radius:14px;background:light-dark(#f8f5ef,#1d2228);overflow:hidden}
+.support-chat-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-bottom:1px solid var(--border);background:light-dark(#fbf9f4,#20242b)}
+.support-chat-head>div{display:grid;gap:2px}.support-chat-head strong{font-size:14px}.support-chat-head small{font-size:11px;color:var(--muted)}
+.support-chat-status{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);white-space:nowrap}.support-chat-status i{width:8px;height:8px;border-radius:50%;background:#2ebd6e;box-shadow:0 0 0 3px rgba(46,189,110,.12)}
+.support-chat-messages{max-height:320px;min-height:150px;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:10px;scroll-behavior:smooth}
+.support-chat-message{max-width:min(78%,520px);padding:9px 11px;border:1px solid var(--border);border-radius:12px;background:var(--panel);box-shadow:0 3px 10px rgba(31,43,58,.05)}
+.support-chat-message.from-user{align-self:flex-end;background:var(--selected);border-color:light-dark(#c8e7f7,#35566b)}
+.support-chat-message.from-admin{align-self:flex-start}
+.support-chat-message span{display:block;margin-bottom:3px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+.support-chat-message p{margin:0!important;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--ink)!important}
+.support-chat-message time{display:block;margin-top:5px;font-size:9px;color:var(--muted)}
+.support-chat-empty{margin:auto!important;padding:20px;text-align:center;color:var(--muted)!important;font-size:12px}
+.support-chat-compose{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:12px 14px;border-top:1px solid var(--border);background:var(--panel)}
+.support-chat-compose textarea{min-height:72px;max-height:160px;resize:vertical;padding:10px 11px;border:1px solid var(--border);border-radius:10px;background:light-dark(#fffdfa,#222b33);color:var(--ink);font:inherit}
+.support-chat-compose textarea:focus{outline:2px solid color-mix(in srgb,var(--accent) 55%,white);outline-offset:1px}
+.support-chat-compose button{align-self:end;min-width:92px}
+.support-chat-signed-out{padding:14px;display:flex;align-items:center;justify-content:space-between;gap:14px}.support-chat-signed-out>div{display:grid;gap:3px}.support-chat-signed-out p{margin:0!important;font-size:12px;color:var(--muted)!important}
+@media(max-width:699px){
+  .support-chat{margin-top:14px;border-radius:12px}
+  .support-chat-messages{max-height:42vh;min-height:180px;padding:10px}
+  .support-chat-message{max-width:88%}
+  .support-chat-compose{grid-template-columns:1fr;padding:10px}
+  .support-chat-compose button{width:100%;min-height:42px}
+  .support-chat-signed-out{align-items:stretch;flex-direction:column}
+  .support-chat-signed-out button{width:100%}
+}

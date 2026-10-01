@@ -1,11 +1,12 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
 import packageInfo from '../package.json';
 
-type Section='overview'|'users'|'roles'|'user-settings'|'defaults'|'history'|'logs'|'system';
+type Section='overview'|'users'|'messages'|'roles'|'user-settings'|'defaults'|'history'|'logs'|'system';
 
 const nav:{id:Section;label:string;icon:string}[]=[
   {id:'overview',label:'Genel Bakış',icon:'⌂'},
   {id:'users',label:'Kullanıcılar',icon:'◎'},
+  {id:'messages',label:'Canlı Destek',icon:'✉'},
   {id:'roles',label:'Roller ve Yetkiler',icon:'◆'},
   {id:'user-settings',label:'Kullanıcı Ayarları',icon:'⚙'},
   {id:'defaults',label:'Sistem Varsayılanları',icon:'◫'},
@@ -21,11 +22,14 @@ function Metric({label,value,detail}:{label:string;value:string;detail:string}){
   return <article className="admin-metric"><span>{label}</span><strong>{value}</strong><small>{detail}</small></article>;
 }
 
-type AdminUser={id:number;email:string;name:string;role:string;credits:number;unlimited:boolean;testDxfEnabled?:boolean;authProvider?:string;suspended?:boolean;licenseStartedAt?:string;licenseExpiresAt?:string;createdAt?:string;lastLoginAt?:string};
+type AdminUser={id:number;email:string;name:string;role:string;credits:number;unlimited:boolean;testDxfEnabled?:boolean;authProvider?:string;suspended?:boolean;licenseStartedAt?:string;licenseExpiresAt?:string;createdAt?:string;lastLoginAt?:string;lastSeen?:string|null;online?:boolean};
 type AdminSettings={materialWidthMm:number;clearanceMm:number;marginMm:number;rotation:'fixed'|'half'|'free';materialType:'roll'|'sheet';solverPreset:'standard'|'fast'};
 type AuditLog={id:number;actorType:string;actorEmail:string;targetEmail:string;action:string;detail:string;success:boolean;createdAt:string};
 type Health={adminApi:boolean;auth:boolean;userStore:boolean};
 type SupportSession={id:number;status:'pending'|'approved'|'declined'|'ended'|'expired';mode?:'settings'|'screen';expiresAt?:string;createdAt?:string;approvedAt?:string;endedAt?:string;offer?:RTCSessionDescriptionInit|null;answer?:RTCSessionDescriptionInit|null};
+type ChatSummary={userId:number;email:string;name:string;lastMessageAt?:string|null;unread:number;lastSeen?:string|null;online:boolean};
+type ChatMessage={id:number;sender:'user'|'admin';body:string;createdAt:string;readAt?:string|null};
+type ChatUser={id:number;email:string;name:string;online:boolean;lastSeen?:string|null};
 const FALLBACK_SETTINGS:AdminSettings={materialWidthMm:1400,clearanceMm:0,marginMm:0,rotation:'half',materialType:'roll',solverPreset:'standard'};
 
 type GoogleCredentialResponse={credential?:string};
@@ -73,6 +77,13 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
   const [screenStream,setScreenStream]=useState<MediaStream|null>(null);
   const [screenFrame,setScreenFrame]=useState('');
   const [screenConnection,setScreenConnection]=useState<'idle'|'waiting'|'connecting'|'connected'|'failed'>('idle');
+  const [onlineCount,setOnlineCount]=useState(0);
+  const [conversations,setConversations]=useState<ChatSummary[]>([]);
+  const [selectedChatUserId,setSelectedChatUserId]=useState<number>();
+  const [chatUser,setChatUser]=useState<ChatUser>();
+  const [chatMessages,setChatMessages]=useState<ChatMessage[]>([]);
+  const [chatReply,setChatReply]=useState('');
+  const [chatBusy,setChatBusy]=useState(false);
   const title=useMemo(()=>nav.find(item=>item.id===section)?.label??'Yönetim',[section]);
   const filteredUsers=useMemo(()=>users.filter(user=>(!query.trim()||(user.email+' '+user.name).toLowerCase().includes(query.trim().toLowerCase()))&&(role==='Tümü'||(role==='Admin'?user.role==='admin':user.role!=='admin'))),[users,query,role]);
   const screenConnectionLabel=screenStream?'Canlı':screenFrame?'Canlı · yedek bağlantı':({idle:'Hazır',waiting:'Kullanıcı onayı bekleniyor',connecting:'Bağlanıyor…',connected:'Canlı',failed:'Bağlantı kurulamadı'}[screenConnection]);
@@ -136,12 +147,23 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
       const response=await fetch('/api/admin/users',{credentials:'same-origin'});
       const data=await response.json().catch(()=>({}));
       if(!response.ok)throw Error(data.error||'Kullanıcılar alınamadı.');
-      setUsers(data.users??[]);
+      setUsers(data.users??[]);setOnlineCount(Number(data.onlineCount||0));
     }catch(e){setUsersError(e instanceof Error?e.message:String(e))}
     finally{setUsersLoading(false)}
   }
-  useEffect(()=>{if(auth==='allowed'){void loadUsers();void loadHealth();void loadSystemSettings()}},[auth]);
-  useEffect(()=>{if(section==='logs')void loadLogs();if(section==='system')void loadHealth()},[section]);
+  useEffect(()=>{if(auth==='allowed'){void loadUsers();void loadHealth();void loadSystemSettings();void loadChats()}},[auth]);
+  useEffect(()=>{if(section==='logs')void loadLogs();if(section==='system')void loadHealth();if(section==='messages')void loadChats()},[section]);
+  useEffect(()=>{
+    if(auth!=='allowed')return;
+    const timer=window.setInterval(()=>{void loadUsers();if(section==='messages'||section==='overview')void loadChats()},6000);
+    return()=>clearInterval(timer);
+  },[auth,section]);
+  useEffect(()=>{
+    if(section!=='messages'||!selectedChatUserId)return;
+    void loadChat(selectedChatUserId);
+    const timer=window.setInterval(()=>{void loadChats();void loadChat(selectedChatUserId)},3500);
+    return()=>clearInterval(timer);
+  },[section,selectedChatUserId]);
   useEffect(()=>{
     if(section!=='user-settings'||!selectedUserId)return;
     const timer=setInterval(()=>void loadSupport(selectedUserId),2500);
@@ -188,6 +210,40 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
     const data=await response.json().catch(()=>({}));
     if(!response.ok)throw Error(data.error||'İşlem başarısız.');
     return data;
+  }
+  async function loadChats(){
+    try{
+      const data=await getJson('/api/admin/chats');
+      setConversations(data.conversations??[]);
+      setOnlineCount(Number(data.onlineCount||0));
+    }catch(e){if(section==='messages')setUsersError(e instanceof Error?e.message:String(e))}
+  }
+  async function loadChat(id:number){
+    try{
+      const data=await getJson(`/api/admin/chats/${id}`);
+      setSelectedChatUserId(id);setChatUser(data.user);setChatMessages(data.messages??[]);
+    }catch(e){setUsersError(e instanceof Error?e.message:String(e))}
+  }
+  async function sendChatReply(){
+    if(!selectedChatUserId||!chatReply.trim()||chatBusy)return;
+    setChatBusy(true);setUsersError('');
+    try{
+      await getJson(`/api/admin/chats/${selectedChatUserId}`,{method:'POST',body:JSON.stringify({message:chatReply.trim()})});
+      setChatReply('');await loadChat(selectedChatUserId);await loadChats();
+    }catch(e){setUsersError(e instanceof Error?e.message:String(e))}
+    finally{setChatBusy(false)}
+  }
+  async function deleteUser(user:AdminUser){
+    if(!confirm(`${user.email} kullanıcısı ve bu hesaba bağlı kayıtlar tamamen silinsin mi? Bu işlem geri alınamaz.`))return;
+    setSavingUserId(user.id);setUsersError('');setUserNotice('');
+    try{
+      await getJson(`/api/admin/users/${user.id}`,{method:'DELETE',body:'{}'});
+      if(selectedUserId===user.id)setSelectedUserId(undefined);
+      if(selectedChatUserId===user.id){setSelectedChatUserId(undefined);setChatUser(undefined);setChatMessages([])}
+      setUserNotice(user.email+' kullanıcısı tamamen silindi.');
+      await loadUsers();await loadChats();
+    }catch(e){setUsersError(e instanceof Error?e.message:String(e))}
+    finally{setSavingUserId(undefined)}
   }
   async function loadHealth(){try{const data=await getJson('/api/admin/health');setHealth(data)}catch{setHealth({adminApi:false,auth:false,userStore:false})}}
   async function loadSystemSettings(){try{const data=await getJson('/api/admin/settings');setSystemSettings(data.settings??FALLBACK_SETTINGS)}catch(e){setUsersError(e instanceof Error?e.message:String(e))}}
@@ -302,9 +358,9 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
 
         {section==='overview'&&<>
           <section className="admin-metrics">
-            <Metric label="Toplam kullanıcı" value="—" detail="D1 kullanıcı veritabanı"/>
-            <Metric label="Aktif kullanıcı" value={String(users.filter(user=>!!user.lastLoginAt).length)} detail="Giriş kaydı olan kullanıcı"/>
-            <Metric label="Bugünkü nesting" value="—" detail="İstatistik servisi bağlı değil"/>
+            <Metric label="Toplam kullanıcı" value={String(users.length)} detail="D1 kullanıcı veritabanı"/>
+            <Metric label="Çevrim içi" value={String(onlineCount)} detail="Son 15 saniyede aktif"/>
+            <Metric label="Destek konuşması" value={String(conversations.length)} detail="Kalıcı mesajlaşma"/>
             <Metric label="Sistem durumu" value="Hazır" detail={(localDevelopment?'Yerel geliştirme':'İstemci')+' · v'+packageInfo.version}/>
           </section>
           <section className="admin-grid-two">
@@ -321,12 +377,33 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
           {usersError&&<p className="field-error" role="alert">{usersError}</p>}{userNotice&&<p className="admin-notice" role="status">{userNotice}</p>}
           <div className="admin-table"><div className="admin-table-head"><span>Kullanıcı</span><span>Rol / Giriş</span><span>Nesting hakkı</span><span>Lisans</span><span>İşlemler</span></div>
             {usersLoading?<Empty title="Yükleniyor">Kullanıcı bilgileri D1 veritabanından alınıyor.</Empty>:filteredUsers.length?filteredUsers.map(user=><div className="admin-user-row" key={user.id}>
-              <span className="admin-user-identity"><strong>{user.name||'İsimsiz'}</strong><small>{user.email}</small><small>{user.lastLoginAt?'Son giriş: '+new Date(user.lastLoginAt).toLocaleString('tr-TR'):'Henüz giriş yok'}</small></span>
+              <span className="admin-user-identity"><strong><i className={'admin-presence-dot '+(user.online?'online':'')} aria-label={user.online?'Çevrim içi':'Çevrim dışı'}/>{user.name||'İsimsiz'}</strong><small>{user.email}</small><small>{user.online?'Şu anda çevrim içi':user.lastLoginAt?'Son giriş: '+new Date(user.lastLoginAt).toLocaleString('tr-TR'):'Henüz giriş yok'}</small></span>
               <span><strong>{user.role==='admin'?'Admin':'Kullanıcı'}</strong><small>{user.authProvider==='google'?'Google / Gmail':'E-posta'}</small></span>
               <span className="admin-user-quota"><div className="admin-switch-row"><label className="switch"><input type="checkbox" checked={user.unlimited} disabled={savingUserId===user.id} onChange={e=>void setUnlimited(user,e.target.checked)}/><span className="slider"><span className="glow"/><span className="icon-on">✓</span><span className="icon-off">○</span></span></label><span>Kotasız / Sınırsız</span></div>{!user.unlimited&&<label>Hak<input aria-label={user.email+' nesting hakkı'} type="number" min="0" max="100000" defaultValue={user.credits} key={user.id+'-'+user.credits} onBlur={e=>{const value=Math.max(0,Math.trunc(e.currentTarget.valueAsNumber||0));if(value!==user.credits)void saveCredits(user,value)}}/></label>}</span>
               <span><strong>{user.licenseExpiresAt?new Date(user.licenseExpiresAt).toLocaleDateString('tr-TR'):'Lisans yok'}</strong><small>{user.licenseStartedAt?'Başlangıç: '+new Date(user.licenseStartedAt).toLocaleDateString('tr-TR'):'375 gün · etkinleştirme bekliyor'}</small></span>
-              <span className="admin-user-actions"><button className={user.testDxfEnabled?'primary':''} onClick={()=>void setTestDxf(user,!user.testDxfEnabled)} disabled={savingUserId===user.id}>{user.testDxfEnabled?'Test DXF Kapat':'Test DXF Aç'}</button><button onClick={()=>{setSection('user-settings');void loadUserSettings(user.id)}}>Ayarlar</button><button className="screen-support-button" onClick={()=>{setSection('user-settings');void loadUserSettings(user.id).then(()=>requestSupport('screen',user.id))}}>Ekrana bağlan</button><button onClick={()=>void sendPasswordReset(user)} disabled={resettingUserId===user.id}>{resettingUserId===user.id?'Gönderiliyor…':'Şifre sıfırla'}</button></span>
+              <span className="admin-user-actions"><button className={user.testDxfEnabled?'primary':''} onClick={()=>void setTestDxf(user,!user.testDxfEnabled)} disabled={savingUserId===user.id}>{user.testDxfEnabled?'Test DXF Kapat':'Test DXF Aç'}</button><button onClick={()=>{setSection('user-settings');void loadUserSettings(user.id)}}>Ayarlar</button><button onClick={()=>{setSection('messages');void loadChat(user.id)}}>Mesajlar</button><button className="screen-support-button" onClick={()=>{setSection('user-settings');void loadUserSettings(user.id).then(()=>requestSupport('screen',user.id))}}>Ekrana bağlan</button><button onClick={()=>void sendPasswordReset(user)} disabled={resettingUserId===user.id}>{resettingUserId===user.id?'Gönderiliyor…':'Şifre sıfırla'}</button><button className="danger-button" onClick={()=>void deleteUser(user)} disabled={savingUserId===user.id}>{savingUserId===user.id?'Siliniyor…':'Kullanıcıyı sil'}</button></span>
             </div>):<Empty title="Kullanıcı bulunamadı">Filtreye uyan kullanıcı yok.</Empty>}
+          </div>
+        </section>}
+
+        {section==='messages'&&<section className="admin-card admin-chat-card">
+          <div className="admin-card-head"><div><h2>Canlı Destek Mesajları</h2><p>Kullanıcıların İletişim bölümünden yazdığı mesajlar kalıcı olarak burada tutulur.</p></div><div className="admin-online-count"><i className="admin-presence-dot online"/><strong>{onlineCount}</strong> çevrim içi</div></div>
+          {usersError&&<p className="field-error" role="alert">{usersError}</p>}
+          <div className="admin-chat-layout">
+            <aside className="admin-conversation-list" aria-label="Destek konuşmaları">
+              <div className="admin-conversation-head"><strong>Konuşmalar</strong><button onClick={()=>void loadChats()}>↻</button></div>
+              {conversations.length?conversations.map(chat=><button key={chat.userId} className={selectedChatUserId===chat.userId?'active':''} onClick={()=>void loadChat(chat.userId)}>
+                <span className="admin-conversation-name"><i className={'admin-presence-dot '+(chat.online?'online':'')}/><strong>{chat.name||chat.email}</strong>{chat.unread>0&&<b>{chat.unread}</b>}</span>
+                <small>{chat.email}</small>
+                <time>{chat.lastMessageAt?new Date(chat.lastMessageAt).toLocaleString('tr-TR'):''}</time>
+              </button>):<Empty title="Henüz konuşma yok">Kullanıcı mesaj gönderdiğinde burada görünecek.</Empty>}
+            </aside>
+            <div className="admin-chat-thread">
+              {selectedChatUserId&&chatUser?<><div className="admin-chat-user"><div><strong><i className={'admin-presence-dot '+(chatUser.online?'online':'')}/>{chatUser.name||chatUser.email}</strong><small>{chatUser.email}</small></div><span>{chatUser.online?'Çevrim içi':'Çevrim dışı'}</span></div>
+                <div className="admin-chat-messages">{chatMessages.length?chatMessages.map(message=><div key={message.id} className={'admin-chat-message '+(message.sender==='admin'?'from-admin':'from-user')}><span>{message.sender==='admin'?'Admin':'Kullanıcı'}</span><p>{message.body}</p><time>{new Date(message.createdAt).toLocaleString('tr-TR')}</time></div>):<p className="admin-chat-empty">Bu kullanıcıyla henüz mesaj yok.</p>}</div>
+                <form className="admin-chat-compose" onSubmit={e=>{e.preventDefault();void sendChatReply()}}><textarea rows={3} maxLength={2000} value={chatReply} onChange={e=>setChatReply(e.target.value)} placeholder="Cevabınızı yazın…"/><button className="primary" disabled={chatBusy||!chatReply.trim()}>{chatBusy?'Gönderiliyor…':'Cevapla'}</button></form>
+              </>:<Empty title="Konuşma seçin">Soldaki listeden bir kullanıcı seçin.</Empty>}
+            </div>
           </div>
         </section>}
 
