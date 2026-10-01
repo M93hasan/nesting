@@ -135,16 +135,38 @@ it('keeps attached DXF detail contours out of solver and collision checks',()=>{
   expect(Math.max(...native.items[0].shape.data.map((point:number[])=>point[1]))).toBeCloseTo(1);
 });
 
+it('does not use part clearance as a material-edge margin',()=>{
+  const part={...newPart([[0,0],[1,0],[1,1],[0,1]]),id:'edge',quantity:1};
+  const doc:Document={name:'edge-fit',parts:[part],settings:{...DEFAULT_SETTINGS,materialWidthMm:1,clearanceMm:.3,startCorner:'right-bottom'}};
+  const result:Result={documentRevision:1,solverRevision:'test',seed:'1',elapsedSeconds:0,usedLengthMm:1,
+    placements:[{partId:part.id,copyIndex:0,xMm:0,yMm:0,angleDeg:0}],
+    validation:{status:'pending',overlapAreaMm2:0,maxBoundaryViolationMm:0,minClearanceMm:null,errors:[]}};
+  const packed=packResultIntoSheets(doc,result);
+  expect(validate(doc,packed).status).toBe('passed');
+  expect(worldParts(doc,packed)[0].outer).toEqual([[0,0],[1,0],[1,1],[0,1]]);
+});
+
+it('allows a sheet edge fit when part clearance is nonzero',()=>{
+  const part={...newPart([[0,0],[1,0],[1,1],[0,1]]),id:'sheet-edge',quantity:1};
+  const doc:Document={name:'sheet-edge-fit',parts:[part],settings:{...DEFAULT_SETTINGS,materialType:'sheet',materialWidthMm:1,materialLengthMm:1,clearanceMm:.3,startCorner:'right-bottom'}};
+  const result:Result={documentRevision:1,solverRevision:'test',seed:'1',elapsedSeconds:0,usedLengthMm:1,
+    placements:[{partId:part.id,copyIndex:0,xMm:0,yMm:0,angleDeg:0}],
+    validation:{status:'pending',overlapAreaMm2:0,maxBoundaryViolationMm:0,minClearanceMm:null,errors:[]}};
+  const packed=packResultIntoSheets(doc,result);
+  expect(packed.sheetCount).toBe(1);
+  expect(validate(doc,packed).status).toBe('passed');
+});
+
 it('anchors results to the selected right-side start corner without reflecting parts',()=>{
   const {doc,result}=fixture();
   doc.settings={...doc.settings,materialWidthMm:10,clearanceMm:1,startCorner:'right-top'};
   result.usedLengthMm=10;result.placements=[{partId:'square',copyIndex:0,xMm:2,yMm:3,angleDeg:0},{partId:'square',copyIndex:1,xMm:4,yMm:5,angleDeg:0}];
   const top=packResultIntoSheets(doc,result);
-  expect(Math.max(...worldParts(doc,top).flatMap(part=>part.outer.map(point=>point[0])))).toBeCloseTo(9);
-  expect(Math.min(...worldParts(doc,top).flatMap(part=>part.outer.map(point=>point[1])))).toBeCloseTo(1);
+  expect(Math.max(...worldParts(doc,top).flatMap(part=>part.outer.map(point=>point[0])))).toBeCloseTo(10);
+  expect(Math.min(...worldParts(doc,top).flatMap(part=>part.outer.map(point=>point[1])))).toBeCloseTo(0);
   doc.settings.startCorner='right-bottom';
   const bottom=packResultIntoSheets(doc,result);
-  expect(Math.max(...worldParts(doc,bottom).flatMap(part=>part.outer.map(point=>point[1])))).toBeCloseTo(9);
+  expect(Math.max(...worldParts(doc,bottom).flatMap(part=>part.outer.map(point=>point[1])))).toBeCloseTo(10);
 });
 
 it('best-fit sheet packing reuses residual band space',()=>{
