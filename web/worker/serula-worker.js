@@ -1,7 +1,7 @@
 const GOOGLE_CLIENT_ID='249559754500-36grgmm2jucf2159d41efqdcqut02lj6.apps.googleusercontent.com';
 const SESSION_DAYS=30;
 const ADMIN_LOGIN_EMAIL='m93hasan@icloud.com';
-// Build marker: 0.0.55
+// Build marker: 0.0.56
 
 const json=(data,status=200,headers={})=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store',...headers}});
 const b64=bytes=>btoa(String.fromCharCode(...bytes));
@@ -98,37 +98,6 @@ function sameOrigin(request){const origin=request.headers.get('origin');return !
 async function body(request){try{return await request.json()}catch{return {}}}
 const validEmail=e=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 const passwordOk=p=>typeof p==='string'&&p.length>=8&&p.length<=200;
-function googleLoginPage(){return `<!doctype html>
-<html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Serula - Google ile giriş</title>
-<style>body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#f5f6f8;color:#1f2937}.card{width:min(92vw,380px);background:#fff;border:1px solid #e5e7eb;border-radius:20px;padding:28px;box-shadow:0 18px 50px rgba(0,0,0,.08);text-align:center}.logo{width:72px;height:72px;margin-bottom:12px}.google{display:flex;justify-content:center;margin:22px 0}.status{min-height:22px;color:#6b7280}.error{color:#b91c1c}.back{display:inline-block;margin-top:8px;color:#374151;text-decoration:none}</style>
-<script src="https://accounts.google.com/gsi/client" async defer></script></head>
-<body><main class="card"><img class="logo" src="/serula-logo.svg" alt=""><h1>Serula Nesting</h1><p>Google hesabınızla giriş yapın.</p><div id="google" class="google"></div><p id="status" class="status">Google hazırlanıyor…</p><a class="back" href="/">Geri dön</a></main>
-<script>
-const CLIENT_ID='${GOOGLE_CLIENT_ID}';
-const statusEl=document.getElementById('status');
-let initialized=false;
-async function handleGoogle(response){
-  try{
-    statusEl.className='status';statusEl.textContent='Giriş yapılıyor…';
-    if(!response?.credential)throw new Error('Google kimlik bilgisi alınamadı.');
-    const r=await fetch('/api/auth/google',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({credential:response.credential})});
-    const data=await r.json().catch(()=>({}));
-    if(!r.ok)throw new Error(data.error||'Google girişi başarısız.');
-    location.replace('/?google=ok');
-  }catch(e){statusEl.className='status error';statusEl.textContent=e instanceof Error?e.message:String(e);}
-}
-function initGoogle(){
-  if(initialized)return;
-  if(!window.google?.accounts?.id){statusEl.className='status error';statusEl.textContent='Google giriş servisi yüklenemedi. Sayfayı yenileyin.';return;}
-  initialized=true;
-  google.accounts.id.initialize({client_id:CLIENT_ID,callback:handleGoogle,auto_select:false,use_fedcm_for_button:false,itp_support:true,ux_mode:'popup'});
-  google.accounts.id.renderButton(document.getElementById('google'),{theme:'outline',size:'large',text:'continue_with',shape:'pill',width:300});
-  statusEl.textContent='';
-}
-window.onGoogleLibraryLoad=initGoogle;
-window.addEventListener('load',()=>{if(window.google?.accounts?.id)initGoogle();else setTimeout(initGoogle,1500);});
-</script></body></html>`;}
 
 const DEFAULT_ADMIN_SETTINGS={materialWidthMm:1000,clearanceMm:0.3,marginMm:5,rotation:'half',materialType:'roll',solverPreset:'standard'};
 function cleanSettings(value){
@@ -156,7 +125,7 @@ async function googleUserFromCredential(credential,env){
   const verify=credential&&await fetch('https://oauth2.googleapis.com/tokeninfo?id_token='+encodeURIComponent(credential));
   if(!verify||!verify.ok)return {error:'Google doğrulaması başarısız.',status:401};
   const claims=await verify.json(),email=String(claims.email||'').toLowerCase();
-  if(claims.aud!==GOOGLE_CLIENT_ID||claims.email_verified!=='true'||!validEmail(email))return {error:'Google hesabı doğrulanamadı.',status:401};
+  if(claims.aud!==GOOGLE_CLIENT_ID||!['accounts.google.com','https://accounts.google.com'].includes(String(claims.iss||''))||claims.email_verified!=='true'||!validEmail(email))return {error:'Google hesabı doğrulanamadı.',status:401};
   let user=await env.DB.prepare('SELECT id,email,name,role,nesting_credits,unlimited FROM users WHERE email=?').bind(email).first();
   if(!user){
     const result=await env.DB.prepare(`INSERT INTO users(email,name,google_id,role,nesting_credits,unlimited,last_login_at)
@@ -172,10 +141,9 @@ async function googleUserFromCredential(credential,env){
 async function handleApi(request,env){
   await ensureSchema(env);
   const url=new URL(request.url),path=url.pathname;
-  if(path==='/api/auth/google-start'&&request.method==='GET'){
-    return new Response(googleLoginPage(),{status:200,headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','x-content-type-options':'nosniff','referrer-policy':'no-referrer'}});
-  }
 
+
+  if(path==='/api/auth/google-config'&&request.method==='GET')return json({clientId:GOOGLE_CLIENT_ID});
   if(request.method!=='GET'&&!sameOrigin(request))return json({error:'Geçersiz istek.'},403);
 
   if(path==='/api/auth/me'&&request.method==='GET'){

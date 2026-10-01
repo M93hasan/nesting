@@ -3,8 +3,9 @@ export async function prepareIsolation(): Promise<void> {
   if (crossOriginIsolated || !isSecureContext || !('serviceWorker' in navigator)) return;
   try {
     const url = new URL(`${import.meta.env.BASE_URL}isolation-worker.js`, document.baseURI);
-    const key = `serula-isolation:${url.pathname}`;
-    if (sessionStorage.getItem(key)) return;
+    const key = `serula-isolation-v2:${url.pathname}`;
+    if (sessionStorage.getItem(key) && navigator.serviceWorker.controller) return;
+    sessionStorage.removeItem(key);
     const ready = (async () => {
       const registration = await navigator.serviceWorker.register(url, { scope: new URL('.', url).pathname });
       if (!registration.active || !navigator.serviceWorker.controller) {
