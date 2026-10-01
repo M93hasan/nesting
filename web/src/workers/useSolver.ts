@@ -16,6 +16,7 @@ export const wallClockLimitSeconds=(doc:Document)=>doc.settings.timeLimitSeconds
 type Run={id:number;revision:number;doc:Document;seed:string;requestedAt:number;solver?:Worker;preview:Worker;
   latest?:Candidate;previewActive?:{candidate:Candidate;result:Result};frame?:LiveFrame;previewSequence:number;previewError?:string;
   best?:Result;ended?:'Complete'|'Stopped'|'Error';startedAt?:number;watchdog:ReturnType<typeof setTimeout>;deadline?:ReturnType<typeof setTimeout>;
+  deadlineRemainingMs?:number;deadlineStartedAt?:number;visibilityHandler?:()=>void;
   diagnostics:Diagnostics};
 export function candidateResult(doc:Document,candidate:Candidate,seed:string):Result {
   const copies=new Map<string,number>(),parts=doc.parts.filter(part=>part.quantity>0);
@@ -53,8 +54,18 @@ export function useSolver() {
   },[result,live]);
   function clear() {
     const r=run.current;
-    if(r) {r.solver?.postMessage({type:'stop'});r.preview.terminate();clearTimeout(r.watchdog);if(r.deadline)clearTimeout(r.deadline);}
+    if(r) {
+      r.solver?.postMessage({type:'stop'});r.preview.terminate();clearTimeout(r.watchdog);if(r.deadline)clearTimeout(r.deadline);
+      if(r.visibilityHandler)document.removeEventListener('visibilitychange',r.visibilityHandler);
+    }
     run.current=undefined;setPhase(undefined);setSkipping(false);setCanSkip(false);
+  }
+  function scheduleDeadline(r:Run) {
+    if(r.ended||document.hidden)return;
+    if(r.deadline)clearTimeout(r.deadline);
+    const remaining=Math.max(0,r.deadlineRemainingMs??0);
+    r.deadlineStartedAt=performance.now();
+    r.deadline=setTimeout(()=>end('Complete'),remaining);
   }
   useEffect(()=>{
     const timer=setInterval(()=>{
@@ -80,12 +91,12 @@ export function useSolver() {
   },[]);
   function end(reason:'Complete'|'Stopped'|'Error',message?:string) {
     const r=run.current;if(!r) return;
-    r.solver?.postMessage({type:'stop'});r.solver=undefined;clearTimeout(r.watchdog);if(r.deadline)clearTimeout(r.deadline);r.ended=reason;
+    r.solver?.postMessage({type:'stop'});r.solver=undefined;clearTimeout(r.watchdog);if(r.deadline)clearTimeout(r.deadline);if(r.visibilityHandler)document.removeEventListener('visibilitychange',r.visibilityHandler);r.ended=reason;
     r.diagnostics.stopReason=message ?? reason;
     if(message) setError(message);
     setElapsed((performance.now()-r.requestedAt)/1000);
     setResult(r.best);setState(reason);
-    if(!r.best&&reason==='Complete'){setState('Error');setError('The solver finished without a feasible result. Download diagnostics and check the input.');}
+    if(!r.best&&reason==='Complete'){setState('Error');setError('Geçerli bir yerleşim bulunamadı. Malzeme ölçüsünü, parça aralığını ve izin verilen dönüşleri kontrol edip yeniden deneyin.');}
   }
   function start(doc:Document,revision:number,threads?:number,requestedAt=performance.now()) {
     const startup:StartupTiming={preparedMs:performance.now()-requestedAt};
@@ -93,14 +104,25 @@ export function useSolver() {
     const id=++serial.current,seed=crypto.getRandomValues(new BigUint64Array(1))[0].toString();
     const solver=new Worker(new URL('./solver.worker.ts',import.meta.url),{type:'module'});
     const preview=new Worker(new URL('./geometry.worker.ts',import.meta.url),{type:'module'});
-    const r:Run={id,revision,doc,seed,requestedAt,solver,preview,previewSequence:0,watchdog:setTimeout(()=>end('Stopped','Initialization exceeded 15 seconds.'),15_000),
+    const r:Run={id,revision,doc,seed,requestedAt,solver,preview,previewSequence:0,watchdog:setTimeout(()=>end('Stopped','Yerleştirme motoru 15 saniye içinde başlatılamadı. Tekrar deneyin.'),15_000),
       diagnostics:{runDocument:doc,solverRevision:SOLVER_REVISION,seed,buildMode:'Initializing',startup,history:[],liveSnapshots:0,liveErrors:[]}};
     run.current=r;diagnostics.current=r.diagnostics;
-    // Automatic runs have a hard 59-second wall-clock limit from the Nest click,
-    // including normalization and worker startup. Explicit stop conditions keep
-    // their requested duration.
+    // Only foreground time consumes the automatic search budget. The solver worker
+    // may keep working while the page is in the background, but switching tabs no
+    // longer causes the UI deadline to expire and discard a still-running search.
     const wallClockSeconds=wallClockLimitSeconds(doc);
-    r.deadline=setTimeout(()=>end('Complete'),Math.max(0,wallClockSeconds*1000-(performance.now()-requestedAt)));
+    r.deadlineRemainingMs=Math.max(0,wallClockSeconds*1000-(performance.now()-requestedAt));
+    r.visibilityHandler=()=>{
+      if(run.current!==r||r.ended)return;
+      if(document.hidden){
+        if(r.deadline){
+          clearTimeout(r.deadline);r.deadline=undefined;
+          if(r.deadlineStartedAt!==undefined)r.deadlineRemainingMs=Math.max(0,(r.deadlineRemainingMs??0)-(performance.now()-r.deadlineStartedAt));
+        }
+      }else scheduleDeadline(r);
+    };
+    document.addEventListener('visibilitychange',r.visibilityHandler);
+    scheduleDeadline(r);
     preview.onmessage=({data}:MessageEvent<GeometryReply>)=>{
       if(run.current!==r||data.runId!==r.id||data.documentRevision!==r.revision)return;
       if(data.type==='error'){r.previewError=data.message;r.previewActive=undefined;preview.terminate();return;}
