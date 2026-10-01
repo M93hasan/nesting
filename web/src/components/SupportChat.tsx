@@ -55,7 +55,7 @@ export default function SupportChat(){
   </section>;
 
   return <section className="support-chat" aria-label="Canlı destek mesajlaşma">
-    <div className="support-chat-head"><div><strong>Canlı destek</strong><small>Mesajlar hesabınıza bağlı olarak saklanır.</small></div><span className="support-chat-status"><i/>Destek</span></div>
+    <div className="support-chat-head"><div><strong>Canlı destek</strong><small>Mesajlar hesabınıza bağlı olarak saklanır.</small></div><span className="support-chat-status">Destek</span></div>
     <div className="support-chat-messages" ref={listRef}>
       {status==='loading'?<p className="support-chat-empty">Mesajlar yükleniyor…</p>:messages.length?messages.map(item=><div key={item.id} className={'support-chat-message '+(item.sender==='user'?'from-user':'from-admin')}>
         <span>{item.sender==='user'?'Siz':'Serula Destek'}</span>
