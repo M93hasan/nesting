@@ -21,3 +21,5 @@
 .auth-account-dropdown button{width:100%;margin-top:2px}
 .auth-login-header{display:flex;align-items:center;gap:7px;min-height:36px;padding:4px 9px}
 @media(max-width:760px){.auth-account-name{display:none}.auth-chevron{display:none}.auth-account-menu>summary{padding:4px}.auth-account-dropdown{right:-2px;width:min(240px,80vw)}}
+
+.auth-card input:not([type=checkbox]):not([type=radio]){background:light-dark(#f1efff,#29253d);border:none;border-radius:1rem;color:light-dark(#5a4be7,#c7c0ff);box-shadow:0 .3rem light-dark(#dcd5f5,#191625);padding:.85rem .95rem}.auth-card input:focus{outline:2px solid #8a7bff;outline-offset:2px}
