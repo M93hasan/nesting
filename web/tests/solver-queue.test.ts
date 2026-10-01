@@ -46,11 +46,11 @@ test('roll mode trusts upstream Sparrow candidates and publishes the shortest re
   expect(render().state).toBe('Complete');
 });
 
-test('sheet mode replaces the quick shelf preview with the first valid Sparrow layout',()=>{
+test('sheet mode starts from Sparrow and keeps the result inside plate bounds',()=>{
   const sheetDoc:Document={...doc,settings:{...doc.settings,materialType:'sheet',materialWidthMm:20,materialLengthMm:20,timeLimitSeconds:120}};
   const solverHook=render();solverHook.start(sheetDoc,7);
   const [solver]=WorkerStub.all;
-  expect(render().result?.solverRevision).toBe('quick-sheet-v1');
+  expect(render().result).toBeUndefined();
   solver.deliver(candidate(1,7,1,10));
   vi.advanceTimersByTime(100);
   expect(render().result).toMatchObject({solverRevision:expect.not.stringContaining('quick-sheet'),sheetCount:1,validation:{status:'passed',source:'local'}});

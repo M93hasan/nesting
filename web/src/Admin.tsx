@@ -26,7 +26,7 @@ type AdminSettings={materialWidthMm:number;clearanceMm:number;marginMm:number;ro
 type AuditLog={id:number;actorType:string;actorEmail:string;targetEmail:string;action:string;detail:string;success:boolean;createdAt:string};
 type Health={adminApi:boolean;auth:boolean;userStore:boolean};
 type SupportSession={id:number;status:'pending'|'approved'|'declined'|'ended'|'expired';mode?:'settings'|'screen';expiresAt?:string;createdAt?:string;approvedAt?:string;endedAt?:string;offer?:RTCSessionDescriptionInit|null;answer?:RTCSessionDescriptionInit|null};
-const FALLBACK_SETTINGS:AdminSettings={materialWidthMm:1000,clearanceMm:.3,marginMm:5,rotation:'half',materialType:'roll',solverPreset:'standard'};
+const FALLBACK_SETTINGS:AdminSettings={materialWidthMm:1400,clearanceMm:.3,marginMm:0,rotation:'half',materialType:'roll',solverPreset:'standard'};
 
 type GoogleCredentialResponse={credential?:string};
 type GoogleAccounts={id:{initialize:(options:{client_id:string;callback:(response:GoogleCredentialResponse)=>void;auto_select?:boolean})=>void;renderButton:(parent:HTMLElement,options:Record<string,unknown>)=>void;disableAutoSelect:()=>void}};
@@ -351,20 +351,20 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
           <div className="admin-settings-grid">
             <label>Malzeme genişliği (mm)<input type="number" min="1" value={userSettings.materialWidthMm} onChange={e=>setUserSettings({...userSettings,materialWidthMm:e.target.valueAsNumber})}/></label>
             <label>Parça aralığı (mm)<input type="number" min="0" step="0.1" value={userSettings.clearanceMm} onChange={e=>setUserSettings({...userSettings,clearanceMm:e.target.valueAsNumber})}/></label>
-            <label>Kenar payı (mm)<input type="number" min="0" step="0.1" value={userSettings.marginMm} onChange={e=>setUserSettings({...userSettings,marginMm:e.target.valueAsNumber})}/></label>
-            <label>Rotasyon<select value={userSettings.rotation} onChange={e=>setUserSettings({...userSettings,rotation:e.target.value as AdminSettings['rotation']})}><option value="fixed">0°</option><option value="half">0° / 180°</option><option value="free">Serbest</option></select></label>
+            
+            <label>Rotasyon<select value={userSettings.rotation} onChange={e=>setUserSettings({...userSettings,rotation:e.target.value as AdminSettings['rotation']})}><option value="fixed">0°</option><option value="half">0° / 180°</option><option value="free">Her yöne</option></select></label>
             <label>Malzeme tipi<select value={userSettings.materialType} onChange={e=>setUserSettings({...userSettings,materialType:e.target.value as AdminSettings['materialType']})}><option value="roll">Rulo</option><option value="sheet">Plaka</option></select></label>
             <label>Solver profili<select value={userSettings.solverPreset} onChange={e=>setUserSettings({...userSettings,solverPreset:e.target.value as AdminSettings['solverPreset']})}><option value="standard">Standart</option><option value="fast">Hızlı</option></select></label>
           </div><div className="admin-save-row"><button onClick={()=>void resetUserSettings()} disabled={adminBusy==='user-settings'}>Sistem varsayılanlarına dön</button><button className="primary" onClick={()=>void saveUserSettings()} disabled={adminBusy==='user-settings'}>{adminBusy==='user-settings'?'Kaydediliyor…':'Kullanıcı ayarlarını kaydet'}</button></div></>:<Empty title="Kullanıcı seçin">Yukarıdaki listeden bir kullanıcı seçerek ona özel varsayılanları düzenleyebilirsiniz.</Empty>}
         </section>}
 
         {section==='defaults'&&<section className="admin-card">
-          <div className="admin-card-head"><div><h2>Sistem Varsayılanları</h2><p>Yeni kullanıcı ve projeler için başlangıç ayarları.</p></div><span className="admin-badge">Aktif</span></div>
+          <div className="admin-card-head"><div><h2>Sistem Varsayılanları</h2><p>Yeni kullanıcı ve projeler için başlangıç ayarları. Ana uygulamadaki gerçek kullanıcı seçenekleriyle senkron çalışır.</p></div><span className="admin-badge">Aktif</span></div>
           <div className="admin-settings-grid">
             <label>Varsayılan malzeme genişliği (mm)<input type="number" min="1" value={systemSettings.materialWidthMm} onChange={e=>setSystemSettings({...systemSettings,materialWidthMm:e.target.valueAsNumber})}/></label>
             <label>Parça aralığı (mm)<input type="number" min="0" step="0.1" value={systemSettings.clearanceMm} onChange={e=>setSystemSettings({...systemSettings,clearanceMm:e.target.valueAsNumber})}/></label>
-            <label>Kenar payı (mm)<input type="number" min="0" step="0.1" value={systemSettings.marginMm} onChange={e=>setSystemSettings({...systemSettings,marginMm:e.target.valueAsNumber})}/></label>
-            <label>Varsayılan rotasyon<select value={systemSettings.rotation} onChange={e=>setSystemSettings({...systemSettings,rotation:e.target.value as AdminSettings['rotation']})}><option value="fixed">0°</option><option value="half">0° / 180°</option><option value="free">Serbest</option></select></label>
+            
+            <label>Varsayılan rotasyon<select value={systemSettings.rotation} onChange={e=>setSystemSettings({...systemSettings,rotation:e.target.value as AdminSettings['rotation']})}><option value="fixed">0°</option><option value="half">0° / 180°</option><option value="free">Her yöne</option></select></label>
             <label>Varsayılan malzeme<select value={systemSettings.materialType} onChange={e=>setSystemSettings({...systemSettings,materialType:e.target.value as AdminSettings['materialType']})}><option value="roll">Rulo</option><option value="sheet">Plaka</option></select></label>
             <label>Solver profili<select value={systemSettings.solverPreset} onChange={e=>setSystemSettings({...systemSettings,solverPreset:e.target.value as AdminSettings['solverPreset']})}><option value="standard">Standart</option><option value="fast">Hızlı</option></select></label>
           </div>

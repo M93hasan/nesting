@@ -4,7 +4,7 @@ import { newPart,DEFAULT_SETTINGS,type Document,type Result } from '../src/model
 import { normalizePart,normalizeRing } from '../src/geometry/normalize';
 import { validate,worldParts } from '../src/geometry/validate';
 import { importSparrow,solverInput } from '../src/import/sparrow';
-import { packResultIntoSheets,quickSheetLayout } from '../src/geometry/multiSheet';
+import { packResultIntoSheets } from '../src/geometry/multiSheet';
 import { exportSVG } from '../src/export/svg';
 import { importSVG } from '../src/import/svg';
 import { bounds } from '../src/geometry/normalize';
@@ -178,21 +178,6 @@ it('anchors results to the selected right-side start corner without reflecting p
   expect(Math.max(...worldParts(doc,bottom).flatMap(part=>part.outer.map(point=>point[1])))).toBeCloseTo(10);
 });
 
-it('creates additional sheets immediately when the job exceeds one plate',()=>{
-  const part={...newPart([[0,0],[6,0],[6,4],[0,4]]),id:'multi',name:'multi',quantity:5};
-  const doc:Document={name:'quick-multi',parts:[part],settings:{...DEFAULT_SETTINGS,materialType:'sheet',materialWidthMm:10,materialLengthMm:8,clearanceMm:0,startCorner:'right-bottom'}};
-  const result=quickSheetLayout(doc,1,'1');
-  expect(result.sheetCount).toBe(3);
-  expect(new Set(result.placements.map(p=>p.sheetIndex))).toEqual(new Set([0,1,2]));
-  expect(validate(doc,{...result,validation:{status:'pending',overlapAreaMm2:0,maxBoundaryViolationMm:0,minClearanceMm:null,errors:[]}}).status).toBe('passed');
-});
-
-it('reports only an individually impossible part instead of treating a full plate as failure',()=>{
-  const part={...newPart([[0,0],[11,0],[11,1],[0,1]]),id:'too-wide',name:'Too wide',quantity:1,rotations:{kind:'discrete' as const,degrees:[0,180]}};
-  const doc:Document={name:'impossible',parts:[part],settings:{...DEFAULT_SETTINGS,materialType:'sheet',materialWidthMm:10,materialLengthMm:10,clearanceMm:.3}};
-  expect(()=>quickSheetLayout(doc,1,'1')).toThrow('tek başına');
-});
-
 it('accepts aggregate used length beyond 100000 mm across valid separate sheets',()=>{
   const part={...newPart([[0,0],[1,0],[1,1],[0,1]]),id:'long-sheets',quantity:2};
   const doc:Document={name:'long-sheets',parts:[part],settings:{...DEFAULT_SETTINGS,materialType:'sheet',materialWidthMm:1,materialLengthMm:100000,clearanceMm:0}};
@@ -202,7 +187,7 @@ it('accepts aggregate used length beyond 100000 mm across valid separate sheets'
   expect(validate(doc,result).status).toBe('passed');
 });
 
-it('best-fit sheet packing reuses residual band space',()=>{
+it('sheet splitting preserves Sparrow band order instead of re-nesting',()=>{
   const heights=[6,6,4,4];
   const parts=heights.map((height,index)=>({...newPart([[0,0],[1,0],[1,height],[0,height]]),id:`p${index}`,name:`p${index}`,quantity:1}));
   const doc:Document={name:'sheets',parts,settings:{...DEFAULT_SETTINGS,materialType:'sheet',materialWidthMm:20,materialLengthMm:10,clearanceMm:0,startCorner:'right-top'}};
@@ -211,6 +196,6 @@ it('best-fit sheet packing reuses residual band space',()=>{
     placements:parts.map((part,index)=>({partId:part.id,copyIndex:0,xMm:index*2,yMm:starts[index],angleDeg:0})),
     validation:{status:'pending',overlapAreaMm2:0,maxBoundaryViolationMm:0,minClearanceMm:null,errors:[]}};
   const packed=packResultIntoSheets(doc,result);
-  expect(packed.sheetCount).toBe(2);
+  expect(packed.sheetCount).toBe(3);
   expect(validate(doc,packed).status).toBe('passed');
 });
