@@ -87,6 +87,22 @@ async function ensureSchema(env){
       FOREIGN KEY (session_id) REFERENCES support_sessions(id) ON DELETE CASCADE,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS chat_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      sender TEXT NOT NULL CHECK(sender IN ('user','admin')),
+      body TEXT NOT NULL,
+      read_at TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_chat_messages_user ON chat_messages(user_id,id)'),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_presence (
+      user_id INTEGER PRIMARY KEY,
+      last_seen TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_user_presence_seen ON user_presence(last_seen)'),
     env.DB.prepare("DELETE FROM support_frames WHERE datetime(updated_at)<datetime('now','-5 minutes')"),
     env.DB.prepare("DELETE FROM audit_logs WHERE datetime(created_at)<datetime('now','-10 days')"),
     env.DB.prepare("UPDATE support_sessions SET status='expired',ended_at=COALESCE(ended_at,CURRENT_TIMESTAMP) WHERE status IN ('pending','approved') AND datetime(expires_at)<=datetime('now')")
@@ -105,6 +121,12 @@ async function makeSession(userId,env){
   return raw;
 }
 function publicUser(u){return {id:u.id,email:u.email,name:u.name||'',role:u.role,credits:Number(u.nesting_credits||0),unlimited:!!u.unlimited}}
+async function touchPresence(env,userId){
+  if(!userId)return;
+  await env.DB.prepare(`INSERT INTO user_presence(user_id,last_seen) VALUES(?,CURRENT_TIMESTAMP)
+    ON CONFLICT(user_id) DO UPDATE SET last_seen=CURRENT_TIMESTAMP`).bind(userId).run();
+}
+const onlineSql="datetime(p.last_seen)>=datetime('now','-15 seconds')";
 function sameOrigin(request){const origin=request.headers.get('origin');return !origin||origin===new URL(request.url).origin}
 async function body(request){try{return await request.json()}catch{return {}}}
 const validEmail=e=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
@@ -180,7 +202,10 @@ async function handleApi(request,env){
     return allowed?json({allowed:true,files:TEST_DXF_FILES}):json({allowed:false},403);
   }
     if(path==='/api/auth/me'&&request.method==='GET'){
-    const user=await sessionUser(request,env);return user?json({user:publicUser(user)}):json({user:null},401);
+    const user=await sessionUser(request,env);
+    if(!user)return json({user:null},401);
+    await touchPresence(env,user.id);
+    return json({user:publicUser(user)});
   }
   if(path==='/api/auth/register'&&request.method==='POST'){
     const data=await body(request),email=String(data.email||'').trim().toLowerCase(),name=String(data.name||'').trim().slice(0,120),password=String(data.password||'');
@@ -234,6 +259,22 @@ async function handleApi(request,env){
     if(current)await audit(env,'logout',{actorType:'user',actorUserId:current.id,targetUserId:current.id});
     return json({ok:true},200,{'set-cookie':cookie('',0)});
   }
+  if(path==='/api/chat'&&request.method==='GET'){
+    const user=await sessionUser(request,env);if(!user)return json({error:'Canlı destek için giriş yapmalısınız.'},401);
+    await touchPresence(env,user.id);
+    await env.DB.prepare("UPDATE chat_messages SET read_at=CURRENT_TIMESTAMP WHERE user_id=? AND sender='admin' AND read_at IS NULL").bind(user.id).run();
+    const rows=await env.DB.prepare("SELECT id,sender,body,created_at,read_at FROM chat_messages WHERE user_id=? ORDER BY id ASC LIMIT 300").bind(user.id).all();
+    return json({messages:rows.results.map(m=>({id:m.id,sender:m.sender,body:m.body,createdAt:m.created_at,readAt:m.read_at||null}))});
+  }
+  if(path==='/api/chat'&&request.method==='POST'){
+    const user=await sessionUser(request,env);if(!user)return json({error:'Canlı destek için giriş yapmalısınız.'},401);
+    const data=await body(request),message=String(data.message||'').trim();
+    if(!message)return json({error:'Mesaj boş olamaz.'},400);
+    if(message.length>2000)return json({error:'Mesaj en fazla 2000 karakter olabilir.'},400);
+    await touchPresence(env,user.id);
+    const result=await env.DB.prepare("INSERT INTO chat_messages(user_id,sender,body) VALUES(?,'user',?)").bind(user.id,message).run();
+    return json({ok:true,id:Number(result.meta.last_row_id)});
+  }
   if(path==='/api/nesting/start'&&request.method==='POST'){
     const user=await sessionUser(request,env);if(!user)return json({error:'Nesting için giriş yapmalısınız.'},401);
     if(!user.unlimited){
@@ -262,8 +303,64 @@ async function handleApi(request,env){
   }
   if(path==='/api/admin/users'&&request.method==='GET'){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
-    const rows=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,u.google_id,u.created_at,u.last_login_at,COALESCE(f.test_dxf_enabled,0) test_dxf_enabled FROM users u LEFT JOIN user_features f ON f.user_id=u.id ORDER BY u.created_at DESC LIMIT 500`).all();
-    return json({users:rows.results.map(u=>({...publicUser(u),testDxfEnabled:!!u.test_dxf_enabled,authProvider:u.google_id?'google':'email',createdAt:u.created_at,lastLoginAt:u.last_login_at}))});
+    const rows=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,u.google_id,u.created_at,u.last_login_at,
+      COALESCE(f.test_dxf_enabled,0) test_dxf_enabled,p.last_seen,
+      CASE WHEN ${onlineSql} THEN 1 ELSE 0 END online
+      FROM users u LEFT JOIN user_features f ON f.user_id=u.id LEFT JOIN user_presence p ON p.user_id=u.id
+      ORDER BY u.created_at DESC LIMIT 500`).all();
+    const online=await env.DB.prepare("SELECT COUNT(*) n FROM user_presence WHERE datetime(last_seen)>=datetime('now','-15 seconds')").first();
+    return json({onlineCount:Number(online?.n||0),users:rows.results.map(u=>({...publicUser(u),testDxfEnabled:!!u.test_dxf_enabled,authProvider:u.google_id?'google':'email',createdAt:u.created_at,lastLoginAt:u.last_login_at,lastSeen:u.last_seen||null,online:!!u.online}))});
+  }
+  if(path==='/api/admin/chats'&&request.method==='GET'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const rows=await env.DB.prepare(`SELECT u.id,u.email,u.name,MAX(m.created_at) last_message_at,
+      SUM(CASE WHEN m.sender='user' AND m.read_at IS NULL THEN 1 ELSE 0 END) unread,
+      p.last_seen,CASE WHEN ${onlineSql} THEN 1 ELSE 0 END online
+      FROM users u JOIN chat_messages m ON m.user_id=u.id LEFT JOIN user_presence p ON p.user_id=u.id
+      GROUP BY u.id,u.email,u.name,p.last_seen ORDER BY MAX(m.id) DESC LIMIT 500`).all();
+    const online=await env.DB.prepare("SELECT COUNT(*) n FROM user_presence WHERE datetime(last_seen)>=datetime('now','-15 seconds')").first();
+    return json({onlineCount:Number(online?.n||0),conversations:rows.results.map(r=>({userId:r.id,email:r.email,name:r.name||'',lastMessageAt:r.last_message_at,unread:Number(r.unread||0),lastSeen:r.last_seen||null,online:!!r.online}))});
+  }
+  const adminChatMatch=path.match(/^\/api\/admin\/chats\/(\d+)$/);
+  if(adminChatMatch&&request.method==='GET'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const id=Number(adminChatMatch[1]),target=await env.DB.prepare('SELECT id,email,name FROM users WHERE id=?').bind(id).first();
+    if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
+    await env.DB.prepare("UPDATE chat_messages SET read_at=CURRENT_TIMESTAMP WHERE user_id=? AND sender='user' AND read_at IS NULL").bind(id).run();
+    const rows=await env.DB.prepare("SELECT id,sender,body,created_at,read_at FROM chat_messages WHERE user_id=? ORDER BY id ASC LIMIT 300").bind(id).all();
+    const presence=await env.DB.prepare("SELECT last_seen,CASE WHEN datetime(last_seen)>=datetime('now','-15 seconds') THEN 1 ELSE 0 END online FROM user_presence WHERE user_id=?").bind(id).first();
+    return json({user:{id:target.id,email:target.email,name:target.name||'',online:!!presence?.online,lastSeen:presence?.last_seen||null},messages:rows.results.map(m=>({id:m.id,sender:m.sender,body:m.body,createdAt:m.created_at,readAt:m.read_at||null}))});
+  }
+  if(adminChatMatch&&request.method==='POST'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const id=Number(adminChatMatch[1]),target=await env.DB.prepare('SELECT id,email FROM users WHERE id=?').bind(id).first();
+    if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
+    const data=await body(request),message=String(data.message||'').trim();
+    if(!message)return json({error:'Mesaj boş olamaz.'},400);
+    if(message.length>2000)return json({error:'Mesaj en fazla 2000 karakter olabilir.'},400);
+    const result=await env.DB.prepare("INSERT INTO chat_messages(user_id,sender,body) VALUES(?,'admin',?)").bind(id,message).run();
+    return json({ok:true,id:Number(result.meta.last_row_id)});
+  }
+  const deleteUserMatch=path.match(/^\/api\/admin\/users\/(\d+)$/);
+  if(deleteUserMatch&&request.method==='DELETE'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const id=Number(deleteUserMatch[1]),target=await env.DB.prepare('SELECT id,email,name,role FROM users WHERE id=?').bind(id).first();
+    if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM chat_messages WHERE user_id=?').bind(id),
+      env.DB.prepare('DELETE FROM user_presence WHERE user_id=?').bind(id),
+      env.DB.prepare('DELETE FROM support_frames WHERE user_id=?').bind(id),
+      env.DB.prepare('DELETE FROM support_sessions WHERE user_id=?').bind(id),
+      env.DB.prepare('DELETE FROM user_features WHERE user_id=?').bind(id),
+      env.DB.prepare('DELETE FROM user_settings WHERE user_id=?').bind(id),
+      env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(id),
+      env.DB.prepare('DELETE FROM password_reset_tokens WHERE user_id=?').bind(id),
+      env.DB.prepare('DELETE FROM nesting_history WHERE user_id=?').bind(id),
+      env.DB.prepare('DELETE FROM audit_logs WHERE actor_user_id=? OR target_user_id=?').bind(id,id),
+      env.DB.prepare('DELETE FROM users WHERE id=?').bind(id)
+    ]);
+    await audit(env,'user_deleted',{actorType:'admin',detail:String(target.email||id)});
+    return json({ok:true});
   }
   if(path==='/api/admin/health'&&request.method==='GET'){
     const auth=await adminSessionValid(request,env);if(!auth)return json({error:'Yetkisiz.'},403);
@@ -280,6 +377,7 @@ async function handleApi(request,env){
   }
   if(path==='/api/support/status'&&request.method==='GET'){
     const user=await sessionUser(request,env);if(!user)return json({support:null},401);
+    await touchPresence(env,user.id);
     const row=await env.DB.prepare(`SELECT s.id,s.status,s.expires_at,s.created_at,s.approved_at,COALESCE(g.mode,'settings') mode,g.offer_json,g.answer_json
       FROM support_sessions s LEFT JOIN support_signals g ON g.session_id=s.id
       WHERE s.user_id=? AND s.status IN ('pending','approved') AND datetime(s.expires_at)>datetime('now') ORDER BY s.id DESC LIMIT 1`).bind(user.id).first();
