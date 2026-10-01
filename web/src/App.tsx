@@ -3,7 +3,7 @@ import packageInfo from '../package.json';
 import {readRecovery,saveRecovery} from './storage/recovery';
 import {useDismissibleMenu} from './components/useDismissibleMenu';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { DEFAULT_SETTINGS, rotationSummary, type Document, type Part, type Point, type Result, type RotationRule } from './model';
+import { DEFAULT_SETTINGS, FIVE_DEGREE_ROTATIONS, rotationSummary, type Document, type Part, type Point, type Result, type RotationRule } from './model';
 import { bounds } from './geometry/normalize';
 import { netArea } from './geometry/validate';
 import { pathData } from './geometry/path';
@@ -23,8 +23,8 @@ const emptyProject=(name='Adsız proje'):Document=>({name,parts:[],settings:{...
 type ProjectSwitch={document:Document;result?:Result;warnings?:string[];saved?:boolean;nest?:boolean};
 const DEFAULT_ROTATIONS:RotationRule={kind:'discrete',degrees:[0,180]};
 const validRotationRule=(rule:RotationRule|undefined)=>!!rule&&(rule.kind==='continuous'||(rule.kind==='discrete'&&Array.isArray(rule.degrees)&&rule.degrees.length>0&&rule.degrees.every(Number.isFinite)));
-const normalizedRotationRule=(rule:RotationRule|undefined):RotationRule=>validRotationRule(rule)?rule!:DEFAULT_ROTATIONS;
-const rotationValue=(rule:RotationRule|undefined)=>!validRotationRule(rule)?'invalid':rule!.kind==='continuous'?'free':JSON.stringify([...new Set(rule!.degrees.map(d=>((d%360)+360)%360))].sort((a,b)=>a-b));
+const normalizedRotationRule=(rule:RotationRule|undefined):RotationRule=>!validRotationRule(rule)?DEFAULT_ROTATIONS:rule!.kind==='continuous'?{kind:'discrete',degrees:[...FIVE_DEGREE_ROTATIONS]}:rule!;
+const rotationValue=(rule:RotationRule|undefined)=>!validRotationRule(rule)?'invalid':JSON.stringify([...new Set((rule!.kind==='continuous'?FIVE_DEGREE_ROTATIONS:rule!.degrees).map(d=>((d%360)+360)%360))].sort((a,b)=>a-b));
 const validQuantity=(n:number)=>Number.isInteger(n)&&n>=0&&n<=500;
 const displayedPieceCount=(parts:Part[])=>parts.reduce((total,part)=>total+part.quantity*(part.source.dxfSourceEntityCount??1),0);
 const TEST_DXF_FILES=['1003.dxf','1239.dxf','test.dxf'] as const;
@@ -200,7 +200,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
       if(settings.solverPreset==='standard'||settings.solverPreset==='fast')nextSettings.solverPreset=settings.solverPreset;
       let parts=doc.parts;
       if(settings.rotation){
-        const rotations:RotationRule=settings.rotation==='free'?{kind:'continuous'}:settings.rotation==='fixed'?{kind:'discrete',degrees:[0]}:{kind:'discrete',degrees:[0,180]};
+        const rotations:RotationRule=settings.rotation==='free'?{kind:'discrete',degrees:[...FIVE_DEGREE_ROTATIONS]}:settings.rotation==='fixed'?{kind:'discrete',degrees:[0]}:{kind:'discrete',degrees:[0,180]};
         parts=doc.parts.map(part=>({...part,rotations}));
       }
       const changed=JSON.stringify(nextSettings)!==JSON.stringify(doc.settings)||parts!==doc.parts;
