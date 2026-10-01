@@ -37,7 +37,9 @@ function orientToStartCorner(doc:Document,result:Result):Result {
     const boundaryLength=doc.settings.materialType==='sheet'?doc.settings.materialLengthMm:result.usedLengthMm;
     if(!boundaryLength)throw Error('Yerleşim uzunluğu bulunamadı.');
     const dx=width-inset-maxX;
-    const dy=(doc.settings.startCorner??'right-bottom')==='right-top'?inset-minY:boundaryLength-inset-maxY;
+    // Workspace renders manufacturing +Y upward with an SVG Y flip:
+    // y=0 is the visual bottom edge, y=boundaryLength is the visual top edge.
+    const dy=(doc.settings.startCorner??'right-bottom')==='right-bottom'?inset-minY:boundaryLength-inset-maxY;
     for(const index of indices){placements[index].xMm+=dx;placements[index].yMm+=dy;}
   }
   return {...result,placements};
