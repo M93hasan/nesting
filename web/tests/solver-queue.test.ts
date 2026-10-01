@@ -46,6 +46,16 @@ test('roll mode trusts upstream Sparrow candidates and publishes the shortest re
   expect(render().state).toBe('Complete');
 });
 
+test('sheet mode replaces the quick shelf preview with the first valid Sparrow layout',()=>{
+  const sheetDoc:Document={...doc,settings:{...doc.settings,materialType:'sheet',materialWidthMm:20,materialLengthMm:20,timeLimitSeconds:120}};
+  const solverHook=render();solverHook.start(sheetDoc,7);
+  const [solver]=WorkerStub.all;
+  expect(render().result?.solverRevision).toBe('quick-sheet-v1');
+  solver.deliver(candidate(1,7,1,10));
+  vi.advanceTimersByTime(100);
+  expect(render().result).toMatchObject({solverRevision:expect.not.stringContaining('quick-sheet'),sheetCount:1,validation:{status:'passed',source:'local'}});
+});
+
 test('live clip failures are logged without stopping the preview worker',()=>{
   render().start(doc,7);const [solver,preview]=WorkerStub.all;
   solver.deliver({...candidate(1,7,1,20),type:'live'});

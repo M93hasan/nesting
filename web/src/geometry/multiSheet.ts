@@ -157,12 +157,12 @@ export function packResultIntoSheets(doc:Document,result:Result):Result {
     if(height>length+1e-7)throw Error('Bir yerleşim bandı seçilen plaka uzunluğuna sığmıyor.');
     let best=-1,bestRemaining=Infinity;
     for(let i=0;i<sheets.length;i++){
-      const start=sheets[i].used+(sheets[i].used>gap?gap:0);
+      const start=sheets[i].used+(sheets[i].used>0?gap:0);
       const remaining=length-(start+height);
       if(remaining>=-1e-7&&remaining<bestRemaining){best=i;bestRemaining=remaining;}
     }
     if(best<0){best=sheets.length;sheets.push({used:0});}
-    const start=sheets[best].used+(sheets[best].used>gap?gap:0),offset=start-band.minY;
+    const start=sheets[best].used+(sheets[best].used>0?gap:0),offset=start-band.minY;
     for(const item of band.items)packed[item.index]={...item.placement,sheetIndex:best,yMm:item.placement.yMm+offset};
     sheets[best].used=start+height;
   }

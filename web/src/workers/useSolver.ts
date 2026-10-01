@@ -15,7 +15,7 @@ export type LiveFrame=LiveGeometry & {sequence:number;result:Result;report:strin
 export const wallClockLimitSeconds=(doc:Document)=>doc.settings.timeLimitSeconds??59;
 type Run={id:number;revision:number;doc:Document;seed:string;requestedAt:number;solver?:Worker;preview:Worker;
   latest?:Candidate;previewActive?:{candidate:Candidate;result:Result};frame?:LiveFrame;previewSequence:number;previewError?:string;
-  best?:Result;ended?:'Complete'|'Stopped'|'Error';startedAt?:number;watchdog:ReturnType<typeof setTimeout>;deadline?:ReturnType<typeof setTimeout>;
+  best?:Result;bestSheetSolverLength?:number;ended?:'Complete'|'Stopped'|'Error';startedAt?:number;watchdog:ReturnType<typeof setTimeout>;deadline?:ReturnType<typeof setTimeout>;
   deadlineRemainingMs?:number;deadlineStartedAt?:number;visibilityHandler?:()=>void;
   diagnostics:Diagnostics};
 export function candidateResult(doc:Document,candidate:Candidate,seed:string):Result {
@@ -203,10 +203,14 @@ export function useSolver() {
               r.diagnostics.history.at(-1)!.errors=checked.errors;
               break;
             }
-            const better=!r.best||(packed.sheetCount??1)<(r.best.sheetCount??1);
+            const sheetCount=packed.sheetCount??1,bestSheetCount=r.best?.sheetCount??Infinity;
+            const better=!r.best
+              || sheetCount<bestSheetCount
+              || (sheetCount===bestSheetCount&&(r.bestSheetSolverLength===undefined||data.solution.strip_width<r.bestSheetSolverLength));
             if(better){
               startup.firstValidMs??=performance.now()-requestedAt;
               r.best={...packed,validation:{...checked,source:'local'}};
+              r.bestSheetSolverLength=data.solution.strip_width;
             }
           }
           break;
