@@ -3,7 +3,7 @@ name: Build WASM packages
 on:
   workflow_dispatch:
   push:
-    branches: [main, feat/v0077-sparrow-fast-5deg]
+    branches: [main]
     paths:
       - 'web/wasm/Cargo.toml'
       - 'web/wasm/Cargo.lock'
