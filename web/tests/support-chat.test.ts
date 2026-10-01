@@ -33,7 +33,7 @@ test('admin2 keeps admin features with a forced mobile layout',()=>{
   expect(main).toContain("route==='/admin'||route==='/admin2'");
   expect(main).toContain("mobileAdmin=route==='/admin2'");
   expect(admin).toContain('mobileMode=false');
-  expect(admin).toContain("mobileMode?' admin-mobile-page':'');
+  expect(admin).toContain("mobileMode?' admin-mobile-page':'");
   expect(adminCss).toContain('.admin-mobile-page .admin-shell');
   expect(adminCss).toContain('.admin-mobile-page .admin-chat-layout');
 });
