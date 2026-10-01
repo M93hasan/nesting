@@ -1,6 +1,6 @@
 import polygonClipping from 'polygon-clipping';
 import { LIMITS, POLICY, type Document, type Part, type Placement, type Point, type Result, type Ring, type Validation } from '../model';
-import { area, bounds, intersects, normalizeDocument, normalizePart } from './normalize';
+import { area, bounds, intersects, normalizeDocument, normalizePart, normalizeRing } from './normalize';
 
 export type WorldPart = { partId: string; copyIndex: number; outer: Ring; holes: Ring[] };
 const RESULT_LINEAR_TOLERANCE_MM=0.01;
@@ -17,11 +17,34 @@ export function worldParts(doc: Document, result: Pick<Result,'placements'>): Wo
     return { partId: p.partId, copyIndex: p.copyIndex, outer: transform(part.outer,p), holes: part.holes.map(h=>transform(h,p)) };
   });
 }
-// DXF detail contours are rigidly attached production/marking geometry, not
-// the physical nesting boundary. Match sparrow/studio: only the main outer
-// contour participates in solver collision, clearance and material bounds.
+function convexHull(points:Point[]):Ring {
+  const unique=[...new Map(points.map(point=>[`${point[0]},${point[1]}`,point] as const)).values()]
+    .sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+  if(unique.length<3)return normalizeRing(points);
+  const cross=(o:Point,a:Point,b:Point)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
+  const lower:Point[]=[];
+  for(const point of unique){while(lower.length>=2&&cross(lower.at(-2)!,lower.at(-1)!,point)<=0)lower.pop();lower.push(point);}
+  const upper:Point[]=[];
+  for(let i=unique.length-1;i>=0;i--){const point=unique[i];while(upper.length>=2&&cross(upper.at(-2)!,upper.at(-1)!,point)<=0)upper.pop();upper.push(point);}
+  return normalizeRing([...lower.slice(0,-1),...upper.slice(0,-1)]);
+}
+// Attached DXF contours can extend beyond the selected main outer contour.
+// Nest against the true union envelope so exported production geometry cannot
+// overlap even when a colored allowance/detail protrudes outside the main ring.
+// A connected union keeps the original concavity. Only genuinely disjoint
+// attached islands fall back to a conservative convex hull.
 export function collisionRing(part:Part):Ring {
-  return part.outer;
+  const details=part.source.dxfDetails?.map(detail=>detail.ring).filter(ring=>ring.length>=3)??[];
+  if(!details.length)return part.outer;
+  const source=[part.outer,...details];
+  try{
+    const union=polygonClipping.union as unknown as (...polygons:Ring[][])=>Ring[][];
+    const merged=union(...source.map(ring=>[ring]));
+    if(merged.length===1&&merged[0]?.[0]?.length>=3)return normalizeRing(merged[0][0]);
+    const exterior=merged.flatMap(polygon=>polygon[0]??[]) as Point[];
+    if(exterior.length>=3)return convexHull(exterior);
+  }catch{/* fall through to a conservative envelope */}
+  return convexHull(source.flat());
 }
 export function collisionWorldRings(doc:Document,result:Pick<Result,'placements'>):Ring[] {
   const parts=new Map(doc.parts.map(part=>[part.id,part]));
