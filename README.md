@@ -8,7 +8,7 @@
 
 **Rulo ve plaka malzemelerde düzensiz parçaları verimli yerleştirmek, fireyi azaltmak ve üretim hazırlığını hızlandırmak için geliştirilmiştir.**
 
-[![Version](https://img.shields.io/badge/version-0.0.58-111827?style=flat-square)](web/package.json)
+[![Version](https://img.shields.io/badge/version-0.0.59-111827?style=flat-square)](web/package.json)
 [![React](https://img.shields.io/badge/React-19-20232a?style=flat-square&logo=react)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178c6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Rust](https://img.shields.io/badge/Rust-WASM-000000?style=flat-square&logo=rust)](web/wasm/)
@@ -552,7 +552,7 @@ Serula geliştirilirken aşağıdaki kurallar önceliklidir:
 Güncel sürüm:
 
 ```text
-v0.0.58
+v0.0.59
 ```
 
 Serula'da yayınlanan her değişiklikte sürüm numarası artırılır. Böylece kullanıcı arayüzünde görünen sürüm ile yayınlanan kodun eşleşmesi kolayca doğrulanabilir.

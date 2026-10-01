@@ -5,3 +5,6 @@
 .auth-support-active{position:fixed;right:14px;top:62px;z-index:50;display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border,#dfe3ea);border-radius:999px;background:var(--panel,#fff);box-shadow:0 8px 24px #0002;font-size:11px}
 .auth-support-active span{font-weight:700}.auth-support-active button{padding:5px 8px}
 .auth-support-card h2{margin:0}.auth-support-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}.auth-support-actions .primary{font-weight:700}
+
+.auth-support-active.screen-connected{border-color:#5ca97d}
+.auth-support-active.screen-failed{border-color:#c55a50}

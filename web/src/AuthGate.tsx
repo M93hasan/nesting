@@ -29,12 +29,13 @@ export function UserGate({children}:{children:ReactNode}){
   const supportPeer=useRef<RTCPeerConnection|null>(null);
   const supportStream=useRef<MediaStream|null>(null);
   const supportAnswer=useRef('');
+  const [screenConnection,setScreenConnection]=useState<'idle'|'connecting'|'connected'|'failed'>('idle');
 
   const refresh=()=>fetch('/api/auth/me',{credentials:'same-origin'}).then(r=>r.ok?r.json():{user:null}).then(d=>setUser(d.user??null)).catch(()=>setUser(null));
   const stopScreenSupport=()=>{
     supportPeer.current?.close();supportPeer.current=null;
     supportStream.current?.getTracks().forEach(track=>track.stop());supportStream.current=null;
-    supportAnswer.current='';
+    supportAnswer.current='';setScreenConnection('idle');
   };
   const waitIce=async(pc:RTCPeerConnection)=>{
     if(pc.iceGatheringState==='complete')return;
@@ -95,19 +96,25 @@ export function UserGate({children}:{children:ReactNode}){
       setSupport(data.support);return;
     }
     if(!navigator.mediaDevices?.getDisplayMedia){setError('Bu tarayıcı ekran paylaşımını desteklemiyor. Masaüstü Chrome, Edge veya Safari kullanın.');return;}
-    setBusy(true);setError('');
+    setBusy(true);setError('');setScreenConnection('connecting');
     try{
-      const stream=await navigator.mediaDevices.getDisplayMedia({video:true,audio:false});
+      const stream=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:{ideal:15,max:30}},audio:false});
       supportStream.current=stream;
       const data=await request('/api/support/respond',{method:'POST',body:JSON.stringify({id:support.id,approve:true})});
       setSupport(data.support);
-      const pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
+      const pc=new RTCPeerConnection({iceServers:[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']}]});
       supportPeer.current=pc;
+      pc.onconnectionstatechange=()=>{
+        if(pc.connectionState==='connected')setScreenConnection('connected');
+        else if(pc.connectionState==='failed'||pc.connectionState==='closed')setScreenConnection('failed');
+        else if(pc.connectionState==='connecting'||pc.connectionState==='new'||pc.connectionState==='disconnected')setScreenConnection('connecting');
+      };
+      pc.oniceconnectionstatechange=()=>{if(pc.iceConnectionState==='failed')setScreenConnection('failed')};
       stream.getTracks().forEach(track=>{pc.addTrack(track,stream);track.addEventListener('ended',()=>{void request('/api/support/end',{method:'POST',body:JSON.stringify({id:support.id})}).catch(()=>{});stopScreenSupport();setSupport(null)},{once:true})});
-      const offer=await pc.createOffer();await pc.setLocalDescription(offer);await waitIce(pc);
+      const offer=await pc.createOffer({offerToReceiveAudio:false,offerToReceiveVideo:false});await pc.setLocalDescription(offer);await waitIce(pc);
       await request('/api/support/signal',{method:'POST',body:JSON.stringify({id:support.id,offer:pc.localDescription})});
     }catch(e){
-      stopScreenSupport();
+      stopScreenSupport();setScreenConnection('failed');
       setError(e instanceof Error?e.message:String(e));
     }finally{setBusy(false)}
   }
@@ -129,7 +136,7 @@ export function UserGate({children}:{children:ReactNode}){
   return <>{children}
     {user?<div className="auth-account"><span>{user.name||user.email}</span><strong>{user.unlimited?'Sınırsız':user.credits+' hak'}</strong><button onClick={async()=>{await request('/api/auth/logout',{method:'POST',body:'{}'});setUser(null)}}>Çıkış</button></div>
     :<div className="auth-account"><span>Misafir</span><button onClick={()=>setOpen(true)}>Giriş yap</button></div>}
-    {support?.status==='approved'&&<div className="auth-support-active"><span>{support.mode==='screen'?'Ekran paylaşımı aktif':'Uzaktan destek aktif'}</span><button onClick={()=>void endSupportFromUser()}>Bitir</button></div>}
+    {support?.status==='approved'&&<div className={'auth-support-active '+(support.mode==='screen'?'screen-'+screenConnection:'')}><span>{support.mode==='screen'?(screenConnection==='connected'?'Ekran paylaşımı canlı':screenConnection==='failed'?'Ekran bağlantısı kurulamadı':'Ekran bağlantısı kuruluyor…'):'Uzaktan destek aktif'}</span><button onClick={()=>void endSupportFromUser()}>Bitir</button></div>}
     {support?.status==='pending'&&<div className="auth-screen auth-overlay"><div className="auth-card auth-support-card"><img src="/serula-logo.svg" alt=""/><h2>{support.mode==='screen'?'Ekran paylaşımı isteği':'Uzaktan destek isteği'}</h2><p>{support.mode==='screen'?'Serula yöneticisi ekranınızı canlı görmek istiyor. Paylaşılacak ekranı siz seçersiniz; izin vermeden görüntü aktarılmaz ve istediğiniz an durdurabilirsiniz.':'Serula yöneticisi yalnızca bu uygulamanın ayarlarını uzaktan düzenlemek istiyor. Tarayıcınızın diğer sekmelerine, dosyalarınıza veya cihazınıza erişim verilmez.'}</p>{error&&<p className="auth-error">{error}</p>}<div className="auth-support-actions"><button disabled={busy} onClick={()=>void declineSupport()}>Reddet</button><button disabled={busy} className="primary" onClick={()=>void approveSupport()}>{busy?'Bağlanıyor…':support.mode==='screen'?'Onayla ve ekranı paylaş':'Onayla'}</button></div></div></div>}
     {open&&!user&&<div className="auth-screen auth-overlay" onMouseDown={e=>{if(e.currentTarget===e.target)setOpen(false)}}><div className="auth-card">
       <img src="/serula-logo.svg" alt=""/><h1>Serula Nesting</h1><p>DXF indirmek için giriş yapın. Dosya içe aktarma ve yerleştirme giriş yapmadan kullanılabilir.</p>
