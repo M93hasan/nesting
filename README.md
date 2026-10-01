@@ -135,7 +135,7 @@ Geometri işlemleri uygulama içinde ayrı modüllere ayrılmıştır:
 
 Yerleştirme motoru Rust + WebAssembly üzerinden çalışır ve hesaplama yükünün kullanıcı arayüzünü bloke etmemesi için worker altyapısından yararlanır.
 
-> **Önemli:** İçe aktarılan parçaların üretim ölçüleri otomatik olarak küçültülmez veya büyütülmez. DXF'te ana konturun dışına taşan bağlı detay konturları da nesting ve çakışma kontrolünde güvenlik zarfına dahil edilir; kontrol edilmiş nesting DXF'i doğrulanan poligon geometrisini kullanır.
+> **Önemli:** İçe aktarılan parçaların üretim ölçüleri otomatik olarak küçültülmez veya büyütülmez. DXF'te nesting ve çakışma hesabını ana dış kontur belirler; bağlı renkli/detay konturları parçayla birlikte korunur ancak parçanın fiziksel nesting sınırını büyütmez. Kontrol edilmiş nesting DXF'i doğrulanan poligon geometrisini kullanır.
 
 ---
 

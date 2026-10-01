@@ -1,6 +1,5 @@
 import { DEFAULT_SETTINGS, newPart, type Document, type Part, type Ring } from '../model';
 import { bounds, normalizeDocument, normalizeRing } from '../geometry/normalize';
-import { collisionRing } from '../geometry/validate';
 
 export type ImportReview = { document: Document; warnings: string[]; replace: boolean; issues?:string[]; layers?:string[]; result?:import('../model').Result };
 export function record(value: unknown): Record<string,unknown> {
@@ -59,6 +58,6 @@ export function solverInput(doc: Document): string {
     // material width on X and material length on Y, so solve a transposed
     // copy and map the result back. Imported geometry stays unchanged.
     id,demand:p.quantity,allowed_orientations:p.rotations.kind==='continuous'?undefined:p.rotations.degrees.map(angle=>-angle),
-    shape:{type:'simple_polygon',data:collisionRing(p).map(([x,y])=>[y,x])},
+    shape:{type:'simple_polygon',data:p.outer.map(([x,y])=>[y,x])},
   }))});
 }

@@ -1,6 +1,6 @@
 import polygonClipping from 'polygon-clipping';
 import { LIMITS, POLICY, type Document, type Part, type Placement, type Point, type Result, type Ring, type Validation } from '../model';
-import { area, bounds, intersects, normalizeDocument, normalizePart, normalizeRing } from './normalize';
+import { area, bounds, intersects, normalizeDocument, normalizePart } from './normalize';
 
 export type WorldPart = { partId: string; copyIndex: number; outer: Ring; holes: Ring[] };
 export const transform = (ring: Ring, p: Placement): Ring => {
@@ -15,12 +15,11 @@ export function worldParts(doc: Document, result: Pick<Result,'placements'>): Wo
     return { partId: p.partId, copyIndex: p.copyIndex, outer: transform(part.outer,p), holes: part.holes.map(h=>transform(h,p)) };
   });
 }
+// DXF detail contours are rigidly attached production/marking geometry, not
+// the physical nesting boundary. Match sparrow/studio: only the main outer
+// contour participates in solver collision, clearance and material bounds.
 export function collisionRing(part:Part):Ring {
-  const details=part.source.dxfDetails?.map(detail=>detail.ring).filter(ring=>ring.length>=3)??[];
-  if(!details.length)return part.outer;
-  const merged=polygonClipping.union([part.outer],...details.map(ring=>[ring]));
-  if(merged.length!==1||!merged[0]?.length)throw Error(`${part.name}: attached DXF detail contours must stay connected to the nesting contour.`);
-  return normalizeRing(merged[0][0]);
+  return part.outer;
 }
 export function collisionWorldRings(doc:Document,result:Pick<Result,'placements'>):Ring[] {
   const parts=new Map(doc.parts.map(part=>[part.id,part]));
