@@ -1,6 +1,6 @@
 use jagua_rs::Instant;
 use jagua_rs::io::import::Importer;
-use jagua_rs::probs::spp::entities::{SPInstance, SPSolution};
+use jagua_rs::probs::spp::entities::SPSolution;
 use jagua_rs::probs::spp::io::{export, ext_repr::ExtSPInstance, import_instance};
 use rand::{SeedableRng, rngs::Xoshiro256PlusPlus};
 use serde_json::json;
@@ -58,7 +58,7 @@ impl SolutionListener for Listener {
             "initializationMs": self.solve_started_at.unwrap().duration_since(self.initialized_at).as_secs_f64() * 1000.0}));
     }
 
-    fn report(&mut self, report: ReportType, solution: &SPSolution, instance: &SPInstance) {
+    fn report(&mut self, report: ReportType, solution: &SPSolution) {
         let feasible = matches!(report, ReportType::ExplFeas | ReportType::CmprFeas | ReportType::Final);
         let now = Instant::now();
         // Throttle live serialization at the source; always deliver feasible results.
@@ -70,7 +70,7 @@ impl SolutionListener for Listener {
         self.send(json!({"type": if feasible { "candidate" } else { "live" }, "sequence": self.sequence,
             "report": format!("{report:?}"),
             "elapsedMs": self.solve_started_at.unwrap_or(self.initialized_at).elapsed().as_secs_f64() * 1000.0,
-            "solution": export(instance, solution, self.initialized_at)}));
+            "solution": export(solution, self.initialized_at)}));
     }
 }
 
@@ -87,17 +87,17 @@ pub fn run(input: &str, seconds: Option<u32>, seed: &str, clearance: f32, preset
     let external: ExtSPInstance = serde_json::from_str(input)
         .map_err(|e| JsValue::from_str(&e.to_string()))?;
     if !external.strip_height.is_finite() || external.strip_height <= clearance || external.strip_height > 100_000.0
+        || !external.min_item_separation.is_finite() || external.min_item_separation < 0.0
         || external.items.is_empty() || external.items.len() > 500
         || external.items.iter().any(|item| item.demand == 0 || item.demand > 500)
         || external.items.iter().map(|item| item.demand).sum::<u64>() > 500 {
         return Err(JsValue::from_str("Invalid strip dimensions or demand"));
     }
     let mut config = solver_config(preset, thread_count(), seconds).map_err(JsValue::from_str)?;
-    config.min_item_separation = (clearance > 0.0).then_some(clearance);
     callback.call1(&JsValue::NULL, &JsValue::from_str(&json!({
         "type": "configuration", "configuration": format!("{config:#?}")
     }).to_string())).expect("worker callback must accept solver messages");
-    let importer = Importer::new(config.cde_config, config.poly_simpl_tolerance, config.min_item_separation, config.narrow_concavity_cutoff_ratio);
+    let importer = Importer::new(config.cde_config, config.poly_simpl_tolerance, config.narrow_concavity_cutoff_ratio);
     let instance = import_instance(&importer, &external)
         .map_err(|e| JsValue::from_str(&e.to_string()))?;
     let mut listener = Listener { callback, initialized_at, solve_started_at: None, sequence: 0, last_snapshot: None,
@@ -106,7 +106,7 @@ pub fn run(input: &str, seconds: Option<u32>, seed: &str, clearance: f32, preset
     let mut terminator = WebTerminator { timed: seconds.is_some(), inner: BasicTerminator::new(), interrupt };
     optimize(instance, Xoshiro256PlusPlus::seed_from_u64(seed), &mut listener,
         &mut terminator, &config.expl_cfg, &config.cmpr_cfg, None)
-    .map_err(|error| JsValue::from_str(&format!("No valid initial placement could be constructed for item {}. Review the part size, allowed rotations, material width, and clearance.", error.item_id)))?;
+    .map_err(|error| JsValue::from_str(&format!("Sparrow yerleşim hatası: {error}")))?;
     listener.send(json!({"type": "finished"}));
     Ok(())
 }
