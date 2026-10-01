@@ -3,6 +3,8 @@ import { LIMITS, POLICY, type Document, type Part, type Placement, type Point, t
 import { area, bounds, intersects, normalizeDocument, normalizePart } from './normalize';
 
 export type WorldPart = { partId: string; copyIndex: number; outer: Ring; holes: Ring[] };
+const RESULT_LINEAR_TOLERANCE_MM=0.01;
+const RESULT_OVERLAP_TOLERANCE_MM2=0.05;
 export const transform = (ring: Ring, p: Placement): Ring => {
   const angle = p.angleDeg * Math.PI / 180, c = Math.cos(angle), s = Math.sin(angle);
   return ring.map(([x,y]) => [x*c-y*s+p.xMm, x*s+y*c+p.yMm]);
@@ -82,7 +84,7 @@ export function validate(doc: Document, result: Result, serialized?: WorldPart[]
       v.maxBoundaryViolationMm=Math.max(v.maxBoundaryViolationMm,-b[0],-b[1],b[2]-doc.settings.materialWidthMm,b[3]-boundaryLength);
       return b;
     });
-    if(v.maxBoundaryViolationMm>POLICY.linearMm) v.errors.push(`Material boundary exceeded by ${v.maxBoundaryViolationMm} mm.`);
+    if(v.maxBoundaryViolationMm>RESULT_LINEAR_TOLERANCE_MM) v.errors.push(`Material boundary exceeded by ${v.maxBoundaryViolationMm} mm.`);
     let operations=0;
     for(let i=0;i<world.length;i++) for(let j=0;j<i;j++) {
       if(doc.settings.materialType==='sheet' && result.placements[i].sheetIndex!==result.placements[j].sheetIndex)continue;
@@ -93,7 +95,7 @@ export function validate(doc: Document, result: Result, serialized?: WorldPart[]
         const overlap=clipped.reduce((total,poly)=>total+Math.abs(area(poly[0]))-poly.slice(1).reduce((n,h)=>n+Math.abs(area(h)),0),0);
         if(!Number.isFinite(overlap)) throw Error('Intersection returned a non-finite area.');
         v.overlapAreaMm2=Math.max(v.overlapAreaMm2,overlap);
-        if(overlap>POLICY.overlapMm2 && v.errors.length<20) v.errors.push(`Copies ${j+1} and ${i+1} overlap by ${overlap} mm².`);
+        if(overlap>RESULT_OVERLAP_TOLERANCE_MM2 && v.errors.length<20) v.errors.push(`Copies ${j+1} and ${i+1} overlap by ${overlap} mm².`);
       }
       if(doc.settings.clearanceMm>0 && (v.minClearanceMm===null || boxDistance<v.minClearanceMm)) {
         operations+=collision[i].length*collision[j].length;
@@ -103,7 +105,7 @@ export function validate(doc: Document, result: Result, serialized?: WorldPart[]
         v.minClearanceMm=Math.min(v.minClearanceMm ?? Infinity,gap);
       }
     }
-    if(v.minClearanceMm!==null && v.minClearanceMm+POLICY.linearMm<doc.settings.clearanceMm) v.errors.push(`Minimum clearance is ${v.minClearanceMm} mm; requested ${doc.settings.clearanceMm} mm.`);
+    if(v.minClearanceMm!==null && v.minClearanceMm+RESULT_LINEAR_TOLERANCE_MM<doc.settings.clearanceMm) v.errors.push(`Minimum clearance is ${v.minClearanceMm} mm; requested ${doc.settings.clearanceMm} mm.`);
     v.status=v.errors.length?'failed':'passed';
   } catch(error) { v.errors.push(error instanceof Error?error.message:String(error)); }
   return v;
