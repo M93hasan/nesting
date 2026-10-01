@@ -150,21 +150,27 @@ export function packResultIntoSheets(doc:Document,result:Result):Result {
     }else bands.push({items:[item],minY:item.minY,maxY:item.maxY});
   }
 
-  const ordered=bands.map((band,index)=>({band,index,height:band.maxY-band.minY}))
-    .sort((a,b)=>b.height-a.height||a.index-b.index);
+  // Do not invent a second nesting algorithm for sheet mode. Sparrow/Jagua
+  // owns rotation, collision handling and relative placement. We only cut the
+  // continuous Sparrow strip at safe gaps between non-overlapping Y bands.
+  // Bands stay in Sparrow order and their internal X/Y geometry is rigidly kept.
   const packed=new Array<Placement>(result.placements.length),sheets:Sheet[]=[];
-  for(const {band,height} of ordered){
-    if(height>length+1e-7)throw Error('Bir yerleşim bandı seçilen plaka uzunluğuna sığmıyor.');
-    let best=-1,bestRemaining=Infinity;
-    for(let i=0;i<sheets.length;i++){
-      const start=sheets[i].used+(sheets[i].used>0?gap:0);
-      const remaining=length-(start+height);
-      if(remaining>=-1e-7&&remaining<bestRemaining){best=i;bestRemaining=remaining;}
+  let sheetIndex=0,used=0;
+  sheets.push({used:0});
+  for(const band of bands){
+    const height=band.maxY-band.minY;
+    if(height>length+1e-7)throw Error('Sparrow yerleşimindeki bağlı bir parça grubu seçilen plaka uzunluğuna sığmıyor.');
+    let start=used+(used>0?gap:0);
+    if(start+height>length+1e-7){
+      sheetIndex++;
+      used=0;
+      sheets.push({used:0});
+      start=0;
     }
-    if(best<0){best=sheets.length;sheets.push({used:0});}
-    const start=sheets[best].used+(sheets[best].used>0?gap:0),offset=start-band.minY;
-    for(const item of band.items)packed[item.index]={...item.placement,sheetIndex:best,yMm:item.placement.yMm+offset};
-    sheets[best].used=start+height;
+    const offset=start-band.minY;
+    for(const item of band.items)packed[item.index]={...item.placement,sheetIndex,yMm:item.placement.yMm+offset};
+    used=start+height;
+    sheets[sheetIndex].used=used;
   }
 
   const sheetCount=Math.max(1,sheets.length);
