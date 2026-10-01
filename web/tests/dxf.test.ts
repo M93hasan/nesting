@@ -119,7 +119,7 @@ it('preserves source SPLINE manually but polygonizes checked nesting DXF output'
   expect(checked).toMatch(/\nLWPOLYLINE\n/);
 });
 
-it('exports multiple plates side by side with 50 mm gaps and plate frames',()=>{
+it('exports multiple plates side by side with 50 mm gaps and no extra plate geometry',()=>{
   const part={...newPart([[0,0],[100,0],[100,100],[0,100]],'Plate part'),quantity:2};
   const doc:Document={name:'multi-sheet',parts:[part],settings:{materialType:'sheet',materialWidthMm:1400,materialLengthMm:2000,clearanceMm:0,timeLimitSeconds:30}};
   const placements=[
@@ -132,12 +132,10 @@ it('exports multiple plates side by side with 50 mm gaps and plate frames',()=>{
   const parts=parsed.entities.filter(entity=>entity.layer==='PARTS');
   const plates=parsed.entities.filter(entity=>entity.layer==='PLATES');
   expect(parts).toHaveLength(2);
-  expect(plates).toHaveLength(2);
+  expect(plates).toHaveLength(0);
   const pitch=1400+SHEET_EXPORT_GAP_MM;
   expect(parts[0].vertices?.[0].x).toBeCloseTo(20);
   expect(parts[1].vertices?.[0].x).toBeCloseTo(20+pitch);
-  expect(plates[0].vertices?.map(v=>[v.x,v.y])).toEqual([[0,0],[1400,0],[1400,2000],[0,2000]]);
-  expect(plates[1].vertices?.map(v=>[v.x,v.y])).toEqual([[pitch,0],[pitch+1400,0],[pitch+1400,2000],[pitch,2000]]);
 });
 
 it('bounds nested INSERT expansion before allocating large arrays',()=>{
