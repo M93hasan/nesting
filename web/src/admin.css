@@ -312,3 +312,96 @@
   .admin-chat-compose{grid-template-columns:1fr}
   .admin-chat-compose button{width:100%;min-height:42px}
 }
+
+
+/* Serula v0.0.90 — admin-only presence tick and dedicated /admin2 mobile layout */
+.admin-presence-tick{
+  display:inline-grid;
+  place-items:center;
+  width:17px;
+  height:17px;
+  border-radius:50%;
+  flex:0 0 17px;
+  background:#2ebd6e;
+  color:#fff;
+  font-size:11px;
+  line-height:1;
+  font-style:normal;
+  font-weight:800;
+  box-shadow:0 0 0 3px rgba(46,189,110,.13);
+}
+.admin-mobile-page .admin-topbar{
+  height:auto;
+  min-height:60px;
+  padding:9px 12px;
+  gap:10px;
+}
+.admin-mobile-page .admin-brand{min-width:0}
+.admin-mobile-page .admin-brand div{min-width:0}
+.admin-mobile-page .admin-brand strong,.admin-mobile-page .admin-brand span{white-space:nowrap}
+.admin-mobile-page .admin-top-actions{gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.admin-mobile-page .admin-version{display:none}
+.admin-mobile-page .admin-workspace-link{font-size:11px;padding:7px 9px}
+.admin-mobile-page .admin-shell{grid-template-columns:1fr;min-height:calc(100dvh - 60px)}
+.admin-mobile-page .admin-sidebar{
+  position:static;
+  border-right:0;
+  border-bottom:1px solid var(--admin-border);
+  padding:8px;
+  overflow-x:auto;
+  overflow-y:hidden;
+  scrollbar-width:thin;
+}
+.admin-mobile-page .admin-sidebar nav{display:flex;gap:6px;min-width:max-content}
+.admin-mobile-page .admin-sidebar nav button{white-space:nowrap;min-height:38px;padding:8px 10px}
+.admin-mobile-page .admin-security-note{display:none}
+.admin-mobile-page .admin-main{padding:14px 12px 28px;max-width:680px}
+.admin-mobile-page .admin-heading{align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:14px}
+.admin-mobile-page .admin-heading h1{font-size:23px}
+.admin-mobile-page .admin-metrics,
+.admin-mobile-page .admin-grid-two,
+.admin-mobile-page .admin-settings-grid{grid-template-columns:1fr}
+.admin-mobile-page .admin-span-two{grid-column:auto}
+.admin-mobile-page .admin-card{padding:14px;border-radius:14px}
+.admin-mobile-page .admin-toolbar{grid-template-columns:1fr}
+.admin-mobile-page .admin-table{border:0;overflow:visible;background:transparent}
+.admin-mobile-page .admin-table-head{display:none}
+.admin-mobile-page .admin-user-row{
+  grid-template-columns:1fr;
+  gap:12px;
+  margin-bottom:12px;
+  padding:14px;
+  border:1px solid var(--admin-border);
+  border-radius:14px;
+  background:var(--admin-surface);
+  box-shadow:0 6px 22px #0000000b;
+}
+.admin-mobile-page .admin-user-row:last-child{border-bottom:1px solid var(--admin-border)}
+.admin-mobile-page .admin-user-row>span{padding-top:10px;border-top:1px dashed var(--admin-border)}
+.admin-mobile-page .admin-user-row>span:first-child{padding-top:0;border-top:0}
+.admin-mobile-page .admin-user-actions{padding-top:11px!important}
+.admin-mobile-page .admin-user-actions button{flex:1 1 calc(50% - 7px);min-height:42px}
+.admin-mobile-page .admin-selected-user{align-items:flex-start;flex-direction:column}
+.admin-mobile-page .admin-card-head{flex-wrap:wrap}
+.admin-mobile-page .admin-card-head>select{width:100%}
+.admin-mobile-page .admin-support-box{flex-direction:column}
+.admin-mobile-page .admin-support-box>div:last-child,
+.admin-mobile-page .admin-support-box button{width:100%}
+.admin-mobile-page .admin-screen-stage{min-height:220px}
+.admin-mobile-page .admin-screen-toolbar{flex-wrap:wrap}
+.admin-mobile-page .admin-screen-toolbar strong{width:100%}
+.admin-mobile-page .admin-chat-card{min-height:0}
+.admin-mobile-page .admin-chat-layout{grid-template-columns:1fr;min-height:0;border-radius:12px}
+.admin-mobile-page .admin-conversation-list{border-right:0;border-bottom:1px solid var(--admin-border);max-height:240px}
+.admin-mobile-page .admin-chat-messages{min-height:260px;max-height:42vh;padding:10px}
+.admin-mobile-page .admin-chat-message{max-width:90%}
+.admin-mobile-page .admin-chat-compose{grid-template-columns:1fr;padding:10px}
+.admin-mobile-page .admin-chat-compose button{width:100%;min-height:44px}
+.admin-mobile-page .admin-log-row{grid-template-columns:1fr}
+.admin-mobile-page .admin-log-row small{grid-column:auto}
+@media(max-width:420px){
+  .admin-mobile-page .admin-brand span{display:none}
+  .admin-mobile-page .admin-workspace-link{font-size:0}
+  .admin-mobile-page .admin-workspace-link::after{content:'Uygulama';font-size:11px}
+  .admin-mobile-page .admin-user-actions button{flex-basis:100%}
+}
