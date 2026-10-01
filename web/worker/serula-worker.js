@@ -1,8 +1,8 @@
 const GOOGLE_CLIENT_ID='249559754500-36grgmm2jucf2159d41efqdcqut02lj6.apps.googleusercontent.com';
 const SESSION_DAYS=30;
 const ADMIN_LOGIN_EMAIL='m93hasan@icloud.com';
-const APP_VERSION='0.0.63';
-// Build marker: 0.0.63
+const APP_VERSION='0.0.64';
+// Build marker: 0.0.64
 
 const json=(data,status=200,headers={})=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store',...headers}});
 const b64=bytes=>btoa(String.fromCharCode(...bytes));
@@ -79,6 +79,15 @@ async function ensureSchema(env){
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (session_id) REFERENCES support_sessions(id) ON DELETE CASCADE
     )`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS support_frames (
+      session_id INTEGER PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      frame_data TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (session_id) REFERENCES support_sessions(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`),
+    env.DB.prepare("DELETE FROM support_frames WHERE datetime(updated_at)<datetime('now','-5 minutes')"),
     env.DB.prepare("DELETE FROM audit_logs WHERE datetime(created_at)<datetime('now','-10 days')"),
     env.DB.prepare("UPDATE support_sessions SET status='expired',ended_at=COALESCE(ended_at,CURRENT_TIMESTAMP) WHERE status IN ('pending','approved') AND datetime(expires_at)<=datetime('now')")
   ]);
@@ -278,6 +287,7 @@ async function handleApi(request,env){
       return json({support:{id,status:'approved',mode:row.mode,expiresAt:expires}});
     }
     await env.DB.prepare("UPDATE support_sessions SET status='declined',ended_at=CURRENT_TIMESTAMP WHERE id=?").bind(id).run();
+    await env.DB.prepare('DELETE FROM support_frames WHERE session_id=?').bind(id).run();
     await audit(env,'remote_support_declined',{actorType:'user',actorUserId:user.id,targetUserId:user.id});
     return json({support:null});
   }
@@ -291,10 +301,21 @@ async function handleApi(request,env){
     await audit(env,'screen_share_offer',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:String(id)});
     return json({ok:true});
   }
+  if(path==='/api/support/frame'&&request.method==='POST'){
+    const user=await sessionUser(request,env);if(!user)return json({error:'Giriş gerekli.'},401);
+    const data=await body(request),id=Number(data.id),frame=String(data.frame||'');
+    if(!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(frame)||frame.length>450000)return json({error:'Geçersiz ekran karesi.'},400);
+    const row=await env.DB.prepare("SELECT s.id FROM support_sessions s JOIN support_signals g ON g.session_id=s.id WHERE s.id=? AND s.user_id=? AND s.status='approved' AND g.mode='screen' AND datetime(s.expires_at)>datetime('now')").bind(id,user.id).first();
+    if(!row)return json({error:'Aktif ekran desteği bulunamadı.'},404);
+    await env.DB.prepare(`INSERT INTO support_frames(session_id,user_id,frame_data,updated_at) VALUES(?,?,?,CURRENT_TIMESTAMP)
+      ON CONFLICT(session_id) DO UPDATE SET frame_data=excluded.frame_data,user_id=excluded.user_id,updated_at=CURRENT_TIMESTAMP`).bind(id,user.id,frame).run();
+    return json({ok:true});
+  }
   if(path==='/api/support/end'&&request.method==='POST'){
     const user=await sessionUser(request,env);if(!user)return json({error:'Giriş gerekli.'},401);
     const data=await body(request),id=Number(data.id);
     await env.DB.prepare("UPDATE support_sessions SET status='ended',ended_at=CURRENT_TIMESTAMP WHERE id=? AND user_id=? AND status='approved'").bind(id,user.id).run();
+    await env.DB.prepare('DELETE FROM support_frames WHERE session_id=? AND user_id=?').bind(id,user.id).run();
     await audit(env,'remote_support_ended_by_user',{actorType:'user',actorUserId:user.id,targetUserId:user.id});
     return json({ok:true});
   }
@@ -309,6 +330,7 @@ async function handleApi(request,env){
   if(adminSupportMatch&&request.method==='POST'){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
     const id=Number(adminSupportMatch[1]),data=await body(request),mode=data.mode==='screen'?'screen':'settings',target=await env.DB.prepare('SELECT id,email FROM users WHERE id=?').bind(id).first();if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
+    await env.DB.prepare("DELETE FROM support_frames WHERE user_id=?").bind(id).run();
     await env.DB.prepare("UPDATE support_sessions SET status='ended',ended_at=CURRENT_TIMESTAMP WHERE user_id=? AND status IN ('pending','approved')").bind(id).run();
     const expires=new Date(Date.now()+15*60*1000).toISOString();
     const result=await env.DB.prepare("INSERT INTO support_sessions(user_id,status,expires_at) VALUES(?,'pending',?)").bind(id,expires).run();
@@ -316,6 +338,15 @@ async function handleApi(request,env){
     await env.DB.prepare("INSERT INTO support_signals(session_id,mode) VALUES(?,?)").bind(supportId,mode).run();
     await audit(env,mode==='screen'?'screen_support_requested':'remote_support_requested',{actorType:'admin',targetUserId:id,detail:target.email});
     return json({support:{id:supportId,status:'pending',mode,expiresAt:expires}});
+  }
+  const adminSupportFrameMatch=path.match(/^\/api\/admin\/users\/(\d+)\/support\/frame$/);
+  if(adminSupportFrameMatch&&request.method==='GET'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const id=Number(adminSupportFrameMatch[1]),sessionId=Number(url.searchParams.get('id')||0);
+    const active=await env.DB.prepare("SELECT s.id FROM support_sessions s JOIN support_signals g ON g.session_id=s.id WHERE s.id=? AND s.user_id=? AND s.status='approved' AND g.mode='screen' AND datetime(s.expires_at)>datetime('now')").bind(sessionId,id).first();
+    if(!active)return json({frame:null});
+    const row=await env.DB.prepare("SELECT frame_data,updated_at FROM support_frames WHERE session_id=? AND user_id=? AND datetime(updated_at)>datetime('now','-15 seconds')").bind(sessionId,id).first();
+    return json({frame:row?.frame_data||null,updatedAt:row?.updated_at||null});
   }
   const adminSupportSignalMatch=path.match(/^\/api\/admin\/users\/(\d+)\/support\/signal$/);
   if(adminSupportSignalMatch&&request.method==='POST'){
@@ -332,6 +363,7 @@ async function handleApi(request,env){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
     const id=Number(adminSupportMatch[1]);
     await env.DB.prepare("UPDATE support_sessions SET status='ended',ended_at=CURRENT_TIMESTAMP WHERE user_id=? AND status IN ('pending','approved')").bind(id).run();
+    await env.DB.prepare('DELETE FROM support_frames WHERE user_id=?').bind(id).run();
     await audit(env,'remote_support_ended_by_admin',{actorType:'admin',targetUserId:id});
     return json({ok:true});
   }

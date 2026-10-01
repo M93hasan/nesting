@@ -67,16 +67,18 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
   const [adminBusy,setAdminBusy]=useState('');
   const [support,setSupport]=useState<SupportSession|null>(null);
   const screenVideo=useRef<HTMLVideoElement>(null);
+  const screenStage=useRef<HTMLDivElement>(null);
   const screenPeer=useRef<RTCPeerConnection|null>(null);
   const screenOfferKey=useRef('');
   const [screenStream,setScreenStream]=useState<MediaStream|null>(null);
+  const [screenFrame,setScreenFrame]=useState('');
   const [screenConnection,setScreenConnection]=useState<'idle'|'waiting'|'connecting'|'connected'|'failed'>('idle');
   const title=useMemo(()=>nav.find(item=>item.id===section)?.label??'Yönetim',[section]);
   const filteredUsers=useMemo(()=>users.filter(user=>(!query.trim()||(user.email+' '+user.name).toLowerCase().includes(query.trim().toLowerCase()))&&(role==='Tümü'||(role==='Admin'?user.role==='admin':user.role!=='admin'))),[users,query,role]);
-  const screenConnectionLabel={idle:'Hazır',waiting:'Kullanıcı onayı bekleniyor',connecting:'Bağlanıyor…',connected:'Canlı',failed:'Bağlantı kurulamadı'}[screenConnection];
+  const screenConnectionLabel=screenStream?'Canlı':screenFrame?'Canlı · yedek bağlantı':({idle:'Hazır',waiting:'Kullanıcı onayı bekleniyor',connecting:'Bağlanıyor…',connected:'Canlı',failed:'Bağlantı kurulamadı'}[screenConnection]);
   function resetScreenView(){
     screenPeer.current?.close();screenPeer.current=null;screenOfferKey.current='';
-    setScreenStream(null);setScreenConnection('idle');
+    setScreenStream(null);setScreenFrame('');setScreenConnection('idle');
     if(screenVideo.current)screenVideo.current.srcObject=null;
   }
   useEffect(()=>{
@@ -85,6 +87,23 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
     video.srcObject=screenStream;
     if(screenStream)void video.play().catch(()=>{});
   },[screenStream]);
+
+  useEffect(()=>{
+    if(!selectedUserId||support?.status!=='approved'||support.mode!=='screen'||!support.id||screenStream){if(screenStream)setScreenFrame('');return;}
+    let cancelled=false;
+    const poll=async()=>{
+      try{
+        const response=await fetch(`/api/admin/users/${selectedUserId}/support/frame?id=${support.id}`,{credentials:'same-origin',cache:'no-store'});
+        if(!response.ok)return;
+        const data=await response.json().catch(()=>({}));
+        if(!cancelled&&typeof data.frame==='string'&&data.frame.startsWith('data:image/jpeg;base64,')){
+          setScreenFrame(data.frame);
+        }
+      }catch{}
+    };
+    void poll();const timer=window.setInterval(()=>void poll(),1000);
+    return()=>{cancelled=true;clearInterval(timer)};
+  },[selectedUserId,support?.id,support?.status,support?.mode,screenStream]);
 
   useEffect(()=>{
     if(bypassAuth)return;
@@ -151,7 +170,7 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
           if(cancelled)return;
           const stream=event.streams[0]??new MediaStream();
           if(!event.streams[0])stream.addTrack(event.track);
-          setScreenStream(stream);
+          setScreenFrame('');setScreenStream(stream);
         };
         await pc.setRemoteDescription(support.offer!);
         const answer=await pc.createAnswer();await pc.setLocalDescription(answer);
@@ -322,9 +341,12 @@ export default function Admin({allowedEmail,clientId,skipAuth=false}:{allowedEma
           {usersError&&<p className="field-error" role="alert">{usersError}</p>}{userNotice&&<p className="admin-notice" role="status">{userNotice}</p>}{selectedUserId?<><div className="admin-selected-user"><strong>{users.find(u=>u.id===selectedUserId)?.name||users.find(u=>u.id===selectedUserId)?.email}</strong><span>{customSettings?'Özel varsayılanlar aktif':'Sistem varsayılanları kullanılıyor'}</span></div>
           <div className="admin-support-box"><div><strong>{support?.mode==='screen'?'Ekran bağlantısı':'Uzaktan destek'}</strong><small>{support?.mode==='screen'&&support?.status!=='ended'?screenConnectionLabel:support?.status==='approved'?'Aktif · kullanıcı onayladı':support?.status==='pending'?'Kullanıcı onayı bekleniyor':'Kapalı'}</small><p>{support?.mode==='screen'?'Kullanıcı onayladığında seçtiği ekranı canlı görebilirsiniz. Kullanıcı istediği an paylaşımı durdurabilir.':'Bu özellik yalnızca Serula içindeki ayarları canlı uygular. Kullanıcının onayı olmadan aktif olmaz.'}</p></div><div>{support?.status==='approved'||support?.status==='pending'?<button onClick={()=>void endSupport()} disabled={adminBusy==='support'}>Desteği bitir</button>:<><button onClick={()=>void requestSupport('screen')} disabled={adminBusy==='support'}>Ekrana bağlan</button><button className="primary" onClick={()=>void requestSupport('settings')} disabled={adminBusy==='support'}>{adminBusy==='support'?'Gönderiliyor…':'Ayar desteği iste'}</button></>}</div></div>
           {support?.mode==='screen'&&support.status==='approved'&&<div className={'admin-screen-view screen-'+screenConnection}>
-            <div className="admin-screen-toolbar"><strong>Canlı ekran</strong><span>{screenConnectionLabel}</span><button onClick={()=>{const video=screenVideo.current;if(video?.requestFullscreen)void video.requestFullscreen()}}>Tam ekran</button></div>
-            <div className="admin-screen-stage"><video ref={screenVideo} autoPlay playsInline muted/>{screenConnection!=='connected'&&<div className="admin-screen-overlay">{screenConnection==='failed'?'Görüntü bağlantısı kurulamadı. Desteği bitirip yeniden Ekrana bağlan seçeneğini deneyin.':'Karşı tarafın ekran görüntüsü bekleniyor…'}</div>}</div>
-            <small>Kullanıcının paylaştığı ekran · çift tıklayarak veya “Tam ekran” ile büyütebilirsiniz.</small>
+            <div className="admin-screen-toolbar"><strong>Canlı ekran</strong><span>{screenConnectionLabel}</span><button onClick={()=>{const stage=screenStage.current;if(stage?.requestFullscreen)void stage.requestFullscreen()}}>Tam ekran</button></div>
+            <div className="admin-screen-stage" ref={screenStage}>
+              {screenStream?<video ref={screenVideo} autoPlay playsInline muted/>:screenFrame?<img className="admin-screen-fallback" src={screenFrame} alt="Kullanıcının paylaştığı ekran"/>:<video ref={screenVideo} autoPlay playsInline muted/>}
+              {!screenStream&&!screenFrame&&<div className="admin-screen-overlay">{screenConnection==='failed'?'Doğrudan görüntü bağlantısı kurulamadı. Yedek görüntü aktarımı başlatılıyor…':'Karşı tarafın ekran görüntüsü bekleniyor…'}</div>}
+            </div>
+            <small>{screenFrame&&!screenStream?'Yedek bağlantı üzerinden ekran görüntüsü · yaklaşık 1–2 saniye gecikmeli':'Kullanıcının paylaştığı ekran · “Tam ekran” ile büyütebilirsiniz.'}</small>
           </div>}
           <div className="admin-settings-grid">
             <label>Malzeme genişliği (mm)<input type="number" min="1" value={userSettings.materialWidthMm} onChange={e=>setUserSettings({...userSettings,materialWidthMm:e.target.valueAsNumber})}/></label>

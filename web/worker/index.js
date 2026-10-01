@@ -1,8 +1,8 @@
 const GOOGLE_CLIENT_ID='249559754500-36grgmm2jucf2159d41efqdcqut02lj6.apps.googleusercontent.com';
 const SESSION_DAYS=30;
 const ADMIN_LOGIN_EMAIL='m93hasan@icloud.com';
-const APP_VERSION='0.0.63';
-// Build marker: 0.0.63
+const APP_VERSION='0.0.64';
+// Build marker: 0.0.64
 
 const json=(data,status=200,headers={})=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store',...headers}});
 const b64=bytes=>btoa(String.fromCharCode(...bytes));

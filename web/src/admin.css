@@ -53,3 +53,5 @@
 .admin-screen-view.screen-failed .admin-screen-toolbar span{color:#ff9d92}
 .admin-screen-view>small{color:#9aa6b2}
 @media(max-width:760px){.admin-screen-stage{min-height:260px}.admin-screen-toolbar{flex-wrap:wrap}.admin-screen-toolbar strong{width:100%}}
+
+.admin-screen-fallback{display:block;width:100%;height:100%;object-fit:contain;background:#000}
