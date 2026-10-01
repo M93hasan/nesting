@@ -43,7 +43,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const [resultMode,setResultMode]=useState<'live'|'checked'>('live');
   const [threads,setThreads]=useState(0);
   const [sizeValid,setSizeValid]=useState(true),[downloadedResult,setDownloadedResult]=useState(false);
-  const [theme,setTheme]=useState<'system'|'light'|'dark'>(()=>{try{const saved=localStorage.getItem('serula-theme');return saved==='light'||saved==='dark'||saved==='system'?saved:'system';}catch{return 'system';}});
+  const [theme,setTheme]=useState<'system'|'light'|'dark'>(()=>{try{const saved=localStorage.getItem('serula-theme');return saved==='light'||saved==='dark'||saved==='system'?saved:'light';}catch{return 'system';}});
   useEffect(()=>{document.documentElement.dataset.theme=theme;try{localStorage.setItem('serula-theme',theme);}catch{/* The theme still works when storage is unavailable. */}},[theme]);
   const [unit,setUnit]=useState<DisplayUnit>(()=>{try{return localStorage.getItem('serula-units')==='in'?'in':'mm';}catch{return 'mm';}});
   useEffect(()=>{try{localStorage.setItem('serula-units',unit);}catch{/* Görüntü birimleri work without persistence. */}},[unit]);
