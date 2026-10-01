@@ -8,7 +8,7 @@ import {loadCatalog} from './datasets';
 import { prepareIsolation } from './isolation';
 
 const ADMIN_EMAIL='m93hasan@icloud.com';
-const GOOGLE_CLIENT_ID='249559754500-c8sq1giond6vdrab261fkhl7p5f7omvc.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID='249559754500-36grgmm2jucf2159d41efqdcqut02lj6.apps.googleusercontent.com';
 
 void prepareIsolation().catch(()=>{}).then(async () => {
   if (import.meta.env.PROD && ['sparrowstudio.app', 'www.sparrowstudio.app'].includes(location.hostname)) {

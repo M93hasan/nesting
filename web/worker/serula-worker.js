@@ -1,7 +1,7 @@
 const GOOGLE_CLIENT_ID='249559754500-36grgmm2jucf2159d41efqdcqut02lj6.apps.googleusercontent.com';
 const SESSION_DAYS=30;
 const ADMIN_LOGIN_EMAIL='m93hasan@icloud.com';
-// Build marker: 0.0.54
+// Build marker: 0.0.55
 
 const json=(data,status=200,headers={})=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store',...headers}});
 const b64=bytes=>btoa(String.fromCharCode(...bytes));
@@ -98,7 +98,38 @@ function sameOrigin(request){const origin=request.headers.get('origin');return !
 async function body(request){try{return await request.json()}catch{return {}}}
 const validEmail=e=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 const passwordOk=p=>typeof p==='string'&&p.length>=8&&p.length<=200;
-function googleLoginPage(){return `<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Serula - Google ile giriş</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#f5f6f8;color:#1f2937}.card{width:min(92vw,380px);background:#fff;border:1px solid #e5e7eb;border-radius:20px;padding:28px;box-shadow:0 18px 50px rgba(0,0,0,.08);text-align:center}.logo{width:72px;height:72px;margin-bottom:12px}.google{display:flex;justify-content:center;margin:22px 0}.back{display:inline-block;margin-top:8px;color:#374151;text-decoration:none}</style><script src="https://accounts.google.com/gsi/client" async defer></script></head><body><main class="card"><img class="logo" src="/serula-logo.svg" alt=""><h1>Serula Nesting</h1><p>Google hesabınızla güvenli şekilde giriş yapın.</p><div id="g_id_onload" data-client_id="${GOOGLE_CLIENT_ID}" data-ux_mode="redirect" data-login_uri="https://serula.site/api/auth/google-redirect" data-auto_prompt="false" data-itp_support="true"></div><div class="g_id_signin google" data-type="standard" data-size="large" data-theme="outline" data-text="continue_with" data-shape="pill" data-width="300"></div><a class="back" href="/">Geri dön</a></main></body></html>`;}
+function googleLoginPage(){return `<!doctype html>
+<html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Serula - Google ile giriş</title>
+<style>body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#f5f6f8;color:#1f2937}.card{width:min(92vw,380px);background:#fff;border:1px solid #e5e7eb;border-radius:20px;padding:28px;box-shadow:0 18px 50px rgba(0,0,0,.08);text-align:center}.logo{width:72px;height:72px;margin-bottom:12px}.google{display:flex;justify-content:center;margin:22px 0}.status{min-height:22px;color:#6b7280}.error{color:#b91c1c}.back{display:inline-block;margin-top:8px;color:#374151;text-decoration:none}</style>
+<script src="https://accounts.google.com/gsi/client" async defer></script></head>
+<body><main class="card"><img class="logo" src="/serula-logo.svg" alt=""><h1>Serula Nesting</h1><p>Google hesabınızla giriş yapın.</p><div id="google" class="google"></div><p id="status" class="status">Google hazırlanıyor…</p><a class="back" href="/">Geri dön</a></main>
+<script>
+const CLIENT_ID='${GOOGLE_CLIENT_ID}';
+const statusEl=document.getElementById('status');
+let initialized=false;
+async function handleGoogle(response){
+  try{
+    statusEl.className='status';statusEl.textContent='Giriş yapılıyor…';
+    if(!response?.credential)throw new Error('Google kimlik bilgisi alınamadı.');
+    const r=await fetch('/api/auth/google',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({credential:response.credential})});
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(data.error||'Google girişi başarısız.');
+    location.replace('/?google=ok');
+  }catch(e){statusEl.className='status error';statusEl.textContent=e instanceof Error?e.message:String(e);}
+}
+function initGoogle(){
+  if(initialized)return;
+  if(!window.google?.accounts?.id){statusEl.className='status error';statusEl.textContent='Google giriş servisi yüklenemedi. Sayfayı yenileyin.';return;}
+  initialized=true;
+  google.accounts.id.initialize({client_id:CLIENT_ID,callback:handleGoogle,auto_select:false,use_fedcm_for_button:false,itp_support:true,ux_mode:'popup'});
+  google.accounts.id.renderButton(document.getElementById('google'),{theme:'outline',size:'large',text:'continue_with',shape:'pill',width:300});
+  statusEl.textContent='';
+}
+window.onGoogleLibraryLoad=initGoogle;
+window.addEventListener('load',()=>{if(window.google?.accounts?.id)initGoogle();else setTimeout(initGoogle,1500);});
+</script></body></html>`;}
+
 const DEFAULT_ADMIN_SETTINGS={materialWidthMm:1000,clearanceMm:0.3,marginMm:5,rotation:'half',materialType:'roll',solverPreset:'standard'};
 function cleanSettings(value){
   const input=value&&typeof value==='object'?value:{};
@@ -144,17 +175,7 @@ async function handleApi(request,env){
   if(path==='/api/auth/google-start'&&request.method==='GET'){
     return new Response(googleLoginPage(),{status:200,headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','x-content-type-options':'nosniff','referrer-policy':'no-referrer'}});
   }
-  if(path==='/api/auth/google-redirect'&&request.method==='POST'){
-    const contentType=request.headers.get('content-type')||'';
-    if(!contentType.includes('application/x-www-form-urlencoded'))return new Response('Geçersiz Google yanıtı.',{status:400});
-    const form=await request.formData(),credential=String(form.get('credential')||''),formCsrf=String(form.get('g_csrf_token')||'');
-    const cookieCsrf=request.headers.get('cookie')?.match(/(?:^|;\s*)g_csrf_token=([^;]+)/)?.[1]||'';
-    if(!credential||!formCsrf||!cookieCsrf||decodeURIComponent(cookieCsrf)!==formCsrf)return new Response('Google oturum doğrulaması başarısız.',{status:400});
-    const result=await googleUserFromCredential(credential,env);
-    if(result.error)return new Response(result.error,{status:result.status});
-    const html='<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="0;url=/?google=ok"></head><body><script>location.replace("/?google=ok")</script></body></html>';
-    return new Response(html,{status:200,headers:{'content-type':'text/html; charset=utf-8','set-cookie':cookie(await makeSession(result.user.id,env)),'cache-control':'no-store, no-cache, must-revalidate'}});
-  }
+
   if(request.method!=='GET'&&!sameOrigin(request))return json({error:'Geçersiz istek.'},403);
 
   if(path==='/api/auth/me'&&request.method==='GET'){
