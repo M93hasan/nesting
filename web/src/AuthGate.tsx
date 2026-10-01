@@ -3,12 +3,6 @@ import packageInfo from '../package.json';
 
 export type SessionUser={id:number;email:string;name:string;role:string;credits:number;unlimited:boolean};
 type SupportSession={id:number;status:'pending'|'approved';mode?:'settings'|'screen';expiresAt?:string;offer?:RTCSessionDescriptionInit|null;answer?:RTCSessionDescriptionInit|null};
-const GOOGLE_CLIENT_ID='249559754500-36grgmm2jucf2159d41efqdcqut02lj6.apps.googleusercontent.com';
-type GoogleCredentialResponse={credential?:string};
-type GoogleInitOptions={client_id:string;callback?:(response:GoogleCredentialResponse)=>void;auto_select?:boolean;use_fedcm_for_button?:boolean;itp_support?:boolean;ux_mode?:'popup'|'redirect';login_uri?:string};
-type GoogleAccounts={id:{initialize:(options:GoogleInitOptions)=>void;renderButton:(parent:HTMLElement,options:Record<string,unknown>)=>void}};
-const google=()=> (window as Window & {google?:{accounts:GoogleAccounts}}).google;
-
 async function request(path:string,options?:RequestInit){
   const response=await fetch(path,{credentials:'same-origin',...options,headers:{'content-type':'application/json',...(options?.headers||{})}});
   const data=await response.json().catch(()=>({}));
@@ -35,7 +29,6 @@ export function UserGate({children}:{children:ReactNode}){
   const supportPeer=useRef<RTCPeerConnection|null>(null);
   const supportStream=useRef<MediaStream|null>(null);
   const supportAnswer=useRef('');
-  const googleButton=useRef<HTMLDivElement>(null);
 
   const refresh=()=>fetch('/api/auth/me',{credentials:'same-origin'}).then(r=>r.ok?r.json():{user:null}).then(d=>setUser(d.user??null)).catch(()=>setUser(null));
   const stopScreenSupport=()=>{
@@ -94,51 +87,6 @@ export function UserGate({children}:{children:ReactNode}){
     void loadInitialSettings();void poll();const timer=setInterval(()=>void poll(),4000);
     return()=>{cancelled=true;clearInterval(timer)};
   },[user]);
-  useEffect(()=>{
-    if(!open||user)return;
-    let cancelled=false;
-    const ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
-    if(ios){
-      const host=googleButton.current;if(!host)return;
-      host.replaceChildren();
-      const onload=document.createElement('div');
-      onload.id='g_id_onload';
-      onload.dataset.client_id=GOOGLE_CLIENT_ID;
-      onload.dataset.ux_mode='redirect';
-      onload.dataset.login_uri=location.origin+'/api/auth/google-redirect';
-      onload.dataset.auto_prompt='false';
-      onload.dataset.itp_support='true';
-      const button=document.createElement('div');
-      button.className='g_id_signin';
-      button.dataset.type='standard';
-      button.dataset.size='large';
-      button.dataset.theme='outline';
-      button.dataset.text='continue_with';
-      button.dataset.shape='pill';
-      button.dataset.width='300';
-      host.append(onload,button);
-      document.querySelectorAll('script[data-serula-google-ios]').forEach(node=>node.remove());
-      const script=document.createElement('script');
-      script.src='https://accounts.google.com/gsi/client';
-      script.async=true;script.defer=true;script.dataset.serulaGoogleIos='1';
-      script.onerror=()=>!cancelled&&setError('Google giriş servisi yüklenemedi.');
-      document.head.appendChild(script);
-      return()=>{cancelled=true};
-    }
-    const setup=()=>{
-      if(!google()?.accounts.id||!googleButton.current)return;
-      const accounts=google()?.accounts.id;if(!accounts)return;
-      accounts.initialize({client_id:GOOGLE_CLIENT_ID,auto_select:false,use_fedcm_for_button:false,itp_support:true,ux_mode:'popup',callback:async response=>{
-        try{setBusy(true);setError('');const data=await request('/api/auth/google',{method:'POST',body:JSON.stringify({credential:response.credential})});if(!cancelled){setUser(data.user);setOpen(false)}}
-        catch(e){if(!cancelled)setError(e instanceof Error?e.message:String(e))}finally{if(!cancelled)setBusy(false)}
-      }});
-      googleButton.current.replaceChildren();
-      accounts.renderButton(googleButton.current,{theme:'outline',size:'large',text:'continue_with',shape:'pill',width:300});
-    };
-    if(google()?.accounts.id){setup();return()=>{cancelled=true}};
-    const script=document.createElement('script');script.src='https://accounts.google.com/gsi/client';script.async=true;script.defer=true;script.onload=setup;document.head.appendChild(script);
-    return()=>{cancelled=true};
-  },[open,user]);
 
   async function approveSupport(){
     if(!support)return;
@@ -187,7 +135,7 @@ export function UserGate({children}:{children:ReactNode}){
       <img src="/serula-logo.svg" alt=""/><h1>Serula Nesting</h1><p>DXF indirmek için giriş yapın. Dosya içe aktarma ve yerleştirme giriş yapmadan kullanılabilir.</p>
       {mode!=='reset'&&<div className="auth-tabs"><button className={mode==='login'?'active':''} onClick={()=>setMode('login')}>Giriş yap</button><button className={mode==='register'?'active':''} onClick={()=>setMode('register')}>Kayıt ol</button></div>}{mode==='reset'&&<h2>Yeni parola belirle</h2>}
       <form onSubmit={submit}>{mode==='register'&&<label>Adınız<input required value={name} onChange={e=>setName(e.target.value)}/></label>}{mode!=='reset'&&<label>E-posta<input type="email" required value={email} onChange={e=>setEmail(e.target.value)}/></label>}<label>{mode==='reset'?'Yeni parola':'Parola'}<input type="password" minLength={8} required value={password} onChange={e=>setPassword(e.target.value)}/></label><button disabled={busy}>{busy?'Bekleyin…':mode==='reset'?'Parolayı değiştir':mode==='register'?'Hesap oluştur':'Giriş yap'}</button></form>
-      {error&&<p className="auth-error">{error}</p>}<div className="auth-or"><span/>veya<span/></div><div ref={googleButton} className="auth-google"/><small>Yeni normal kullanıcılar 5 indirme/nesting hakkıyla başlar.</small>
+      {error&&<p className="auth-error">{error}</p>}<div className="auth-or"><span/>veya<span/></div><div className="auth-google"><button type="button" onClick={()=>{location.href="/api/auth/google-start"}}>Google ile devam et</button></div><small>Yeni normal kullanıcılar 5 indirme/nesting hakkıyla başlar.</small>
       <button onClick={()=>setOpen(false)}>Şimdilik kapat</button>
     </div></div>}
   </>;
