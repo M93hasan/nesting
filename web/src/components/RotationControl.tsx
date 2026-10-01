@@ -14,6 +14,7 @@ export default function RotationControl({rule,mixed,disabled,required=false,onCh
     <div className="row-actions">
       <button type="button" aria-pressed={!mixed&&same(rule,[0])} disabled={disabled} onClick={()=>onChange({kind:'discrete',degrees:[0]})}>0°</button>
       <button type="button" aria-pressed={!mixed&&same(rule,[0,180])} disabled={disabled} onClick={()=>onChange({kind:'discrete',degrees:[0,180]})}>0° / 180°</button>
+      <button type="button" aria-pressed={!mixed&&same(rule,[0,90,180,270])} disabled={disabled} onClick={()=>onChange({kind:'discrete',degrees:[0,90,180,270]})}>0° / 90° / 180° / 270°</button>
       <button type="button" aria-pressed={!mixed&&same(rule,'free')} disabled={disabled} onClick={()=>onChange({kind:'continuous'})}>Her yöne</button>
     </div>
   </div>;
