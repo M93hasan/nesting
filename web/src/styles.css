@@ -208,3 +208,109 @@ button:not(.part-select):not(.text-button):not(.download-button):hover:enabled{b
 .download-button__icon{width:1.5em;height:1.5em;flex:0 0 auto}.download-button:hover:enabled{border-color:#f4f5f2}.download-button:active:enabled{transform:scale(.98);box-shadow:0 .5em 1.5em -.5em hsla(249,62%,51%,.745)}.download-button:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
 input:not([type=checkbox]):not([type=radio]):not([type=file]){background:var(--ui-input);border:none;padding:.78rem .9rem;border-radius:1rem;color:light-dark(#5a4be7,#c7c0ff);box-shadow:0 .3rem var(--ui-input-shadow);cursor:text;transition:box-shadow .18s ease,transform .18s ease}
 input:not([type=checkbox]):not([type=radio]):not([type=file]):focus{outline:2px solid color-mix(in srgb,var(--ui-violet) 70%,white);outline-offset:2px;box-shadow:0 .3rem var(--ui-input-shadow),0 0 0 3px rgba(109,93,252,.10)}
+
+
+/* Serula v0.0.78 — kirli beyaz / grafit / buz mavisi */
+:root{
+  --page:light-dark(#f4f1eb,#171a1f);
+  --panel:light-dark(#fbf9f4,#20242b);
+  --ink:light-dark(#1f2b3a,#edf4fb);
+  --muted:light-dark(#66717f,#a7b4c2);
+  --border:light-dark(#ddd8cf,#353d47);
+  --accent:light-dark(#2ea8f2,#55bdf8);
+  --accent-hover:light-dark(#178fd8,#79cbfb);
+  --hover:light-dark(#eef5fa,#29323b);
+  --hover-border:light-dark(#b9dff3,#4b6272);
+  --selected:light-dark(#e7f4fc,#203746);
+  --secondary:light-dark(#607487,#9db1c2);
+  --material-fill:light-dark(#f8f5ef,#161b20);
+  --ui-violet:#2ea8f2;
+  --ui-violet-2:#58bdf7;
+  --ui-violet-dark:#208fd6;
+  --ui-lavender:light-dark(#edf7fd,#24333f);
+  --ui-lavender-2:light-dark(#dff1fb,#2b4150);
+  --ui-input:light-dark(#fffdfa,#222b33);
+  --ui-input-shadow:light-dark(#d9d4cb,#151a20);
+}
+body{
+  background:
+    radial-gradient(circle at 12% -10%,light-dark(rgba(255,255,255,.95),rgba(46,168,242,.08)),transparent 32%),
+    radial-gradient(circle at 92% 0%,light-dark(rgba(188,224,244,.28),rgba(46,168,242,.06)),transparent 28%),
+    var(--page);
+}
+.header,.sidebar,.selection-panel,.statusbar,.result-details,.modal,.empty-project,.project-menu>div,.cad-snapping,.cad-snapping>div,.compression-tooltip{
+  background:light-dark(rgba(251,249,244,.94),rgba(32,36,43,.92));
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none;
+  border-color:var(--border);
+  box-shadow:0 6px 22px light-dark(rgba(44,55,68,.06),rgba(0,0,0,.18));
+}
+.header{background:light-dark(#f8f5ef,#1d2228)}
+.sidebar{background:light-dark(#f7f4ee,#1c2127)}
+.workspace-svg{background:light-dark(#f7f5f0,#161b20)}
+.coordinate-rulers rect{fill:light-dark(#f0ede7,#20262d)}
+button:not(.part-select):not(.text-button):not(.download-button){
+  border:1px solid var(--border);
+  border-radius:10px;
+  background:light-dark(#f5f8fa,#252c34);
+  color:var(--ink);
+  box-shadow:none;
+  transition:background .16s ease,border-color .16s ease,transform .16s ease;
+}
+button:not(.part-select):not(.text-button):not(.download-button):hover:enabled{
+  background:var(--hover);
+  border-color:var(--hover-border);
+  transform:translateY(-1px);
+  box-shadow:0 4px 12px rgba(31,43,58,.08);
+}
+.primary,.run-controls .run-button{
+  background:linear-gradient(180deg,#39b4fb,#2399df)!important;
+  color:#fff!important;
+  border-color:#2094d8!important;
+  box-shadow:0 6px 16px rgba(46,168,242,.22)!important;
+}
+.primary:hover:enabled,.run-controls .run-button:hover:enabled{
+  background:linear-gradient(180deg,#53c1fb,#168bd0)!important;
+  border-color:#168bd0!important;
+}
+.download-button{
+  background:linear-gradient(180deg,#39b4fb,#2399df)!important;
+  border-color:#2094d8!important;
+  box-shadow:0 6px 16px rgba(46,168,242,.22)!important;
+  border-radius:10px;
+}
+.download-button:hover:enabled{border-color:#168bd0}
+input:not([type=checkbox]):not([type=radio]):not([type=file]),select,.project-menu>summary{
+  background:light-dark(#fffdfa,#222b33);
+  color:var(--ink);
+  border:1px solid var(--border);
+  border-radius:9px;
+  box-shadow:none;
+}
+input:not([type=checkbox]):not([type=radio]):not([type=file]):focus,select:focus{
+  outline:2px solid color-mix(in srgb,var(--accent) 55%,white);
+  outline-offset:1px;
+  box-shadow:0 0 0 3px rgba(46,168,242,.10);
+}
+.header nav .hello-button{
+  background:light-dark(#e8f5fc,#243744);
+  border-color:light-dark(#c8e7f7,#35566b);
+}
+.result-mode button[aria-pressed=true],.canvas-tools button[aria-pressed=true]{
+  background:var(--accent)!important;
+  color:#fff!important;
+  border-color:var(--accent)!important;
+}
+.part-row.selected{background:var(--selected);border-left-color:var(--accent)}
+.checked,.live-label,.project-status[data-save-state=saved],a,.text-button{color:var(--accent)}
+.run-controls .skip-compression{
+  background:light-dark(#e6f4fc,#253743)!important;
+  color:var(--ink)!important;
+  border-color:var(--border)!important;
+  box-shadow:none!important;
+}
+.run-controls .skip-compression:hover:enabled{background:light-dark(#d8eefb,#2b4352)!important}
+.modal{border-radius:14px}
+.selection-panel,.empty-project{border-radius:14px}
+.project-menu>div{border-radius:12px}
+.serula-brand img{box-shadow:0 0 0 3px light-dark(rgba(46,168,242,.08),rgba(85,189,248,.09))}
