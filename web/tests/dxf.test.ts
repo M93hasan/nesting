@@ -1,8 +1,10 @@
 import {it,expect} from 'vitest';
 import {importDXF} from '../src/import/dxf';
 import {area,bounds} from '../src/geometry/normalize';
-import {worldParts} from '../src/geometry/validate';
+import {validate,worldParts} from '../src/geometry/validate';
 import {exportDXF} from '../src/export/dxf';
+import {exportSVG} from '../src/export/svg';
+import type {Result} from '../src/model';
 
 const options={scale:1,tolerance:.01,enclosed:'holes' as const};
 export const dxf=(entities:string,units=4)=>`0\nSECTION\n2\nHEADER\n9\n$INSUNITS\n70\n${units}\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n${entities}0\nENDSEC\n0\nEOF\n`;
@@ -88,7 +90,7 @@ it('imports complete ellipses and closed rational quadratic splines',()=>{
   for(const [x,y] of curve.document.parts[0].outer)if(x>0&&y>0)expect(Math.hypot(x,y)).toBeCloseTo(10,6);
 });
 
-it('preserves a compact closed source SPLINE through nested DXF export',()=>{
+it('preserves source SPLINE manually but polygonizes checked nesting DXF output',()=>{
   const points=[[0,0],[0,10],[20,10],[20,0],[20,-10],[0,-10],[0,0]];
   const knots=[0,0,0,0,.5,.5,.5,1,1,1,1];
   const spline='0\nSPLINE\n70\n1\n71\n3\n72\n11\n73\n7\n74\n0\n'+knots.map(k=>`40\n${k}\n`).join('')+
@@ -106,6 +108,14 @@ it('preserves a compact closed source SPLINE through nested DXF export',()=>{
   const roundTrip=importDXF(exported,'compact-serula.dxf',options);
   expect(roundTrip.issues).toEqual([]);
   expect(roundTrip.document.parts[0].source.dxfSpline?.controlPoints).toHaveLength(7);
+
+  const result:Result={documentRevision:1,solverRevision:'test',seed:'1',elapsedSeconds:0,usedLengthMm:100,
+    placements:[placement],validation:{status:'pending',overlapAreaMm2:0,maxBoundaryViolationMm:0,minClearanceMm:null,errors:[]}};
+  result.validation=validate(imported.document,result);
+  expect(result.validation.status).toBe('passed');
+  const checked=exportSVG(imported.document,result).dxf;
+  expect(checked).not.toMatch(/\nSPLINE\n/);
+  expect(checked).toMatch(/\nLWPOLYLINE\n/);
 });
 
 it('bounds nested INSERT expansion before allocating large arrays',()=>{
