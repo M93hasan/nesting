@@ -1,7 +1,8 @@
 const GOOGLE_CLIENT_ID='249559754500-36grgmm2jucf2159d41efqdcqut02lj6.apps.googleusercontent.com';
 const SESSION_DAYS=30;
 const ADMIN_LOGIN_EMAIL='m93hasan@icloud.com';
-// Build marker: 0.0.57
+const APP_VERSION='0.0.58';
+// Build marker: 0.0.58
 
 const json=(data,status=200,headers={})=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store',...headers}});
 const b64=bytes=>btoa(String.fromCharCode(...bytes));
@@ -146,6 +147,7 @@ async function handleApi(request,env){
   if(path==='/api/auth/google-config'&&request.method==='GET')return json({clientId:GOOGLE_CLIENT_ID});
   if(request.method!=='GET'&&!sameOrigin(request))return json({error:'Geçersiz istek.'},403);
 
+  if(path==='/api/version'&&request.method==='GET')return json({version:APP_VERSION});
   if(path==='/api/auth/me'&&request.method==='GET'){
     const user=await sessionUser(request,env);return user?json({user:publicUser(user)}):json({user:null},401);
   }
@@ -163,13 +165,13 @@ async function handleApi(request,env){
   }
   if(path==='/api/auth/admin-login'&&request.method==='POST'){
     const data=await body(request),email=String(data.email||'').trim().toLowerCase(),password=String(data.password||'');
-    if(email!==ADMIN_LOGIN_EMAIL||!password)return json({error:'E-posta veya parola hatalı.'},401);
+    if(!validEmail(email)||!password)return json({error:'E-posta veya parola hatalı.'},401);
     let valid=false;
-    const admin=await env.DB.prepare("SELECT password_hash FROM users WHERE lower(email)=? AND role='admin' LIMIT 1").bind(email).first();
+    const admin=await env.DB.prepare("SELECT id,email,name,password_hash FROM users WHERE lower(email)=? AND role='admin' LIMIT 1").bind(email).first();
     if(admin?.password_hash)valid=await verifyPassword(password,admin.password_hash);
-    if(!valid&&env.ADMIN_PASSWORD)valid=await secureEqual(password,env.ADMIN_PASSWORD);
-    if(!valid)return json({error:'E-posta veya parola hatalı.'},401);
-    return json({user:{id:0,email:ADMIN_LOGIN_EMAIL,name:'Admin',role:'admin',credits:0,unlimited:true}},200,{'set-cookie':adminCookie(await makeAdminSession(env))});
+    if(!valid&&email===ADMIN_LOGIN_EMAIL&&env.ADMIN_PASSWORD)valid=await secureEqual(password,env.ADMIN_PASSWORD);
+    if(!valid)return json({error:'E-posta veya parola hatalı. Admin hesabının role=admin olduğundan ve parolasının tanımlı olduğundan emin olun.'},401);
+    return json({user:{id:Number(admin?.id||0),email:admin?.email||ADMIN_LOGIN_EMAIL,name:admin?.name||'Admin',role:'admin',credits:0,unlimited:true}},200,{'set-cookie':adminCookie(await makeAdminSession(env))});
   }
     if(path==='/api/auth/login'&&request.method==='POST'){
     const data=await body(request),email=String(data.email||'').trim().toLowerCase(),password=String(data.password||'');
