@@ -1,4 +1,5 @@
 import {useEffect,useRef,useState,type ReactNode} from 'react';
+import {createPortal} from 'react-dom';
 import packageInfo from '../package.json';
 
 export type SessionUser={id:number;email:string;name:string;role:string;credits:number;unlimited:boolean};
@@ -30,6 +31,7 @@ export function UserGate({children}:{children:ReactNode}){
   const supportStream=useRef<MediaStream|null>(null);
   const supportAnswer=useRef('');
   const [screenConnection,setScreenConnection]=useState<'idle'|'connecting'|'connected'|'failed'>('idle');
+  const [accountHost,setAccountHost]=useState<HTMLElement|null>(null);
 
   const refresh=()=>fetch('/api/auth/me',{credentials:'same-origin'}).then(r=>r.ok?r.json():{user:null}).then(d=>setUser(d.user??null)).catch(()=>setUser(null));
   const stopScreenSupport=()=>{
@@ -45,7 +47,7 @@ export function UserGate({children}:{children:ReactNode}){
       setTimeout(()=>{pc.removeEventListener('icegatheringstatechange',done);resolve()},5000);
     });
   };
-  useEffect(()=>{void refresh();const listener=()=>void refresh();const need=()=>setOpen(true);window.addEventListener('serula-auth-updated',listener);window.addEventListener('serula-login-required',need);return()=>{window.removeEventListener('serula-auth-updated',listener);window.removeEventListener('serula-login-required',need)}},[]);
+  useEffect(()=>{setAccountHost(document.getElementById('serula-account-slot'));void refresh();const listener=()=>void refresh();const need=()=>setOpen(true);window.addEventListener('serula-auth-updated',listener);window.addEventListener('serula-login-required',need);return()=>{window.removeEventListener('serula-auth-updated',listener);window.removeEventListener('serula-login-required',need)}},[]);
   useEffect(()=>{
     if(!user){setSupport(null);lastRemoteSettings.current='';return;}
     let cancelled=false;
@@ -134,8 +136,12 @@ export function UserGate({children}:{children:ReactNode}){
     catch(e){setError(e instanceof Error?e.message:String(e))}finally{setBusy(false)}
   }
   return <>{children}
-    {user?<div className="auth-account"><span>{user.name||user.email}</span><strong>{user.unlimited?'Sınırsız':user.credits+' hak'}</strong><button onClick={async()=>{await request('/api/auth/logout',{method:'POST',body:'{}'});setUser(null);window.dispatchEvent(new Event('serula-auth-updated'))}}>Çıkış</button></div>
-    :<div className="auth-account"><span>Misafir</span><button onClick={()=>setOpen(true)}>Giriş yap</button></div>}
+    {accountHost&&createPortal(user?
+      <details className="auth-account-menu">
+        <summary aria-label="Hesap menüsü"><span className="auth-avatar">{(user.name||user.email).trim().charAt(0).toUpperCase()}</span><span className="auth-account-name">{user.name||user.email}</span><span className="auth-chevron" aria-hidden="true">▾</span></summary>
+        <div className="auth-account-dropdown"><strong>{user.name||'Kullanıcı'}</strong><small>{user.email}</small><div className="auth-account-meta"><span>{user.unlimited?'Sınırsız kullanım':user.credits+' hak kaldı'}</span></div><button onClick={async()=>{await request('/api/auth/logout',{method:'POST',body:'{}'});setUser(null);window.dispatchEvent(new Event('serula-auth-updated'))}}>Çıkış yap</button></div>
+      </details>
+      :<button className="auth-login-header" onClick={()=>setOpen(true)}><span className="auth-avatar" aria-hidden="true">↪</span>Giriş yap</button>,accountHost)}
     {support?.status==='approved'&&<div className={'auth-support-active '+(support.mode==='screen'?'screen-'+screenConnection:'')}><span>{support.mode==='screen'?(screenConnection==='connected'?'Ekran paylaşımı canlı':screenConnection==='failed'?'Ekran bağlantısı kurulamadı':'Ekran bağlantısı kuruluyor…'):'Uzaktan destek aktif'}</span><button onClick={()=>void endSupportFromUser()}>Bitir</button></div>}
     {support?.status==='pending'&&<div className="auth-screen auth-overlay"><div className="auth-card auth-support-card"><img src="/serula-logo.svg" alt=""/><h2>{support.mode==='screen'?'Ekran paylaşımı isteği':'Uzaktan destek isteği'}</h2><p>{support.mode==='screen'?'Serula yöneticisi ekranınızı canlı görmek istiyor. Paylaşılacak ekranı siz seçersiniz; izin vermeden görüntü aktarılmaz ve istediğiniz an durdurabilirsiniz.':'Serula yöneticisi yalnızca bu uygulamanın ayarlarını uzaktan düzenlemek istiyor. Tarayıcınızın diğer sekmelerine, dosyalarınıza veya cihazınıza erişim verilmez.'}</p>{error&&<p className="auth-error">{error}</p>}<div className="auth-support-actions"><button disabled={busy} onClick={()=>void declineSupport()}>Reddet</button><button disabled={busy} className="primary" onClick={()=>void approveSupport()}>{busy?'Bağlanıyor…':support.mode==='screen'?'Onayla ve ekranı paylaş':'Onayla'}</button></div></div></div>}
     {open&&!user&&<div className="auth-screen auth-overlay" onMouseDown={e=>{if(e.currentTarget===e.target)setOpen(false)}}><div className="auth-card">
