@@ -24,6 +24,7 @@ type ProjectSwitch={document:Document;result?:Result;warnings?:string[];saved?:b
 const rotationValue=(rule:RotationRule)=>rule.kind==='continuous'?'free':JSON.stringify([...new Set(rule.degrees.map(d=>((d%360)+360)%360))].sort((a,b)=>a-b));
 const validQuantity=(n:number)=>Number.isInteger(n)&&n>=0&&n<=500;
 const displayedPieceCount=(parts:Part[])=>parts.reduce((total,part)=>total+part.quantity*(part.source.dxfSourceEntityCount??1),0);
+const TEST_DXF_FILES=['1003.dxf','1239.dxf','test.dxf'] as const;
 type RemoteAdminSettings={materialWidthMm?:number;clearanceMm?:number;rotation?:'fixed'|'half'|'free';materialType?:'roll'|'sheet';solverPreset?:'standard'|'fast'};
 function download(name:string,text:BlobPart,type='application/json') {
   const url=URL.createObjectURL(new Blob([text],{type})),link=document.createElement('a');
@@ -46,6 +47,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const factor=unitScale(unit),length=(mm:number)=>(mm/factor).toLocaleString(undefined,{maximumFractionDigits:unit==='mm'?2:4});
   const inputLength=(mm:number)=>Number.isFinite(mm)?displayLength(mm,unit):'';
   const [panel,setPanel]=useState(true),[info,setInfo]=useState<'admin'|'about'|'contact'|'help'>();
+  const [testDxfOpen,setTestDxfOpen]=useState(false),[testDxfBusy,setTestDxfBusy]=useState('');
   const [files,setFiles]=useState<{name:string;text:string}[]>(),[scale,setScale]=useState(1),[review,setReview]=useState<ImportReview>();
   const [tolerance,setTolerance]=useState(.01),[enclosed,setEnclosed]=useState<'holes'|'parts'>('holes');
   const [layers,setLayers]=useState<string[]>(),[availableLayers,setAvailableLayers]=useState<string[]>([]),[excludeIssues,setExcludeIssues]=useState(false);
@@ -312,6 +314,18 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     }
     catch(e){setError(`DXF içe aktarılamadı: ${e instanceof Error?e.message:String(e)}`);}finally{setBusy(false);}
   }
+  async function openTestDxf(name:string){
+    if(locked)return;
+    setTestDxfBusy(name);setError('');
+    try{
+      const response=await fetch('/examples/test%20klasoru%20dxf/'+encodeURIComponent(name),{cache:'no-store'});
+      if(!response.ok)throw Error('Test DXF dosyası alınamadı.');
+      const text=await response.text();
+      await openFiles([new File([text],name,{type:'application/dxf'})],'shapes');
+      setTestDxfOpen(false);
+    }catch(e){setError(e instanceof Error?e.message:String(e))}
+    finally{setTestDxfBusy('')}
+  }
   async function preview() {
     if(!files) return;setBusy(true);setError('');setExcludeIssues(false);
     try {const reply=await geometryTask({type:'import',runId:++operation.current,documentRevision:revision,files,scale,tolerance,enclosed,layers});if(reply.type==='import-review'){setReview(reply.review);setPreviewStale(false);setAvailableLayers(reply.review.layers??[]);}}
@@ -416,7 +430,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         
         <button disabled={locked} onClick={()=>{projectMenu.current!.open=false;setProjectAd(doc.name);setNameDialog('rename');}}>Projeyi yeniden adlandır</button>
       </div></details><small className="project-status" data-save-state={browserSaveState} aria-live="polite" title={recoveryError||(invalidSettings?'Fix invalid values to save changes.':polygon?.length?'Finish or cancel the polygon to save changes.':'Bu tarayıcıda bu cihaza otomatik kaydedilir.')}><span aria-hidden="true">{browserSaveState==='saved'?'✓':browserSaveState==='error'||browserSaveState==='unsaved'?'!':'◷'}</span>{browserSaveLabel}</small></div>
-      <nav><button className="mobile-settings" aria-expanded={panel} aria-controls="parts-settings" onClick={()=>setPanel(!panel)}>Parçalar &amp; ayarlar</button><button className="theme-toggle" title="Toggle light/dark mode" aria-label="Toggle light/dark mode" onClick={()=>setTheme(theme==='dark'||theme==='system'&&matchMedia('(prefers-color-scheme: dark)').matches?'light':'dark')}><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16Z" fill="currentColor" stroke="none"/></svg></button><button aria-label="Serula Nesting Hakkında" onClick={()=>setInfo('about')}><span aria-hidden="true">ⓘ</span>Hakkında</button><button className="hello-button" aria-label="İletişim" onClick={()=>setInfo('contact')}><span className={downloadedResult?'hello-wave':undefined} aria-hidden="true">☎</span>İletişim</button></nav>
+      <nav><button className="test-dxf-tab" disabled={locked} onClick={()=>setTestDxfOpen(true)}>Test DXF</button><button className="mobile-settings" aria-expanded={panel} aria-controls="parts-settings" onClick={()=>setPanel(!panel)}>Parçalar &amp; ayarlar</button><button className="theme-toggle" title="Toggle light/dark mode" aria-label="Toggle light/dark mode" onClick={()=>setTheme(theme==='dark'||theme==='system'&&matchMedia('(prefers-color-scheme: dark)').matches?'light':'dark')}><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16Z" fill="currentColor" stroke="none"/></svg></button><button aria-label="Serula Nesting Hakkında" onClick={()=>setInfo('about')}><span aria-hidden="true">ⓘ</span>Hakkında</button><button className="hello-button" aria-label="İletişim" onClick={()=>setInfo('contact')}><span className={downloadedResult?'hello-wave':undefined} aria-hidden="true">☎</span>İletişim</button></nav>
       <input ref={input} hidden type="file" multiple accept=".json,.svg,.dxf" onChange={e=>{if(e.target.files)void openFiles(e.target.files,'shapes');e.target.value='';}}/>
       <input ref={projectInput} hidden type="file" accept=".zip,.sparrow-project.json,.json" onChange={e=>{if(e.target.files)void openFiles(e.target.files,'project');e.target.value='';}}/>
       {solver.state==='Running'&&<span className="background-hint">En iyi performans için bu sekmeyi açık tutun</span>}
@@ -502,6 +516,11 @@ export default function App({initialDocument=emptyProject(),initialError='',load
       {shape==='rectangle'&&<label>Height, {unit}<input type="number" min={0.000001/factor} max={100000/factor} step="any" value={inputLength(shapeHeight)} onChange={e=>setShapeHeight(e.target.valueAsNumber*factor)} disabled={busy}/></label>}
       {shape==='polygon'&&<p>Click each vertex in the canvas. Enter closes the polygon; Escape cancels. The contour is checked before it is added.</p>}{error&&<p role="alert" className="field-error">{error}</p>}
       <div className="modal-actions"><button type="button" disabled={busy} onClick={()=>setShape(undefined)}>İptal</button><button disabled={busy} className="primary">{shape==='polygon'?'Start drawing':'Şekil ekle'}</button></div></form>
+    </Modal>}
+    {testDxfOpen&&<Modal title="Test DXF Dosyaları" onClose={()=>setTestDxfOpen(false)} locked={!!testDxfBusy}>
+      <div className="test-dxf-modal"><p><strong>test klasoru dxf</strong></p><p className="muted">Bir dosya seçin; DXF doğrudan çalışma alanına yüklenir.</p>
+        <div className="test-dxf-list">{TEST_DXF_FILES.map(name=><button key={name} disabled={!!testDxfBusy} onClick={()=>void openTestDxf(name)}><span>{name}</span><small>{testDxfBusy===name?'Yükleniyor…':'Aç'}</small></button>)}</div>
+      </div>
     </Modal>}
     {nameDialog&&<Modal title={nameDialog==='new'?'Yeni proje':'Projeyi yeniden adlandır'} onClose={()=>setNameDialog(undefined)}><form onSubmit={e=>{e.preventDefault();const name=projectName.trim();if(!name)return;if(nameDialog==='new')requestProject({document:emptyProject(name),saved:true});else if(name!==doc.name)commit({...doc,name},false);setNameDialog(undefined);}}><label>Proje adı<input autoFocus onFocus={e=>e.currentTarget.select()} required maxLength={200} value={projectName} onChange={e=>setProjectAd(e.target.value)}/></label><div className="modal-actions"><button type="button" onClick={()=>setNameDialog(undefined)}>İptal</button><button className="primary" disabled={!projectName.trim()}>{nameDialog==='new'?'Proje oluştur':'Yeniden adlandır'}</button></div></form></Modal>}
     {pendingProject&&<Modal title="Projeyi değiştir" locked={busy} onClose={()=>setPendingProject(undefined)}><p><strong>{pendingProject.document.name}</strong> açıldığında mevcut <strong>{doc.name}</strong> projesi değiştirilecek.</p><p className="muted">İsterseniz mevcut yerleşimi önce DXF olarak indirin.</p>{polygon&&<p>DXF indirmeden önce çizimi tamamlayın veya iptal edin.</p>}{error&&<p role="alert" className="field-error">{error}</p>}<div className="project-switch-actions"><button className="primary" disabled={busy||invalidSettings||!!polygon} onClick={async()=>{if(await exportLayout())switchProject(pendingProject);}}>DXF indir ve geç</button><button className="discard-project" disabled={busy} onClick={()=>switchProject(pendingProject)}>İndirmeden geç</button><button className="text-button" disabled={busy} onClick={()=>setPendingProject(undefined)}>İptal</button></div></Modal>}

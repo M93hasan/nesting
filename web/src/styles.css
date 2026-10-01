@@ -190,3 +190,8 @@ button:hover:enabled{transform:translateY(-1px);box-shadow:inset 0 1px 0 rgba(25
 .run-controls .skip-compression{background:light-dark(rgba(170,136,93,.28),rgba(171,133,84,.24));color:var(--ink);border-color:var(--border)}
 .run-controls .skip-compression:hover:enabled{background:light-dark(rgba(170,136,93,.38),rgba(171,133,84,.34));border-color:var(--hover-border)}
 @media(prefers-reduced-transparency:reduce){.header,.sidebar,.selection-panel,.statusbar,.result-details,.modal,.empty-project,.project-menu>div,.cad-snapping,.cad-snapping>div,.compression-tooltip{backdrop-filter:none;-webkit-backdrop-filter:none}}
+
+.test-dxf-tab{font-weight:650;color:var(--accent)!important}
+.test-dxf-modal{display:grid;gap:12px}.test-dxf-list{display:grid;gap:8px}
+.test-dxf-list button{display:flex;align-items:center;justify-content:space-between;text-align:left;padding:12px}
+.test-dxf-list button span{font-weight:650}.test-dxf-list button small{margin-left:14px}
