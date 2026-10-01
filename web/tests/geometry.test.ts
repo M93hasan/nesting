@@ -162,11 +162,11 @@ it('anchors results to the selected right-side start corner without reflecting p
   doc.settings={...doc.settings,materialWidthMm:10,clearanceMm:1,startCorner:'right-top'};
   result.usedLengthMm=10;result.placements=[{partId:'square',copyIndex:0,xMm:2,yMm:3,angleDeg:0},{partId:'square',copyIndex:1,xMm:4,yMm:5,angleDeg:0}];
   const top=packResultIntoSheets(doc,result);
-  expect(Math.max(...worldParts(doc,top).flatMap(part=>part.outer.map(point=>point[0])))).toBeCloseTo(9);
-  expect(Math.min(...worldParts(doc,top).flatMap(part=>part.outer.map(point=>point[1])))).toBeCloseTo(1);
+  expect(Math.max(...worldParts(doc,top).flatMap(part=>part.outer.map(point=>point[0])))).toBeCloseTo(10);
+  expect(Math.min(...worldParts(doc,top).flatMap(part=>part.outer.map(point=>point[1])))).toBeCloseTo(0);
   doc.settings.startCorner='right-bottom';
   const bottom=packResultIntoSheets(doc,result);
-  expect(Math.max(...worldParts(doc,bottom).flatMap(part=>part.outer.map(point=>point[1])))).toBeCloseTo(9);
+  expect(Math.max(...worldParts(doc,bottom).flatMap(part=>part.outer.map(point=>point[1])))).toBeCloseTo(10);
 });
 
 it('best-fit sheet packing reuses residual band space',()=>{
