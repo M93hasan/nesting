@@ -242,7 +242,9 @@ Başlıca özellikler:
 - Kullanıcıya özel varsayılanlar
 - Sistem varsayılanları
 - Şifre sıfırlama
-- Admin kullanıcı yönetimi
+- Admin kullanıcı yönetimi ve kullanıcı hesabını tamamen silme
+- İletişim bölümünde kullanıcı ↔ admin kalıcı destek mesajlaşması
+- Admin destek gelen kutusu, okunmamış mesajlar, çevrim içi sayısı ve yeşil durum noktası
 - Audit / sistem logları
 - Kullanıcı onaylı uzaktan destek
 
