@@ -314,3 +314,21 @@ input:not([type=checkbox]):not([type=radio]):not([type=file]):focus,select:focus
 .selection-panel,.empty-project{border-radius:14px}
 .project-menu>div{border-radius:12px}
 .serula-brand img{box-shadow:0 0 0 3px light-dark(rgba(46,168,242,.08),rgba(85,189,248,.09))}
+
+
+/* Pending UI polish: make the selected rotation unmistakable. */
+.rotation-choice .row-actions button[aria-pressed=true]{
+  background:linear-gradient(180deg,#39b4fb,#218fd2)!important;
+  color:#fff!important;
+  border:2px solid #147fbd!important;
+  box-shadow:0 0 0 3px rgba(46,168,242,.18),0 5px 14px rgba(46,168,242,.24)!important;
+  font-weight:700;
+  transform:none!important;
+}
+.rotation-choice .row-actions button[aria-pressed=false]{
+  background:light-dark(#f5f8fa,#252c34)!important;
+  color:var(--ink)!important;
+  border:1px solid var(--border)!important;
+  box-shadow:none!important;
+  font-weight:500;
+}
