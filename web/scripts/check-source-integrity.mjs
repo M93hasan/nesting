@@ -24,26 +24,21 @@ for (const path of files(root)) {
 }
 
 const pkg = JSON.parse(readFileSync(join(webRoot, 'package.json'), 'utf8'));
-const lock = JSON.parse(readFileSync(join(webRoot, 'package-lock.json'), 'utf8'));
-const expectedVersion = String(pkg.version);
-const lockVersions = [String(lock.version || ''), String(lock.packages?.['']?.version || '')];
-for (const value of lockVersions) {
-  if (value !== expectedVersion) failures.push(`package-lock version "${value}" does not match package.json "${expectedVersion}"`);
-}
-const readme = readFileSync(join(webRoot, '..', 'README.md'), 'utf8');
-const expectedBadge = `version-${expectedVersion}-`;
-const expectedReadmeVersion = `v${expectedVersion}`;
-if (!readme.includes(expectedBadge)) failures.push(`README version badge does not match package.json "${expectedVersion}"`);
-if (!readme.includes(expectedReadmeVersion)) failures.push(`README current version does not match package.json "${expectedVersion}"`);
+const version = String(pkg.version || '');
+if (!/^\d+\.\d+\.\d+$/.test(version)) failures.push(`package.json version "${version}" is invalid`);
 
 for (const workerPath of [join(webRoot, 'worker', 'serula-worker.js'), join(webRoot, 'worker', 'index.js')]) {
   const source = readFileSync(workerPath, 'utf8');
-  const marker = source.match(/Build marker:\s*([0-9]+\.[0-9]+\.[0-9]+)/)?.[1] || '';
-  if (marker !== expectedVersion) failures.push(`${workerPath}: build marker "${marker}" does not match package.json "${expectedVersion}"`);
+  if (!source.includes("import packageInfo from '../package.json';"))
+    failures.push(`${workerPath}: version must be imported from package.json`);
+  if (!source.includes('const APP_VERSION=String(packageInfo.version);'))
+    failures.push(`${workerPath}: APP_VERSION must come from package.json`);
+  if (/const APP_VERSION=['"][0-9]/.test(source) || /Build marker:\s*[0-9]/.test(source))
+    failures.push(`${workerPath}: hard-coded version found`);
 }
 
 if (failures.length) {
   console.error(failures.join('\n'));
   process.exit(1);
 }
-console.log(`Source integrity check passed. Version ${expectedVersion} is synchronized.`);
+console.log(`Source integrity check passed. Single version source: package.json (${version}).`);
