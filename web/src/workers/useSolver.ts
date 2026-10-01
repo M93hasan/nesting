@@ -15,7 +15,7 @@ export type LiveFrame=LiveGeometry & {sequence:number;result:Result;report:strin
 export const wallClockLimitSeconds=(doc:Document)=>doc.settings.timeLimitSeconds??59;
 type Run={id:number;revision:number;doc:Document;seed:string;requestedAt:number;solver?:Worker;preview:Worker;
   latest?:Candidate;previewActive?:{candidate:Candidate;result:Result};frame?:LiveFrame;previewSequence:number;previewError?:string;
-  best?:Result;ended?:'Complete'|'Stopped'|'Error';startedAt?:number;watchdog:ReturnType<typeof setTimeout>;deadline?:ReturnType<typeof setTimeout>;
+  best?:Result;ended?:'Complete'|'Stopped'|'Error';startedAt?:number;watchdog:ReturnType<typeof setTimeout>;deadline?:ReturnType<typeof setTimeout>;settle?:ReturnType<typeof setTimeout>;
   deadlineRemainingMs?:number;deadlineStartedAt?:number;visibilityHandler?:()=>void;
   diagnostics:Diagnostics};
 export function candidateResult(doc:Document,candidate:Candidate,seed:string):Result {
@@ -55,7 +55,7 @@ export function useSolver() {
   function clear() {
     const r=run.current;
     if(r) {
-      r.solver?.postMessage({type:'stop'});r.preview.terminate();clearTimeout(r.watchdog);if(r.deadline)clearTimeout(r.deadline);
+      r.solver?.postMessage({type:'stop'});r.preview.terminate();clearTimeout(r.watchdog);if(r.deadline)clearTimeout(r.deadline);if(r.settle)clearTimeout(r.settle);
       if(r.visibilityHandler&&typeof document!=='undefined')document.removeEventListener('visibilitychange',r.visibilityHandler);
     }
     run.current=undefined;setPhase(undefined);setSkipping(false);setCanSkip(false);
@@ -91,7 +91,7 @@ export function useSolver() {
   },[]);
   function end(reason:'Complete'|'Stopped'|'Error',message?:string) {
     const r=run.current;if(!r) return;
-    r.solver?.postMessage({type:'stop'});r.solver=undefined;clearTimeout(r.watchdog);if(r.deadline)clearTimeout(r.deadline);if(r.visibilityHandler&&typeof document!=='undefined')document.removeEventListener('visibilitychange',r.visibilityHandler);r.ended=reason;
+    r.solver?.postMessage({type:'stop'});r.solver=undefined;clearTimeout(r.watchdog);if(r.deadline)clearTimeout(r.deadline);if(r.settle)clearTimeout(r.settle);if(r.visibilityHandler&&typeof document!=='undefined')document.removeEventListener('visibilitychange',r.visibilityHandler);r.ended=reason;
     r.diagnostics.stopReason=message ?? reason;
     if(message) setError(message);
     setElapsed((performance.now()-r.requestedAt)/1000);
@@ -121,7 +121,7 @@ export function useSolver() {
     const quickHistory:Timing[]=quick?[{phase:'Quick sheet',sequence:0,elapsedMs:performance.now()-requestedAt,lengthMm:quick.usedLengthMm,validation:'passed'}]:[];
     const r:Run={id,revision,doc,seed,requestedAt,solver,preview,previewSequence:0,best:quick,watchdog:setTimeout(()=>end('Stopped','Yerleştirme motoru 15 saniye içinde başlatılamadı. Tekrar deneyin.'),15_000),
       diagnostics:{runDocument:doc,solverRevision:SOLVER_REVISION,seed,buildMode:'Initializing',startup,history:quickHistory,liveSnapshots:0,liveErrors:[]}};
-    run.current=r;diagnostics.current=r.diagnostics;if(quick)setResult(quick);
+    run.current=r;diagnostics.current=r.diagnostics;if(quick){setResult(quick);r.settle=setTimeout(()=>{if(run.current===r&&!r.ended)end('Complete');},8_000);}
     // Only foreground time consumes the automatic search budget. The solver worker
     // may keep working while the page is in the background, but switching tabs no
     // longer causes the UI deadline to expire and discard a still-running search.
@@ -196,6 +196,7 @@ export function useSolver() {
             if(better){
               startup.firstValidMs??=performance.now()-requestedAt;
               r.best={...packed,validation:{...checked,source:'local'}};
+              if(!r.settle)r.settle=setTimeout(()=>{if(run.current===r&&!r.ended)end('Complete');},5_000);
             }
           }
           break;
