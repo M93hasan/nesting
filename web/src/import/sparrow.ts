@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS, newPart, type Document, type Part, type Ring } from '../model';
+import { DEFAULT_SETTINGS, FIVE_DEGREE_ROTATIONS, newPart, type Document, type Part, type Ring } from '../model';
 import { bounds, normalizeDocument, normalizeRing } from '../geometry/normalize';
 
 export type ImportReview = { document: Document; warnings: string[]; replace: boolean; issues?:string[]; layers?:string[]; result?:import('../model').Result };
@@ -57,7 +57,7 @@ export function solverInput(doc: Document): string {
     // Sparrow packs along +X with strip_height on Y. The workspace uses
     // material width on X and material length on Y, so solve a transposed
     // copy and map the result back. Imported geometry stays unchanged.
-    id,demand:p.quantity,allowed_orientations:p.rotations.kind==='continuous'?undefined:p.rotations.degrees.map(angle=>-angle),
+    id,demand:p.quantity,allowed_orientations:(p.rotations.kind==='continuous'?FIVE_DEGREE_ROTATIONS:p.rotations.degrees).map(angle=>-angle),
     shape:{type:'simple_polygon',data:p.outer.map(([x,y])=>[y,x])},
   }))});
 }
