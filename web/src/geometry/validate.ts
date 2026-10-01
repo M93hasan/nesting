@@ -49,7 +49,13 @@ export function validate(doc: Document, result: Result, serialized?: WorldPart[]
   const v: Validation & {overlapAreaMm2:number;maxBoundaryViolationMm:number} = { status:'failed', overlapAreaMm2:0, maxBoundaryViolationMm:0, minClearanceMm:null, errors:[] };
   try {
     doc=normalizeDocument(doc);
-    if(!Number.isFinite(result.usedLengthMm) || result.usedLengthMm<=0 || result.usedLengthMm>LIMITS.extent) throw Error('Used length must be finite, positive, and at most 100,000 mm.');
+    if(!Number.isFinite(result.usedLengthMm) || result.usedLengthMm<=0) throw Error('Used length must be finite and positive.');
+    if(doc.settings.materialType==='sheet'){
+      const sheetCount=result.sheetCount??1,total=doc.parts.reduce((n,p)=>n+p.quantity,0);
+      if(!Number.isInteger(sheetCount)||sheetCount<1||sheetCount>Math.max(1,total))throw Error('Invalid sheet count.');
+      const expected=(doc.settings.materialLengthMm??0)*sheetCount;
+      if(!Number.isFinite(expected)||Math.abs(result.usedLengthMm-expected)>RESULT_LINEAR_TOLERANCE_MM)throw Error('Sheet result length does not match its sheet count.');
+    }else if(result.usedLengthMm>LIMITS.extent) throw Error('Used length must be at most 100,000 mm.');
     if(!Array.isArray(result.placements) || result.placements.length!==doc.parts.reduce((n,p)=>n+p.quantity,0)) throw Error('Layout does not contain exactly the demanded copies.');
     const parts=new Map(doc.parts.map(p=>[p.id,p]));
     const seen=new Set<string>();

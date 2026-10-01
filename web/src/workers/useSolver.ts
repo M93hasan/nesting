@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { SOLVER_REVISION, type Document, type Result } from '../model';
 import type { Candidate, GeometryReply, SolverMessage } from './protocol';
 import type {LiveGeometry} from '../geometry/live';
-import {packResultIntoSheets} from '../geometry/multiSheet';
+import {packResultIntoSheets,quickSheetLayout} from '../geometry/multiSheet';
 import {validate} from '../geometry/validate';
 
 export type RunState='Ready'|'Initializing'|'Running'|'Complete'|'Stopped'|'Error';
@@ -106,11 +106,22 @@ export function useSolver() {
     const startup:StartupTiming={preparedMs:performance.now()-requestedAt};
     clear();setWorkers(undefined);setResult(undefined);setLive(undefined);setLiveError('');setError('');setElapsed(0);setState('Initializing');
     const id=++serial.current,seed=crypto.getRandomValues(new BigUint64Array(1))[0].toString();
+    let quick:Result|undefined;
+    if(doc.settings.materialType==='sheet'){
+      try{
+        quick=quickSheetLayout(doc,revision,seed);
+        quick={...quick,validation:{status:'passed',source:'local',overlapAreaMm2:0,maxBoundaryViolationMm:0,minClearanceMm:doc.settings.clearanceMm||null,errors:[]}};
+        startup.firstValidMs=performance.now()-requestedAt;
+      }catch(error){
+        setState('Error');setError(error instanceof Error?error.message:String(error));return;
+      }
+    }
     const solver=new Worker(new URL('./solver.worker.ts',import.meta.url),{type:'module'});
     const preview=new Worker(new URL('./geometry.worker.ts',import.meta.url),{type:'module'});
-    const r:Run={id,revision,doc,seed,requestedAt,solver,preview,previewSequence:0,watchdog:setTimeout(()=>end('Stopped','Yerleştirme motoru 15 saniye içinde başlatılamadı. Tekrar deneyin.'),15_000),
-      diagnostics:{runDocument:doc,solverRevision:SOLVER_REVISION,seed,buildMode:'Initializing',startup,history:[],liveSnapshots:0,liveErrors:[]}};
-    run.current=r;diagnostics.current=r.diagnostics;
+    const quickHistory:Timing[]=quick?[{phase:'Quick sheet',sequence:0,elapsedMs:performance.now()-requestedAt,lengthMm:quick.usedLengthMm,validation:'passed'}]:[];
+    const r:Run={id,revision,doc,seed,requestedAt,solver,preview,previewSequence:0,best:quick,watchdog:setTimeout(()=>end('Stopped','Yerleştirme motoru 15 saniye içinde başlatılamadı. Tekrar deneyin.'),15_000),
+      diagnostics:{runDocument:doc,solverRevision:SOLVER_REVISION,seed,buildMode:'Initializing',startup,history:quickHistory,liveSnapshots:0,liveErrors:[]}};
+    run.current=r;diagnostics.current=r.diagnostics;if(quick)setResult(quick);
     // Only foreground time consumes the automatic search budget. The solver worker
     // may keep working while the page is in the background, but switching tabs no
     // longer causes the UI deadline to expire and discard a still-running search.
