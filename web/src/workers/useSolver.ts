@@ -96,7 +96,11 @@ export function useSolver() {
     if(message) setError(message);
     setElapsed((performance.now()-r.requestedAt)/1000);
     setResult(r.best);setState(reason);
-    if(!r.best&&reason==='Complete'){setState('Error');setError('Geçerli bir yerleşim bulunamadı. Malzeme ölçüsünü ve parça aralığını kontrol edip yeniden deneyin.');}
+    if(!r.best&&reason==='Complete'){
+      const lastFailure=[...r.diagnostics.history].reverse().find(entry=>entry.validation==='failed'&&entry.errors?.length);
+      setState('Error');
+      setError(lastFailure?.errors?.[0]?`Yerleşim bulundu ancak doğrulama reddetti: ${lastFailure.errors[0]}`:'Geçerli bir yerleşim bulunamadı. Malzeme ölçüsünü ve parça aralığını kontrol edip yeniden deneyin.');
+    }
   }
   function start(doc:Document,revision:number,threads?:number,requestedAt=performance.now()) {
     const startup:StartupTiming={preparedMs:performance.now()-requestedAt};
@@ -164,7 +168,11 @@ export function useSolver() {
           {
             let packed:Result;
             try{packed=packResultIntoSheets(doc,candidateResult(doc,data,seed));}
-            catch{break;}
+            catch(error){
+              r.diagnostics.history.at(-1)!.validation='failed';
+              r.diagnostics.history.at(-1)!.errors=[error instanceof Error?error.message:String(error)];
+              break;
+            }
             const checked=validate(doc,packed);
             r.diagnostics.history.at(-1)!.validation=checked.status;
             if(checked.status!=='passed'){
