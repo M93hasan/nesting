@@ -2,9 +2,9 @@ import {it,expect} from 'vitest';
 import {importDXF} from '../src/import/dxf';
 import {area,bounds} from '../src/geometry/normalize';
 import {validate,worldParts} from '../src/geometry/validate';
-import {exportDXF} from '../src/export/dxf';
+import {exportDXF,SHEET_EXPORT_GAP_MM} from '../src/export/dxf';
 import {exportSVG} from '../src/export/svg';
-import type {Result} from '../src/model';
+import {newPart,type Document,type Result} from '../src/model';
 
 const options={scale:1,tolerance:.01,enclosed:'holes' as const};
 export const dxf=(entities:string,units=4)=>`0\nSECTION\n2\nHEADER\n9\n$INSUNITS\n70\n${units}\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n${entities}0\nENDSEC\n0\nEOF\n`;
@@ -116,6 +116,27 @@ it('preserves source SPLINE manually but polygonizes checked nesting DXF output'
   const checked=exportSVG(imported.document,result).dxf;
   expect(checked).not.toMatch(/\nSPLINE\n/);
   expect(checked).toMatch(/\nLWPOLYLINE\n/);
+});
+
+it('exports multiple plates side by side with 50 mm gaps and plate frames',()=>{
+  const part={...newPart([[0,0],[100,0],[100,100],[0,100]],'Plate part'),quantity:2};
+  const doc:Document={name:'multi-sheet',parts:[part],settings:{materialType:'sheet',materialWidthMm:1400,materialLengthMm:2000,clearanceMm:0,timeLimitSeconds:30}};
+  const placements=[
+    {partId:part.id,copyIndex:0,xMm:20,yMm:30,angleDeg:0,sheetIndex:0},
+    {partId:part.id,copyIndex:1,xMm:20,yMm:30,angleDeg:0,sheetIndex:1}
+  ];
+  const world=worldParts(doc,{placements});
+  const text=exportDXF(doc,world,placements,false);
+  const parsed=(await import('dxf/lib/parseString')).default(text) as {entities:{type:string;layer:string;vertices?:{x:number;y:number}[]}[]};
+  const parts=parsed.entities.filter(entity=>entity.layer==='PARTS');
+  const plates=parsed.entities.filter(entity=>entity.layer==='PLATES');
+  expect(parts).toHaveLength(2);
+  expect(plates).toHaveLength(2);
+  const pitch=1400+SHEET_EXPORT_GAP_MM;
+  expect(parts[0].vertices?.[0].x).toBeCloseTo(20);
+  expect(parts[1].vertices?.[0].x).toBeCloseTo(20+pitch);
+  expect(plates[0].vertices?.map(v=>[v.x,v.y])).toEqual([[0,0],[1400,0],[1400,2000],[0,2000]]);
+  expect(plates[1].vertices?.map(v=>[v.x,v.y])).toEqual([[pitch,0],[pitch+1400,0],[pitch+1400,2000],[pitch,2000]]);
 });
 
 it('bounds nested INSERT expansion before allocating large arrays',()=>{
