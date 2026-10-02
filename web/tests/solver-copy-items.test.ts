@@ -1,6 +1,6 @@
 import {expect,test} from 'vitest';
 import {candidateResult} from '../src/workers/useSolver';
-import {friendlyInitialPlacementError,preflightSolverFit,solverCopies,solverInput} from '../src/import/sparrow';
+import {friendlyInitialPlacementError,preflightSolverFit,SOLVER_EDGE_SLACK_MM,solverCopies,solverInput} from '../src/import/sparrow';
 import {newPart,type Document} from '../src/model';
 import type {Candidate} from '../src/workers/protocol';
 
@@ -12,8 +12,10 @@ test('multiple copies are sent as independent demand-one items and decode to sta
     {itemId:1,partId:'curve',copyIndex:1},
     {itemId:2,partId:'curve',copyIndex:2},
   ]);
-  const input=JSON.parse(solverInput(doc)) as {items:{id:number;demand:number}[]};
+  const input=JSON.parse(solverInput(doc)) as {strip_height:number;min_item_separation:number;items:{id:number;demand:number}[]};
   expect(input.items.map(item=>[item.id,item.demand])).toEqual([[0,1],[1,1],[2,1]]);
+  expect(input.strip_height).toBeCloseTo(100+2*(.3+SOLVER_EDGE_SLACK_MM),8);
+  expect(input.min_item_separation).toBe(.3);
 
   const candidate:Candidate={type:'candidate',runId:1,documentRevision:1,sequence:1,report:'ExplFeas',elapsedMs:10,attempt:2,attemptSeed:'99',
     solution:{strip_width:30,layout:{placed_items:[
