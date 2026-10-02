@@ -382,22 +382,20 @@ input:not([type=checkbox]):not([type=radio]):not([type=file]):focus,select:focus
   padding-bottom:12px;
   border-bottom:1px solid var(--border);
 }
-.sidebar{position:relative;overflow:visible}
-.sidebar>.part-properties-flyout{
-  position:absolute!important;
-  left:calc(100% + 8px)!important;
-  right:auto!important;
-  top:12px!important;
-  bottom:auto!important;
-  z-index:4;
-  width:260px;
-  min-width:260px;
-  max-height:calc(100% - 24px);
-  overflow-y:auto;
-  border:1px solid var(--border);
-  border-radius:14px;
-  box-shadow:0 10px 30px rgba(0,0,0,.18);
+.sidebar{position:relative;overflow-y:auto;overflow-x:hidden}
+.sidebar>.part-properties-inline{
+  position:static;
+  width:auto;
+  min-width:0;
+  max-height:none;
+  overflow:visible;
+  margin:0 0 12px;
+  border-top:1px solid var(--border);
+  background:var(--panel);
+  box-shadow:none;
 }
+.part-properties-inline .part-properties-title{padding:12px 16px 4px}
+.part-properties-inline .part-settings{margin:0;border-top:0;padding-top:8px}
 .clear-all-parts{
   margin:0 16px 10px;
   width:calc(100% - 32px);
@@ -415,15 +413,8 @@ input:not([type=checkbox]):not([type=radio]):not([type=file]):focus,select:focus
     border-top:1px solid var(--border);
     overflow:visible;
   }
-  .sidebar>.part-properties-flyout{
-    position:static!important;
+  .sidebar>.part-properties-inline{
     width:100%;
-    min-width:0;
-    max-height:340px;
-    margin-top:8px;
-    border-left:0;
-    border-right:0;
-    border-radius:0;
-    box-shadow:none;
+    margin-bottom:8px;
   }
 }
