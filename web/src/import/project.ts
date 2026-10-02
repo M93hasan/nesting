@@ -8,7 +8,7 @@ export function importProject(text:string):ImportReview {
   const data=JSON.parse(text) as Project;
   if(!data||data.schemaVersion!==1)throw Error('Unsupported project schema version. This app reads version 1 only.');
   if(!Number.isSafeInteger(data.revision)||data.revision<0)throw Error('Invalid project revision.');
-  const document=normalizeDocument({name:data.name,parts:data.parts,settings:data.settings,placements:data.placements},true);
+  const document=normalizeDocument({name:data.name,parts:data.parts,settings:data.settings,placements:data.placements,seriesMultiplier:data.seriesMultiplier},true);
   const warnings:string[]=[];let result:Result|undefined;
   if(data.result!==undefined) {
     try {
@@ -31,7 +31,7 @@ export function importProject(text:string):ImportReview {
 }
 
 export function exportProject(document:Document,revision:number,result?:Result):string {
-  const doc=normalizeDocument({name:document.name,parts:document.parts,settings:document.settings,placements:document.placements},true);
+  const doc=normalizeDocument({name:document.name,parts:document.parts,settings:document.settings,placements:document.placements,seriesMultiplier:document.seriesMultiplier},true);
   if(!Number.isSafeInteger(revision)||revision<0)throw Error('Invalid project revision.');
   if(result&&result.documentRevision!==revision)throw Error('The result belongs to an older document.');
   if(result) {

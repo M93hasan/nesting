@@ -123,6 +123,27 @@ export function syncQuantity(document: Document): Document {
   return withDocumentPlacements({ ...document, placements: kept }, kept);
 }
 
+export function maxSeriesMultiplier(document:Document):number {
+  const current=document.seriesMultiplier??1;
+  if(!Number.isInteger(current)||current<1)throw Error('Invalid current series multiplier.');
+  const baseTotal=document.parts.reduce((sum,part)=>{
+    if(!Number.isInteger(part.quantity)||part.quantity<0||part.quantity%current!==0)throw Error('Series multiplier does not match the current part quantities.');
+    return sum+part.quantity/current;
+  },0);
+  return baseTotal>0?Math.max(1,Math.floor(LIMITS.copies/baseTotal)):LIMITS.copies;
+}
+
+export function applySeriesMultiplier(document:Document,next:number):Document {
+  const current=document.seriesMultiplier??1;
+  if(!Number.isInteger(next)||next<1||next>LIMITS.copies)throw Error('Seri adedi 1 ile 500 arasında tam sayı olmalıdır.');
+  if(!Number.isInteger(current)||current<1||document.parts.some(part=>!Number.isInteger(part.quantity)||part.quantity<0||part.quantity%current!==0))
+    throw Error('Mevcut seri adedi parça miktarlarıyla uyuşmuyor.');
+  const parts=document.parts.map(part=>({...part,quantity:part.quantity/current*next}));
+  const total=parts.reduce((sum,part)=>sum+part.quantity,0);
+  if(total>LIMITS.copies)throw Error(`Bu seri adedi toplam ${total} kopya oluşturuyor. Proje sınırı ${LIMITS.copies} kopyadır.`);
+  return syncQuantity({...document,parts,seriesMultiplier:next===1?undefined:next});
+}
+
 export function samePlacement(a: Placement | undefined, b: Placement | undefined): boolean {
   return !!a && !!b && a.partId === b.partId && a.copyIndex === b.copyIndex
     && a.xMm === b.xMm && a.yMm === b.yMm && a.angleDeg === b.angleDeg;
