@@ -2,8 +2,7 @@ import type {Document,Part,Placement,Result,Ring} from '../model';
 import {collisionRing} from './validate';
 
 type IntervalItem={placement:Placement;index:number;part:Part;minY:number;maxY:number};
-type Band={items:IntervalItem[];minY:number;maxY:number};
-type Sheet={used:number};
+type SheetChunk={items:IntervalItem[];minY:number;maxY:number};
 
 const rotatedBounds=(ring:Ring,angleDeg:number)=>{
   const a=angleDeg*Math.PI/180,c=Math.cos(a),s=Math.sin(a);
@@ -65,37 +64,28 @@ export function packResultIntoSheets(doc:Document,result:Result):Result {
     return {placement,index,part,minY,maxY};
   }).sort((a,b)=>a.minY-b.minY||a.maxY-b.maxY);
 
-  const bands:Band[]=[];
+  // Keep Sparrow/Jagua as the only nesting engine. For plate mode we only
+  // paginate its continuous strip into contiguous Y chunks whose original span
+  // fits one plate. Relative X/Y positions inside each chunk stay rigid, so no
+  // new collisions are introduced. A chunk may split an overlapping Y "band"
+  // across two physical plates; that is safe because different sheetIndex values
+  // are separate materials and never collide with each other.
+  const chunks:SheetChunk[]=[];
   for(const item of items){
-    const last=bands.at(-1);
-    if(last&&item.minY<=last.maxY+gap+1e-7){
-      last.items.push(item);last.maxY=Math.max(last.maxY,item.maxY);last.minY=Math.min(last.minY,item.minY);
-    }else bands.push({items:[item],minY:item.minY,maxY:item.maxY});
+    const current=chunks.at(-1);
+    if(!current){chunks.push({items:[item],minY:item.minY,maxY:item.maxY});continue;}
+    const nextMax=Math.max(current.maxY,item.maxY);
+    if(nextMax-current.minY<=length+1e-7){
+      current.items.push(item);current.maxY=nextMax;
+    }else chunks.push({items:[item],minY:item.minY,maxY:item.maxY});
   }
 
-  // Do not invent a second nesting algorithm for sheet mode. Sparrow/Jagua
-  // owns rotation, collision handling and relative placement. We only cut the
-  // continuous Sparrow strip at safe gaps between non-overlapping Y bands.
-  // Bands stay in Sparrow order and their internal X/Y geometry is rigidly kept.
-  const packed=new Array<Placement>(result.placements.length),sheets:Sheet[]=[];
-  let sheetIndex=0,used=0;
-  sheets.push({used:0});
-  for(const band of bands){
-    const height=band.maxY-band.minY;
-    if(height>length+1e-7)throw Error('Sparrow yerleşimindeki bağlı bir parça grubu seçilen plaka uzunluğuna sığmıyor.');
-    let start=used+(used>0?gap:0);
-    if(start+height>length+1e-7){
-      sheetIndex++;
-      used=0;
-      sheets.push({used:0});
-      start=0;
-    }
-    const offset=start-band.minY;
-    for(const item of band.items)packed[item.index]={...item.placement,sheetIndex,yMm:item.placement.yMm+offset};
-    used=start+height;
-    sheets[sheetIndex].used=used;
-  }
+  const packed=new Array<Placement>(result.placements.length);
+  chunks.forEach((chunk,sheetIndex)=>{
+    const offset=-chunk.minY;
+    for(const item of chunk.items)packed[item.index]={...item.placement,sheetIndex,yMm:item.placement.yMm+offset};
+  });
 
-  const sheetCount=Math.max(1,sheets.length);
+  const sheetCount=Math.max(1,chunks.length);
   return orientToStartCorner(doc,{...result,sheetCount,usedLengthMm:length*sheetCount,placements:packed});
 }
