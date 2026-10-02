@@ -117,6 +117,31 @@ fn standard_quality_gives_compression_half_the_budget_and_avoids_early_stop() {
 }
 
 #[test]
+fn exact_physical_width_is_feasible_through_the_solver_edge_envelope() {
+    let clearance = 0.3;
+    let edge_slack = WARM_START_EPS_MM;
+    let physical_width = 100.0;
+    let input: ExtSPInstance = serde_json::from_value(json!({
+        "name":"exact physical width",
+        "strip_height":physical_width + 2.0 * (clearance + edge_slack),
+        "min_item_separation":clearance,
+        "items":[{
+            "id":0,
+            "demand":1,
+            "orientation":{"rotation":{"mode":"discrete","angles":[0.0,180.0]}},
+            "shape":{"type":"rectangle","data":{"x_min":0.0,"y_min":0.0,"width":20.0,"height":physical_width}}
+        }]
+    })).unwrap();
+    let warm = safe_warm_start(&input, input.min_item_separation).unwrap();
+    let importer = Importer::new(DEFAULT_SPARROW_CONFIG.cde_config, None, None);
+    let instance = import_instance(&importer, &input).unwrap();
+    let solution = import_solution(&instance, &warm).unwrap();
+    let mut prob = jagua_rs::probs::spp::entities::SPProblem::new(instance).unwrap();
+    prob.restore(&solution);
+    assert!(prob.layout().is_collision_free());
+}
+
+#[test]
 fn safe_warm_start_keeps_every_copy_and_restricted_rotation() {
     let input: ExtSPInstance = serde_json::from_value(json!({
         "name":"warm",
