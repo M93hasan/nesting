@@ -2,14 +2,20 @@ export type Point = [number, number];
 export type Ring = Point[];
 export type RotationRule = { kind: 'discrete'; degrees: number[] } | { kind: 'continuous' };
 export type DxfSpline = { degree:number; knots:number[]; controlPoints:Point[]; weights?:number[]; flags:number; layer?:string };
+export type DxfSourceEntity =
+  | { kind:'line'; start:Point; end:Point; layer:string; colorNumber?:number }
+  | { kind:'arc'; center:Point; radiusMm:number; startAngleDeg:number; endAngleDeg:number; layer:string; colorNumber?:number }
+  | { kind:'circle'; center:Point; radiusMm:number; layer:string; colorNumber?:number }
+  | { kind:'spline'; curve:DxfSpline; layer:string; colorNumber?:number }
+  | { kind:'polyline'; points:Point[]; bulges?:number[]; closed:boolean; layer:string; colorNumber?:number };
 export type DxfAuxEntity =
   | { kind:'point'; point:Point; layer:string; colorNumber?:number }
   | { kind:'text'|'mtext'; point:Point; text:string; heightMm:number; rotationDeg:number; layer:string; colorNumber?:number }
   | { kind:'path'; points:Point[]; layer:string; colorNumber?:number };
-export type DxfDetailContour = { ring:Ring; layer:string; colorNumber?:number };
+export type DxfDetailContour = { ring:Ring; layer:string; colorNumber?:number; sourceEntities?:DxfSourceEntity[] };
 export type Part = {
   id: string; name: string;
-  source: { format: 'svg' | 'dxf' | 'sparrow' | 'drawn'; fileName?: string; entityId?: string; dxfSpline?:DxfSpline; dxfColorNumber?:number; dxfHoleColorNumbers?:number[]; dxfAux?:DxfAuxEntity[]; dxfDetails?:DxfDetailContour[]; dxfSourceEntityCount?:number };
+  source: { format: 'svg' | 'dxf' | 'sparrow' | 'drawn'; fileName?: string; entityId?: string; dxfSpline?:DxfSpline; dxfEntities?:DxfSourceEntity[]; dxfHoleEntities?:DxfSourceEntity[][]; dxfColorNumber?:number; dxfHoleColorNumbers?:number[]; dxfAux?:DxfAuxEntity[]; dxfDetails?:DxfDetailContour[]; dxfSourceEntityCount?:number };
   outer: Ring; holes: Ring[]; approximationToleranceMm: number; quantity: number;
   rotations: RotationRule; preparationPosition: Point;
 };
