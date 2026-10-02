@@ -4,7 +4,8 @@ export type RotationRule = { kind: 'discrete'; degrees: number[] } | { kind: 'co
 export type DxfSpline = { degree:number; knots:number[]; controlPoints:Point[]; weights?:number[]; flags:number; layer?:string };
 export type DxfAuxEntity =
   | { kind:'point'; point:Point; layer:string; colorNumber?:number }
-  | { kind:'text'|'mtext'; point:Point; text:string; heightMm:number; rotationDeg:number; layer:string; colorNumber?:number };
+  | { kind:'text'|'mtext'; point:Point; text:string; heightMm:number; rotationDeg:number; layer:string; colorNumber?:number }
+  | { kind:'path'; points:Point[]; layer:string; colorNumber?:number };
 export type DxfDetailContour = { ring:Ring; layer:string; colorNumber?:number };
 export type Part = {
   id: string; name: string;
