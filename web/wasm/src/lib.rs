@@ -86,15 +86,30 @@ fn rotated_bounds(points: &[(f32, f32)], angle_deg: f32) -> Option<(f32, f32, f3
         .then_some((min_x, min_y, max_x, max_y))
 }
 
+#[derive(Clone)]
+struct WarmItem {
+    item_id: u64,
+    angle: f32,
+    bbox: (f32, f32, f32, f32),
+    width: f32,
+    height: f32,
+}
+
+struct WarmColumn {
+    items: Vec<WarmItem>,
+    used_height: f32,
+    width: f32,
+}
+
 fn safe_warm_start(external: &ExtSPInstance, clearance: f32) -> Result<ExtSPSolution, String> {
     let edge = clearance + WARM_START_EPS_MM;
+    let gap = clearance + WARM_START_EPS_MM;
     let usable_height = external.strip_height - 2.0 * edge;
     if usable_height <= 0.0 {
         return Err("material width leaves no interior room after clearance".into());
     }
-    let mut cursor = edge;
-    let mut placed_items = Vec::new();
 
+    let mut copies = Vec::new();
     for item in &external.items {
         let points = shape_points(&item.base.shape);
         if points.is_empty() {
@@ -102,34 +117,68 @@ fn safe_warm_start(external: &ExtSPInstance, clearance: f32) -> Result<ExtSPSolu
         }
         let angles = item.base.allowed_orientations.clone()
             .unwrap_or_else(|| vec![0.0, 90.0, 180.0, 270.0]);
-        let mut best: Option<(f32, (f32, f32, f32, f32))> = None;
+        let mut best: Option<WarmItem> = None;
         for angle in angles {
             let Some(bbox) = rotated_bounds(&points, angle) else { continue; };
             let width = bbox.2 - bbox.0;
             let height = bbox.3 - bbox.1;
-            if height <= usable_height + 1e-4 && width > 0.0 {
-                if best.as_ref().is_none_or(|(_, current)| width < current.2 - current.0) {
-                    best = Some((angle, bbox));
-                }
-            }
+            if height > usable_height + 1e-4 || width <= 0.0 || height <= 0.0 { continue; }
+            let candidate = WarmItem { item_id: item.base.id, angle, bbox, width, height };
+            let candidate_box_area = width * height;
+            let better = best.as_ref().is_none_or(|current| {
+                let current_box_area = current.width * current.height;
+                candidate_box_area < current_box_area - 1e-4
+                    || ((candidate_box_area - current_box_area).abs() <= 1e-4 && width < current.width)
+            });
+            if better { best = Some(candidate); }
         }
-        let Some((angle, bbox)) = best else {
+        let Some(best) = best else {
             return Err(format!("item {} cannot fit the material width in its allowed rotations", item.base.id));
         };
-        let width = bbox.2 - bbox.0;
-        for _ in 0..item.demand {
-            placed_items.push(ExtPlacedItem {
-                item_id: item.base.id,
-                transformation: ExtTransformation {
-                    rotation: angle,
-                    translation: (cursor - bbox.0, edge - bbox.1),
-                },
-            });
-            cursor += width + clearance + WARM_START_EPS_MM;
+        copies.extend(std::iter::repeat_n(best, item.demand as usize));
+    }
+
+    // First-fit decreasing on the fixed strip height gives Sparrow a compact,
+    // collision-free seed. It is only an initial state: exploration and
+    // compression are still free to move every copy afterwards.
+    copies.sort_by(|a, b| b.height.total_cmp(&a.height).then_with(|| b.width.total_cmp(&a.width)));
+    let mut columns: Vec<WarmColumn> = Vec::new();
+    for copy in copies {
+        let best_column = columns.iter().enumerate()
+            .filter_map(|(index, column)| {
+                let needed = if column.items.is_empty() { copy.height } else { gap + copy.height };
+                (column.used_height + needed <= usable_height + 1e-4)
+                    .then_some((index, usable_height - column.used_height - needed))
+            })
+            .min_by(|a, b| a.1.total_cmp(&b.1))
+            .map(|(index, _)| index);
+        if let Some(index) = best_column {
+            let column = &mut columns[index];
+            column.used_height += gap + copy.height;
+            column.width = column.width.max(copy.width);
+            column.items.push(copy);
+        } else {
+            columns.push(WarmColumn { used_height: copy.height, width: copy.width, items: vec![copy] });
         }
     }
 
-    let strip_width = (cursor - clearance - WARM_START_EPS_MM + edge).max(edge * 2.0);
+    let mut placed_items = Vec::new();
+    let mut x = edge;
+    for column in &columns {
+        let mut y = edge;
+        for copy in &column.items {
+            placed_items.push(ExtPlacedItem {
+                item_id: copy.item_id,
+                transformation: ExtTransformation {
+                    rotation: copy.angle,
+                    translation: (x - copy.bbox.0, y - copy.bbox.1),
+                },
+            });
+            y += copy.height + gap;
+        }
+        x += column.width + gap;
+    }
+    let strip_width = (x - gap + edge).max(edge * 2.0);
     Ok(ExtSPSolution {
         strip_width,
         layout: ExtLayout { container_id: 0, placed_items, density: 0.0 },
