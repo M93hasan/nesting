@@ -21,7 +21,7 @@ type Run={id:number;revision:number;doc:Document;seed:string;requestedAt:number;
   diagnostics:Diagnostics};
 export function candidateResult(doc:Document,candidate:Candidate,seed:string):Result {
   const copies=solverCopies(doc);
-  return {documentRevision:candidate.documentRevision,solverRevision:SOLVER_REVISION,seed,
+  return {documentRevision:candidate.documentRevision,solverRevision:SOLVER_REVISION,seed:candidate.attemptSeed??seed,
     elapsedSeconds:candidate.elapsedMs/1000,usedLengthMm:candidate.solution.strip_width,
     placements:candidate.solution.layout.placed_items.map(p=>{
       if(p.transformation.reflected)throw Error('Solver returned a reflected part, but Serula reflection is disabled.');
@@ -178,21 +178,21 @@ export function useSolver() {
               r.diagnostics.history.at(-1)!.errors=[error instanceof Error?error.message:String(error)];
               break;
             }
-            // Roll candidates are complete Sparrow/Jagua solutions, including
-            // warm-start recovery runs. Sheet mode remains locally validated because
-            // Serula repacks the continuous strip into fixed plates afterwards.
-            if(doc.settings.materialType!=='sheet'){
-              const better=!r.best||packed.usedLengthMm<r.best.usedLengthMm;
-              if(better){
-                startup.firstValidMs??=performance.now()-requestedAt;
-                r.best={...packed,validation:{status:'passed',source:'solver',overlapAreaMm2:null,maxBoundaryViolationMm:null,minClearanceMm:null,errors:[]}};
-              }
-              break;
-            }
+            // Virtual solver edge padding is removed/anchored before this point.
+            // Revalidate every publishable result against the real DXF geometry,
+            // physical material width and requested clearance.
             const checked=validate(doc,packed);
             r.diagnostics.history.at(-1)!.validation=checked.status;
             if(checked.status!=='passed'){
               r.diagnostics.history.at(-1)!.errors=checked.errors;
+              break;
+            }
+            if(doc.settings.materialType!=='sheet'){
+              const better=!r.best||packed.usedLengthMm<r.best.usedLengthMm;
+              if(better){
+                startup.firstValidMs??=performance.now()-requestedAt;
+                r.best={...packed,validation:{...checked,source:'local'}};
+              }
               break;
             }
             const sheetCount=packed.sheetCount??1,bestSheetCount=r.best?.sheetCount??Infinity;
