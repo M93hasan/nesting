@@ -25,7 +25,7 @@ function similarity(matrix:Matrix):{scale:number;reflected:boolean}|undefined {
   if(sx<=0||sy<=0||Math.abs(sx-sy)>1e-8*scale||Math.abs(dot)>1e-8*scale*scale)return;
   return {scale:(sx+sy)/2,reflected:a*d-b*c<0};
 }
-function sourceEntity(entity:DxfEntity,matrix:Matrix,layer:string,colorNumber:number|undefined):DxfSourceEntity|undefined {
+function sourceEntity(entity:DxfEntity,matrix:Matrix,layer:string,colorNumber:number|undefined,flags=0):DxfSourceEntity|undefined {
   const withColor=<T extends object>(value:T)=>colorNumber===undefined?value:{...value,colorNumber};
   const point=(p:DxfPoint|undefined):Point|undefined=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y)?apply(matrix,[p.x,p.y]):undefined;
   if(entity.type==='LINE'){
@@ -37,7 +37,7 @@ function sourceEntity(entity:DxfEntity,matrix:Matrix,layer:string,colorNumber:nu
     if(!controlPoints.length||controlPoints.some(p=>!p))return;
     return withColor({kind:'spline' as const,degree:entity.degree??0,knots:[...(entity.knots??[])],
       controlPoints:controlPoints as Point[],...(entity.weights?.length?{weights:[...entity.weights]}:{}),
-      flags:0,layer});
+      flags,layer});
   }
   if(entity.type==='CIRCLE'||entity.type==='ARC'){
     const sim=similarity(matrix),center=point({x:entity.x!,y:entity.y!});
@@ -63,6 +63,12 @@ function sourceEntity(entity:DxfEntity,matrix:Matrix,layer:string,colorNumber:nu
     return withColor({kind:'polyline' as const,points:points as Point[],bulges:adjusted,closed:!!entity.closed,
       sourceType:entity.type as 'LWPOLYLINE'|'POLYLINE',layer});
   }
+}
+function localSourceEntity(entity:DxfSourceEntity,x:number,y:number):DxfSourceEntity {
+  if(entity.kind==='line')return {...entity,start:[entity.start[0]-x,entity.start[1]-y],end:[entity.end[0]-x,entity.end[1]-y]};
+  if(entity.kind==='arc'||entity.kind==='circle')return {...entity,center:[entity.center[0]-x,entity.center[1]-y]};
+  if(entity.kind==='spline')return {...entity,controlPoints:entity.controlPoints.map(([px,py])=>[px-x,py-y])};
+  return {...entity,points:entity.points.map(([px,py])=>[px-x,py-y])};
 }
 const value=(r:DxfRecord,code:number)=>r.groups.find(g=>g[0]===code)?.[1];
 function finite(text:string|undefined,fallback?:number):number {
@@ -259,7 +265,7 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
   const byHandle=new Map(records.map(r=>[r.id,r])),blocks=new Map(parsed.blocks.map(b=>[b.name,b]));
   const supported=['LINE','ARC','CIRCLE','ELLIPSE','LWPOLYLINE','POLYLINE','SPLINE','INSERT','POINT','TEXT','MTEXT'];
   for(const r of records)if(!supported.includes(r.type)&&!['BLOCK','ENDBLK'].includes(r.type))unsupported.set(r.type,(unsupported.get(r.type)??0)+1);
-  const layers:string[]=[],contours:Contour[]=[],chains:Chain[]=[],auxEntities:Exclude<DxfAuxEntity,{kind:'path'}>[]=[],sourceSplines=new Map<string,DxfSpline>();let totalVertices=0,expanded=0;
+  const layers:string[]=[],contours:Contour[]=[],chains:Chain[]=[],auxEntities:Exclude<DxfAuxEntity,{kind:'path'}>[]=[],sourceSplines=new Map<string,DxfSpline>(),sourceEntities=new Map<string,DxfSourceEntity>();let totalVertices=0,expanded=0;
   const visit=(entity:DxfEntity,parent:Matrix,inheritedLayer:string,path:string[])=>{
     if(++expanded>10_000)throw Error('DXF exceeds 10,000 expanded entities.');
     const r=byHandle.get(entity.handle);if(!r||!supported.includes(entity.type))return;
@@ -345,6 +351,8 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
         if(closed)ring.pop();
         if(r.groups.some(([code,v])=>[40,41,43].includes(code)&&finite(v)!==0))warnings.push(`${r.id}: polyline width is ignored; the centerline is the contour.`);
       }
+      const native=sourceEntity(entity,matrix,layer,dxfColorNumber,finite(value(r,70),0));
+      if(native)sourceEntities.set(r.id,native);
       ring=ring.map(p=>apply(matrix,p));
       if(ring.some(p=>!p.every(v=>Number.isFinite(v)&&Math.abs(v)<=100_000)))throw Error('Coordinates exceed the 100,000 mm limit.');
       totalVertices+=ring.length;if(totalVertices>100_000)throw Error('DXF exceeds 100,000 vertices.');
@@ -397,11 +405,14 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
     }
     const dxfDetails:DxfDetailContour[]=details.map(detail=>({ring:detail.ring,layer:detail.layer,...(detail.dxfColorNumber!==undefined?{colorNumber:detail.dxfColorNumber}:{})}));
     const sourceBounds=bounds(outer.ring);
+    const sourceIds=group.flatMap(contour=>contour.entityId.split(' + '));
+    const nativeEntities=sourceIds.map(id=>sourceEntities.get(id));
+    const allNative=nativeEntities.length===group.reduce((count,contour)=>count+contour.sourceEntityCount,0)&&nativeEntities.every((entity):entity is DxfSourceEntity=>!!entity);
     const part=localize({...newPart(outer.ring,outer.entityId),holes:holes.map(h=>h.ring),
       source:{format:'dxf' as const,fileName,entityId:outer.entityId,
         ...(outer.dxfColorNumber!==undefined?{dxfColorNumber:outer.dxfColorNumber}:{}),
         ...(holes.some(h=>h.dxfColorNumber!==undefined)?{dxfHoleColorNumbers:holes.map(h=>h.dxfColorNumber??256)}:{}),
-        ...(dxfDetails.length?{dxfDetails}:{}),dxfSourceEntityCount:group.reduce((count,contour)=>count+contour.sourceEntityCount,0)},
+        ...(dxfDetails.length?{dxfDetails}:{}),...(allNative?{dxfEntities:nativeEntities}:{}),dxfSourceEntityCount:group.reduce((count,contour)=>count+contour.sourceEntityCount,0)},
       approximationToleranceMm:group.some(contour=>contour.curved)?options.tolerance+joined.adjustment:0});
     return {...part,preparationPosition:[sourceBounds[0],sourceBounds[1]] as Point};
   });
@@ -420,8 +431,12 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
     if(target){
       const b=bounds(target.contour.ring);
       const localPoints=mark.points.map(([x,y])=>[x-b[0],y-b[1]] as Point);
+      const ids=mark.id.split(' + '),native=ids.map(id=>sourceEntities.get(id));
+      const allNative=native.length===mark.sourceEntityCount&&native.every((entity):entity is DxfSourceEntity=>!!entity);
       const entity:DxfAuxEntity={kind:'path',points:localPoints,layer:mark.layer,...(mark.dxfColorNumber!==undefined?{colorNumber:mark.dxfColorNumber}:{})};
-      target.part.source={...target.part.source,dxfAux:[...(target.part.source.dxfAux??[]),entity],
+      target.part.source={...target.part.source,
+        ...(allNative?{dxfEntities:[...(target.part.source.dxfEntities??[]),...native.map(item=>localSourceEntity(item,b[0],b[1]))]}
+          :{dxfAux:[...(target.part.source.dxfAux??[]),entity]}),
         dxfSourceEntityCount:(target.part.source.dxfSourceEntityCount??1)+mark.sourceEntityCount};
       attachedOpenMarks+=mark.sourceEntityCount;
     } else issues.push(`${mark.id}: open DXF path is outside every closed part and was not attached.`);
