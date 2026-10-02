@@ -25,7 +25,12 @@ export function exportDXF(doc:Document,world:WorldPart[],placements:Placement[]=
   });
 
   const aux=(entity:DxfAuxEntity,p:Placement)=>{
-    const [x,y]=transformPoint(entity.point,p),layer=entity.layer||'MARKS',color=colorGroup(entity.colorNumber);
+    const layer=entity.layer||'MARKS',color=colorGroup(entity.colorNumber);
+    if(entity.kind==='path') {
+      const points=entity.points.map(point=>transformPoint(point,p));
+      return `0\nLWPOLYLINE\n5\n${handle()}\n330\n21\n100\nAcDbEntity\n8\n${layer}\n${color}100\nAcDbPolyline\n90\n${points.length}\n70\n0\n${points.map(([x,y])=>`10\n${x}\n20\n${y}\n`).join('')}`;
+    }
+    const [x,y]=transformPoint(entity.point,p);
     if(entity.kind==='point') return `0\nPOINT\n5\n${handle()}\n330\n21\n100\nAcDbEntity\n8\n${layer}\n${color}100\nAcDbPoint\n10\n${x}\n20\n${y}\n30\n0\n`;
     const rotation=entity.rotationDeg+p.angleDeg;
     if(entity.kind==='mtext') return `0\nMTEXT\n5\n${handle()}\n330\n21\n100\nAcDbEntity\n8\n${layer}\n${color}100\nAcDbMText\n10\n${x}\n20\n${y}\n30\n0\n40\n${entity.heightMm}\n1\n${entity.text}\n50\n${rotation}\n`;
@@ -85,6 +90,12 @@ export function exportDXF(doc:Document,world:WorldPart[],placements:Placement[]=
     }
     for(const mark of part?.source.dxfAux??[]){
       const entity=parsed.entities[at++];
+      if(mark.kind==='path'){
+        if(entity?.type!=='LWPOLYLINE'||entity.closed)throw Error('Serialized DXF lost an attached open path mark.');
+        const expected=mark.points.map(point=>transformPoint(point,placement!)),actual=(entity.vertices??[]).map(q=>[q.x,q.y] as Point);
+        if(JSON.stringify(actual)!==JSON.stringify(expected)||entity.layer!==(mark.layer||'MARKS'))throw Error('Serialized DXF changed an attached open path mark.');
+        continue;
+      }
       const expectedType=mark.kind==='point'?'POINT':mark.kind==='mtext'?'MTEXT':'TEXT';
       if(entity?.type!==expectedType)throw Error('Serialized DXF lost an attached point or text mark.');
     }

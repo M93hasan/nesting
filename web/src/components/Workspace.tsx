@@ -68,6 +68,7 @@ export default function Workspace({ document: doc, result, live, selected, selec
       const sheetOffset=doc.settings.materialType==='sheet'?(placement.sheetIndex??0)*((doc.settings.materialLengthMm??0)+20):0;
       return {...placement, index, path:partPaths[index], outer:part.outer,
         detailPaths:(part.source.dxfDetails??[]).map(detail=>pathData([detail.ring])),
+        markPaths:(part.source.dxfAux??[]).filter(mark=>mark.kind==='path').map(mark=>`M${mark.points.map(point=>point.join(',')).join('L')}`),
         box:bounds(part.outer) as [number,number,number,number], position:[placement.xMm,placement.yMm] as Point, sheetOffset};
     });
   }, [placements, doc.parts, partPaths]);
@@ -148,7 +149,9 @@ export default function Workspace({ document: doc, result, live, selected, selec
       <g data-part={drawing.partId} data-copy-index={drawing.copyIndex} transform={transform}>
         <path d={drawing.path} fillRule="evenodd" fill={fill} fillOpacity={fillOpacity} pointerEvents="all" stroke={stroke}
           strokeWidth={strokeWidth} vectorEffect="non-scaling-stroke" />
-        {drawing.detailPaths.map((detailPath,detailIndex)=><path key={detailIndex} d={detailPath} fill="none" pointerEvents="none" stroke={stroke}
+        {drawing.detailPaths.map((detailPath,detailIndex)=><path key={`detail-${detailIndex}`} d={detailPath} fill="none" pointerEvents="none" stroke={stroke}
+          strokeWidth={Math.max(1,strokeWidth*.75)} vectorEffect="non-scaling-stroke" />)}
+        {drawing.markPaths.map((markPath,markIndex)=><path key={`mark-${markIndex}`} d={markPath} fill="none" pointerEvents="none" stroke={stroke}
           strokeWidth={Math.max(1,strokeWidth*.75)} vectorEffect="non-scaling-stroke" />)}
         {active && <rect x={x0} y={y0} width={x1 - x0} height={y1 - y0} fill="none" stroke="var(--accent)"
           strokeDasharray="4 3" vectorEffect="non-scaling-stroke" pointerEvents="none" />}
