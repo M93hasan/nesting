@@ -160,3 +160,27 @@ fn rectangular_boundary_contact_preserves_collision_and_collection_checks() {
         .collect_poly_collisions(&shape, &mut collisions);
     assert!(!collisions.is_empty());
 }
+
+
+#[test]
+fn safe_warm_start_keeps_every_copy_and_restricted_rotation() {
+    let input: ExtSPInstance = serde_json::from_value(json!({
+        "name":"warm", "strip_height":1400.0,
+        "items":[{"id":0,"demand":3,"allowed_orientations":[0.0,180.0],
+            "shape":{"type":"rectangle","data":{"x_min":0.0,"y_min":0.0,"width":320.0,"height":274.0}}}]
+    })).unwrap();
+    let warm = safe_warm_start(&input, 0.3).unwrap();
+    assert_eq!(warm.layout.placed_items.len(), 3);
+    assert!(warm.layout.placed_items.iter().all(|p| [0.0,180.0].contains(&p.transformation.rotation)));
+    assert!(warm.strip_width > 320.0 && warm.strip_width < 400.0);
+}
+
+#[test]
+fn safe_warm_start_never_invents_a_rotation_that_does_not_fit() {
+    let input: ExtSPInstance = serde_json::from_value(json!({
+        "name":"too tall", "strip_height":1400.0,
+        "items":[{"id":0,"demand":1,"allowed_orientations":[0.0,180.0],
+            "shape":{"type":"rectangle","data":{"x_min":0.0,"y_min":0.0,"width":100.0,"height":1500.0}}}]
+    })).unwrap();
+    assert!(safe_warm_start(&input, 0.3).unwrap_err().contains("allowed rotations"));
+}

@@ -177,12 +177,10 @@ export function useSolver() {
               r.diagnostics.history.at(-1)!.errors=[error instanceof Error?error.message:String(error)];
               break;
             }
-            // Ordinary roll candidates come directly from Sparrow/Jagua and are
-            // trusted upstream. SafeAppendFeas contains one or more copies placed by
-            // Serula's deterministic fallback, so it is always revalidated locally
-            // against the original production geometry before it may be published.
-            const locallyValidate=doc.settings.materialType==='sheet'||data.report==='SafeAppendFeas';
-            if(!locallyValidate){
+            // Roll candidates are complete Sparrow/Jagua solutions, including
+            // warm-start recovery runs. Sheet mode remains locally validated because
+            // Serula repacks the continuous strip into fixed plates afterwards.
+            if(doc.settings.materialType!=='sheet'){
               const better=!r.best||packed.usedLengthMm<r.best.usedLengthMm;
               if(better){
                 startup.firstValidMs??=performance.now()-requestedAt;
