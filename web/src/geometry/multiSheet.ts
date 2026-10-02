@@ -56,11 +56,25 @@ export function packResultIntoSheets(doc:Document,result:Result):Result {
   }
 
   const parts=new Map(doc.parts.map(p=>[p.id,p] as const));
-  const items:IntervalItem[]=result.placements.map((placement,index)=>{
+  // Sparrow/Jagua may reserve an internal edge buffer for collision safety.
+  // Remove that buffer with ONE rigid X translation before fixed-sheet checks;
+  // relative geometry, rotations and item-to-item clearance stay unchanged.
+  let minLayoutX=Infinity,maxLayoutX=-Infinity;
+  for(const placement of result.placements){
+    const part=parts.get(placement.partId);if(!part)throw Error('Yerleşimde bilinmeyen parça bulundu.');
+    const b=rotatedBounds(collisionRing(part),placement.angleDeg);
+    minLayoutX=Math.min(minLayoutX,placement.xMm+b[0]);
+    maxLayoutX=Math.max(maxLayoutX,placement.xMm+b[2]);
+  }
+  const spanX=result.placements.length?maxLayoutX-minLayoutX:0;
+  if(spanX>width+1e-6)throw Error('Yerleşim gerçek malzeme genişliğini aşıyor.');
+  const normalizeX=result.placements.length?width-maxLayoutX:0;
+  const normalizedPlacements=result.placements.map(placement=>({...placement,xMm:placement.xMm+normalizeX}));
+  const items:IntervalItem[]=normalizedPlacements.map((placement,index)=>{
     const part=parts.get(placement.partId);if(!part)throw Error('Yerleşimde bilinmeyen parça bulundu.');
     const b=rotatedBounds(collisionRing(part),placement.angleDeg);
     const minX=placement.xMm+b[0],maxX=placement.xMm+b[2],minY=placement.yMm+b[1],maxY=placement.yMm+b[3];
-    if(minX<-1e-7||maxX>width+1e-7)throw Error(`${part.name} malzeme genişliğinin dışına taşıyor.`);
+    if(minX<-1e-6||maxX>width+1e-6)throw Error(`${part.name} malzeme genişliğinin dışına taşıyor.`);
     if(maxY-minY>length+1e-7)throw Error(`${part.name} seçilen plaka uzunluğuna sığmıyor.`);
     return {placement,index,part,minY,maxY};
   }).sort((a,b)=>a.minY-b.minY||a.maxY-b.maxY);
