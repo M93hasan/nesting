@@ -22,8 +22,8 @@ test('sheet BLF can remove a sparsely used final plate while preserving allowed 
     validation:{status:'pending',overlapAreaMm2:0,maxBoundaryViolationMm:0,minClearanceMm:null,errors:[]}};
   expect(validate(doc,baseline).status).toBe('passed');
   const improved=improveSheetPacking(doc,baseline);
-  expect(improved.sheetCount).toBe(2);
-  expect(improved.usedLengthMm).toBe(16);
+  expect(improved.sheetCount).toBe(1);
+  expect(improved.usedLengthMm).toBe(8);
   expect(improved.placements.every(p=>p.angleDeg===0||p.angleDeg===180)).toBe(true);
   expect(validate(doc,packResultIntoSheets(doc,improved)).status).toBe('passed');
 });
