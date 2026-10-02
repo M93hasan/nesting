@@ -1,7 +1,8 @@
 use jagua_rs::Instant;
 use jagua_rs::io::import::Importer;
+use jagua_rs::io::ext_repr::{ExtLayout, ExtPlacedItem, ExtShape, ExtTransformation};
 use jagua_rs::probs::spp::entities::{SPInstance, SPSolution};
-use jagua_rs::probs::spp::io::{export, ext_repr::ExtSPInstance, import_instance};
+use jagua_rs::probs::spp::io::{export, ext_repr::{ExtSPInstance, ExtSPSolution}, import_instance, import_solution};
 use rand::{SeedableRng, rngs::Xoshiro256PlusPlus};
 use serde_json::json;
 use sparrow::config::{DEFAULT_SPARROW_CONFIG, ShrinkDecayStrategy, SparrowConfig};
@@ -47,6 +48,94 @@ impl Listener {
         self.callback.call1(&JsValue::NULL, &JsValue::from_str(&value.to_string()))
             .expect("worker callback must accept solver messages");
     }
+}
+
+const WARM_START_EPS_MM: f32 = 0.01;
+
+fn shape_points(shape: &ExtShape) -> Vec<(f32, f32)> {
+    match shape {
+        ExtShape::Rectangle { x_min, y_min, width, height } => vec![
+            (*x_min, *y_min),
+            (*x_min + *width, *y_min),
+            (*x_min + *width, *y_min + *height),
+            (*x_min, *y_min + *height),
+        ],
+        ExtShape::SimplePolygon(poly) => poly.0.clone(),
+        ExtShape::Polygon(poly) => poly.outer.0.clone(),
+        ExtShape::MultiPolygon(polys) => polys.iter().flat_map(|poly| poly.outer.0.iter().copied()).collect(),
+    }
+}
+
+fn rotated_bounds(points: &[(f32, f32)], angle_deg: f32) -> Option<(f32, f32, f32, f32)> {
+    if points.is_empty() || !angle_deg.is_finite() { return None; }
+    let angle = angle_deg.to_radians();
+    let (c, s) = (angle.cos(), angle.sin());
+    let mut min_x = f32::INFINITY;
+    let mut min_y = f32::INFINITY;
+    let mut max_x = f32::NEG_INFINITY;
+    let mut max_y = f32::NEG_INFINITY;
+    for &(x, y) in points {
+        let rx = x * c - y * s;
+        let ry = x * s + y * c;
+        min_x = min_x.min(rx);
+        min_y = min_y.min(ry);
+        max_x = max_x.max(rx);
+        max_y = max_y.max(ry);
+    }
+    [min_x, min_y, max_x, max_y].iter().all(|v| v.is_finite())
+        .then_some((min_x, min_y, max_x, max_y))
+}
+
+fn safe_warm_start(external: &ExtSPInstance, clearance: f32) -> Result<ExtSPSolution, String> {
+    let edge = clearance + WARM_START_EPS_MM;
+    let usable_height = external.strip_height - 2.0 * edge;
+    if usable_height <= 0.0 {
+        return Err("material width leaves no interior room after clearance".into());
+    }
+    let mut cursor = edge;
+    let mut placed_items = Vec::new();
+
+    for item in &external.items {
+        let points = shape_points(&item.base.shape);
+        if points.is_empty() {
+            return Err(format!("item {} has no usable outline", item.base.id));
+        }
+        let angles = item.base.allowed_orientations.clone()
+            .unwrap_or_else(|| vec![0.0, 90.0, 180.0, 270.0]);
+        let mut best: Option<(f32, (f32, f32, f32, f32))> = None;
+        for angle in angles {
+            let Some(bbox) = rotated_bounds(&points, angle) else { continue; };
+            let width = bbox.2 - bbox.0;
+            let height = bbox.3 - bbox.1;
+            if height <= usable_height + 1e-4 && width > 0.0 {
+                if best.as_ref().is_none_or(|(_, current)| width < current.2 - current.0) {
+                    best = Some((angle, bbox));
+                }
+            }
+        }
+        let Some((angle, bbox)) = best else {
+            return Err(format!("item {} cannot fit the material width in its allowed rotations", item.base.id));
+        };
+        let width = bbox.2 - bbox.0;
+        for _ in 0..item.demand {
+            placed_items.push(ExtPlacedItem {
+                item_id: item.base.id,
+                transformation: ExtTransformation {
+                    rotation: angle,
+                    translation: (cursor - bbox.0, edge - bbox.1),
+                },
+            });
+            cursor += width + clearance + WARM_START_EPS_MM;
+        }
+    }
+
+    let strip_width = (cursor - clearance - WARM_START_EPS_MM + edge).max(edge * 2.0);
+    Ok(ExtSPSolution {
+        strip_width,
+        layout: ExtLayout { container_id: 0, placed_items, density: 0.0 },
+        density: 0.0,
+        run_time_sec: 0,
+    })
 }
 
 impl SolutionListener for Listener {
@@ -104,9 +193,30 @@ pub fn run(input: &str, seconds: Option<u32>, seed: &str, clearance: f32, preset
         exploration_workers: config.expl_cfg.separator_config.n_workers,
         compression_workers: config.cmpr_cfg.separator_config.n_workers };
     let mut terminator = WebTerminator { timed: seconds.is_some(), inner: BasicTerminator::new(), interrupt };
-    optimize(instance, Xoshiro256PlusPlus::seed_from_u64(seed), &mut listener,
-        &mut terminator, &config.expl_cfg, &config.cmpr_cfg, None)
-    .map_err(|error| JsValue::from_str(&format!("No valid initial placement could be constructed for item {}. Review the part size, allowed rotations, material width, and clearance.", error.item_id)))?;
+    let solution = match optimize(instance.clone(), Xoshiro256PlusPlus::seed_from_u64(seed), &mut listener,
+        &mut terminator, &config.expl_cfg, &config.cmpr_cfg, None) {
+        Ok(solution) => solution,
+        Err(error) => {
+            let warm_external = safe_warm_start(&external, clearance).map_err(|reason|
+                JsValue::from_str(&format!(
+                    "No valid initial placement could be constructed for item {}. Warm-start fallback also failed: {reason}.",
+                    error.item_id
+                )))?;
+            let warm_solution = import_solution(&instance, &warm_external);
+            listener.send(json!({"type":"solver-log","line":format!(
+                "Warm-start recovery: initial constructor rejected item {}; all copies remain in Sparrow optimization.",
+                error.item_id
+            ),"timestamp":js_sys::Date::now()}));
+            optimize(instance.clone(), Xoshiro256PlusPlus::seed_from_u64(seed ^ 0x9E3779B97F4A7C15), &mut listener,
+                &mut terminator, &config.expl_cfg, &config.cmpr_cfg, Some(&warm_solution))
+            .map_err(|warm_error| JsValue::from_str(&format!(
+                "Warm-start optimization failed after initial placement error on item {}: {}",
+                error.item_id, warm_error
+            )))?
+        }
+    };
+    // Keep the final solution alive through the last listener report in optimize.
+    let _ = solution;
     listener.send(json!({"type": "finished"}));
     Ok(())
 }
