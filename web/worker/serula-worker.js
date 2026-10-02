@@ -97,6 +97,29 @@ async function ensureSchema(env){
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )`),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_chat_messages_user ON chat_messages(user_id,id)'),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS nesting_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      project_name TEXT,
+      source_file_name TEXT,
+      used_credit INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_nesting_history_user ON nesting_history(user_id,id)'),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS export_files (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      project_name TEXT NOT NULL DEFAULT '',
+      source_file_name TEXT NOT NULL DEFAULT '',
+      file_name TEXT NOT NULL,
+      dxf_text TEXT NOT NULL,
+      project_json TEXT,
+      byte_size INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_export_files_user_created ON export_files(user_id,id DESC)'),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_presence (
       user_id INTEGER PRIMARY KEY,
       last_seen TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -290,16 +313,55 @@ async function handleApi(request,env){
   }
   if(path==='/api/export/authorize'&&request.method==='POST'){
     const user=await sessionUser(request,env);if(!user)return json({error:'DXF indirmek için giriş yapmalısınız.'},401);
+    const data=await body(request);
+    const projectName=String(data.projectName||'').trim().slice(0,200);
+    const sourceFileName=String(data.sourceFileName||'').trim().slice(0,255);
+    const dxf=typeof data.dxf==='string'?data.dxf:'';
+    const projectJson=typeof data.projectJson==='string'?data.projectJson:'';
+    let fileName=String(data.fileName||sourceFileName||'serula-export.dxf').trim().replace(/[<>:"/\\|?*\x00-\x1f]/g,'-').replace(/[. ]+$/g,'').slice(0,240)||'serula-export.dxf';
+    if(!/\.dxf$/i.test(fileName))fileName+='.dxf';
+    if(!dxf.trim())return json({error:'Buluta kaydedilecek DXF verisi boş.'},400);
+    const byteSize=new TextEncoder().encode(dxf).byteLength;
+    if(byteSize>12*1024*1024)return json({error:'DXF dosyası bulut kaydı için 12 MiB sınırını aşıyor.'},413);
+    if(projectJson.length>20*1024*1024)return json({error:'Proje kaydı bulut sınırını aşıyor.'},413);
     if(!user.unlimited){
       const updated=await env.DB.prepare('UPDATE users SET nesting_credits=nesting_credits-1 WHERE id=? AND nesting_credits>0').bind(user.id).run();
       if(!updated.meta.changes)return json({error:'Nesting hakkınız kalmadı. Admin yeni hak verebilir.'},402);
     }
-    const data=await body(request);
     await env.DB.prepare('INSERT INTO nesting_history(user_id,project_name,source_file_name,used_credit) VALUES(?,?,?,?)')
-      .bind(user.id,String(data.projectName||'').slice(0,200),String(data.sourceFileName||'').slice(0,255),user.unlimited?0:1).run();
+      .bind(user.id,projectName,sourceFileName,user.unlimited?0:1).run();
+    const saved=await env.DB.prepare('INSERT INTO export_files(user_id,project_name,source_file_name,file_name,dxf_text,project_json,byte_size) VALUES(?,?,?,?,?,?,?)')
+      .bind(user.id,projectName,sourceFileName,fileName,dxf,projectJson||null,byteSize).run();
     const fresh=await env.DB.prepare('SELECT id,email,name,role,nesting_credits,unlimited FROM users WHERE id=?').bind(user.id).first();
-    await audit(env,'export_authorized',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:String(data.projectName||'')});
-    return json({ok:true,user:publicUser(fresh)});
+    await audit(env,'export_saved',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:fileName});
+    return json({ok:true,exportId:Number(saved.meta.last_row_id),user:publicUser(fresh)});
+  }
+  if(path==='/api/exports'&&request.method==='GET'){
+    const user=await sessionUser(request,env);if(!user)return json({error:'Geçmişi görmek için giriş yapmalısınız.'},401);
+    const rows=await env.DB.prepare(`SELECT id,project_name,source_file_name,file_name,byte_size,created_at
+      FROM export_files WHERE user_id=? ORDER BY id DESC LIMIT 200`).bind(user.id).all();
+    return json({items:rows.results.map(row=>({id:Number(row.id),projectName:row.project_name||'',sourceFileName:row.source_file_name||'',fileName:row.file_name||'',byteSize:Number(row.byte_size||0),createdAt:row.created_at}))});
+  }
+  const exportFileMatch=path.match(/^\/api\/exports\/(\d+)$/);
+  if(exportFileMatch&&request.method==='GET'){
+    const user=await sessionUser(request,env);if(!user)return json({error:'Giriş gerekli.'},401);
+    const row=await env.DB.prepare('SELECT id,file_name,dxf_text,project_json FROM export_files WHERE id=? AND user_id=?').bind(Number(exportFileMatch[1]),user.id).first();
+    if(!row)return json({error:'Kayıt bulunamadı.'},404);
+    if(url.searchParams.get('kind')==='project'){
+      if(!row.project_json)return json({error:'Bu kaydın proje verisi bulunmuyor.'},404);
+      return new Response(row.project_json,{headers:{'content-type':'application/json; charset=utf-8','cache-control':'private, no-store'}});
+    }
+    const safeName=String(row.file_name||'serula-export.dxf').replace(/[\r\n"]/g,'_');
+    return new Response(row.dxf_text,{headers:{'content-type':'application/dxf; charset=utf-8','content-disposition':`attachment; filename="${safeName}"`,'cache-control':'private, no-store'}});
+  }
+  if(exportFileMatch&&request.method==='DELETE'){
+    const user=await sessionUser(request,env);if(!user)return json({error:'Giriş gerekli.'},401);
+    const id=Number(exportFileMatch[1]);
+    const row=await env.DB.prepare('SELECT id,file_name FROM export_files WHERE id=? AND user_id=?').bind(id,user.id).first();
+    if(!row)return json({error:'Kayıt bulunamadı.'},404);
+    await env.DB.prepare('DELETE FROM export_files WHERE id=? AND user_id=?').bind(id,user.id).run();
+    await audit(env,'export_deleted',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:String(row.file_name||id)});
+    return json({ok:true});
   }
   if(path==='/api/admin/users'&&request.method==='GET'){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
@@ -356,6 +418,7 @@ async function handleApi(request,env){
       env.DB.prepare('DELETE FROM user_settings WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM password_reset_tokens WHERE user_id=?').bind(id),
+      env.DB.prepare('DELETE FROM export_files WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM nesting_history WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM audit_logs WHERE actor_user_id=? OR target_user_id=?').bind(id,id),
       env.DB.prepare('DELETE FROM users WHERE id=?').bind(id)
