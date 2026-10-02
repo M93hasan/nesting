@@ -155,6 +155,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     if(!/^\d+$/.test(raw))return;
     const value=Number(raw);
     if(value===seriesMultiplier)return;
+    if(value<1||value>seriesMax){setError(`Seri adedi 1 ile ${seriesMax} arasında olmalıdır.`);return;}
     try{commit(applySeriesMultiplier(doc,value),true,'series-multiplier',true)}
     catch(error){setError(error instanceof Error?error.message:String(error))}
   };
@@ -483,7 +484,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     {recoveryError&&<div className="error-banner" role="alert">{recoveryError}</div>}
     <main className="main-workspace">
       <aside id="parts-settings" className={`sidebar ${panel?'open':''}`}>
-        <div className="panel-title"><h2>Parçalar <span>{displayedPieceCount(doc.parts)}</span></h2><div className="panel-title-actions"><div className="series-multiplier" title="Bütün proje için seri adedi"><span aria-hidden="true">×</span><input aria-label="Proje seri adedi" inputMode="numeric" type="text" pattern="[0-9]*" value={seriesDraft??String(seriesMultiplier)} disabled={locked||!doc.parts.length} onFocus={e=>{setSeriesDraft(String(seriesMultiplier));e.currentTarget.select();}} onChange={e=>{if(/^\d*$/.test(e.target.value))setSeriesDraft(e.target.value)}} onBlur={finishSeriesEdit} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();e.currentTarget.blur()}else if(e.key==='Escape'){setSeriesDraft(undefined);e.currentTarget.blur()}}}/></div><button onClick={()=>setInfo('help')}>Yardım</button></div></div>
+        <div className="panel-title"><h2>Parçalar <span>{displayedPieceCount(doc.parts)}</span></h2><div className="panel-title-actions"><div className="series-multiplier" title="Bütün proje için seri adedi"><span aria-hidden="true">×</span><input aria-label="Proje seri adedi" inputMode="numeric" type="text" pattern="[0-9]*" value={seriesDraft??String(seriesMultiplier)} disabled={locked||!doc.parts.length} onFocus={e=>{setSeriesDraft(String(seriesMultiplier));e.currentTarget.select();}} onChange={e=>{if(/^\d*$/.test(e.target.value))setSeriesDraft(e.target.value)}} onBlur={finishSeriesEdit} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();e.currentTarget.blur()}}}/></div><button onClick={()=>setInfo('help')}>Yardım</button></div></div>
         <div className="parts-list">{doc.parts.map((p,i)=>{const b=bounds(p.outer);return <div key={p.id} className={`part-row ${selected.includes(p.id)?'selected':''}`}>
           <button className="part-select" aria-pressed={selected.includes(p.id)} onClick={e=>{
             const additive=e.metaKey||e.ctrlKey;
