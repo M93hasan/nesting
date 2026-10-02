@@ -18,7 +18,7 @@ import SupportChat from './components/SupportChat';
 import {displayLength,unitScale,type DisplayUnit} from './units';
 import {selectionBounds,type GeometryEdit} from './geometry/manipulate';
 import {isEditableTarget,preparationShortcut} from './geometry/gestures';
-import {copyRefsFor,documentPlacements,duplicateCopies,removeCopies,rotateToNextOrientation,movePlacements,placementLayoutsEqual,syncQuantity,updatePlacements,withDocumentPlacements,type CopyRef} from './geometry/placements';
+import {applySeriesMultiplier,copyRefsFor,documentPlacements,duplicateCopies,maxSeriesMultiplier,removeCopies,rotateToNextOrientation,movePlacements,placementLayoutsEqual,syncQuantity,updatePlacements,withDocumentPlacements,type CopyRef} from './geometry/placements';
 
 const emptyProject=(name='Adsız proje'):Document=>({name,parts:[],settings:{...DEFAULT_SETTINGS}});
 type ProjectSwitch={document:Document;result?:Result;warnings?:string[];saved?:boolean;nest?:boolean};
@@ -147,6 +147,8 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const showingLive=resultMode==='live'&&!!live;
   const selected=useMemo(()=>[...new Set([...selectedCopies.map(copy=>copy.partId),...unusedSelection])],[selectedCopies,unusedSelection]);
   const visibleResult=showingLive?live?.result:result;
+  const seriesMultiplier=doc.seriesMultiplier??1;
+  const seriesMax=useMemo(()=>{try{return maxSeriesMultiplier(doc)}catch{return 1}},[doc]);
   const canvasDocument=useMemo(()=>visibleResult?{...doc,placements:visibleResult.placements}:doc,[doc,visibleResult]);
   const chosen=doc.parts.find(p=>p.id===selected[0]);
   const mixedRotations=chosen&&doc.parts.some(part=>selected.includes(part.id)&&rotationValue(part.rotations)!==rotationValue(chosen.rotations));
@@ -175,7 +177,9 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     if(!placementLayoutsEqual(doc,next)) setDoc(next);
   },[running,result,doc]);
   useEffect(()=>{if(!running&&result)setResultMode('checked');},[running,result]);
-  function commit(next:Document,geometry=true,field?:string) {
+  function commit(next:Document,geometry=true,field?:string,preserveSeries=false) {
+    const quantityStructureChanged=next.parts.length!==doc.parts.length||next.parts.some((part,index)=>doc.parts[index]?.id!==part.id||doc.parts[index]?.quantity!==part.quantity);
+    if(!preserveSeries&&quantityStructureChanged&&(doc.seriesMultiplier??1)!==1)next={...next,seriesMultiplier:undefined};
     const parts=new Map(next.parts.map(part=>[part.id,part]));
     const placements=next.placements?.filter(copy=>parts.has(copy.partId)&&copy.copyIndex<(Number.isInteger(parts.get(copy.partId)!.quantity)?Math.max(0,parts.get(copy.partId)!.quantity):1));
     let canonical:Document;
@@ -470,7 +474,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     {recoveryError&&<div className="error-banner" role="alert">{recoveryError}</div>}
     <main className="main-workspace">
       <aside id="parts-settings" className={`sidebar ${panel?'open':''}`}>
-        <div className="panel-title"><h2>Parçalar <span>{displayedPieceCount(doc.parts)}</span></h2><button onClick={()=>setInfo('help')}>Yardım</button></div>
+        <div className="panel-title"><h2>Parçalar <span>{displayedPieceCount(doc.parts)}</span></h2><div className="panel-title-actions"><div className="series-multiplier" title="Bütün proje için seri adedi"><span aria-hidden="true">×</span><input aria-label="Proje seri adedi" inputMode="numeric" type="number" min="1" max={seriesMax} step="1" value={seriesMultiplier} disabled={locked||!doc.parts.length} onChange={e=>{const value=e.target.valueAsNumber;if(!Number.isInteger(value)||value<1)return;try{commit(applySeriesMultiplier(doc,value),true,'series-multiplier',true)}catch(error){setError(error instanceof Error?error.message:String(error))}}}/></div><button onClick={()=>setInfo('help')}>Yardım</button></div></div>
         <div className="parts-list">{doc.parts.map((p,i)=>{const b=bounds(p.outer);return <div key={p.id} className={`part-row ${selected.includes(p.id)?'selected':''}`}>
           <button className="part-select" aria-pressed={selected.includes(p.id)} onClick={e=>{
             const additive=e.metaKey||e.ctrlKey;
