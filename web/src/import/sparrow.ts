@@ -52,13 +52,23 @@ export function importSparrow(text: string,fileName: string,scale: number): Impo
       `One coordinate unit = ${scale} mm. Benchmark coordinates have no intrinsic manufacturing units.`,
       ...(parts.some(p=>p.holes.length)?['Holes are preserved; nesting inside holes is not supported.']:[])]};
 }
+export type SolverCopy={itemId:number;partId:string;copyIndex:number};
+export function solverCopies(doc:Document):SolverCopy[] {
+  let itemId=0;
+  return doc.parts.flatMap(part=>Array.from({length:part.quantity},(_,copyIndex)=>({itemId:itemId++,partId:part.id,copyIndex})));
+}
 export function solverInput(doc: Document): string {
-  if(!doc.parts.some(part=>part.quantity>0))throw Error('Add at least one copy before nesting.');
-  return JSON.stringify({name:doc.name,strip_height:doc.settings.materialWidthMm,items:doc.parts.filter(part=>part.quantity>0).map((p,id)=>({
-    // Sparrow packs along +X with strip_height on Y. The workspace uses
-    // material width on X and material length on Y, so solve a transposed
-    // copy and map the result back. Imported geometry stays unchanged.
-    id,demand:p.quantity,allowed_orientations:p.rotations.kind==='continuous'?undefined:p.rotations.degrees.map(angle=>-angle),
-    shape:{type:'simple_polygon',data:collisionRing(p).map(([x,y])=>[y,x])},
-  }))});
+  const copies=solverCopies(doc);
+  if(!copies.length)throw Error('Add at least one copy before nesting.');
+  const parts=new Map(doc.parts.map(part=>[part.id,part]));
+  return JSON.stringify({name:doc.name,strip_height:doc.settings.materialWidthMm,items:copies.map(copy=>{
+    const p=parts.get(copy.partId)!;
+    return {
+      // Keep each physical copy as its own Sparrow item. Jagua/Sparrow can trap
+      // in the repeated-demand path for some curved footwear polygons. Demand=1
+      // preserves identical geometry and copy count while avoiding that code path.
+      id:copy.itemId,demand:1,allowed_orientations:p.rotations.kind==='continuous'?undefined:p.rotations.degrees.map(angle=>-angle),
+      shape:{type:'simple_polygon',data:collisionRing(p).map(([x,y])=>[y,x])},
+    };
+  })});
 }
