@@ -6,7 +6,7 @@ use jagua_rs::probs::spp::io::{export, ext_repr::{ExtSPInstance, ExtSPSolution},
 use rand::{SeedableRng, rngs::Xoshiro256PlusPlus};
 use serde_json::{json, Value};
 use sparrow::config::{DEFAULT_SPARROW_CONFIG, ShrinkDecayStrategy, SparrowConfig};
-use sparrow::consts::{DEFAULT_FAIL_DECAY_RATIO_CMPR, DEFAULT_MAX_CONSEQ_FAILS_EXPL};
+
 use sparrow::optimizer::{lbf::ConstructionError, optimize};
 use sparrow::util::listener::{OptimizationPhase, ReportType, SolutionListener};
 use sparrow::util::terminator::{BasicTerminator, Terminator};
@@ -254,7 +254,7 @@ pub fn run(input: &str, seconds: Option<u32>, seed: &str, clearance: f32, preset
     console_error_panic_hook::set_once();
     logging::init();
     let initialized_at = Instant::now();
-    if !matches!(seconds, None | Some(10 | 30 | 60 | 120 | 300 | 600)) || input.len() > 10 * 1024 * 1024 || !clearance.is_finite() || clearance < 0.0 {
+    if seconds.is_some_and(|seconds| !(5..=600).contains(&seconds)) || input.len() > 10 * 1024 * 1024 || !clearance.is_finite() || clearance < 0.0 {
         return Err(JsValue::from_str("Invalid duration or oversized input"));
     }
     let seed = seed.parse::<u64>().map_err(|e| JsValue::from_str(&e.to_string()))?;
@@ -312,10 +312,17 @@ pub fn run(input: &str, seconds: Option<u32>, seed: &str, clearance: f32, preset
 // Keep sparrow's geometry optimizations, user clearance and stop-condition controls.
 fn solver_config(preset: &str, workers: usize, seconds: Option<u32>) -> Result<SparrowConfig, &'static str> {
     let mut config = DEFAULT_SPARROW_CONFIG;
-    config.expl_cfg.max_conseq_failed_attempts = Some(DEFAULT_MAX_CONSEQ_FAILS_EXPL);
-    config.cmpr_cfg.shrink_decay = ShrinkDecayStrategy::FailureBased(DEFAULT_FAIL_DECAY_RATIO_CMPR);
     match preset {
-        "standard" => {},
+        "standard" => {
+            // Quality mode follows Sparrow 0.3's non-early-terminating exploration,
+            // then gives Compression enough iterations to actually tighten footwear layouts.
+            config.expl_cfg.max_conseq_failed_attempts = None;
+            config.cmpr_cfg.shrink_decay = ShrinkDecayStrategy::TimeBased;
+            config.cmpr_cfg.separator_config.iter_no_imprv_limit =
+                config.cmpr_cfg.separator_config.iter_no_imprv_limit.max(150);
+            config.cmpr_cfg.separator_config.strike_limit =
+                config.cmpr_cfg.separator_config.strike_limit.max(6);
+        },
         "fast" => {
             config.expl_cfg.shrink_step = 0.01;
             config.expl_cfg.max_conseq_failed_attempts = Some(10);
@@ -333,8 +340,9 @@ fn solver_config(preset: &str, workers: usize, seconds: Option<u32>) -> Result<S
     config.expl_cfg.separator_config.n_workers = config.expl_cfg.separator_config.n_workers.min(workers);
     config.cmpr_cfg.separator_config.n_workers = config.cmpr_cfg.separator_config.n_workers.min(workers);
     if let Some(seconds) = seconds {
-        config.expl_cfg.time_limit = Duration::from_secs_f64(seconds as f64 * 0.8);
-        config.cmpr_cfg.time_limit = Duration::from_secs_f64(seconds as f64 * 0.2);
+        let exploration_ratio = if preset == "standard" { 0.5 } else { 0.8 };
+        config.expl_cfg.time_limit = Duration::from_secs_f64(seconds as f64 * exploration_ratio);
+        config.cmpr_cfg.time_limit = Duration::from_secs_f64(seconds as f64 * (1.0 - exploration_ratio));
     }
     Ok(config)
 }
