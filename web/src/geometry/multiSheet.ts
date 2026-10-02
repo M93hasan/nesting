@@ -2,6 +2,7 @@ import type {Document,Part,Placement,Result,Ring} from '../model';
 import {collisionRing} from './validate';
 
 type IntervalItem={placement:Placement;index:number;part:Part;minY:number;maxY:number};
+type Band={items:IntervalItem[];minY:number;maxY:number};
 type SheetChunk={items:IntervalItem[];minY:number;maxY:number};
 
 const rotatedBounds=(ring:Ring,angleDeg:number)=>{
@@ -47,7 +48,7 @@ function orientToStartCorner(doc:Document,result:Result):Result {
 
 export function packResultIntoSheets(doc:Document,result:Result):Result {
   if(doc.settings.materialType!=='sheet')return orientToStartCorner(doc,result);
-  const width=doc.settings.materialWidthMm,length=doc.settings.materialLengthMm;
+  const width=doc.settings.materialWidthMm,length=doc.settings.materialLengthMm,gap=Math.max(0,doc.settings.clearanceMm);
   if(!length||!Number.isFinite(length)||length<=0)throw Error('Plaka uzunluğu pozitif bir değer olmalıdır.');
   if(result.placements.length&&result.placements.every(placement=>placement.sheetIndex!==undefined)){
     const sheetCount=Math.max(...result.placements.map(placement=>placement.sheetIndex??0))+1;
@@ -64,28 +65,55 @@ export function packResultIntoSheets(doc:Document,result:Result):Result {
     return {placement,index,part,minY,maxY};
   }).sort((a,b)=>a.minY-b.minY||a.maxY-b.maxY);
 
-  // Keep Sparrow/Jagua as the only nesting engine. For plate mode we only
-  // paginate its continuous strip into contiguous Y chunks whose original span
-  // fits one plate. Relative X/Y positions inside each chunk stay rigid, so no
-  // new collisions are introduced. A chunk may split an overlapping Y "band"
-  // across two physical plates; that is safe because different sheetIndex values
-  // are separate materials and never collide with each other.
-  const chunks:SheetChunk[]=[];
+  // First keep the old safe-gap behavior: Y-disconnected Sparrow bands may
+  // be compacted closer together without changing any geometry inside a band.
+  const bands:Band[]=[];
   for(const item of items){
-    const current=chunks.at(-1);
-    if(!current){chunks.push({items:[item],minY:item.minY,maxY:item.maxY});continue;}
-    const nextMax=Math.max(current.maxY,item.maxY);
-    if(nextMax-current.minY<=length+1e-7){
-      current.items.push(item);current.maxY=nextMax;
-    }else chunks.push({items:[item],minY:item.minY,maxY:item.maxY});
+    const last=bands.at(-1);
+    if(last&&item.minY<=last.maxY+gap+1e-7){
+      last.items.push(item);last.maxY=Math.max(last.maxY,item.maxY);last.minY=Math.min(last.minY,item.minY);
+    }else bands.push({items:[item],minY:item.minY,maxY:item.maxY});
   }
 
-  const packed=new Array<Placement>(result.placements.length);
-  chunks.forEach((chunk,sheetIndex)=>{
-    const offset=-chunk.minY;
-    for(const item of chunk.items)packed[item.index]={...item.placement,sheetIndex,yMm:item.placement.yMm+offset};
-  });
+  // A single connected Y band can legitimately be taller than one physical
+  // plate even though every individual part fits. Split only such oversized
+  // bands into rigid chunks; different chunks may live on different plates.
+  const chunks:SheetChunk[]=[];
+  for(const band of bands){
+    if(band.maxY-band.minY<=length+1e-7){
+      chunks.push({items:band.items,minY:band.minY,maxY:band.maxY});
+      continue;
+    }
+    let current:SheetChunk|undefined;
+    for(const item of band.items){
+      if(!current){
+        current={items:[item],minY:item.minY,maxY:item.maxY};
+        chunks.push(current);
+        continue;
+      }
+      const nextMax=Math.max(current.maxY,item.maxY);
+      if(nextMax-current.minY<=length+1e-7){
+        current.items.push(item);current.maxY=nextMax;
+      }else{
+        current={items:[item],minY:item.minY,maxY:item.maxY};
+        chunks.push(current);
+      }
+    }
+  }
 
-  const sheetCount=Math.max(1,chunks.length);
+  // Pack the safe rigid chunks onto consecutive plates. Across chunks we only
+  // translate in Y; internal Sparrow placement, X, rotation and geometry stay intact.
+  const packed=new Array<Placement>(result.placements.length);
+  let sheetIndex=0,used=0;
+  for(const chunk of chunks){
+    const height=chunk.maxY-chunk.minY;
+    let start=used+(used>0?gap:0);
+    if(start+height>length+1e-7){sheetIndex++;used=0;start=0;}
+    const offset=start-chunk.minY;
+    for(const item of chunk.items)packed[item.index]={...item.placement,sheetIndex,yMm:item.placement.yMm+offset};
+    used=start+height;
+  }
+
+  const sheetCount=Math.max(1,sheetIndex+1);
   return orientToStartCorner(doc,{...result,sheetCount,usedLengthMm:length*sheetCount,placements:packed});
 }
