@@ -3,7 +3,7 @@ import {collisionRing} from './validate';
 
 type IntervalItem={placement:Placement;index:number;part:Part;minY:number;maxY:number};
 type Band={items:IntervalItem[];minY:number;maxY:number};
-type Sheet={used:number};
+type SheetChunk={items:IntervalItem[];minY:number;maxY:number};
 
 const rotatedBounds=(ring:Ring,angleDeg:number)=>{
   const a=angleDeg*Math.PI/180,c=Math.cos(a),s=Math.sin(a);
@@ -65,6 +65,8 @@ export function packResultIntoSheets(doc:Document,result:Result):Result {
     return {placement,index,part,minY,maxY};
   }).sort((a,b)=>a.minY-b.minY||a.maxY-b.maxY);
 
+  // First keep the old safe-gap behavior: Y-disconnected Sparrow bands may
+  // be compacted closer together without changing any geometry inside a band.
   const bands:Band[]=[];
   for(const item of items){
     const last=bands.at(-1);
@@ -73,29 +75,45 @@ export function packResultIntoSheets(doc:Document,result:Result):Result {
     }else bands.push({items:[item],minY:item.minY,maxY:item.maxY});
   }
 
-  // Do not invent a second nesting algorithm for sheet mode. Sparrow/Jagua
-  // owns rotation, collision handling and relative placement. We only cut the
-  // continuous Sparrow strip at safe gaps between non-overlapping Y bands.
-  // Bands stay in Sparrow order and their internal X/Y geometry is rigidly kept.
-  const packed=new Array<Placement>(result.placements.length),sheets:Sheet[]=[];
-  let sheetIndex=0,used=0;
-  sheets.push({used:0});
+  // A single connected Y band can legitimately be taller than one physical
+  // plate even though every individual part fits. Split only such oversized
+  // bands into rigid chunks; different chunks may live on different plates.
+  const chunks:SheetChunk[]=[];
   for(const band of bands){
-    const height=band.maxY-band.minY;
-    if(height>length+1e-7)throw Error('Sparrow yerleşimindeki bağlı bir parça grubu seçilen plaka uzunluğuna sığmıyor.');
-    let start=used+(used>0?gap:0);
-    if(start+height>length+1e-7){
-      sheetIndex++;
-      used=0;
-      sheets.push({used:0});
-      start=0;
+    if(band.maxY-band.minY<=length+1e-7){
+      chunks.push({items:band.items,minY:band.minY,maxY:band.maxY});
+      continue;
     }
-    const offset=start-band.minY;
-    for(const item of band.items)packed[item.index]={...item.placement,sheetIndex,yMm:item.placement.yMm+offset};
-    used=start+height;
-    sheets[sheetIndex].used=used;
+    let current:SheetChunk|undefined;
+    for(const item of band.items){
+      if(!current){
+        current={items:[item],minY:item.minY,maxY:item.maxY};
+        chunks.push(current);
+        continue;
+      }
+      const nextMax=Math.max(current.maxY,item.maxY);
+      if(nextMax-current.minY<=length+1e-7){
+        current.items.push(item);current.maxY=nextMax;
+      }else{
+        current={items:[item],minY:item.minY,maxY:item.maxY};
+        chunks.push(current);
+      }
+    }
   }
 
-  const sheetCount=Math.max(1,sheets.length);
+  // Pack the safe rigid chunks onto consecutive plates. Across chunks we only
+  // translate in Y; internal Sparrow placement, X, rotation and geometry stay intact.
+  const packed=new Array<Placement>(result.placements.length);
+  let sheetIndex=0,used=0;
+  for(const chunk of chunks){
+    const height=chunk.maxY-chunk.minY;
+    let start=used+(used>0?gap:0);
+    if(start+height>length+1e-7){sheetIndex++;used=0;start=0;}
+    const offset=start-chunk.minY;
+    for(const item of chunk.items)packed[item.index]={...item.placement,sheetIndex,yMm:item.placement.yMm+offset};
+    used=start+height;
+  }
+
+  const sheetCount=Math.max(1,sheetIndex+1);
   return orientToStartCorner(doc,{...result,sheetCount,usedLengthMm:length*sheetCount,placements:packed});
 }
