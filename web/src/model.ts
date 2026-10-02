@@ -6,6 +6,7 @@ export type DxfSourceEntity =
   | { kind:'line'; start:Point; end:Point; layer:string; colorNumber?:number }
   | { kind:'arc'; center:Point; radiusMm:number; startAngleDeg:number; endAngleDeg:number; layer:string; colorNumber?:number }
   | { kind:'circle'; center:Point; radiusMm:number; layer:string; colorNumber?:number }
+  | { kind:'ellipse'; center:Point; major:Point; ratio:number; startParam:number; endParam:number; layer:string; colorNumber?:number }
   | { kind:'spline'; curve:DxfSpline; layer:string; colorNumber?:number }
   | { kind:'polyline'; points:Point[]; bulges?:number[]; closed:boolean; layer:string; colorNumber?:number };
 export type DxfAuxEntity =
