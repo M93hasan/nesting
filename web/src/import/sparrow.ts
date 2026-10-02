@@ -14,7 +14,9 @@ export function number(value: unknown): number {
 export function localize(part: Part): Part {
   const [x,y]=bounds(part.outer);
   const shift=(ring: Ring): Ring=>ring.map(p=>[p[0]-x,p[1]-y]);
-  const dxfAux=part.source.dxfAux?.map(entity=>({...entity,point:[entity.point[0]-x,entity.point[1]-y] as [number,number]}));
+  const dxfAux=part.source.dxfAux?.map(entity=>entity.kind==='path'
+    ? {...entity,points:entity.points.map(([px,py])=>[px-x,py-y] as [number,number])}
+    : {...entity,point:[entity.point[0]-x,entity.point[1]-y] as [number,number]});
   const dxfDetails=part.source.dxfDetails?.map(detail=>({...detail,ring:shift(detail.ring)}));
   return {...part,source:{...part.source,...(dxfAux?{dxfAux}: {}),...(dxfDetails?{dxfDetails}: {})},outer:shift(part.outer),holes:part.holes.map(shift)};
 }
