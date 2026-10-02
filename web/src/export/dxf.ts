@@ -130,7 +130,7 @@ export function exportDXF(doc:Document,world:WorldPart[],placements:Placement[]=
         if(JSON.stringify(actual)!==JSON.stringify(expected))throw Error('Serialized DXF changed an attached detail contour.');
       }
     }
-    for(const mark of part?.source.dxfAux??[]){
+    for(const mark of (part?.source.dxfAux??[]).filter(mark=>!native||mark.kind!=='path')){
       const entity=parsed.entities[at++];
       if(mark.kind==='path'){
         if(entity?.type!=='LWPOLYLINE'||entity.closed)throw Error('Serialized DXF lost an attached open path mark.');
