@@ -13,12 +13,21 @@ export function number(value: unknown): number {
 }
 export function localize(part: Part): Part {
   const [x,y]=bounds(part.outer);
-  const shift=(ring: Ring): Ring=>ring.map(p=>[p[0]-x,p[1]-y]);
+  const shiftPoint=([px,py]:[number,number]):[number,number]=>[px-x,py-y];
+  const shift=(ring: Ring): Ring=>ring.map(shiftPoint);
+  const shiftSource=(entity:NonNullable<Part['source']['dxfEntities']>[number])=>{
+    if(entity.kind==='line')return {...entity,start:shiftPoint(entity.start),end:shiftPoint(entity.end)};
+    if(entity.kind==='arc'||entity.kind==='circle')return {...entity,center:shiftPoint(entity.center)};
+    if(entity.kind==='spline')return {...entity,curve:{...entity.curve,controlPoints:entity.curve.controlPoints.map(shiftPoint)}};
+    return {...entity,points:entity.points.map(shiftPoint)};
+  };
   const dxfAux=part.source.dxfAux?.map(entity=>entity.kind==='path'
-    ? {...entity,points:entity.points.map(([px,py])=>[px-x,py-y] as [number,number])}
-    : {...entity,point:[entity.point[0]-x,entity.point[1]-y] as [number,number]});
-  const dxfDetails=part.source.dxfDetails?.map(detail=>({...detail,ring:shift(detail.ring)}));
-  return {...part,source:{...part.source,...(dxfAux?{dxfAux}: {}),...(dxfDetails?{dxfDetails}: {})},outer:shift(part.outer),holes:part.holes.map(shift)};
+    ? {...entity,points:entity.points.map(shiftPoint)}
+    : {...entity,point:shiftPoint(entity.point)});
+  const dxfEntities=part.source.dxfEntities?.map(shiftSource);
+  const dxfHoleEntities=part.source.dxfHoleEntities?.map(group=>group.map(shiftSource));
+  const dxfDetails=part.source.dxfDetails?.map(detail=>({...detail,ring:shift(detail.ring),...(detail.sourceEntities?{sourceEntities:detail.sourceEntities.map(shiftSource)}:{})}));
+  return {...part,source:{...part.source,...(dxfAux?{dxfAux}: {}),...(dxfEntities?{dxfEntities}: {}),...(dxfHoleEntities?{dxfHoleEntities}: {}),...(dxfDetails?{dxfDetails}: {})},outer:shift(part.outer),holes:part.holes.map(shift)};
 }
 export function importSparrow(text: string,fileName: string,scale: number): ImportReview {
   if(!Number.isFinite(scale) || scale<=0) throw Error('Choose a positive millimeter scale.');
