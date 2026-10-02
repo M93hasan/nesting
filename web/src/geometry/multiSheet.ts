@@ -47,7 +47,7 @@ function orientToStartCorner(doc:Document,result:Result):Result {
 
 export function packResultIntoSheets(doc:Document,result:Result):Result {
   if(doc.settings.materialType!=='sheet')return orientToStartCorner(doc,result);
-  const width=doc.settings.materialWidthMm,length=doc.settings.materialLengthMm,gap=Math.max(0,doc.settings.clearanceMm);
+  const width=doc.settings.materialWidthMm,length=doc.settings.materialLengthMm;
   if(!length||!Number.isFinite(length)||length<=0)throw Error('Plaka uzunluğu pozitif bir değer olmalıdır.');
   if(result.placements.length&&result.placements.every(placement=>placement.sheetIndex!==undefined)){
     const sheetCount=Math.max(...result.placements.map(placement=>placement.sheetIndex??0))+1;
