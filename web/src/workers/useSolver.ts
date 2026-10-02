@@ -177,12 +177,12 @@ export function useSolver() {
               r.diagnostics.history.at(-1)!.errors=[error instanceof Error?error.message:String(error)];
               break;
             }
-            // Match upstream Sparrow/studio in roll mode: a solver candidate is
-            // already feasible by Sparrow/Jagua, so publish it immediately instead
-            // of re-running the expensive all-pairs JS validator on every candidate.
-            // Sheet mode remains locally validated because Serula repacks the strip
-            // result into multiple fixed sheets after Sparrow returns it.
-            if(doc.settings.materialType!=='sheet'){
+            // Ordinary roll candidates come directly from Sparrow/Jagua and are
+            // trusted upstream. SafeAppendFeas contains one or more copies placed by
+            // Serula's deterministic fallback, so it is always revalidated locally
+            // against the original production geometry before it may be published.
+            const locallyValidate=doc.settings.materialType==='sheet'||data.report==='SafeAppendFeas';
+            if(!locallyValidate){
               const better=!r.best||packed.usedLengthMm<r.best.usedLengthMm;
               if(better){
                 startup.firstValidMs??=performance.now()-requestedAt;

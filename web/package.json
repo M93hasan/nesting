@@ -1,17 +1,18 @@
 {
   "name": "serula-nesting",
   "private": true,
-  "version": "0.0.98",
+  "version": "0.0.99",
   "type": "module",
   "scripts": {
     "source:check": "node scripts/check-source-integrity.mjs",
     "wasm:build": "node scripts/build-wasm.mjs",
     "wasm:verify": "node scripts/verify-prebuilt-wasm.mjs",
-    "dev": "vite --host 127.0.0.1",
+    "test-dxf:catalog": "node scripts/generate-test-dxf-catalog.mjs",
+    "dev": "npm run test-dxf:catalog && vite --host 127.0.0.1",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "npm run build && playwright test",
-    "build": "npm run source:check && npm run wasm:verify && npm run typecheck && vite build",
+    "build": "npm run test-dxf:catalog && npm run source:check && npm run wasm:verify && npm run typecheck && vite build",
     "preview": "vite preview --host 127.0.0.1"
   },
   "devDependencies": {
