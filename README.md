@@ -223,8 +223,45 @@ Başlıca işlevler:
 - Geometri doğrulaması
 - DXF indirme
 - Tarayıcıda proje kurtarma
+- Kullanıcı hesabına bağlı otomatik bulut kayıt
+- **Geçmiş** sekmesinden son proje durumunu ve DXF exportlarını açma/indirme
 - Açık / koyu görünüm
 - mm / inç görüntüleme
+
+---
+
+## Bulut kayıt ve Geçmiş
+
+Giriş yapmış kullanıcının çalıştığı proje yalnızca DXF export anında değil, proje üzerinde değişiklik oldukça otomatik olarak buluta senkronlanır.
+
+Ana otomatik kayıt adı:
+
+```text
+Serula Nesting En Temiz Hali
+```
+
+Bu kayıt son geçerli çalışma durumunu saklar:
+
+- Proje adı
+- Parçalar ve adetler
+- Orijinal DXF kaynak entity bilgileri
+- İç boşluklar ve bağlı detay geometrileri
+- İzin verilen dönüşler
+- Malzeme tipi ve ölçüleri
+- Parça aralığı ve başlangıç yönü
+- Kopya konumları / yerleşim
+- Geçerli nesting sonucu
+- Seri adedi
+- Görünüm (açık/koyu/sistem) ve mm/inç tercihi
+
+**Geçmiş** sekmesinde iki kayıt türü bulunur:
+
+1. **Serula Nesting En Temiz Hali** — sürekli güncellenen son proje durumu; tekrar açılabilir veya proje dosyası olarak indirilebilir.
+2. **DXF export geçmişi** — her export ayrı kayıt olarak tutulur; DXF tekrar indirilebilir, o export anındaki proje tekrar açılabilir veya kayıt silinebilir.
+
+Kayıtlar kullanıcı hesabına bağlıdır; kullanıcılar birbirlerinin proje veya export kayıtlarını göremez.
+
+Büyük proje ve DXF içerikleri Cloudflare D1 tek-satır sınırına takılmamak için parçalara bölünerek saklanır.
 
 ---
 
@@ -246,6 +283,7 @@ Başlıca özellikler:
 - İletişim bölümünde kullanıcı ↔ admin kalıcı destek mesajlaşması
 - Admin destek gelen kutusu, okunmamış mesajlar, çevrim içi sayısı ve yeşil durum noktası
 - Audit / sistem logları
+- Kullanıcıya özel otomatik proje bulut kaydı ve DXF geçmişi
 - Kullanıcı onaylı uzaktan destek
 
 Yönetim paneli:
