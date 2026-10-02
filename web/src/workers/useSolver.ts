@@ -13,9 +13,7 @@ export type Timing={phase?:string;sequence:number;elapsedMs:number;lengthMm:numb
 type StartupTiming={preparedMs:number;solverReadyMs?:number;firstCandidateMs?:number;firstValidMs?:number;firstPreviewMs?:number;firstResultRenderedMs?:number};
 export type Diagnostics={runDocument?:Document;attempts?:(Extract<SolverMessage,{type:"run-input"}> & {configuration?:string})[];logs?:string[];droppedLogs?:number;phases?:{phase:string;elapsedMs:number}[];compressionRequestedMs?:number;solverRevision:string;seed:string;buildMode:string;solverBinary?:SolverBinary;initializationMs?:number;startup?:StartupTiming;stopReason?:string;history:Timing[];liveSnapshots?:number;liveErrors:{sequence:number;message:string}[]};
 export type LiveFrame=LiveGeometry & {sequence:number;result:Result;report:string};
-export const wallClockLimitSeconds=(doc:Document)=>doc.settings.timeLimitSeconds===null||doc.settings.timeLimitSeconds===undefined
-  ?59
-  :Math.ceil(doc.settings.timeLimitSeconds*1.1)+5;
+export const wallClockLimitSeconds=(doc:Document)=>doc.settings.timeLimitSeconds??59;
 type Run={id:number;revision:number;doc:Document;seed:string;requestedAt:number;solver?:Worker;preview:Worker;
   latest?:Candidate;previewActive?:{candidate:Candidate;result:Result};frame?:LiveFrame;previewSequence:number;previewError?:string;
   best?:Result;bestSheetSolverLength?:number;ended?:'Complete'|'Stopped'|'Error';startedAt?:number;watchdog:ReturnType<typeof setTimeout>;deadline?:ReturnType<typeof setTimeout>;
