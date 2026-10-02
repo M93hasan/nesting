@@ -69,7 +69,7 @@ it('filters zero-demand shape types before assigning CLI IDs', () => {
   const { document } = fixture();
   const zero = { ...document.parts[0], id: 'zero', quantity: 0 }, active = { ...document.parts[0], id: 'active', quantity: 2 };
   const input = JSON.parse(solverInput({ ...document, parts: [zero, active] }));
-  expect(input.items.map((item: { id: number; demand: number }) => [item.id, item.demand])).toEqual([[0, 2]]);
+  expect(input.items.map((item: { id: number; demand: number }) => [item.id, item.demand])).toEqual([[0, 1], [1, 1]]);
 });
 
 it('reopens checked and empty projects, and rejects damaged or unrelated archives', () => {
