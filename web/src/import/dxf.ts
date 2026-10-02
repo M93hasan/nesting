@@ -238,7 +238,7 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
         if(closed){
           const controlPoints=(entity.controlPoints??[]).map(point).map(p=>apply(matrix,p));
           sourceSplines.set(r.id,{degree:entity.degree??0,knots:[...(entity.knots??[])],controlPoints,
-            ...(entity.weights?.length?{weights:[...entity.weights]}:{}),flags});
+            ...(entity.weights?.length?{weights:[...entity.weights]}:{}),flags,layer});
         }
       }
       else if(['ARC','CIRCLE','ELLIPSE'].includes(entity.type)) {
