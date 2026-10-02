@@ -1,12 +1,9 @@
 import { loadSerialWasm, loadThreadedWasm, supportsSIMD, type SolverBinary } from '../wasm';
 import type { Start, SolverMessage } from './protocol';
-import type { Document } from '../model';
 import { normalizeDocument } from '../geometry/normalize';
 import { solverInput } from '../import/sparrow';
 
 type WasmApi=Pick<typeof import('../../wasm/pkg/sparrow_web'),'run'|'thread_count'>;
-type CandidateMessage=Extract<SolverMessage,{type:'candidate'}>;
-const ALLOWED_SECONDS=[10,30,60,120,300,600] as const;
 
 // Sheet mode intentionally uses the exact same Sparrow input and solver path as roll mode.
 // Fixed-length plates are derived only after a normal roll candidate returns (see multiSheet.ts).
