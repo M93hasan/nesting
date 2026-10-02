@@ -40,8 +40,33 @@ export function exportDXF(doc:Document,world:WorldPart[],placements:Placement[]=
     const points=curve.controlPoints.map(point=>transformPoint(point,p));
     return `0\nSPLINE\n5\n${handle()}\n330\n21\n100\nAcDbEntity\n8\n${layer}\n${colorGroup(color)}100\nAcDbSpline\n210\n0\n220\n0\n230\n1\n70\n${curve.flags}\n71\n${curve.degree}\n72\n${curve.knots.length}\n73\n${points.length}\n74\n0\n42\n0.0000000001\n43\n0.0000000001\n${curve.knots.map(k=>`40\n${k}\n`).join('')}${curve.weights?.map(w=>`41\n${w}\n`).join('')??''}${points.map(([x,y])=>`10\n${x}\n20\n${y}\n30\n0\n`).join('')}`;
   };
+  const angle=(degrees:number)=>((degrees%360)+360)%360;
+  const nativeEntity=(entity:DxfSourceEntity,p:Placement):string=>{
+    const layer=entity.layer||'PARTS',color=colorGroup(entity.colorNumber);
+    if(entity.kind==='line'){
+      const [x1,y1]=transformPoint(entity.start,p),[x2,y2]=transformPoint(entity.end,p);
+      return `0\nLINE\n5\n${handle()}\n330\n21\n100\nAcDbEntity\n8\n${layer}\n${color}100\nAcDbLine\n10\n${x1}\n20\n${y1}\n30\n0\n11\n${x2}\n21\n${y2}\n31\n0\n`;
+    }
+    if(entity.kind==='circle'){
+      const [x,y]=transformPoint(entity.center,p);
+      return `0\nCIRCLE\n5\n${handle()}\n330\n21\n100\nAcDbEntity\n8\n${layer}\n${color}100\nAcDbCircle\n10\n${x}\n20\n${y}\n30\n0\n40\n${entity.radius}\n`;
+    }
+    if(entity.kind==='arc'){
+      const [x,y]=transformPoint(entity.center,p);
+      return `0\nARC\n5\n${handle()}\n330\n21\n100\nAcDbEntity\n8\n${layer}\n${color}100\nAcDbCircle\n10\n${x}\n20\n${y}\n30\n0\n40\n${entity.radius}\n100\nAcDbArc\n50\n${angle(entity.startAngleDeg+p.angleDeg)}\n51\n${angle(entity.endAngleDeg+p.angleDeg)}\n`;
+    }
+    if(entity.kind==='spline')return spline(entity,p,layer,entity.colorNumber);
+    const points=entity.points.map(point=>transformPoint(point,p)),bulges=entity.bulges??[];
+    if(entity.sourceType==='LWPOLYLINE'){
+      return `0\nLWPOLYLINE\n5\n${handle()}\n330\n21\n100\nAcDbEntity\n8\n${layer}\n${color}100\nAcDbPolyline\n90\n${points.length}\n70\n${entity.closed?1:0}\n${points.map(([x,y],i)=>`10\n${x}\n20\n${y}\n${bulges[i]?`42\n${bulges[i]}\n`:''}`).join('')}`;
+    }
+    const parent=handle();
+    const vertices=points.map(([x,y],i)=>`0\nVERTEX\n5\n${handle()}\n330\n${parent}\n100\nAcDbEntity\n8\n${layer}\n100\nAcDbVertex\n100\nAcDb2dVertex\n10\n${x}\n20\n${y}\n30\n0\n${bulges[i]?`42\n${bulges[i]}\n`:''}70\n0\n`).join('');
+    return `0\nPOLYLINE\n5\n${parent}\n330\n21\n100\nAcDbEntity\n8\n${layer}\n${color}100\nAcDb2dPolyline\n66\n1\n70\n${entity.closed?1:0}\n10\n0\n20\n0\n30\n0\n${vertices}0\nSEQEND\n5\n${handle()}\n330\n${parent}\n100\nAcDbEntity\n8\n${layer}\n`;
+  };
   const parts=new Map(doc.parts.map(part=>[part.id,part]));
   const layerNames=[...new Set(['0','PARTS','HOLES',...doc.parts.flatMap(part=>[
+    ...(part.source.dxfEntities??[]).map(entity=>entity.layer||'PARTS'),
     ...(part.source.dxfSpline?.layer?[part.source.dxfSpline.layer]:[]),
     ...(part.source.dxfAux??[]).map(entity=>entity.layer||'MARKS'),
     ...(part.source.dxfDetails??[]).map(detail=>detail.layer||'DETAILS')
@@ -49,11 +74,14 @@ export function exportDXF(doc:Document,world:WorldPart[],placements:Placement[]=
   const layers=layerNames.map(layer=>`0\nLAYER\n5\n${handle()}\n330\n10\n100\nAcDbSymbolTableRecord\n100\nAcDbLayerTableRecord\n2\n${layer}\n70\n0\n62\n7\n6\nCONTINUOUS\n`).join('');
   const partEntities=exportWorld.map((p,i)=>{
     const part=parts.get(p.partId),placement=exportPlacements[i];
-    const compact=preserveSourceCurves&&part?.source.dxfSpline&&placement&&placement.partId===p.partId&&placement.copyIndex===p.copyIndex
-      ?spline(part.source.dxfSpline,placement,part.source.dxfSpline.layer||'PARTS',part.source.dxfColorNumber):polyline(p.outer,'PARTS',part?.source.dxfColorNumber);
-    const details=part&&placement?(part.source.dxfDetails??[]).map(detail=>polyline(detail.ring.map(point=>transformPoint(point,placement)),detail.layer||'DETAILS',detail.colorNumber)).join(''):'';
+    const native=preserveSourceCurves&&part?.source.dxfEntities?.length&&placement&&placement.partId===p.partId&&placement.copyIndex===p.copyIndex
+      ?part.source.dxfEntities.map(entity=>nativeEntity(entity,placement)).join(''):undefined;
+    const compact=native??(preserveSourceCurves&&part?.source.dxfSpline&&placement&&placement.partId===p.partId&&placement.copyIndex===p.copyIndex
+      ?spline(part.source.dxfSpline,placement,part.source.dxfSpline.layer||'PARTS',part.source.dxfColorNumber):polyline(p.outer,'PARTS',part?.source.dxfColorNumber));
+    const details=native?'':part&&placement?(part.source.dxfDetails??[]).map(detail=>polyline(detail.ring.map(point=>transformPoint(point,placement)),detail.layer||'DETAILS',detail.colorNumber)).join(''):'';
+    const holes=native?'':p.holes.map((h,holeIndex)=>polyline(h,'HOLES',part?.source.dxfHoleColorNumbers?.[holeIndex])).join('');
     const marks=part&&placement?(part.source.dxfAux??[]).map(entity=>aux(entity,placement)).join(''):'';
-    return compact+p.holes.map((h,holeIndex)=>polyline(h,'HOLES',part?.source.dxfHoleColorNumbers?.[holeIndex])).join('')+details+marks;
+    return compact+holes+details+marks;
   }).join('');
   const entities=partEntities;
   // R2000 readers such as QCAD require explicit model/paper-space ownership.
