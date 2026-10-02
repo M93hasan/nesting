@@ -172,7 +172,7 @@ fn safe_warm_start_keeps_every_copy_and_restricted_rotation() {
     let warm = safe_warm_start(&input, 0.3).unwrap();
     assert_eq!(warm.layout.placed_items.len(), 3);
     assert!(warm.layout.placed_items.iter().all(|p| [0.0,180.0].contains(&p.transformation.rotation)));
-    assert!(warm.strip_width > 960.0);
+    assert!(warm.strip_width > 320.0 && warm.strip_width < 400.0);
 }
 
 #[test]
