@@ -1,5 +1,5 @@
 import parseString from 'dxf/lib/parseString';
-import type {Document,DxfAuxEntity,DxfSpline,Placement,Point,Ring} from '../model';
+import type {Document,DxfAuxEntity,DxfSourceEntity,DxfSpline,Placement,Point,Ring} from '../model';
 import type {WorldPart} from '../geometry/validate';
 
 export const STUDIO_CREDIT='nested with sparrow/studio · https://sparrowstudio.app';
