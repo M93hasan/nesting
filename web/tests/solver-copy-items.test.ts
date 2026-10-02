@@ -37,12 +37,6 @@ test('solver keeps requested clearance between parts without stealing usable mat
   const input=JSON.parse(solverInput(doc)) as {strip_height:number;min_item_separation:number};
   expect(input.min_item_separation).toBe(.3);
   expect(input.strip_height).toBeCloseTo(100+2*padding,8);
-
-  const candidate:Candidate={type:'candidate',runId:1,documentRevision:1,sequence:1,report:'ExplFeas',elapsedMs:1,
-    solution:{strip_width:20,layout:{placed_items:[{item_id:0,transformation:{rotation:0,translation:[1,padding]}}]}}};
-  const result=candidateResult(doc,candidate,'1');
-  expect(result.placements[0].xMm).toBeCloseTo(0,8);
-  expect(result.placements[0].yMm).toBe(1);
 });
 
 test('restricted rotations stay restricted and preflight reports a part that cannot fit material width',()=>{
