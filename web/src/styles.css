@@ -427,3 +427,39 @@ input:not([type=checkbox]):not([type=radio]):not([type=file]):focus,select:focus
     box-shadow:none;
   }
 }
+
+
+/* Serula v0.0.107 — persistent collapsible Part Properties under Parts */
+.part-properties-disclosure{
+  margin:0 16px 14px;
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:var(--panel);
+  overflow:hidden;
+}
+.part-properties-disclosure>summary{
+  min-height:42px;
+  display:flex;
+  align-items:center;
+  padding:10px 12px;
+  cursor:pointer;
+  font-size:13px;
+  font-weight:650;
+  color:var(--ink);
+  list-style:none;
+  user-select:none;
+}
+.part-properties-disclosure>summary::-webkit-details-marker{display:none}
+.part-properties-disclosure>summary::after{
+  content:'▾';
+  margin-left:auto;
+  color:var(--muted);
+  transition:transform .16s ease;
+}
+.part-properties-disclosure:not([open])>summary::after{transform:rotate(-90deg)}
+.part-properties-disclosure[open]>summary{border-bottom:1px solid var(--border)}
+.part-properties-disclosure .part-settings{
+  margin:0;
+  padding:12px;
+  border:0;
+}
