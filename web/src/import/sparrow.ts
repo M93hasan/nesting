@@ -57,9 +57,43 @@ export function solverCopies(doc:Document):SolverCopy[] {
   let itemId=0;
   return doc.parts.flatMap(part=>Array.from({length:part.quantity},(_,copyIndex)=>({itemId:itemId++,partId:part.id,copyIndex})));
 }
+export function solverCopyForItem(doc:Document,itemId:number):SolverCopy|undefined {
+  return solverCopies(doc).find(copy=>copy.itemId===itemId);
+}
+function rotatedWidth(ring:Ring,angleDeg:number):number {
+  const a=angleDeg*Math.PI/180,c=Math.cos(a),sin=Math.sin(a);
+  let min=Infinity,max=-Infinity;
+  for(const [x,y] of ring){
+    const rx=x*c-y*sin;
+    min=Math.min(min,rx);max=Math.max(max,rx);
+  }
+  return max-min;
+}
+export function preflightSolverFit(doc:Document):void {
+  const width=doc.settings.materialWidthMm,tolerance=1e-7;
+  for(const part of doc.parts){
+    if(part.quantity<=0||part.rotations.kind==='continuous')continue;
+    const ring=collisionRing(part);
+    const fits=part.rotations.degrees.some(angle=>rotatedWidth(ring,angle)<=width+tolerance);
+    if(!fits){
+      const angles=part.rotations.degrees.map(angle=>`${angle}°`).join(', ');
+      throw Error(`${part.name} seçilen dönüş kuralıyla ${width} mm malzeme genişliğine sığmıyor. İzin verilen açılar: ${angles}.`);
+    }
+  }
+}
+export function friendlyInitialPlacementError(doc:Document,message:string):string {
+  const match=message.match(/No valid initial placement could be constructed for item\s+(\d+)/i);
+  if(!match)return message;
+  const copy=solverCopyForItem(doc,Number(match[1]));
+  if(!copy)return message;
+  const part=doc.parts.find(part=>part.id===copy.partId);
+  if(!part)return message;
+  return `${part.name} — Kopya ${copy.copyIndex+1} için başlangıç yerleşimi bulunamadı. Dönüş kuralı değiştirilmedi; parça mevcut izin verilen açılarla yeniden denendi.`;
+}
 export function solverInput(doc: Document): string {
   const copies=solverCopies(doc);
   if(!copies.length)throw Error('Add at least one copy before nesting.');
+  preflightSolverFit(doc);
   const parts=new Map(doc.parts.map(part=>[part.id,part]));
   return JSON.stringify({name:doc.name,strip_height:doc.settings.materialWidthMm,items:copies.map(copy=>{
     const p=parts.get(copy.partId)!;

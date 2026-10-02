@@ -10,6 +10,10 @@ export function isRecoverableWasmTrap(message:string):boolean {
     || text.includes('memory access out of bounds');
 }
 
+export function isRecoverableInitialPlacement(message:string):boolean {
+  return /No valid initial placement could be constructed for item\s+\d+/i.test(message);
+}
+
 export function recoverySeed(seed:string,attempt:number):string {
   if(!Number.isInteger(attempt)||attempt<1)throw Error('Recovery attempt must be a positive integer.');
   const base=BigInt(seed);

@@ -1,6 +1,6 @@
 import {expect,test} from 'vitest';
 import {candidateResult} from '../src/workers/useSolver';
-import {solverCopies,solverInput} from '../src/import/sparrow';
+import {friendlyInitialPlacementError,preflightSolverFit,solverCopies,solverInput} from '../src/import/sparrow';
 import {newPart,type Document} from '../src/model';
 import type {Candidate} from '../src/workers/protocol';
 
@@ -25,4 +25,28 @@ test('multiple copies are sent as independent demand-one items and decode to sta
   expect(result.placements.map(p=>[p.partId,p.copyIndex])).toEqual([
     ['curve',2],['curve',0],['curve',1]
   ]);
+});
+
+
+test('restricted rotations stay restricted and preflight reports a part that cannot fit material width',()=>{
+  const part={...newPart([[0,0],[1500,0],[1500,100],[0,100]],'Upper'),id:'upper',quantity:1,rotations:{kind:'discrete' as const,degrees:[0,180]}};
+  const doc:Document={name:'restricted',parts:[part],settings:{materialWidthMm:1400,clearanceMm:.3,timeLimitSeconds:30}};
+  expect(()=>preflightSolverFit(doc)).toThrow('Upper seçilen dönüş kuralıyla 1400 mm malzeme genişliğine sığmıyor');
+  expect(()=>solverInput(doc)).toThrow('İzin verilen açılar: 0°, 180°');
+});
+
+test('a permitted 90 degree rotation can fit without broadening the rotation rule',()=>{
+  const part={...newPart([[0,0],[1500,0],[1500,100],[0,100]],'Upper'),id:'upper',quantity:1,rotations:{kind:'discrete' as const,degrees:[90]}};
+  const doc:Document={name:'restricted-fit',parts:[part],settings:{materialWidthMm:1400,clearanceMm:.3,timeLimitSeconds:30}};
+  expect(()=>preflightSolverFit(doc)).not.toThrow();
+  const input=JSON.parse(solverInput(doc)) as {items:{allowed_orientations:number[]}[]};
+  expect(input.items[0].allowed_orientations).toEqual([-90]);
+});
+
+test('initial placement errors identify the real part copy instead of raw solver item id',()=>{
+  const a={...newPart([[0,0],[10,0],[10,10],[0,10]],'A'),id:'a',quantity:2};
+  const b={...newPart([[0,0],[10,0],[10,10],[0,10]],'B'),id:'b',quantity:2};
+  const doc:Document={name:'names',parts:[a,b],settings:{materialWidthMm:100,clearanceMm:0,timeLimitSeconds:30}};
+  expect(friendlyInitialPlacementError(doc,'No valid initial placement could be constructed for item 3. Review the part size.'))
+    .toContain('B — Kopya 2');
 });
