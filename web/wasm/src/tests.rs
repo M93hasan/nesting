@@ -106,6 +106,17 @@ fn fast_preset_keeps_compression_enabled_and_respects_worker_limit() {
 }
 
 #[test]
+fn standard_quality_gives_compression_half_the_budget_and_avoids_early_stop() {
+    let quality = solver_config("standard", 3, Some(30)).unwrap();
+    assert_eq!(quality.expl_cfg.time_limit, Duration::from_secs(15));
+    assert_eq!(quality.cmpr_cfg.time_limit, Duration::from_secs(15));
+    assert_eq!(quality.expl_cfg.max_conseq_failed_attempts, None);
+    assert!(matches!(quality.cmpr_cfg.shrink_decay, ShrinkDecayStrategy::TimeBased));
+    assert!(quality.cmpr_cfg.separator_config.iter_no_imprv_limit >= 150);
+    assert!(quality.cmpr_cfg.separator_config.strike_limit >= 6);
+}
+
+#[test]
 fn safe_warm_start_keeps_every_copy_and_restricted_rotation() {
     let input: ExtSPInstance = serde_json::from_value(json!({
         "name":"warm",
