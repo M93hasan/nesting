@@ -37,6 +37,7 @@ export function exportDXF(doc:Document,world:WorldPart[],placements:Placement[]=
   };
   const parts=new Map(doc.parts.map(part=>[part.id,part]));
   const layerNames=[...new Set(['0','PARTS','HOLES',...doc.parts.flatMap(part=>[
+    ...(part.source.dxfSpline?.layer?[part.source.dxfSpline.layer]:[]),
     ...(part.source.dxfAux??[]).map(entity=>entity.layer||'MARKS'),
     ...(part.source.dxfDetails??[]).map(detail=>detail.layer||'DETAILS')
   ])])];
@@ -44,7 +45,7 @@ export function exportDXF(doc:Document,world:WorldPart[],placements:Placement[]=
   const partEntities=exportWorld.map((p,i)=>{
     const part=parts.get(p.partId),placement=exportPlacements[i];
     const compact=preserveSourceCurves&&part?.source.dxfSpline&&placement&&placement.partId===p.partId&&placement.copyIndex===p.copyIndex
-      ?spline(part.source.dxfSpline,placement,'PARTS',part.source.dxfColorNumber):polyline(p.outer,'PARTS',part?.source.dxfColorNumber);
+      ?spline(part.source.dxfSpline,placement,part.source.dxfSpline.layer||'PARTS',part.source.dxfColorNumber):polyline(p.outer,'PARTS',part?.source.dxfColorNumber);
     const details=part&&placement?(part.source.dxfDetails??[]).map(detail=>polyline(detail.ring.map(point=>transformPoint(point,placement)),detail.layer||'DETAILS',detail.colorNumber)).join(''):'';
     const marks=part&&placement?(part.source.dxfAux??[]).map(entity=>aux(entity,placement)).join(''):'';
     return compact+p.holes.map((h,holeIndex)=>polyline(h,'HOLES',part?.source.dxfHoleColorNumbers?.[holeIndex])).join('')+details+marks;
@@ -62,7 +63,7 @@ export function exportDXF(doc:Document,world:WorldPart[],placements:Placement[]=
     const p=exportWorld[i],part=parts.get(p.partId),placement=exportPlacements[i],curve=part?.source.dxfSpline;
     const entity=parsed.entities[at++];
     if(preserveSourceCurves&&curve&&placement&&placement.partId===p.partId&&placement.copyIndex===p.copyIndex){
-      if(entity?.type!=='SPLINE'||entity.layer!=='PARTS'||entity.degree!==curve.degree)throw Error('Serialized DXF lost its compact spline.');
+      if(entity?.type!=='SPLINE'||entity.layer!==(curve.layer||'PARTS')||entity.degree!==curve.degree)throw Error('Serialized DXF lost its compact spline.');
       const expected=curve.controlPoints.map(point=>transformPoint(point,placement)),actual=(entity.controlPoints??[]).map(q=>[q.x,q.y] as Point);
       if(JSON.stringify(entity.knots??[])!==JSON.stringify(curve.knots)||JSON.stringify(actual)!==JSON.stringify(expected))throw Error('Serialized DXF changed spline control points.');
     }else{

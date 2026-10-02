@@ -91,15 +91,16 @@ it('imports complete ellipses and closed rational quadratic splines',()=>{
   for(const [x,y] of curve.document.parts[0].outer)if(x>0&&y>0)expect(Math.hypot(x,y)).toBeCloseTo(10,6);
 });
 
-it('preserves source SPLINE manually but polygonizes checked nesting DXF output',()=>{
+it('preserves source SPLINE and layer in checked nesting DXF output',()=>{
   const points=[[0,0],[0,10],[20,10],[20,0],[20,-10],[0,-10],[0,0]];
   const knots=[0,0,0,0,.5,.5,.5,1,1,1,1];
-  const spline='0\nSPLINE\n70\n1\n71\n3\n72\n11\n73\n7\n74\n0\n'+knots.map(k=>`40\n${k}\n`).join('')+
+  const spline='0\nSPLINE\n8\nLayer 1\n70\n1\n71\n3\n72\n11\n73\n7\n74\n0\n'+knots.map(k=>`40\n${k}\n`).join('')+
     points.map(([x,y])=>`10\n${x}\n20\n${y}\n30\n0\n`).join('');
   const imported=importDXF(dxf(spline),'compact.dxf',options);
   expect(imported.issues).toEqual([]);
   const part=imported.document.parts[0];
   expect(part.source.dxfSpline?.controlPoints).toHaveLength(7);
+  expect(part.source.dxfSpline?.layer).toBe('Layer 1');
   const placement={partId:part.id,copyIndex:0,xMm:30,yMm:40,angleDeg:0};
   const world=worldParts(imported.document,{placements:[placement]});
   const exported=exportDXF(imported.document,world,[placement]);
@@ -115,8 +116,11 @@ it('preserves source SPLINE manually but polygonizes checked nesting DXF output'
   result.validation=validate(imported.document,result);
   expect(result.validation.status).toBe('passed');
   const checked=exportSVG(imported.document,result).dxf;
-  expect(checked).not.toMatch(/\nSPLINE\n/);
-  expect(checked).toMatch(/\nLWPOLYLINE\n/);
+  const checkedParsed=parseString(checked) as {entities:{type:string;layer:string;controlPoints?:{x:number;y:number}[]}[]};
+  const checkedSpline=checkedParsed.entities.find(entity=>entity.type==='SPLINE');
+  expect(checkedSpline?.layer).toBe('Layer 1');
+  expect(checkedSpline?.controlPoints).toHaveLength(7);
+  expect(checked).not.toMatch(/\nLWPOLYLINE\n/);
 });
 
 it('exports multiple plates side by side with 50 mm gaps and no extra plate geometry',()=>{

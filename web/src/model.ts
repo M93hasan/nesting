@@ -1,7 +1,7 @@
 export type Point = [number, number];
 export type Ring = Point[];
 export type RotationRule = { kind: 'discrete'; degrees: number[] } | { kind: 'continuous' };
-export type DxfSpline = { degree:number; knots:number[]; controlPoints:Point[]; weights?:number[]; flags:number };
+export type DxfSpline = { degree:number; knots:number[]; controlPoints:Point[]; weights?:number[]; flags:number; layer?:string };
 export type DxfAuxEntity =
   | { kind:'point'; point:Point; layer:string; colorNumber?:number }
   | { kind:'text'|'mtext'; point:Point; text:string; heightMm:number; rotationDeg:number; layer:string; colorNumber?:number };

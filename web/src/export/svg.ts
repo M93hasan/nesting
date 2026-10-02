@@ -54,5 +54,5 @@ ${paths}
     return {...world[i],outer:rings[0],holes:rings.slice(1)};
   });
   if(JSON.stringify(reparsed)!==JSON.stringify(world))throw Error('Serialized SVG changed canvas coordinates.');
-  return {world,dxf:exportDXF(doc,world,placements,!result),svg};
+  return {world,dxf:exportDXF(doc,world,placements,true),svg};
 }
