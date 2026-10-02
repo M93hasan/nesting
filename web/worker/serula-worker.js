@@ -129,6 +129,22 @@ async function ensureSchema(env){
       FOREIGN KEY (export_id) REFERENCES export_files(id) ON DELETE CASCADE
     )`),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_export_file_chunks_export ON export_file_chunks(export_id,kind,chunk_index)'),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS cloud_projects (
+      user_id INTEGER PRIMARY KEY,
+      label TEXT NOT NULL DEFAULT 'Serula Nesting En Temiz Hali',
+      project_name TEXT NOT NULL DEFAULT '',
+      byte_size INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS cloud_project_chunks (
+      user_id INTEGER NOT NULL,
+      chunk_index INTEGER NOT NULL,
+      data TEXT NOT NULL,
+      PRIMARY KEY(user_id,chunk_index),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_cloud_project_chunks_user ON cloud_project_chunks(user_id,chunk_index)'),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_presence (
       user_id INTEGER PRIMARY KEY,
       last_seen TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -185,6 +201,10 @@ function decodeExportChunks(rows){
 async function readExportText(env,exportId,kind,legacy=''){
   if(legacy)return String(legacy);
   const rows=await env.DB.prepare('SELECT data FROM export_file_chunks WHERE export_id=? AND kind=? ORDER BY chunk_index').bind(exportId,kind).all();
+  return rows.results.length?decodeExportChunks(rows.results):'';
+}
+async function readCloudProjectText(env,userId){
+  const rows=await env.DB.prepare('SELECT data FROM cloud_project_chunks WHERE user_id=? ORDER BY chunk_index').bind(userId).all();
   return rows.results.length?decodeExportChunks(rows.results):'';
 }
 const validEmail=e=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
@@ -346,6 +366,35 @@ async function handleApi(request,env){
     await audit(env,'nesting_start',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:String(data.projectName||'')});
     return json({ok:true,user:publicUser(fresh)});
   }
+  if(path==='/api/project/autosave'&&request.method==='PUT'){
+    const user=await sessionUser(request,env);if(!user)return json({error:'Bulut kayıt için giriş yapmalısınız.'},401);
+    const data=await body(request),projectJson=typeof data.projectJson==='string'?data.projectJson:'';
+    const projectName=String(data.projectName||'').trim().slice(0,200);
+    if(!projectJson.trim())return json({error:'Proje kaydı boş olamaz.'},400);
+    const encoded=encodeExportChunks(projectJson);
+    if(encoded.byteSize>12*1024*1024)return json({error:'Proje bulut kaydı için 12 MiB sınırını aşıyor.'},413);
+    const statements=[
+      env.DB.prepare('DELETE FROM cloud_project_chunks WHERE user_id=?').bind(user.id),
+      env.DB.prepare(`INSERT INTO cloud_projects(user_id,label,project_name,byte_size,updated_at) VALUES(?,?,?,?,CURRENT_TIMESTAMP)
+        ON CONFLICT(user_id) DO UPDATE SET label=excluded.label,project_name=excluded.project_name,byte_size=excluded.byte_size,updated_at=CURRENT_TIMESTAMP`)
+        .bind(user.id,'Serula Nesting En Temiz Hali',projectName,encoded.byteSize),
+      ...encoded.chunks.map((chunk,index)=>env.DB.prepare('INSERT INTO cloud_project_chunks(user_id,chunk_index,data) VALUES(?,?,?)').bind(user.id,index,chunk))
+    ];
+    try{await env.DB.batch(statements)}
+    catch(error){await audit(env,'cloud_autosave_failed',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:projectName,success:false});return json({error:'Bulut kaydı tamamlanamadı.'},500)}
+    return json({ok:true,label:'Serula Nesting En Temiz Hali'});
+  }
+  if(path==='/api/project/autosave'&&request.method==='GET'){
+    const user=await sessionUser(request,env);if(!user)return json({error:'Bulut kaydı görmek için giriş yapmalısınız.'},401);
+    const row=await env.DB.prepare('SELECT label,project_name,byte_size,updated_at FROM cloud_projects WHERE user_id=?').bind(user.id).first();
+    if(!row)return json({item:null});
+    if(url.searchParams.get('content')==='1'){
+      const project=await readCloudProjectText(env,user.id);
+      if(!project)return json({error:'Bulut proje verisi bulunamadı.'},404);
+      return new Response(project,{headers:{'content-type':'application/json; charset=utf-8','cache-control':'private, no-store'}});
+    }
+    return json({item:{label:row.label||'Serula Nesting En Temiz Hali',projectName:row.project_name||'',byteSize:Number(row.byte_size||0),updatedAt:row.updated_at}});
+  }
   if(path==='/api/export/authorize'&&request.method==='POST'){
     const user=await sessionUser(request,env);if(!user)return json({error:'DXF indirmek için giriş yapmalısınız.'},401);
     const data=await body(request);
@@ -477,6 +526,8 @@ async function handleApi(request,env){
       env.DB.prepare('DELETE FROM user_settings WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM password_reset_tokens WHERE user_id=?').bind(id),
+      env.DB.prepare('DELETE FROM cloud_project_chunks WHERE user_id=?').bind(id),
+      env.DB.prepare('DELETE FROM cloud_projects WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM export_file_chunks WHERE export_id IN (SELECT id FROM export_files WHERE user_id=?)').bind(id),
       env.DB.prepare('DELETE FROM export_files WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM nesting_history WHERE user_id=?').bind(id),
