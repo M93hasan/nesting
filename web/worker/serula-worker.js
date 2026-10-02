@@ -120,6 +120,15 @@ async function ensureSchema(env){
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )`),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_export_files_user_created ON export_files(user_id,id DESC)'),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS export_file_chunks (
+      export_id INTEGER NOT NULL,
+      kind TEXT NOT NULL CHECK(kind IN ('dxf','project')),
+      chunk_index INTEGER NOT NULL,
+      data TEXT NOT NULL,
+      PRIMARY KEY(export_id,kind,chunk_index),
+      FOREIGN KEY (export_id) REFERENCES export_files(id) ON DELETE CASCADE
+    )`),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_export_file_chunks_export ON export_file_chunks(export_id,kind,chunk_index)'),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_presence (
       user_id INTEGER PRIMARY KEY,
       last_seen TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -152,6 +161,32 @@ async function touchPresence(env,userId){
 const onlineSql="datetime(p.last_seen)>=datetime('now','-15 seconds')";
 function sameOrigin(request){const origin=request.headers.get('origin');return !origin||origin===new URL(request.url).origin}
 async function body(request){try{return await request.json()}catch{return {}}}
+const EXPORT_CHUNK_BYTES=1450000;
+function fileChunkBase64(bytes){
+  let binary='';
+  for(let i=0;i<bytes.length;i+=32768)binary+=String.fromCharCode(...bytes.subarray(i,Math.min(bytes.length,i+32768)));
+  return btoa(binary);
+}
+function fileChunkBytes(value){
+  const binary=atob(String(value||'')),bytes=new Uint8Array(binary.length);
+  for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
+  return bytes;
+}
+function encodeExportChunks(text){
+  const bytes=new TextEncoder().encode(String(text||'')),chunks=[];
+  for(let i=0;i<bytes.length;i+=EXPORT_CHUNK_BYTES)chunks.push(fileChunkBase64(bytes.subarray(i,Math.min(bytes.length,i+EXPORT_CHUNK_BYTES))));
+  return {byteSize:bytes.length,chunks};
+}
+function decodeExportChunks(rows){
+  const parts=rows.map(row=>fileChunkBytes(row.data)),size=parts.reduce((n,part)=>n+part.length,0),bytes=new Uint8Array(size);
+  let offset=0;for(const part of parts){bytes.set(part,offset);offset+=part.length}
+  return new TextDecoder().decode(bytes);
+}
+async function readExportText(env,exportId,kind,legacy=''){
+  if(legacy)return String(legacy);
+  const rows=await env.DB.prepare('SELECT data FROM export_file_chunks WHERE export_id=? AND kind=? ORDER BY chunk_index').bind(exportId,kind).all();
+  return rows.results.length?decodeExportChunks(rows.results):'';
+}
 const validEmail=e=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 const passwordOk=p=>typeof p==='string'&&p.length>=8&&p.length<=200;
 const TEST_DXF_FILES=['1003.dxf','1239.dxf','test.dxf'];
@@ -321,20 +356,37 @@ async function handleApi(request,env){
     let fileName=String(data.fileName||sourceFileName||'serula-export.dxf').trim().replace(/[<>:"/\\|?*\x00-\x1f]/g,'-').replace(/[. ]+$/g,'').slice(0,240)||'serula-export.dxf';
     if(!/\.dxf$/i.test(fileName))fileName+='.dxf';
     if(!dxf.trim())return json({error:'Buluta kaydedilecek DXF verisi boş.'},400);
-    const byteSize=new TextEncoder().encode(dxf).byteLength;
-    if(byteSize>12*1024*1024)return json({error:'DXF dosyası bulut kaydı için 12 MiB sınırını aşıyor.'},413);
-    if(projectJson.length>20*1024*1024)return json({error:'Proje kaydı bulut sınırını aşıyor.'},413);
-    if(!user.unlimited){
-      const updated=await env.DB.prepare('UPDATE users SET nesting_credits=nesting_credits-1 WHERE id=? AND nesting_credits>0').bind(user.id).run();
-      if(!updated.meta.changes)return json({error:'Nesting hakkınız kalmadı. Admin yeni hak verebilir.'},402);
+    const encodedDxf=encodeExportChunks(dxf),encodedProject=encodeExportChunks(projectJson);
+    if(encodedDxf.byteSize>10*1024*1024)return json({error:'DXF dosyası bulut kaydı için 10 MiB sınırını aşıyor.'},413);
+    if(encodedProject.byteSize>12*1024*1024)return json({error:'Proje kaydı bulut için 12 MiB sınırını aşıyor.'},413);
+    let charged=false,historyId=0,exportId=0;
+    try{
+      if(!user.unlimited){
+        const updated=await env.DB.prepare('UPDATE users SET nesting_credits=nesting_credits-1 WHERE id=? AND nesting_credits>0').bind(user.id).run();
+        if(!updated.meta.changes)return json({error:'Nesting hakkınız kalmadı. Admin yeni hak verebilir.'},402);
+        charged=true;
+      }
+      const history=await env.DB.prepare('INSERT INTO nesting_history(user_id,project_name,source_file_name,used_credit) VALUES(?,?,?,?)')
+        .bind(user.id,projectName,sourceFileName,user.unlimited?0:1).run();
+      historyId=Number(history.meta.last_row_id);
+      const saved=await env.DB.prepare('INSERT INTO export_files(user_id,project_name,source_file_name,file_name,dxf_text,project_json,byte_size) VALUES(?,?,?,?,?,?,?)')
+        .bind(user.id,projectName,sourceFileName,fileName,'',null,encodedDxf.byteSize).run();
+      exportId=Number(saved.meta.last_row_id);
+      const statements=[
+        ...encodedDxf.chunks.map((chunk,index)=>env.DB.prepare('INSERT INTO export_file_chunks(export_id,kind,chunk_index,data) VALUES(?,?,?,?)').bind(exportId,'dxf',index,chunk)),
+        ...encodedProject.chunks.map((chunk,index)=>env.DB.prepare('INSERT INTO export_file_chunks(export_id,kind,chunk_index,data) VALUES(?,?,?,?)').bind(exportId,'project',index,chunk))
+      ];
+      if(statements.length)await env.DB.batch(statements);
+    }catch(error){
+      try{if(exportId)await env.DB.prepare('DELETE FROM export_files WHERE id=? AND user_id=?').bind(exportId,user.id).run()}catch{}
+      try{if(historyId)await env.DB.prepare('DELETE FROM nesting_history WHERE id=? AND user_id=?').bind(historyId,user.id).run()}catch{}
+      try{if(charged)await env.DB.prepare('UPDATE users SET nesting_credits=nesting_credits+1 WHERE id=?').bind(user.id).run()}catch{}
+      await audit(env,'export_save_failed',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:fileName,success:false});
+      return json({error:'DXF buluta kaydedilemedi. Lütfen yeniden deneyin.'},500);
     }
-    await env.DB.prepare('INSERT INTO nesting_history(user_id,project_name,source_file_name,used_credit) VALUES(?,?,?,?)')
-      .bind(user.id,projectName,sourceFileName,user.unlimited?0:1).run();
-    const saved=await env.DB.prepare('INSERT INTO export_files(user_id,project_name,source_file_name,file_name,dxf_text,project_json,byte_size) VALUES(?,?,?,?,?,?,?)')
-      .bind(user.id,projectName,sourceFileName,fileName,dxf,projectJson||null,byteSize).run();
     const fresh=await env.DB.prepare('SELECT id,email,name,role,nesting_credits,unlimited FROM users WHERE id=?').bind(user.id).first();
     await audit(env,'export_saved',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:fileName});
-    return json({ok:true,exportId:Number(saved.meta.last_row_id),user:publicUser(fresh)});
+    return json({ok:true,exportId,user:publicUser(fresh)});
   }
   if(path==='/api/exports'&&request.method==='GET'){
     const user=await sessionUser(request,env);if(!user)return json({error:'Geçmişi görmek için giriş yapmalısınız.'},401);
@@ -345,21 +397,28 @@ async function handleApi(request,env){
   const exportFileMatch=path.match(/^\/api\/exports\/(\d+)$/);
   if(exportFileMatch&&request.method==='GET'){
     const user=await sessionUser(request,env);if(!user)return json({error:'Giriş gerekli.'},401);
-    const row=await env.DB.prepare('SELECT id,file_name,dxf_text,project_json FROM export_files WHERE id=? AND user_id=?').bind(Number(exportFileMatch[1]),user.id).first();
+    const id=Number(exportFileMatch[1]);
+    const row=await env.DB.prepare('SELECT id,file_name,dxf_text,project_json FROM export_files WHERE id=? AND user_id=?').bind(id,user.id).first();
     if(!row)return json({error:'Kayıt bulunamadı.'},404);
     if(url.searchParams.get('kind')==='project'){
-      if(!row.project_json)return json({error:'Bu kaydın proje verisi bulunmuyor.'},404);
-      return new Response(row.project_json,{headers:{'content-type':'application/json; charset=utf-8','cache-control':'private, no-store'}});
+      const project=await readExportText(env,id,'project',row.project_json||'');
+      if(!project)return json({error:'Bu kaydın proje verisi bulunmuyor.'},404);
+      return new Response(project,{headers:{'content-type':'application/json; charset=utf-8','cache-control':'private, no-store'}});
     }
+    const dxfText=await readExportText(env,id,'dxf',row.dxf_text||'');
+    if(!dxfText)return json({error:'DXF verisi bulunamadı.'},404);
     const safeName=String(row.file_name||'serula-export.dxf').replace(/[\r\n"]/g,'_');
-    return new Response(row.dxf_text,{headers:{'content-type':'application/dxf; charset=utf-8','content-disposition':`attachment; filename="${safeName}"`,'cache-control':'private, no-store'}});
+    return new Response(dxfText,{headers:{'content-type':'application/dxf; charset=utf-8','content-disposition':`attachment; filename="${safeName}"`,'cache-control':'private, no-store'}});
   }
   if(exportFileMatch&&request.method==='DELETE'){
     const user=await sessionUser(request,env);if(!user)return json({error:'Giriş gerekli.'},401);
     const id=Number(exportFileMatch[1]);
     const row=await env.DB.prepare('SELECT id,file_name FROM export_files WHERE id=? AND user_id=?').bind(id,user.id).first();
     if(!row)return json({error:'Kayıt bulunamadı.'},404);
-    await env.DB.prepare('DELETE FROM export_files WHERE id=? AND user_id=?').bind(id,user.id).run();
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM export_file_chunks WHERE export_id=?').bind(id),
+      env.DB.prepare('DELETE FROM export_files WHERE id=? AND user_id=?').bind(id,user.id)
+    ]);
     await audit(env,'export_deleted',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:String(row.file_name||id)});
     return json({ok:true});
   }
@@ -418,6 +477,7 @@ async function handleApi(request,env){
       env.DB.prepare('DELETE FROM user_settings WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM password_reset_tokens WHERE user_id=?').bind(id),
+      env.DB.prepare('DELETE FROM export_file_chunks WHERE export_id IN (SELECT id FROM export_files WHERE user_id=?)').bind(id),
       env.DB.prepare('DELETE FROM export_files WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM nesting_history WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM audit_logs WHERE actor_user_id=? OR target_user_id=?').bind(id,id),
