@@ -24,6 +24,7 @@ export function candidateResult(doc:Document,candidate:Candidate,seed:string):Re
   return {documentRevision:candidate.documentRevision,solverRevision:SOLVER_REVISION,seed,
     elapsedSeconds:candidate.elapsedMs/1000,usedLengthMm:candidate.solution.strip_width,
     placements:candidate.solution.layout.placed_items.map(p=>{
+      if(p.transformation.reflected)throw Error('Solver returned a reflected part, but Serula reflection is disabled.');
       const copy=copies[p.item_id],partId=copy?.partId ?? `unknown:${p.item_id}`,copyIndex=copy?.copyIndex ?? 0;
       // solverInput transposes the solver geometry. Swap the translation axes
       // back and invert the solver rotation so the original DXF orientation is
