@@ -15,7 +15,8 @@ test('project series multiplier scales every existing part and can return to x1'
   expect(x3.parts.map(part=>part.quantity)).toEqual([3,6]);
   expect(documentPlacements(x3)).toHaveLength(9);
   const input=JSON.parse(solverInput(x3)) as {items:{demand:number}[]};
-  expect(input.items.map(item=>item.demand)).toEqual([3,6]);
+  expect(input.items).toHaveLength(9);
+  expect(input.items.every(item=>item.demand===1)).toBe(true);
 
   const x1=applySeriesMultiplier(x3,1);
   expect(x1.seriesMultiplier).toBeUndefined();
