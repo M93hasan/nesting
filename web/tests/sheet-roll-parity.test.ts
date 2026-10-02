@@ -10,8 +10,9 @@ test('sheet mode sends the same geometry, copies and solver input as roll mode',
   const sheet:Document={...roll,settings:{...roll.settings,materialType:'sheet',materialLengthMm:10}};
   expect(solverInput(sheet)).toBe(solverInput(roll));
   const input=JSON.parse(solverInput(sheet));
-  expect(input.items).toHaveLength(1);
-  expect(input.items[0].demand).toBe(3);
+  expect(input.items).toHaveLength(3);
+  expect(input.items.map((item:{demand:number})=>item.demand)).toEqual([1,1,1]);
+  expect(input.items.map((item:{id:number})=>item.id)).toEqual([0,1,2]);
 });
 
 test('sheet post-processing preserves roll copies and only assigns plate numbers',()=>{

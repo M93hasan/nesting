@@ -4,6 +4,7 @@ import { SOLVER_REVISION, type Document, type Result } from '../model';
 import type { Candidate, GeometryReply, SolverMessage } from './protocol';
 import type {LiveGeometry} from '../geometry/live';
 import {packResultIntoSheets} from '../geometry/multiSheet';
+import {solverCopies} from '../import/sparrow';
 import {validate} from '../geometry/validate';
 
 export type RunState='Ready'|'Initializing'|'Running'|'Complete'|'Stopped'|'Error';
@@ -19,12 +20,11 @@ type Run={id:number;revision:number;doc:Document;seed:string;requestedAt:number;
   deadlineRemainingMs?:number;deadlineStartedAt?:number;visibilityHandler?:()=>void;
   diagnostics:Diagnostics};
 export function candidateResult(doc:Document,candidate:Candidate,seed:string):Result {
-  const copies=new Map<string,number>(),parts=doc.parts.filter(part=>part.quantity>0);
+  const copies=solverCopies(doc);
   return {documentRevision:candidate.documentRevision,solverRevision:SOLVER_REVISION,seed,
     elapsedSeconds:candidate.elapsedMs/1000,usedLengthMm:candidate.solution.strip_width,
     placements:candidate.solution.layout.placed_items.map(p=>{
-      const partId=parts[p.item_id]?.id ?? `unknown:${p.item_id}`;
-      const copyIndex=copies.get(partId) ?? 0; copies.set(partId,copyIndex+1);
+      const copy=copies[p.item_id],partId=copy?.partId ?? `unknown:${p.item_id}`,copyIndex=copy?.copyIndex ?? 0;
       // solverInput transposes the solver geometry. Swap the translation axes
       // back and invert the solver rotation so the original DXF orientation is
       // preserved while nesting advances down the material length.
