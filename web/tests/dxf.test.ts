@@ -36,10 +36,18 @@ it('joins only unambiguous endpoints and reports adjustments and blocked contour
   const branch=importDXF(dxf(edges+line(10,10,20,20)),'branch.dxf',options);
   expect(branch.document.parts).toHaveLength(0);expect(branch.issues?.join(' ')).toContain('ambiguous');
 });
-it('reads ordinary POLYLINE vertices and rejects malformed sequences before parsing',()=>{
+it('reads and re-exports ordinary POLYLINE without increasing its vertex count',()=>{
   const vertices=[[0,0],[10,0],[10,10],[0,10]].map(([x,y])=>`0\nVERTEX\n10\n${x}\n20\n${y}\n`).join('');
   const header='0\nPOLYLINE\n70\n1\n';
-  expect(importDXF(dxf(header+vertices+'0\nSEQEND\n'),'old.dxf',options).document.parts).toHaveLength(1);
+  const imported=importDXF(dxf(header+vertices+'0\nSEQEND\n'),'old.dxf',options);
+  expect(imported.document.parts).toHaveLength(1);
+  expect(imported.document.parts[0].source.dxfEntities?.[0]).toMatchObject({kind:'polyline',sourceType:'POLYLINE'});
+  const placements=imported.document.placements??[];
+  const exported=exportDXF(imported.document,worldParts(imported.document,{placements}),placements,true);
+  const parsed=parseString(exported) as {entities:{type:string;vertices?:unknown[]}[]};
+  expect(parsed.entities).toHaveLength(1);
+  expect(parsed.entities[0].type).toBe('POLYLINE');
+  expect(parsed.entities[0].vertices).toHaveLength(4);
   expect(()=>importDXF(dxf(header+vertices),'bad.dxf',options)).toThrow('SEQEND');
 });
 it('preserves supported text marks and blocks nonplanar geometry, duplicates, and binary data',()=>{
