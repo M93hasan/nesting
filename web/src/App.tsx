@@ -573,7 +573,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     {testDxfOpen&&<Modal title="Test DXF Dosyaları" onClose={()=>setTestDxfOpen(false)} locked={!!testDxfBusy}>
       <div className="test-dxf-modal"><p><strong>test klasoru dxf</strong></p><p className="muted">Bir dosya seçin; DXF doğrudan çalışma alanına yüklenir.</p>
         <div className="test-dxf-list">{testDxfFiles.map(name=><button key={name} disabled={!!testDxfBusy} onClick={()=>void openTestDxf(name)}><span>{name}</span><small>{testDxfBusy===name?'Yükleniyor…':'Aç'}</small></button>)}</div>
-        {!testDxfFiles.length&&<p className="muted">Test DXF klasöründe dosya bulunamadı.</p>
+        {!testDxfFiles.length&&<p className="muted">Test DXF klasöründe dosya bulunamadı.</p>}
       </div>
     </Modal>}
     {nameDialog&&<Modal title={nameDialog==='new'?'Yeni proje':'Projeyi yeniden adlandır'} onClose={()=>setNameDialog(undefined)}><form onSubmit={e=>{e.preventDefault();const name=projectName.trim();if(!name)return;if(nameDialog==='new')requestProject({document:emptyProject(name),saved:true});else if(name!==doc.name)commit({...doc,name},false);setNameDialog(undefined);}}><label>Proje adı<input autoFocus onFocus={e=>e.currentTarget.select()} required maxLength={200} value={projectName} onChange={e=>setProjectAd(e.target.value)}/></label><div className="modal-actions"><button type="button" onClick={()=>setNameDialog(undefined)}>İptal</button><button className="primary" disabled={!projectName.trim()}>{nameDialog==='new'?'Proje oluştur':'Yeniden adlandır'}</button></div></form></Modal>}
