@@ -4,7 +4,6 @@ import { SOLVER_REVISION, type Document, type Result } from '../model';
 import type { Candidate, GeometryReply, SolverMessage } from './protocol';
 import type {LiveGeometry} from '../geometry/live';
 import {packResultIntoSheets} from '../geometry/multiSheet';
-import {improveSheetPacking} from '../geometry/sheetOptimizer';
 import {solverCopies} from '../import/sparrow';
 import {validate} from '../geometry/validate';
 
@@ -206,23 +205,7 @@ export function useSolver() {
             }
           }
           break;
-        case 'finished': {
-          if(doc.settings.materialType==='sheet'&&r.best){
-            try{
-              const compacted=improveSheetPacking(doc,r.best);
-              if(compacted!==r.best){
-                const oriented=packResultIntoSheets(doc,compacted),checked=validate(doc,oriented);
-                if(checked.status==='passed'){
-                  r.best={...oriented,validation:{...checked,source:'local'}};
-                  r.bestSheetSolverLength=Math.min(r.bestSheetSolverLength??Infinity,oriented.usedLengthMm);
-                }
-              }
-            }catch(error){
-              r.diagnostics.liveErrors.push({sequence:-1,message:`Sheet BLF compaction skipped: ${error instanceof Error?error.message:String(error)}`});
-            }
-          }
-          end('Complete');break;
-        }
+        case 'finished': end('Complete');break;
         case 'error': end('Error',data.message);break;
       }
     };
