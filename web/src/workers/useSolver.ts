@@ -4,7 +4,7 @@ import { SOLVER_REVISION, type Document, type Result } from '../model';
 import type { Candidate, GeometryReply, SolverMessage } from './protocol';
 import type {LiveGeometry} from '../geometry/live';
 import {packResultIntoSheets} from '../geometry/multiSheet';
-import {solverCopies} from '../import/sparrow';
+import {solverCopies,solverEdgePadding} from '../import/sparrow';
 import {validate} from '../geometry/validate';
 
 export type RunState='Ready'|'Initializing'|'Running'|'Complete'|'Stopped'|'Error';
@@ -26,6 +26,7 @@ export function candidateResult(doc:Document,candidate:Candidate,seed:string):Re
     placements:candidate.solution.layout.placed_items.map(p=>{
       if(p.transformation.reflected)throw Error('Solver returned a reflected part, but Serula reflection is disabled.');
       const copy=copies[p.item_id],partId=copy?.partId ?? `unknown:${p.item_id}`,copyIndex=copy?.copyIndex ?? 0;
+      const edgePadding=solverEdgePadding(doc.settings.clearanceMm);
       // solverInput transposes the solver geometry. Swap the translation axes
       // back and invert the solver rotation so the original DXF orientation is
       // preserved while nesting advances down the material length.
@@ -33,7 +34,7 @@ export function candidateResult(doc:Document,candidate:Candidate,seed:string):Re
       const sheetIndex=doc.settings.materialType==='sheet'&&candidate.report==='SheetFeas'&&sheetLength
         ? Math.max(0,Math.floor((rawY+1e-7)/sheetLength)) : undefined;
       const yMm=sheetIndex===undefined?rawY:rawY-sheetIndex*sheetLength!;
-      return {partId,copyIndex,xMm:p.transformation.translation[1],yMm,angleDeg:-p.transformation.rotation,...(sheetIndex===undefined?{}:{sheetIndex})};
+      return {partId,copyIndex,xMm:p.transformation.translation[1]-edgePadding,yMm,angleDeg:-p.transformation.rotation,...(sheetIndex===undefined?{}:{sheetIndex})};
     }), validation:{status:'pending',overlapAreaMm2:0,maxBoundaryViolationMm:0,minClearanceMm:null,errors:[]}};
 }
 export function phaseImprovements(history:Timing[],lengthMm:number) {
