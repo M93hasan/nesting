@@ -18,7 +18,13 @@ export function localize(part: Part): Part {
     ? {...entity,points:entity.points.map(([px,py])=>[px-x,py-y] as [number,number])}
     : {...entity,point:[entity.point[0]-x,entity.point[1]-y] as [number,number]});
   const dxfDetails=part.source.dxfDetails?.map(detail=>({...detail,ring:shift(detail.ring)}));
-  return {...part,source:{...part.source,...(dxfAux?{dxfAux}: {}),...(dxfDetails?{dxfDetails}: {})},outer:shift(part.outer),holes:part.holes.map(shift)};
+  const dxfEntities=part.source.dxfEntities?.map(entity=>{
+    if(entity.kind==='line')return {...entity,start:[entity.start[0]-x,entity.start[1]-y] as [number,number],end:[entity.end[0]-x,entity.end[1]-y] as [number,number]};
+    if(entity.kind==='arc'||entity.kind==='circle')return {...entity,center:[entity.center[0]-x,entity.center[1]-y] as [number,number]};
+    if(entity.kind==='spline')return {...entity,controlPoints:entity.controlPoints.map(([px,py])=>[px-x,py-y] as [number,number])};
+    return {...entity,points:entity.points.map(([px,py])=>[px-x,py-y] as [number,number])};
+  });
+  return {...part,source:{...part.source,...(dxfAux?{dxfAux}: {}),...(dxfDetails?{dxfDetails}: {}),...(dxfEntities?{dxfEntities}: {})},outer:shift(part.outer),holes:part.holes.map(shift)};
 }
 export function importSparrow(text: string,fileName: string,scale: number): ImportReview {
   if(!Number.isFinite(scale) || scale<=0) throw Error('Choose a positive millimeter scale.');
