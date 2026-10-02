@@ -63,7 +63,7 @@ test('sheet candidates decode stacked Sparrow coordinates into Plate 1 and Plate
   solver.deliver({type:'candidate',runId:1,documentRevision:7,sequence:1,report:'SheetFeas',elapsedMs:100,
     solution:{strip_width:40,layout:{placed_items:[
       {item_id:0,transformation:{rotation:0,translation:[0,0]}},
-      {item_id:0,transformation:{rotation:0,translation:[20,0]}}
+      {item_id:1,transformation:{rotation:0,translation:[20,0]}}
     ]}}});
   vi.advanceTimersByTime(100);
   expect(render().result?.placements.map(p=>p.sheetIndex)).toEqual([0,1]);
