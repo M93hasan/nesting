@@ -1,4 +1,5 @@
 import type { Start, SolverMessage } from './protocol';
+import {isRecoverableWasmTrap,MAX_WASM_RECOVERY_ATTEMPTS,recoverySeed} from './solverRecovery';
 
 type PoolInit = { type: 'pool-init'; threads: number; init: { module_or_path: WebAssembly.Module; memory: WebAssembly.Memory }; receiver: number };
 let dispose = () => {};
@@ -16,9 +17,9 @@ self.onmessage = ({ data }: MessageEvent<Start | { type: 'stop' } | { type: 'ski
     return;
   }
   const start = data;
-  let phase='';
+  let phase='',recoveryAttempts=0;
   const control = self.crossOriginIsolated && typeof SharedArrayBuffer !== 'undefined' ? new Int32Array(new SharedArrayBuffer(4)) : undefined;
-  function launch(count: number, fallbackReason?: string) {
+  function launch(count: number, fallbackReason?: string, seed=start.seed) {
     const runtime = new Worker(new URL('./solver-runtime.worker.ts', import.meta.url), { type: 'module' });
     const pool: Worker[] = [];
     let ready = false, closed = false;
@@ -28,9 +29,20 @@ self.onmessage = ({ data }: MessageEvent<Start | { type: 'stop' } | { type: 'ski
     dispose = () => { closed = true; clearTimeout(timer); runtime.terminate(); pool.forEach(worker => worker.terminate()); };
     const fail = (message: string) => {
       if (closed) return;
+      const wasReady=ready;
       dispose();
-      if (!ready && count > 1) launch(1, message);
-      else self.postMessage({ type: 'error', runId: start.runId, documentRevision: start.documentRevision, message });
+      if (!wasReady && count > 1) {
+        launch(1, message, seed);
+        return;
+      }
+      if (isRecoverableWasmTrap(message) && recoveryAttempts<MAX_WASM_RECOVERY_ATTEMPTS) {
+        recoveryAttempts++;
+        phase='';
+        const nextSeed=recoverySeed(start.seed,recoveryAttempts);
+        launch(1,`WASM trap recovery ${recoveryAttempts}/${MAX_WASM_RECOVERY_ATTEMPTS}: serial retry with a fresh seed.`,nextSeed);
+        return;
+      }
+      self.postMessage({ type: 'error', runId: start.runId, documentRevision: start.documentRevision, message });
     };
     const timer = setTimeout(() => fail('Thread initialization timed out.'), count > 1 ? 8000 : 6000);
     runtime.onmessage = ({ data: message }: MessageEvent<SolverMessage | PoolInit>) => {
@@ -61,7 +73,7 @@ self.onmessage = ({ data }: MessageEvent<Start | { type: 'stop' } | { type: 'ski
       self.postMessage(message.type === 'ready' ? { ...message, fallbackReason } : message);
     };
     runtime.onerror = event => { event.preventDefault(); fail(event.message || 'The solver runtime failed.'); };
-    runtime.postMessage({ ...start, threads: count, control: control?.buffer });
+    runtime.postMessage({ ...start, seed, threads: count, control: control?.buffer });
   }
   dispose();
   launch(threads,threads<requested?'Shared memory is unavailable in this browser session.':undefined);
