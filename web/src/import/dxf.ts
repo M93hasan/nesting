@@ -435,9 +435,10 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
       const allNative=native.length===mark.sourceEntityCount&&native.every((entity):entity is DxfSourceEntity=>!!entity);
       const entity:DxfAuxEntity={kind:'path',points:localPoints,layer:mark.layer,...(mark.dxfColorNumber!==undefined?{colorNumber:mark.dxfColorNumber}:{})};
       target.part.source={...target.part.source,
+        dxfAux:[...(target.part.source.dxfAux??[]),entity],
         ...(allNative&&target.part.source.dxfEntities
           ?{dxfEntities:[...target.part.source.dxfEntities,...native.map(item=>localSourceEntity(item,b[0],b[1]))]}
-          :{dxfAux:[...(target.part.source.dxfAux??[]),entity]}),
+          :{}),
         dxfSourceEntityCount:(target.part.source.dxfSourceEntityCount??1)+mark.sourceEntityCount};
       attachedOpenMarks+=mark.sourceEntityCount;
     } else issues.push(`${mark.id}: open DXF path is outside every closed part and was not attached.`);
