@@ -1,7 +1,7 @@
 import parseString from 'dxf/lib/parseString';
 import bSpline from 'dxf/lib/util/bSpline';
 import {pointSegmentDistance} from '../geometry/validate';
-import {DEFAULT_SETTINGS,newPart,type DxfAuxEntity,type DxfDetailContour,type DxfSpline,type Point,type Ring} from '../model';
+import {DEFAULT_SETTINGS,newPart,type DxfAuxEntity,type DxfDetailContour,type DxfSourceEntity,type DxfSpline,type Point,type Ring} from '../model';
 import {apply,multiply,append,ellipse,type Matrix} from '../geometry/flatten';
 import {area,bounds,inside,normalizeDocument,normalizeRing,ringCrosses} from '../geometry/normalize';
 import {localize,type ImportReview} from './sparrow';
@@ -19,6 +19,51 @@ type Contour={ring:Ring;entityId:string;curved:boolean;layer:string;dxfColorNumb
 type Chain={points:Ring;id:string;curved:boolean;layer:string;dxfColorNumber?:number};
 type OpenMark={points:Ring;id:string;curved:boolean;layer:string;dxfColorNumber?:number;sourceEntityCount:number};
 export type DXFOptions={scale:number;tolerance:number;enclosed:'holes'|'parts';layers?:string[]};
+const normalizeDeg=(angle:number)=>((angle%360)+360)%360;
+function similarity(matrix:Matrix):{scale:number;reflected:boolean}|undefined {
+  const [a,b,c,d]=matrix,sx=Math.hypot(a,b),sy=Math.hypot(c,d),dot=a*c+b*d,scale=Math.max(sx,sy,1);
+  if(sx<=0||sy<=0||Math.abs(sx-sy)>1e-8*scale||Math.abs(dot)>1e-8*scale*scale)return;
+  return {scale:(sx+sy)/2,reflected:a*d-b*c<0};
+}
+function sourceEntity(entity:DxfEntity,matrix:Matrix,layer:string,colorNumber:number|undefined):DxfSourceEntity|undefined {
+  const withColor=<T extends object>(value:T)=>colorNumber===undefined?value:{...value,colorNumber};
+  const point=(p:DxfPoint|undefined):Point|undefined=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y)?apply(matrix,[p.x,p.y]):undefined;
+  if(entity.type==='LINE'){
+    const start=point(entity.start),end=point(entity.end);
+    return start&&end?withColor({kind:'line' as const,start,end,layer}):undefined;
+  }
+  if(entity.type==='SPLINE'){
+    const controlPoints=(entity.controlPoints??[]).map(point);
+    if(!controlPoints.length||controlPoints.some(p=>!p))return;
+    return withColor({kind:'spline' as const,degree:entity.degree??0,knots:[...(entity.knots??[])],
+      controlPoints:controlPoints as Point[],...(entity.weights?.length?{weights:[...entity.weights]}:{}),
+      flags:0,layer});
+  }
+  if(entity.type==='CIRCLE'||entity.type==='ARC'){
+    const sim=similarity(matrix),center=point({x:entity.x!,y:entity.y!});
+    if(!sim||!center||!Number.isFinite(entity.r)||entity.r!<=0)return;
+    const radius=entity.r!*sim.scale;
+    if(entity.type==='CIRCLE')return withColor({kind:'circle' as const,center,radius,layer});
+    if(!Number.isFinite(entity.startAngle)||!Number.isFinite(entity.endAngle))return;
+    const rawCenter:[number,number]=[entity.x!,entity.y!],r=entity.r!;
+    const startWorld=apply(matrix,[rawCenter[0]+r*Math.cos(entity.startAngle!),rawCenter[1]+r*Math.sin(entity.startAngle!)]);
+    const endWorld=apply(matrix,[rawCenter[0]+r*Math.cos(entity.endAngle!),rawCenter[1]+r*Math.sin(entity.endAngle!)]);
+    let startAngleDeg=normalizeDeg(Math.atan2(startWorld[1]-center[1],startWorld[0]-center[0])*180/Math.PI);
+    let endAngleDeg=normalizeDeg(Math.atan2(endWorld[1]-center[1],endWorld[0]-center[0])*180/Math.PI);
+    if(sim.reflected)[startAngleDeg,endAngleDeg]=[endAngleDeg,startAngleDeg];
+    return withColor({kind:'arc' as const,center,radius,startAngleDeg,endAngleDeg,layer});
+  }
+  if(entity.type==='LWPOLYLINE'||entity.type==='POLYLINE'){
+    const vertices=entity.vertices??[],points=vertices.map(point);
+    if(points.length<2||points.some(p=>!p))return;
+    const sim=similarity(matrix),det=matrix[0]*matrix[3]-matrix[1]*matrix[2];
+    const bulges=vertices.map(vertex=>vertex.bulge??0);
+    if(bulges.some(value=>value!==0)&&!sim)return;
+    const adjusted=det<0?bulges.map(value=>-value):bulges;
+    return withColor({kind:'polyline' as const,points:points as Point[],bulges:adjusted,closed:!!entity.closed,
+      sourceType:entity.type as 'LWPOLYLINE'|'POLYLINE',layer});
+  }
+}
 const value=(r:DxfRecord,code:number)=>r.groups.find(g=>g[0]===code)?.[1];
 function finite(text:string|undefined,fallback?:number):number {
   if(text===undefined&&fallback!==undefined)return fallback;
