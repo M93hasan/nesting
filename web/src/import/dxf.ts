@@ -214,7 +214,7 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
   const byHandle=new Map(records.map(r=>[r.id,r])),blocks=new Map(parsed.blocks.map(b=>[b.name,b]));
   const supported=['LINE','ARC','CIRCLE','ELLIPSE','LWPOLYLINE','POLYLINE','SPLINE','INSERT','POINT','TEXT','MTEXT'];
   for(const r of records)if(!supported.includes(r.type)&&!['BLOCK','ENDBLK'].includes(r.type))unsupported.set(r.type,(unsupported.get(r.type)??0)+1);
-  const layers:string[]=[],contours:Contour[]=[],chains:Chain[]=[],auxEntities:DxfAuxEntity[]=[],sourceSplines=new Map<string,DxfSpline>();let totalVertices=0,expanded=0;
+  const layers:string[]=[],contours:Contour[]=[],chains:Chain[]=[],auxEntities:Exclude<DxfAuxEntity,{kind:'path'}>[]=[],sourceSplines=new Map<string,DxfSpline>();let totalVertices=0,expanded=0;
   const visit=(entity:DxfEntity,parent:Matrix,inheritedLayer:string,path:string[])=>{
     if(++expanded>10_000)throw Error('DXF exceeds 10,000 expanded entities.');
     const r=byHandle.get(entity.handle);if(!r||!supported.includes(entity.type))return;
