@@ -1,5 +1,6 @@
 import type { Start, SolverMessage } from './protocol';
-import {isRecoverableWasmTrap,MAX_WASM_RECOVERY_ATTEMPTS,recoverySeed} from './solverRecovery';
+import {isRecoverableInitialPlacement,isRecoverableWasmTrap,MAX_WASM_RECOVERY_ATTEMPTS,recoverySeed} from './solverRecovery';
+import {friendlyInitialPlacementError} from '../import/sparrow';
 
 type PoolInit = { type: 'pool-init'; threads: number; init: { module_or_path: WebAssembly.Module; memory: WebAssembly.Memory }; receiver: number };
 let dispose = () => {};
@@ -35,15 +36,17 @@ self.onmessage = ({ data }: MessageEvent<Start | { type: 'stop' } | { type: 'ski
         launch(1, message, seed);
         return;
       }
-      if (isRecoverableWasmTrap(message) && recoveryAttempts<MAX_WASM_RECOVERY_ATTEMPTS) {
+      if ((isRecoverableWasmTrap(message)||isRecoverableInitialPlacement(message)) && recoveryAttempts<MAX_WASM_RECOVERY_ATTEMPTS) {
         recoveryAttempts++;
         phase='';
         if(control)Atomics.store(control,0,0);
         const nextSeed=recoverySeed(start.seed,recoveryAttempts);
-        launch(1,`WASM trap recovery ${recoveryAttempts}/${MAX_WASM_RECOVERY_ATTEMPTS}: serial retry with a fresh seed.`,nextSeed);
+        const reason=isRecoverableInitialPlacement(message)?'Initial placement retry':'WASM trap recovery';
+        launch(1,`${reason} ${recoveryAttempts}/${MAX_WASM_RECOVERY_ATTEMPTS}: serial retry with a fresh seed.`,nextSeed);
         return;
       }
-      self.postMessage({ type: 'error', runId: start.runId, documentRevision: start.documentRevision, message });
+      const finalMessage=start.type==='start'?friendlyInitialPlacementError(start.document,message):message;
+      self.postMessage({ type: 'error', runId: start.runId, documentRevision: start.documentRevision, message: finalMessage });
     };
     const timer = setTimeout(() => fail('Thread initialization timed out.'), count > 1 ? 8000 : 6000);
     runtime.onmessage = ({ data: message }: MessageEvent<SolverMessage | PoolInit>) => {
