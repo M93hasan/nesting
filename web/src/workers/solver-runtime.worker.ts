@@ -9,6 +9,28 @@ type WasmApi=Pick<typeof import('../../wasm/pkg/sparrow_web'),'run'|'thread_coun
 // Fixed-length plates are derived only after a normal roll candidate returns (see multiSheet.ts).
 // This keeps DXF geometry, copies/demand, rotations, clearance and solver behavior identical.
 
+
+type QualityAttempt={seed:string;seconds:number|null};
+
+function qualitySeed(seed:string,index:number):string {
+  if(index===0)return seed;
+  const mask=(1n<<64n)-1n;
+  let x=(BigInt(seed)+0x9E3779B97F4A7C15n*BigInt(index))&mask;
+  x=(x^(x>>30n))*0xBF58476D1CE4E5B9n&mask;
+  x=(x^(x>>27n))*0x94D049BB133111EBn&mask;
+  return ((x^(x>>31n))&mask).toString();
+}
+
+export function qualityAttempts(seed:string,seconds:number|null,preset:string):QualityAttempt[] {
+  if(preset==='fast'||seconds===null||seconds<=10)return [{seed,seconds}];
+  const budgets=seconds<120
+    ? [Math.max(5,Math.ceil(seconds*2/3)),Math.max(5,seconds-Math.ceil(seconds*2/3))]
+    : [Math.max(5,Math.floor(seconds/2)),Math.max(5,Math.floor(seconds/3)),Math.max(5,seconds-Math.floor(seconds/2)-Math.floor(seconds/3))];
+  const total=budgets.reduce((sum,value)=>sum+value,0);
+  if(total!==seconds)budgets[0]+=seconds-total;
+  return budgets.map((budget,index)=>({seed:qualitySeed(seed,index),seconds:budget}));
+}
+
 self.onmessage = async ({ data }: MessageEvent<Start | {type:'preload';threads:number}>) => {
   if (data.type !== 'start' && data.type !== 'bridge' && data.type !== 'preload') return;
   const { runId, documentRevision } = data.type==='preload'?{runId:0,documentRevision:0}:data;
@@ -32,12 +54,30 @@ self.onmessage = async ({ data }: MessageEvent<Start | {type:'preload';threads:n
     const control=data.control?new Int32Array(data.control):undefined;
     const input=doc?solverInput(doc):(data as Extract<Start,{type:'bridge'}>).input;
     const seconds=data.type==='bridge'?data.seconds:doc!.settings.timeLimitSeconds,clearance=doc?.settings.clearanceMm??0,preset=doc?.settings.solverPreset??'standard';
-    send({type:'run-input',input,seed:data.seed,seconds,clearance,preset,threads:wasm.thread_count(),solverBinary});
-    wasm.run(input, seconds??undefined, data.seed, clearance, preset, (json: string) => {
-      const message = JSON.parse(json) as SolverMessage;
-      if(control&&message.type==='phase'&&message.phase==='Compression')Atomics.store(control,0,-1);
-      send(message);
-    }, control?(reset:boolean)=>{if(reset)Atomics.compareExchange(control,0,1,0);return Atomics.load(control,0)===1;}:undefined);
+    const attempts=data.type==='bridge'?[{seed:data.seed,seconds:data.seconds}]:qualityAttempts(data.seed,seconds,preset);
+    let globalSequence=0,elapsedOffsetMs=0;
+    for(let index=0;index<attempts.length;index++){
+      const attempt=attempts[index];
+      if(control)Atomics.store(control,0,0);
+      send({type:'run-input',input,seed:attempt.seed,seconds:attempt.seconds,clearance,preset,threads:wasm.thread_count(),solverBinary,attempt:index+1,attempts:attempts.length});
+      if(attempts.length>1)send({type:'solver-log',line:`Quality start ${index+1}/${attempts.length}: seed ${attempt.seed}, budget ${attempt.seconds}s.`,timestamp:Date.now()});
+      const started=performance.now();
+      wasm.run(input, attempt.seconds??undefined, attempt.seed, clearance, preset, (json: string) => {
+        const message = JSON.parse(json) as SolverMessage;
+        if(message.type==='finished'){
+          if(index===attempts.length-1)send(message);
+          return;
+        }
+        if(message.type==='candidate'||message.type==='live'){
+          message.sequence=++globalSequence;
+          message.elapsedMs+=elapsedOffsetMs;
+          Object.assign(message,{attempt:index+1,attemptSeed:attempt.seed});
+        }
+        if(control&&message.type==='phase'&&message.phase==='Compression')Atomics.store(control,0,-1);
+        send(message);
+      }, control?(reset:boolean)=>{if(reset)Atomics.compareExchange(control,0,1,0);return Atomics.load(control,0)===1;}:undefined);
+      elapsedOffsetMs+=performance.now()-started;
+    }
   } catch (error) {
     send({ type: 'error', message: String(error) });
     if(data.type==='preload')self.close();
