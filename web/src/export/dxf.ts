@@ -94,27 +94,39 @@ export function exportDXF(doc:Document,world:WorldPart[],placements:Placement[]=
   let at=0;
   for(let i=0;i<exportWorld.length;i++){
     const p=exportWorld[i],part=parts.get(p.partId),placement=exportPlacements[i],curve=part?.source.dxfSpline;
-    const entity=parsed.entities[at++];
-    if(preserveSourceCurves&&curve&&placement&&placement.partId===p.partId&&placement.copyIndex===p.copyIndex){
-      if(entity?.type!=='SPLINE'||entity.layer!==(curve.layer||'PARTS')||entity.degree!==curve.degree)throw Error('Serialized DXF lost its compact spline.');
-      const expected=curve.controlPoints.map(point=>transformPoint(point,placement)),actual=(entity.controlPoints??[]).map(q=>[q.x,q.y] as Point);
-      if(JSON.stringify(entity.knots??[])!==JSON.stringify(curve.knots)||JSON.stringify(actual)!==JSON.stringify(expected))throw Error('Serialized DXF changed spline control points.');
+    const native=preserveSourceCurves&&part?.source.dxfEntities?.length&&placement&&placement.partId===p.partId&&placement.copyIndex===p.copyIndex
+      ?part.source.dxfEntities:undefined;
+    if(native){
+      for(const source of native){
+        const entity=parsed.entities[at++];
+        const expectedType=source.kind==='polyline'?source.sourceType:source.kind.toUpperCase();
+        if(entity?.type!==expectedType||entity.layer!==(source.layer||'PARTS'))throw Error(`Serialized DXF changed native ${expectedType} geometry.`);
+        if(source.kind==='spline'&&(entity.controlPoints?.length??0)>source.controlPoints.length)throw Error('Serialized DXF increased SPLINE control-point count.');
+        if(source.kind==='polyline'&&(entity.vertices?.length??0)>source.points.length)throw Error('Serialized DXF increased POLYLINE vertex count.');
+      }
     }else{
-      if(entity?.type!=='LWPOLYLINE'||!entity.closed||entity.layer!=='PARTS')throw Error('Serialized DXF lost a closed contour or layer.');
-      const outer=(entity.vertices??[]).map(q=>[q.x,q.y] as Point);
-      if(JSON.stringify(outer)!==JSON.stringify(p.outer))throw Error('Serialized DXF changed canvas coordinates.');
-    }
-    for(const hole of p.holes){
-      const h=parsed.entities[at++];
-      if(h?.type!=='LWPOLYLINE'||!h.closed||h.layer!=='HOLES')throw Error('Serialized DXF lost a closed hole.');
-      const ring=(h.vertices??[]).map(q=>[q.x,q.y] as Point);
-      if(JSON.stringify(ring)!==JSON.stringify(hole))throw Error('Serialized DXF changed canvas coordinates.');
-    }
-    for(const detail of part?.source.dxfDetails??[]){
       const entity=parsed.entities[at++];
-      if(entity?.type!=='LWPOLYLINE'||!entity.closed||entity.layer!==(detail.layer||'DETAILS'))throw Error('Serialized DXF lost an attached detail contour.');
-      const expected=detail.ring.map(point=>transformPoint(point,placement!)),actual=(entity.vertices??[]).map(q=>[q.x,q.y] as Point);
-      if(JSON.stringify(actual)!==JSON.stringify(expected))throw Error('Serialized DXF changed an attached detail contour.');
+      if(preserveSourceCurves&&curve&&placement&&placement.partId===p.partId&&placement.copyIndex===p.copyIndex){
+        if(entity?.type!=='SPLINE'||entity.layer!==(curve.layer||'PARTS')||entity.degree!==curve.degree)throw Error('Serialized DXF lost its compact spline.');
+        const expected=curve.controlPoints.map(point=>transformPoint(point,placement)),actual=(entity.controlPoints??[]).map(q=>[q.x,q.y] as Point);
+        if(JSON.stringify(entity.knots??[])!==JSON.stringify(curve.knots)||JSON.stringify(actual)!==JSON.stringify(expected))throw Error('Serialized DXF changed spline control points.');
+      }else{
+        if(entity?.type!=='LWPOLYLINE'||!entity.closed||entity.layer!=='PARTS')throw Error('Serialized DXF lost a closed contour or layer.');
+        const outer=(entity.vertices??[]).map(q=>[q.x,q.y] as Point);
+        if(JSON.stringify(outer)!==JSON.stringify(p.outer))throw Error('Serialized DXF changed canvas coordinates.');
+      }
+      for(const hole of p.holes){
+        const h=parsed.entities[at++];
+        if(h?.type!=='LWPOLYLINE'||!h.closed||h.layer!=='HOLES')throw Error('Serialized DXF lost a closed hole.');
+        const ring=(h.vertices??[]).map(q=>[q.x,q.y] as Point);
+        if(JSON.stringify(ring)!==JSON.stringify(hole))throw Error('Serialized DXF changed canvas coordinates.');
+      }
+      for(const detail of part?.source.dxfDetails??[]){
+        const entity=parsed.entities[at++];
+        if(entity?.type!=='LWPOLYLINE'||!entity.closed||entity.layer!==(detail.layer||'DETAILS'))throw Error('Serialized DXF lost an attached detail contour.');
+        const expected=detail.ring.map(point=>transformPoint(point,placement!)),actual=(entity.vertices??[]).map(q=>[q.x,q.y] as Point);
+        if(JSON.stringify(actual)!==JSON.stringify(expected))throw Error('Serialized DXF changed an attached detail contour.');
+      }
     }
     for(const mark of part?.source.dxfAux??[]){
       const entity=parsed.entities[at++];
