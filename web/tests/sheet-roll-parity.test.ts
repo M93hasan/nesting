@@ -3,6 +3,7 @@ import {expect,test} from 'vitest';
 import {DEFAULT_SETTINGS,newPart,type Document,type Result} from '../src/model';
 import {solverInput} from '../src/import/sparrow';
 import {packResultIntoSheets} from '../src/geometry/multiSheet';
+import {validate} from '../src/geometry/validate';
 
 test('sheet mode sends the same geometry, copies and solver input as roll mode',()=>{
   const part={...newPart([[0,0],[4,0],[4,3],[0,3]]),id:'copy-source',quantity:3};
@@ -31,6 +32,24 @@ test('sheet post-processing preserves roll copies and only assigns plate numbers
   expect(packed.placements.map(p=>p.partId)).toEqual([part.id,part.id,part.id]);
   expect(packed.placements.map(p=>p.sheetIndex)).toEqual([0,0,1]);
   expect(packed.sheetCount).toBe(2);
+});
+
+
+test('1400x700 plate mode splits an overlapping Y chain across sheets instead of rejecting it',()=>{
+  const part={...newPart([[0,0],[300,0],[300,300],[0,300]]),id:'linked',quantity:3};
+  const doc:Document={name:'1400x700',parts:[part],settings:{...DEFAULT_SETTINGS,materialType:'sheet',materialWidthMm:1400,materialLengthMm:700,clearanceMm:.3,startCorner:'right-bottom'}};
+  const result:Result={documentRevision:1,solverRevision:'test',seed:'1',elapsedSeconds:1,usedLengthMm:800,
+    placements:[
+      {partId:part.id,copyIndex:0,xMm:0,yMm:0,angleDeg:0},
+      {partId:part.id,copyIndex:1,xMm:400,yMm:250,angleDeg:0},
+      {partId:part.id,copyIndex:2,xMm:0,yMm:500,angleDeg:0}
+    ],
+    validation:{status:'pending',overlapAreaMm2:0,maxBoundaryViolationMm:0,minClearanceMm:null,errors:[]}};
+  const packed=packResultIntoSheets(doc,result);
+  expect(packed.sheetCount).toBe(2);
+  expect(packed.usedLengthMm).toBe(1400);
+  expect(packed.placements.map(p=>p.sheetIndex)).toEqual([0,0,1]);
+  expect(validate(doc,packed).status).toBe('passed');
 });
 
 test('solver runtime has no sheet-only batching or second nesting path',()=>{
