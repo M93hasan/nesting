@@ -15,8 +15,9 @@ type DxfEntity={type:string;handle:string;layer?:string;x?:number;y?:number;z?:n
 type DxfFile={entities:DxfEntity[];blocks:{name:string;x?:number;y?:number;entities:DxfEntity[]}[]};
 type Group=[number,string];
 type DxfRecord={type:string;groups:Group[];children:DxfRecord[];id:string;layer:string};
-type Contour={ring:Ring;entityId:string;curved:boolean;layer:string;dxfColorNumber?:number};
+type Contour={ring:Ring;entityId:string;curved:boolean;layer:string;dxfColorNumber?:number;sourceEntityCount:number};
 type Chain={points:Ring;id:string;curved:boolean;layer:string;dxfColorNumber?:number};
+type OpenMark={points:Ring;id:string;curved:boolean;layer:string;dxfColorNumber?:number;sourceEntityCount:number};
 export type DXFOptions={scale:number;tolerance:number;enclosed:'holes'|'parts';layers?:string[]};
 const value=(r:DxfRecord,code:number)=>r.groups.find(g=>g[0]===code)?.[1];
 function finite(text:string|undefined,fallback?:number):number {
@@ -126,7 +127,7 @@ function spline(entity:DxfEntity,tolerance:number):Ring {
   }
   return output;
 }
-function join(chains:Chain[],issues:string[]):{contours:Contour[];gaps:number;adjustment:number} {
+function join(chains:Chain[],issues:string[]):{contours:Contour[];openMarks:OpenMark[];gaps:number;adjustment:number} {
   const endpoints=chains.flatMap((c,i)=>[{p:c.points[0],edge:i,end:0},{p:c.points[c.points.length-1],edge:i,end:1}]);
   const neighbors=endpoints.map(()=>[] as number[]),cells=new Map<string,number[]>();
   const tolerance=.01;
@@ -137,7 +138,7 @@ function join(chains:Chain[],issues:string[]):{contours:Contour[];gaps:number;ad
     }
     const key=`${x},${y}`;cells.set(key,[...(cells.get(key)??[]),i]);
   }
-  const visited=new Set<number>(),contours:Contour[]=[];let gaps=0,adjustment=0;
+  const visited=new Set<number>(),contours:Contour[]=[],openMarks:OpenMark[]=[];let gaps=0,adjustment=0;
   for(let i=0;i<chains.length;i++) {
     if(visited.has(i))continue;
     const component=new Set<number>([i]),queue=[i];
@@ -145,7 +146,40 @@ function join(chains:Chain[],issues:string[]):{contours:Contour[];gaps:number;ad
       const edge=endpoints[neighbor].edge;if(!component.has(edge)){component.add(edge);queue.push(edge);}
     }
     for(const edge of component)visited.add(edge);
-    if([...component].some(edge=>neighbors[edge*2].length!==1||neighbors[edge*2+1].length!==1)) {
+    const componentEnds=[...component].flatMap(edge=>[edge*2,edge*2+1]);
+    const loose=componentEnds.filter(endpoint=>neighbors[endpoint].length===0);
+    const ambiguous=componentEnds.some(endpoint=>neighbors[endpoint].length>1);
+    const simpleOpen=!ambiguous&&loose.length===2&&componentEnds.every(endpoint=>neighbors[endpoint].length<=1);
+    if(simpleOpen) {
+      let current=loose[0];const points:Ring=[];let curved=false,componentAdjustment=0;
+      const walked=new Set<number>();
+      while(true) {
+        const edge=endpoints[current].edge;
+        if(walked.has(edge))throw Error('DXF open-chain traversal revisited an edge.');
+        walked.add(edge);
+        const chain=chains[edge],segment=current%2?[...chain.points].reverse():chain.points;
+        if(!points.length)for(const point of segment)append(points,point);
+        else {
+          const previous=points[points.length-1],entry=segment[0],midpoint:Point=[(previous[0]+entry[0])/2,(previous[1]+entry[1])/2];
+          const gap=Math.hypot(previous[0]-entry[0],previous[1]-entry[1]);
+          if(gap>0){gaps++;adjustment=Math.max(adjustment,gap/2);componentAdjustment=Math.max(componentAdjustment,gap/2);}
+          points[points.length-1]=midpoint;
+          for(const point of segment.slice(1))append(points,point);
+        }
+        curved ||= chain.curved;
+        const exitIndex=edge*2+(current%2?0:1);
+        if(neighbors[exitIndex].length===0)break;
+        current=neighbors[exitIndex][0];
+      }
+      if(walked.size!==component.size)throw Error('DXF component did not form a single open chain.');
+      const componentColors=[...new Set([...component].map(e=>chains[e].dxfColorNumber).filter((v):v is number=>v!==undefined))];
+      const componentLayers=[...new Set([...component].map(e=>chains[e].layer))];
+      openMarks.push({points,id:[...component].map(e=>chains[e].id).join(' + '),curved:curved||componentAdjustment>0,
+        layer:componentLayers.length===1?componentLayers[0]:'0',sourceEntityCount:component.size,
+        ...(componentColors.length===1?{dxfColorNumber:componentColors[0]}:{})});
+      continue;
+    }
+    if(componentEnds.some(endpoint=>neighbors[endpoint].length!==1)) {
       issues.push(`${[...component].map(e=>chains[e].id).join(', ')}: open ends or ambiguous junctions within 0.01 mm. Exclude these contours or repair the source.`);continue;
     }
     let current=i*2;const ring:Ring=[];let curved=false,componentAdjustment=0;
@@ -166,9 +200,10 @@ function join(chains:Chain[],issues:string[]):{contours:Contour[];gaps:number;ad
     const componentColors=[...new Set([...component].map(e=>chains[e].dxfColorNumber).filter((v):v is number=>v!==undefined))];
     const componentLayers=[...new Set([...component].map(e=>chains[e].layer))];
     contours.push({ring,entityId:[...component].map(e=>chains[e].id).join(' + '),curved:curved||componentAdjustment>0,
-      layer:componentLayers.length===1?componentLayers[0]:'0',...(componentColors.length===1?{dxfColorNumber:componentColors[0]}:{})});
+      layer:componentLayers.length===1?componentLayers[0]:'0',sourceEntityCount:component.size,
+      ...(componentColors.length===1?{dxfColorNumber:componentColors[0]}:{})});
   }
-  return {contours,gaps,adjustment};
+  return {contours,openMarks,gaps,adjustment};
 }
 export function importDXF(text:string,fileName:string,options:DXFOptions):ImportReview {
   if(!Number.isFinite(options.tolerance)||options.tolerance<=0)throw Error('DXF eğri toleransı pozitif bir sayı olmalıdır.');
@@ -268,7 +303,7 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
       ring=ring.map(p=>apply(matrix,p));
       if(ring.some(p=>!p.every(v=>Number.isFinite(v)&&Math.abs(v)<=100_000)))throw Error('Coordinates exceed the 100,000 mm limit.');
       totalVertices+=ring.length;if(totalVertices>100_000)throw Error('DXF exceeds 100,000 vertices.');
-      if(closed)contours.push({ring,entityId:r.id,curved,layer,dxfColorNumber});else chains.push({points:ring,id:r.id,curved,layer,dxfColorNumber});
+      if(closed)contours.push({ring,entityId:r.id,curved,layer,dxfColorNumber,sourceEntityCount:1});else chains.push({points:ring,id:r.id,curved,layer,dxfColorNumber});
     }catch(error){if(expanded>10_000||totalVertices>100_000)throw error;issues.push(`${r.id} on ${layer}: ${error instanceof Error?error.message:String(error)}`);}
   };
   for(const entity of parsed.entities)visit(entity,[scale,0,0,scale,0,0],'0',[]);
@@ -321,11 +356,32 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
       source:{format:'dxf' as const,fileName,entityId:outer.entityId,
         ...(outer.dxfColorNumber!==undefined?{dxfColorNumber:outer.dxfColorNumber}:{}),
         ...(holes.some(h=>h.dxfColorNumber!==undefined)?{dxfHoleColorNumbers:holes.map(h=>h.dxfColorNumber??256)}:{}),
-        ...(dxfDetails.length?{dxfDetails}:{}),dxfSourceEntityCount:group.length},
+        ...(dxfDetails.length?{dxfDetails}:{}),dxfSourceEntityCount:group.reduce((count,contour)=>count+contour.sourceEntityCount,0)},
       approximationToleranceMm:group.some(contour=>contour.curved)?options.tolerance+joined.adjustment:0});
     return {...part,preparationPosition:[sourceBounds[0],sourceBounds[1]] as Point};
   });
   if(groups.some(group=>group.length>1))warnings.push('İç içe konturlar ve farklı renkte üst üste gelen detaylar ana parçaya kilitlendi; aynı renkteki temas eden parçalar ayrı parça olarak korundu.');
+  let attachedOpenMarks=0;
+  // Preserve simple open LINE/ARC/POLYLINE/SPLINE chains as non-nesting marks when
+  // they are fully contained by one imported part. They stay rigidly attached to
+  // that part and count as source entities, but never become independent pieces.
+  for(const mark of joined.openMarks) {
+    const candidates=imported.map(part=>{
+      const contour=part.source.entityId?keptContours.find(c=>c.entityId===part.source.entityId):undefined;
+      return contour?{part,contour,size:Math.abs(area(contour.ring))}:undefined;
+    }).filter((v):v is NonNullable<typeof v>=>!!v&&mark.points.every(point=>inside(point,v.contour.ring)))
+      .sort((a,b)=>a.size-b.size);
+    const target=candidates[0];
+    if(target){
+      const b=bounds(target.contour.ring);
+      const localPoints=mark.points.map(([x,y])=>[x-b[0],y-b[1]] as Point);
+      const entity:DxfAuxEntity={kind:'path',points:localPoints,layer:mark.layer,...(mark.dxfColorNumber!==undefined?{colorNumber:mark.dxfColorNumber}:{})};
+      target.part.source={...target.part.source,dxfAux:[...(target.part.source.dxfAux??[]),entity],
+        dxfSourceEntityCount:(target.part.source.dxfSourceEntityCount??1)+mark.sourceEntityCount};
+      attachedOpenMarks+=mark.sourceEntityCount;
+    } else issues.push(`${mark.id}: open DXF path is outside every closed part and was not attached.`);
+  }
+  if(attachedOpenMarks)warnings.push(`${attachedOpenMarks} açık DXF işaret çizgisi ait olduğu parçaya bağlandı; ayrı nesting parçası olarak sayılmadı.`);
   // Attach POINT/TEXT/MTEXT records to the smallest containing outer contour.
   // Stored coordinates are local to the part, so every placement/rotation keeps marks rigidly locked to that part.
   for(const mark of auxEntities) {
@@ -336,7 +392,8 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
     const target=candidates[0];
     if(target){
       const b=bounds(target.contour.ring),local={...mark,point:[mark.point[0]-b[0],mark.point[1]-b[1]] as Point};
-      target.part.source={...target.part.source,dxfAux:[...(target.part.source.dxfAux??[]),local]};
+      target.part.source={...target.part.source,dxfAux:[...(target.part.source.dxfAux??[]),local],
+        dxfSourceEntityCount:(target.part.source.dxfSourceEntityCount??1)+1};
     } else warnings.push(`${mark.kind.toUpperCase()} on ${mark.layer} is outside every part and was not attached.`);
   }
   // Preserve the original compact closed SPLINE when it represents a complete
