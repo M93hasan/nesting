@@ -15,7 +15,7 @@ export type Part = {
 export type Settings = { solverPreset?: 'standard' | 'fast'; startCorner?: 'right-top' | 'right-bottom'; materialType?: 'roll' | 'sheet'; materialWidthMm: number; materialLengthMm?: number; clearanceMm: number; timeLimitSeconds: 10 | 30 | 60 | 120 | 300 | 600 | null };
 export type Placement = { partId: string; copyIndex: number; xMm: number; yMm: number; angleDeg: number; sheetIndex?: number };
 /** A document keeps the editable position of every demanded copy. */
-export type Document = { name: string; parts: Part[]; settings: Settings; placements?: Placement[] };
+export type Document = { name: string; parts: Part[]; settings: Settings; placements?: Placement[]; seriesMultiplier?: number };
 export type Validation = { status: 'pending' | 'passed' | 'failed'; source?: 'solver' | 'local'; overlapAreaMm2: number | null;
   maxBoundaryViolationMm: number | null; minClearanceMm: number | null; errors: string[] };
 export type Result = { documentRevision: number; solverRevision: string; seed: string;
