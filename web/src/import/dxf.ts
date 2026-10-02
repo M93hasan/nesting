@@ -1,7 +1,7 @@
 import parseString from 'dxf/lib/parseString';
 import bSpline from 'dxf/lib/util/bSpline';
 import {pointSegmentDistance} from '../geometry/validate';
-import {DEFAULT_SETTINGS,newPart,type DxfAuxEntity,type DxfDetailContour,type DxfSpline,type Point,type Ring} from '../model';
+import {DEFAULT_SETTINGS,newPart,type DxfAuxEntity,type DxfDetailContour,type DxfSourceEntity,type DxfSpline,type Point,type Ring} from '../model';
 import {apply,multiply,append,ellipse,type Matrix} from '../geometry/flatten';
 import {area,bounds,inside,normalizeDocument,normalizeRing,ringCrosses} from '../geometry/normalize';
 import {localize,type ImportReview} from './sparrow';
@@ -19,6 +19,57 @@ type Contour={ring:Ring;entityId:string;curved:boolean;layer:string;dxfColorNumb
 type Chain={points:Ring;id:string;curved:boolean;layer:string;dxfColorNumber?:number};
 type OpenMark={points:Ring;id:string;curved:boolean;layer:string;dxfColorNumber?:number;sourceEntityCount:number};
 export type DXFOptions={scale:number;tolerance:number;enclosed:'holes'|'parts';layers?:string[]};
+const normalizeDeg=(angle:number)=>((angle%360)+360)%360;
+function similarity(matrix:Matrix):{scale:number;reflected:boolean}|undefined {
+  const [a,b,c,d]=matrix,sx=Math.hypot(a,b),sy=Math.hypot(c,d),dot=a*c+b*d,scale=Math.max(sx,sy,1);
+  if(sx<=0||sy<=0||Math.abs(sx-sy)>1e-8*scale||Math.abs(dot)>1e-8*scale*scale)return;
+  return {scale:(sx+sy)/2,reflected:a*d-b*c<0};
+}
+function sourceEntity(entity:DxfEntity,matrix:Matrix,layer:string,colorNumber:number|undefined,flags=0):DxfSourceEntity|undefined {
+  const withColor=<T extends object>(value:T)=>colorNumber===undefined?value:{...value,colorNumber};
+  const point=(p:DxfPoint|undefined):Point|undefined=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y)?apply(matrix,[p.x,p.y]):undefined;
+  if(entity.type==='LINE'){
+    const start=point(entity.start),end=point(entity.end);
+    return start&&end?withColor({kind:'line' as const,start,end,layer}):undefined;
+  }
+  if(entity.type==='SPLINE'){
+    const controlPoints=(entity.controlPoints??[]).map(point);
+    if(!controlPoints.length||controlPoints.some(p=>!p))return;
+    return withColor({kind:'spline' as const,degree:entity.degree??0,knots:[...(entity.knots??[])],
+      controlPoints:controlPoints as Point[],...(entity.weights?.length?{weights:[...entity.weights]}:{}),
+      flags,layer});
+  }
+  if(entity.type==='CIRCLE'||entity.type==='ARC'){
+    const sim=similarity(matrix),center=point({x:entity.x!,y:entity.y!});
+    if(!sim||!center||!Number.isFinite(entity.r)||entity.r!<=0)return;
+    const radius=entity.r!*sim.scale;
+    if(entity.type==='CIRCLE')return withColor({kind:'circle' as const,center,radius,layer});
+    if(!Number.isFinite(entity.startAngle)||!Number.isFinite(entity.endAngle))return;
+    const rawCenter:[number,number]=[entity.x!,entity.y!],r=entity.r!;
+    const startWorld=apply(matrix,[rawCenter[0]+r*Math.cos(entity.startAngle!),rawCenter[1]+r*Math.sin(entity.startAngle!)]);
+    const endWorld=apply(matrix,[rawCenter[0]+r*Math.cos(entity.endAngle!),rawCenter[1]+r*Math.sin(entity.endAngle!)]);
+    let startAngleDeg=normalizeDeg(Math.atan2(startWorld[1]-center[1],startWorld[0]-center[0])*180/Math.PI);
+    let endAngleDeg=normalizeDeg(Math.atan2(endWorld[1]-center[1],endWorld[0]-center[0])*180/Math.PI);
+    if(sim.reflected)[startAngleDeg,endAngleDeg]=[endAngleDeg,startAngleDeg];
+    return withColor({kind:'arc' as const,center,radius,startAngleDeg,endAngleDeg,layer});
+  }
+  if(entity.type==='LWPOLYLINE'||entity.type==='POLYLINE'){
+    const vertices=entity.vertices??[],points=vertices.map(point);
+    if(points.length<2||points.some(p=>!p))return;
+    const sim=similarity(matrix),det=matrix[0]*matrix[3]-matrix[1]*matrix[2];
+    const bulges=vertices.map(vertex=>vertex.bulge??0);
+    if(bulges.some(value=>value!==0)&&!sim)return;
+    const adjusted=det<0?bulges.map(value=>-value):bulges;
+    return withColor({kind:'polyline' as const,points:points as Point[],bulges:adjusted,closed:!!entity.closed,
+      sourceType:entity.type as 'LWPOLYLINE'|'POLYLINE',layer});
+  }
+}
+function localSourceEntity(entity:DxfSourceEntity,x:number,y:number):DxfSourceEntity {
+  if(entity.kind==='line')return {...entity,start:[entity.start[0]-x,entity.start[1]-y],end:[entity.end[0]-x,entity.end[1]-y]};
+  if(entity.kind==='arc'||entity.kind==='circle')return {...entity,center:[entity.center[0]-x,entity.center[1]-y]};
+  if(entity.kind==='spline')return {...entity,controlPoints:entity.controlPoints.map(([px,py])=>[px-x,py-y])};
+  return {...entity,points:entity.points.map(([px,py])=>[px-x,py-y])};
+}
 const value=(r:DxfRecord,code:number)=>r.groups.find(g=>g[0]===code)?.[1];
 function finite(text:string|undefined,fallback?:number):number {
   if(text===undefined&&fallback!==undefined)return fallback;
@@ -214,7 +265,7 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
   const byHandle=new Map(records.map(r=>[r.id,r])),blocks=new Map(parsed.blocks.map(b=>[b.name,b]));
   const supported=['LINE','ARC','CIRCLE','ELLIPSE','LWPOLYLINE','POLYLINE','SPLINE','INSERT','POINT','TEXT','MTEXT'];
   for(const r of records)if(!supported.includes(r.type)&&!['BLOCK','ENDBLK'].includes(r.type))unsupported.set(r.type,(unsupported.get(r.type)??0)+1);
-  const layers:string[]=[],contours:Contour[]=[],chains:Chain[]=[],auxEntities:Exclude<DxfAuxEntity,{kind:'path'}>[]=[],sourceSplines=new Map<string,DxfSpline>();let totalVertices=0,expanded=0;
+  const layers:string[]=[],contours:Contour[]=[],chains:Chain[]=[],auxEntities:Exclude<DxfAuxEntity,{kind:'path'}>[]=[],sourceSplines=new Map<string,DxfSpline>(),sourceEntities=new Map<string,DxfSourceEntity>();let totalVertices=0,expanded=0;
   const visit=(entity:DxfEntity,parent:Matrix,inheritedLayer:string,path:string[])=>{
     if(++expanded>10_000)throw Error('DXF exceeds 10,000 expanded entities.');
     const r=byHandle.get(entity.handle);if(!r||!supported.includes(entity.type))return;
@@ -300,6 +351,8 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
         if(closed)ring.pop();
         if(r.groups.some(([code,v])=>[40,41,43].includes(code)&&finite(v)!==0))warnings.push(`${r.id}: polyline width is ignored; the centerline is the contour.`);
       }
+      const native=sourceEntity(entity,matrix,layer,dxfColorNumber,finite(value(r,70),0));
+      if(native)sourceEntities.set(r.id,native);
       ring=ring.map(p=>apply(matrix,p));
       if(ring.some(p=>!p.every(v=>Number.isFinite(v)&&Math.abs(v)<=100_000)))throw Error('Coordinates exceed the 100,000 mm limit.');
       totalVertices+=ring.length;if(totalVertices>100_000)throw Error('DXF exceeds 100,000 vertices.');
@@ -352,11 +405,14 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
     }
     const dxfDetails:DxfDetailContour[]=details.map(detail=>({ring:detail.ring,layer:detail.layer,...(detail.dxfColorNumber!==undefined?{colorNumber:detail.dxfColorNumber}:{})}));
     const sourceBounds=bounds(outer.ring);
+    const sourceIds=group.flatMap(contour=>contour.entityId.split(' + '));
+    const nativeEntities=sourceIds.map(id=>sourceEntities.get(id));
+    const allNative=nativeEntities.length===group.reduce((count,contour)=>count+contour.sourceEntityCount,0)&&nativeEntities.every((entity):entity is DxfSourceEntity=>!!entity);
     const part=localize({...newPart(outer.ring,outer.entityId),holes:holes.map(h=>h.ring),
       source:{format:'dxf' as const,fileName,entityId:outer.entityId,
         ...(outer.dxfColorNumber!==undefined?{dxfColorNumber:outer.dxfColorNumber}:{}),
         ...(holes.some(h=>h.dxfColorNumber!==undefined)?{dxfHoleColorNumbers:holes.map(h=>h.dxfColorNumber??256)}:{}),
-        ...(dxfDetails.length?{dxfDetails}:{}),dxfSourceEntityCount:group.reduce((count,contour)=>count+contour.sourceEntityCount,0)},
+        ...(dxfDetails.length?{dxfDetails}:{}),...(allNative?{dxfEntities:nativeEntities}:{}),dxfSourceEntityCount:group.reduce((count,contour)=>count+contour.sourceEntityCount,0)},
       approximationToleranceMm:group.some(contour=>contour.curved)?options.tolerance+joined.adjustment:0});
     return {...part,preparationPosition:[sourceBounds[0],sourceBounds[1]] as Point};
   });
@@ -375,8 +431,14 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
     if(target){
       const b=bounds(target.contour.ring);
       const localPoints=mark.points.map(([x,y])=>[x-b[0],y-b[1]] as Point);
+      const ids=mark.id.split(' + '),native=ids.map(id=>sourceEntities.get(id));
+      const allNative=native.length===mark.sourceEntityCount&&native.every((entity):entity is DxfSourceEntity=>!!entity);
       const entity:DxfAuxEntity={kind:'path',points:localPoints,layer:mark.layer,...(mark.dxfColorNumber!==undefined?{colorNumber:mark.dxfColorNumber}:{})};
-      target.part.source={...target.part.source,dxfAux:[...(target.part.source.dxfAux??[]),entity],
+      target.part.source={...target.part.source,
+        dxfAux:[...(target.part.source.dxfAux??[]),entity],
+        ...(allNative&&target.part.source.dxfEntities
+          ?{dxfEntities:[...target.part.source.dxfEntities,...native.map(item=>localSourceEntity(item,b[0],b[1]))]}
+          :{}),
         dxfSourceEntityCount:(target.part.source.dxfSourceEntityCount??1)+mark.sourceEntityCount};
       attachedOpenMarks+=mark.sourceEntityCount;
     } else issues.push(`${mark.id}: open DXF path is outside every closed part and was not attached.`);

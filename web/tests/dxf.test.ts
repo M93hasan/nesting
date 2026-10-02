@@ -36,10 +36,18 @@ it('joins only unambiguous endpoints and reports adjustments and blocked contour
   const branch=importDXF(dxf(edges+line(10,10,20,20)),'branch.dxf',options);
   expect(branch.document.parts).toHaveLength(0);expect(branch.issues?.join(' ')).toContain('ambiguous');
 });
-it('reads ordinary POLYLINE vertices and rejects malformed sequences before parsing',()=>{
+it('reads and re-exports ordinary POLYLINE without increasing its vertex count',()=>{
   const vertices=[[0,0],[10,0],[10,10],[0,10]].map(([x,y])=>`0\nVERTEX\n10\n${x}\n20\n${y}\n`).join('');
   const header='0\nPOLYLINE\n70\n1\n';
-  expect(importDXF(dxf(header+vertices+'0\nSEQEND\n'),'old.dxf',options).document.parts).toHaveLength(1);
+  const imported=importDXF(dxf(header+vertices+'0\nSEQEND\n'),'old.dxf',options);
+  expect(imported.document.parts).toHaveLength(1);
+  expect(imported.document.parts[0].source.dxfEntities?.[0]).toMatchObject({kind:'polyline',sourceType:'POLYLINE'});
+  const placements=imported.document.placements??[];
+  const exported=exportDXF(imported.document,worldParts(imported.document,{placements}),placements,true);
+  const parsed=parseString(exported) as {entities:{type:string;vertices?:unknown[]}[]};
+  expect(parsed.entities).toHaveLength(1);
+  expect(parsed.entities[0].type).toBe('POLYLINE');
+  expect(parsed.entities[0].vertices).toHaveLength(4);
   expect(()=>importDXF(dxf(header+vertices),'bad.dxf',options)).toThrow('SEQEND');
 });
 it('preserves supported text marks and blocks nonplanar geometry, duplicates, and binary data',()=>{
@@ -143,6 +151,43 @@ it('preserves source SPLINE and layer in checked nesting DXF output',()=>{
   expect(checkedSpline?.layer).toBe('Layer 1');
   expect(checkedSpline?.controlPoints).toHaveLength(7);
   expect(checked).not.toMatch(/\nLWPOLYLINE\n/);
+});
+
+it('keeps native DXF cut entities through import, placement transform and export without vertex inflation',()=>{
+  const arc='0\nARC\n8\nCURVES\n10\n0\n20\n0\n40\n10\n50\n0\n51\n180\n';
+  const circle='0\nCIRCLE\n8\nCURVES\n10\n50\n20\n50\n40\n8\n';
+  const spline='0\nSPLINE\n8\nCURVES\n70\n1\n71\n3\n72\n11\n73\n7\n74\n0\n'+
+    [0,0,0,0,.5,.5,.5,1,1,1,1].map(k=>`40\n${k}\n`).join('')+
+    [[100,0],[100,10],[120,10],[120,0],[120,-10],[100,-10],[100,0]].map(([x,y])=>`10\n${x}\n20\n${y}\n30\n0\n`).join('');
+  const outline=arc+line(-10,0,10,0);
+  const pl=poly([[150,0],[170,0],[170,20],[150,20]],'CUT');
+  const imported=importDXF(dxf(outline+circle+spline+pl),'native-curves.dxf',options);
+  expect(imported.issues).toEqual([]);
+  expect(imported.document.parts.length).toBeGreaterThanOrEqual(4);
+  const nativeKinds=imported.document.parts.flatMap(part=>part.source.dxfEntities??[]).map(entity=>entity.kind);
+  expect(nativeKinds).toEqual(expect.arrayContaining(['arc','line','circle','spline','polyline']));
+
+  const placements=(imported.document.placements??[]).map((placement,index)=>({
+    ...placement,xMm:placement.xMm+300+index*25,yMm:placement.yMm+120,angleDeg:index%2?180:0
+  }));
+  const world=worldParts(imported.document,{placements});
+  const exported=exportDXF(imported.document,world,placements,true);
+  const parsed=parseString(exported) as {entities:{type:string;vertices?:unknown[];controlPoints?:unknown[]}[]};
+  const types=parsed.entities.map(entity=>entity.type);
+  expect(types).toEqual(expect.arrayContaining(['ARC','LINE','CIRCLE','SPLINE','LWPOLYLINE']));
+  expect(exported).not.toContain('SPARROW_INFO');
+
+  const sourcePolylines=imported.document.parts.flatMap(part=>part.source.dxfEntities??[]).filter(entity=>entity.kind==='polyline');
+  const outPolylines=parsed.entities.filter(entity=>entity.type==='LWPOLYLINE'||entity.type==='POLYLINE');
+  expect(outPolylines.length).toBe(sourcePolylines.length);
+  expect(outPolylines.reduce((sum,entity)=>sum+(entity.vertices?.length??0),0))
+    .toBeLessThanOrEqual(sourcePolylines.reduce((sum,entity)=>sum+entity.points.length,0));
+
+  const sourceSplines=imported.document.parts.flatMap(part=>part.source.dxfEntities??[]).filter(entity=>entity.kind==='spline');
+  const outSplines=parsed.entities.filter(entity=>entity.type==='SPLINE');
+  expect(outSplines.length).toBe(sourceSplines.length);
+  expect(outSplines.reduce((sum,entity)=>sum+(entity.controlPoints?.length??0),0))
+    .toBeLessThanOrEqual(sourceSplines.reduce((sum,entity)=>sum+entity.controlPoints.length,0));
 });
 
 it('exports multiple plates side by side with 50 mm gaps and no extra plate geometry',()=>{
