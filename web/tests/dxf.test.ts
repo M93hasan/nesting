@@ -51,6 +51,28 @@ it('preserves supported text marks and blocks nonplanar geometry, duplicates, an
   expect(()=>importDXF('AutoCAD Binary DXF\0','binary.dxf',options)).toThrow('Binary DXF');
 });
 
+it('reads 64 DXF source entities as 48 nestable parts plus 16 attached open marks',()=>{
+  let entities='';
+  for(let i=0;i<48;i++){
+    const x=(i%8)*20,y=Math.floor(i/8)*20;
+    entities+=poly([[x,y],[x+10,y],[x+10,y+10],[x,y+10]],i<16?'red':'cut');
+    if(i<16)entities+=line(x+2,y+5,x+8,y+5);
+  }
+  const review=importDXF(dxf(entities),'64-entities.dxf',options);
+  expect(review.issues).toEqual([]);
+  expect(review.document.parts).toHaveLength(48);
+  expect(review.document.parts.reduce((sum,part)=>sum+(part.source.dxfSourceEntityCount??0),0)).toBe(64);
+  expect(review.document.parts.flatMap(part=>part.source.dxfAux??[]).filter(mark=>mark.kind==='path')).toHaveLength(16);
+  expect(review.warnings.join(' ')).toContain('16 açık DXF işaret çizgisi');
+
+  const placements=review.document.placements??[];
+  const world=worldParts(review.document,{placements});
+  const exported=exportDXF(review.document,world,placements,false);
+  const parsed=parseString(exported) as {entities:{type:string;closed?:boolean}[]};
+  expect(parsed.entities).toHaveLength(64);
+  expect(parsed.entities.filter(entity=>entity.type==='LWPOLYLINE'&&!entity.closed)).toHaveLength(16);
+});
+
 it('keeps intersecting closed DXF contours as independent parts instead of throwing ambiguous topology',()=>{
   const a=poly([[0,0],[20,0],[20,20],[0,20]]);
   const b=poly([[10,-5],[30,-5],[30,10],[10,10]],'cut2');
