@@ -14,7 +14,7 @@
 [![Rust](https://img.shields.io/badge/Rust-WASM-000000?style=flat-square&logo=rust)](web/wasm/)
 [![Cloudflare](https://img.shields.io/badge/Cloudflare-Workers-f38020?style=flat-square&logo=cloudflare&logoColor=white)](web/wrangler.jsonc)
 
-**Canlı uygulama:** [serula.site](https://serula.site/) · **Yönetim:** [serula.site/admin](https://serula.site/admin)
+**Canlı uygulama:** [serula.site](https://serula.site/) 
 
 </div>
 
