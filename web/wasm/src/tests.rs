@@ -107,6 +107,17 @@ fn fast_preset_keeps_compression_enabled_and_respects_worker_limit() {
 
 
 #[test]
+fn standard_quality_gives_compression_half_the_budget_and_avoids_early_stop() {
+    let quality = solver_config("standard", 3, Some(30)).unwrap();
+    assert_eq!(quality.expl_cfg.time_limit, Duration::from_secs(15));
+    assert_eq!(quality.cmpr_cfg.time_limit, Duration::from_secs(15));
+    assert_eq!(quality.expl_cfg.max_conseq_failed_attempts, None);
+    assert!(matches!(quality.cmpr_cfg.shrink_decay, ShrinkDecayStrategy::TimeBased));
+    assert!(quality.cmpr_cfg.separator_config.iter_no_imprv_limit >= 150);
+    assert!(quality.cmpr_cfg.separator_config.strike_limit >= 6);
+}
+
+#[test]
 fn warm_start_accepts_a_real_edge_fit_inside_the_virtual_solver_padding() {
     let clearance = 0.3_f32;
     let edge = clearance + WARM_START_EPS_MM;
@@ -126,6 +137,13 @@ fn warm_start_accepts_a_real_edge_fit_inside_the_virtual_solver_padding() {
     assert_eq!(warm.layout.placed_items.len(), 1);
     let y = warm.layout.placed_items[0].transformation.translation.1;
     assert!((y-edge).abs() < 1e-4, "translation={y}, expected edge={edge}");
+
+    let importer = Importer::new(DEFAULT_SPARROW_CONFIG.cde_config, None, None);
+    let instance = import_instance(&importer, &input).unwrap();
+    let solution = import_solution(&instance, &warm).unwrap();
+    let mut prob = jagua_rs::probs::spp::entities::SPProblem::new(instance).unwrap();
+    prob.restore(&solution);
+    assert!(prob.layout().is_collision_free());
 }
 
 #[test]
