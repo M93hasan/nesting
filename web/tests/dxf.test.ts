@@ -145,6 +145,43 @@ it('preserves source SPLINE and layer in checked nesting DXF output',()=>{
   expect(checked).not.toMatch(/\nLWPOLYLINE\n/);
 });
 
+it('keeps native DXF cut entities through import, placement transform and export without vertex inflation',()=>{
+  const arc='0\nARC\n8\nCURVES\n10\n0\n20\n0\n40\n10\n50\n0\n51\n180\n';
+  const circle='0\nCIRCLE\n8\nCURVES\n10\n50\n20\n50\n40\n8\n';
+  const spline='0\nSPLINE\n8\nCURVES\n70\n1\n71\n3\n72\n11\n73\n7\n74\n0\n'+
+    [0,0,0,0,.5,.5,.5,1,1,1,1].map(k=>`40\n${k}\n`).join('')+
+    [[100,0],[100,10],[120,10],[120,0],[120,-10],[100,-10],[100,0]].map(([x,y])=>`10\n${x}\n20\n${y}\n30\n0\n`).join('');
+  const outline=arc+line(-10,0,10,0);
+  const pl=poly([[150,0],[170,0],[170,20],[150,20]],'CUT');
+  const imported=importDXF(dxf(outline+circle+spline+pl),'native-curves.dxf',options);
+  expect(imported.issues).toEqual([]);
+  expect(imported.document.parts.length).toBeGreaterThanOrEqual(4);
+  const nativeKinds=imported.document.parts.flatMap(part=>part.source.dxfEntities??[]).map(entity=>entity.kind);
+  expect(nativeKinds).toEqual(expect.arrayContaining(['arc','line','circle','spline','polyline']));
+
+  const placements=(imported.document.placements??[]).map((placement,index)=>({
+    ...placement,xMm:placement.xMm+300+index*25,yMm:placement.yMm+120,angleDeg:index%2?180:0
+  }));
+  const world=worldParts(imported.document,{placements});
+  const exported=exportDXF(imported.document,world,placements,true);
+  const parsed=parseString(exported) as {entities:{type:string;vertices?:unknown[];controlPoints?:unknown[]}[]};
+  const types=parsed.entities.map(entity=>entity.type);
+  expect(types).toEqual(expect.arrayContaining(['ARC','LINE','CIRCLE','SPLINE','LWPOLYLINE']));
+  expect(exported).not.toContain('SPARROW_INFO');
+
+  const sourcePolylines=imported.document.parts.flatMap(part=>part.source.dxfEntities??[]).filter(entity=>entity.kind==='polyline');
+  const outPolylines=parsed.entities.filter(entity=>entity.type==='LWPOLYLINE'||entity.type==='POLYLINE');
+  expect(outPolylines.length).toBe(sourcePolylines.length);
+  expect(outPolylines.reduce((sum,entity)=>sum+(entity.vertices?.length??0),0))
+    .toBeLessThanOrEqual(sourcePolylines.reduce((sum,entity)=>sum+entity.points.length,0));
+
+  const sourceSplines=imported.document.parts.flatMap(part=>part.source.dxfEntities??[]).filter(entity=>entity.kind==='spline');
+  const outSplines=parsed.entities.filter(entity=>entity.type==='SPLINE');
+  expect(outSplines.length).toBe(sourceSplines.length);
+  expect(outSplines.reduce((sum,entity)=>sum+(entity.controlPoints?.length??0),0))
+    .toBeLessThanOrEqual(sourceSplines.reduce((sum,entity)=>sum+entity.controlPoints.length,0));
+});
+
 it('exports multiple plates side by side with 50 mm gaps and no extra plate geometry',()=>{
   const part={...newPart([[0,0],[100,0],[100,100],[0,100]],'Plate part'),quantity:2};
   const doc:Document={name:'multi-sheet',parts:[part],settings:{materialType:'sheet',materialWidthMm:1400,materialLengthMm:2000,clearanceMm:0,timeLimitSeconds:30}};
