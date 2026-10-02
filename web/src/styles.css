@@ -361,3 +361,69 @@ input:not([type=checkbox]):not([type=radio]):not([type=file]):focus,select:focus
   .support-chat-signed-out{align-items:stretch;flex-direction:column}
   .support-chat-signed-out button{width:100%}
 }
+
+
+/* Serula v0.0.106 — UI-only workspace panel reorganization */
+.material-panel{
+  width:290px;
+  min-width:290px;
+  overflow-y:auto;
+  background:var(--panel);
+  border-left:1px solid var(--border);
+  flex:none;
+}
+.material-panel .settings{
+  margin-top:0;
+  border-top:1px solid var(--border);
+}
+.material-rotation{
+  display:grid;
+  gap:8px;
+  padding-bottom:12px;
+  border-bottom:1px solid var(--border);
+}
+.sidebar{position:relative;overflow:visible}
+.sidebar>.part-properties-flyout{
+  position:absolute!important;
+  left:calc(100% + 8px)!important;
+  right:auto!important;
+  top:12px!important;
+  bottom:auto!important;
+  z-index:4;
+  width:260px;
+  min-width:260px;
+  max-height:calc(100% - 24px);
+  overflow-y:auto;
+  border:1px solid var(--border);
+  border-radius:14px;
+  box-shadow:0 10px 30px rgba(0,0,0,.18);
+}
+.clear-all-parts{
+  margin:0 16px 10px;
+  width:calc(100% - 32px);
+}
+@media(max-width:1099px){
+  .material-panel{width:250px;min-width:250px}
+}
+@media(max-width:699px){
+  .main-workspace{flex-direction:column}
+  .material-panel{
+    order:2;
+    width:100%;
+    min-width:0;
+    border-left:0;
+    border-top:1px solid var(--border);
+    overflow:visible;
+  }
+  .sidebar>.part-properties-flyout{
+    position:static!important;
+    width:100%;
+    min-width:0;
+    max-height:340px;
+    margin-top:8px;
+    border-left:0;
+    border-right:0;
+    border-radius:0;
+    box-shadow:none;
+  }
+}
