@@ -80,7 +80,9 @@ export function exportDXF(doc:Document,world:WorldPart[],placements:Placement[]=
       ?spline(part.source.dxfSpline,placement,part.source.dxfSpline.layer||'PARTS',part.source.dxfColorNumber):polyline(p.outer,'PARTS',part?.source.dxfColorNumber));
     const details=native?'':part&&placement?(part.source.dxfDetails??[]).map(detail=>polyline(detail.ring.map(point=>transformPoint(point,placement)),detail.layer||'DETAILS',detail.colorNumber)).join(''):'';
     const holes=native?'':p.holes.map((h,holeIndex)=>polyline(h,'HOLES',part?.source.dxfHoleColorNumbers?.[holeIndex])).join('');
-    const marks=part&&placement?(part.source.dxfAux??[]).map(entity=>aux(entity,placement)).join(''):'';
+    const marks=part&&placement?(part.source.dxfAux??[])
+      .filter(entity=>!native||entity.kind!=='path')
+      .map(entity=>aux(entity,placement)).join(''):'';
     return compact+holes+details+marks;
   }).join('');
   const entities=partEntities;
