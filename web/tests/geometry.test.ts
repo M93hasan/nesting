@@ -155,6 +155,18 @@ it('does not enlarge the collision envelope for a contained DXF detail',()=>{
   expect(Math.max(...native.items[0].shape.data.map((point:number[])=>point[1]))).toBeCloseTo(1);
 });
 
+
+it('normalizes Sparrow virtual edge padding before fixed-sheet width validation',()=>{
+  const part={...newPart([[0,0],[100,0],[100,10],[0,10]]),id:'edge-buffer',quantity:1};
+  const doc:Document={name:'edge-buffer',parts:[part],settings:{...DEFAULT_SETTINGS,materialType:'sheet',materialWidthMm:100,materialLengthMm:50,clearanceMm:.3,startCorner:'right-bottom'}};
+  const result:Result={documentRevision:1,solverRevision:'test',seed:'1',elapsedSeconds:0,usedLengthMm:20,
+    placements:[{partId:part.id,copyIndex:0,xMm:.31,yMm:1,angleDeg:0}],
+    validation:{status:'pending',overlapAreaMm2:0,maxBoundaryViolationMm:0,minClearanceMm:null,errors:[]}};
+  const packed=packResultIntoSheets(doc,result);
+  expect(packed.placements[0].xMm).toBeCloseTo(0,8);
+  expect(validate(doc,packed).status).toBe('passed');
+});
+
 it('does not use part clearance as a material-edge margin',()=>{
   const part={...newPart([[0,0],[1,0],[1,1],[0,1]]),id:'edge',quantity:1};
   const doc:Document={name:'edge-fit',parts:[part],settings:{...DEFAULT_SETTINGS,materialWidthMm:1,clearanceMm:.3,startCorner:'right-bottom'}};

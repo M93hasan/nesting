@@ -105,6 +105,29 @@ fn fast_preset_keeps_compression_enabled_and_respects_worker_limit() {
     assert!(solver_config("unknown", 3, None).is_err());
 }
 
+
+#[test]
+fn warm_start_accepts_a_real_edge_fit_inside_the_virtual_solver_padding() {
+    let clearance = 0.3_f32;
+    let edge = clearance + WARM_START_EPS_MM;
+    let user_width = 100.0_f32;
+    let input: ExtSPInstance = serde_json::from_value(json!({
+        "name":"edge fit",
+        "strip_height":user_width + 2.0 * edge,
+        "min_item_separation":clearance,
+        "items":[{
+            "id":0,
+            "demand":1,
+            "orientation":{"rotation":{"mode":"discrete","angles":[0.0]}},
+            "shape":{"type":"rectangle","data":{"x_min":0.0,"y_min":0.0,"width":10.0,"height":user_width}}
+        }]
+    })).unwrap();
+    let warm = safe_warm_start(&input, clearance).unwrap();
+    assert_eq!(warm.layout.placed_items.len(), 1);
+    let y = warm.layout.placed_items[0].transformation.translation.1;
+    assert!((y-edge).abs() < 1e-4, "translation={y}, expected edge={edge}");
+}
+
 #[test]
 fn safe_warm_start_keeps_every_copy_and_restricted_rotation() {
     let input: ExtSPInstance = serde_json::from_value(json!({
