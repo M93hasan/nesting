@@ -75,6 +75,7 @@ export function importSparrow(text: string,fileName: string,scale: number): Impo
       `One coordinate unit = ${scale} mm. Benchmark coordinates have no intrinsic manufacturing units.`,
       ...(parts.some(p=>p.holes.length)?['Holes are preserved; nesting inside holes is not supported.']:[])]};
 }
+export const SOLVER_EDGE_SLACK_MM=0.01;
 export type SolverCopy={itemId:number;partId:string;copyIndex:number};
 export function solverCopies(doc:Document):SolverCopy[] {
   let itemId=0;
@@ -118,7 +119,8 @@ export function solverInput(doc: Document): string {
   if(!copies.length)throw Error('Add at least one copy before nesting.');
   preflightSolverFit(doc);
   const parts=new Map(doc.parts.map(part=>[part.id,part]));
-  return JSON.stringify({name:doc.name,strip_height:doc.settings.materialWidthMm,min_item_separation:doc.settings.clearanceMm,items:copies.map(copy=>{
+  const edgePad=doc.settings.clearanceMm+SOLVER_EDGE_SLACK_MM;
+  return JSON.stringify({name:doc.name,strip_height:doc.settings.materialWidthMm+2*edgePad,min_item_separation:doc.settings.clearanceMm,items:copies.map(copy=>{
     const p=parts.get(copy.partId)!;
     return {
       // Keep each physical copy as its own Sparrow item. Demand=1 preserves
