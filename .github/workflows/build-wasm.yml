@@ -49,7 +49,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -f web/wasm/pkg web/wasm/pkg-threads web/wasm/pkg-nosimd web/wasm/pkg-threads-nosimd
-          git add web/wasm/prebuilt.sha256
+          # Cargo may refresh the lockfile when Sparrow/Jagua revisions change.
+          # Commit it together with the binaries and fingerprint; otherwise the
+          # next checkout hashes a different lockfile and reports stale WASM.
+          git add web/wasm/Cargo.lock web/wasm/prebuilt.sha256
           if git diff --cached --quiet; then
             echo "Prebuilt WASM packages are already current."
           else
