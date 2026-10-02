@@ -89,6 +89,17 @@ describe('independent layout validation',()=>{
     const {doc}=fixture();expect(()=>normalizePart({...doc.parts[0],holes:[[[0,0],[.5,0],[.5,.5]]]})).toThrow();
   });
 });
+it('imports Sparrow 0.3 orientation and native clearance without reflections',()=>{
+  const data={name:'new-input',strip_height:100,min_item_separation:.4,items:[{id:5,demand:1,
+    orientation:{rotation:{mode:'discrete',angles:[0,180]}},
+    shape:{type:'rectangle',data:{x_min:0,y_min:0,width:10,height:20}}}]};
+  const review=importSparrow(JSON.stringify(data),'new.json',1);
+  expect(review.document.settings.clearanceMm).toBe(.4);
+  expect(review.document.parts[0].rotations).toEqual({kind:'discrete',degrees:[0,180]});
+  data.items[0].orientation={...data.items[0].orientation,reflection_axes:[0]} as typeof data.items[0].orientation & {reflection_axes:number[]};
+  expect(()=>importSparrow(JSON.stringify(data),'new.json',1)).toThrow('reflected Sparrow parts are not supported');
+});
+
 it('JSON preserves rotation semantics, scales geometry and rejects empty orientations',()=>{
   const data={name:'input',strip_height:10,items:[{id:19,demand:2,shape:{type:'rectangle',data:{x_min:10,y_min:20,width:1,height:2}}}]};
   const part=importSparrow(JSON.stringify(data),'input.json',25.4).document.parts[0];
