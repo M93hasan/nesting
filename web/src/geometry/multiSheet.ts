@@ -60,7 +60,7 @@ export function packResultIntoSheets(doc:Document,result:Result):Result {
     const part=parts.get(placement.partId);if(!part)throw Error('Yerleşimde bilinmeyen parça bulundu.');
     const b=rotatedBounds(collisionRing(part),placement.angleDeg);
     const minX=placement.xMm+b[0],maxX=placement.xMm+b[2],minY=placement.yMm+b[1],maxY=placement.yMm+b[3];
-    if(minX<-1e-7||maxX>width+1e-7)throw Error(`${part.name} malzeme genişliğinin dışına taşıyor.`);
+    if(maxX-minX>width+1e-7)throw Error(`${part.name} seçilen malzeme genişliğine sığmıyor.`);
     if(maxY-minY>length+1e-7)throw Error(`${part.name} seçilen plaka uzunluğuna sığmıyor.`);
     return {placement,index,part,minY,maxY};
   }).sort((a,b)=>a.minY-b.minY||a.maxY-b.maxY);
