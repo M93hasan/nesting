@@ -43,7 +43,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const [fitRequest,setFitRequest]=useState(0);
   const [resultMode,setResultMode]=useState<'live'|'checked'>('live');
   const [threads,setThreads]=useState(0);
-  const [sizeValid,setSizeValid]=useState(true),[downloadedResult,setDownloadedResult]=useState(false);
+  const [sizeValid,setSizeValid]=useState(true),[downloadedResult,setDownloadedResult]=useState(false),[seriesDraft,setSeriesDraft]=useState<string>();
   const [theme,setTheme]=useState<'system'|'light'|'dark'>(()=>{try{const saved=localStorage.getItem('serula-theme');return saved==='light'||saved==='dark'||saved==='system'?saved:'light';}catch{return 'system';}});
   useEffect(()=>{document.documentElement.dataset.theme=theme;try{localStorage.setItem('serula-theme',theme);}catch{/* The theme still works when storage is unavailable. */}},[theme]);
   const [unit,setUnit]=useState<DisplayUnit>(()=>{try{return localStorage.getItem('serula-units')==='in'?'in':'mm';}catch{return 'mm';}});
@@ -149,6 +149,15 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const visibleResult=showingLive?live?.result:result;
   const seriesMultiplier=doc.seriesMultiplier??1;
   const seriesMax=useMemo(()=>{try{return maxSeriesMultiplier(doc)}catch{return 1}},[doc]);
+  const finishSeriesEdit=()=>{
+    const raw=(seriesDraft??String(seriesMultiplier)).trim();
+    setSeriesDraft(undefined);
+    if(!/^\d+$/.test(raw))return;
+    const value=Number(raw);
+    if(value===seriesMultiplier)return;
+    try{commit(applySeriesMultiplier(doc,value),true,'series-multiplier',true)}
+    catch(error){setError(error instanceof Error?error.message:String(error))}
+  };
   const canvasDocument=useMemo(()=>visibleResult?{...doc,placements:visibleResult.placements}:doc,[doc,visibleResult]);
   const chosen=doc.parts.find(p=>p.id===selected[0]);
   const mixedRotations=chosen&&doc.parts.some(part=>selected.includes(part.id)&&rotationValue(part.rotations)!==rotationValue(chosen.rotations));
@@ -474,7 +483,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     {recoveryError&&<div className="error-banner" role="alert">{recoveryError}</div>}
     <main className="main-workspace">
       <aside id="parts-settings" className={`sidebar ${panel?'open':''}`}>
-        <div className="panel-title"><h2>Parçalar <span>{displayedPieceCount(doc.parts)}</span></h2><div className="panel-title-actions"><div className="series-multiplier" title="Bütün proje için seri adedi"><span aria-hidden="true">×</span><input aria-label="Proje seri adedi" inputMode="numeric" type="number" min="1" max={seriesMax} step="1" value={seriesMultiplier} disabled={locked||!doc.parts.length} onChange={e=>{const value=e.target.valueAsNumber;if(!Number.isInteger(value)||value<1)return;try{commit(applySeriesMultiplier(doc,value),true,'series-multiplier',true)}catch(error){setError(error instanceof Error?error.message:String(error))}}}/></div><button onClick={()=>setInfo('help')}>Yardım</button></div></div>
+        <div className="panel-title"><h2>Parçalar <span>{displayedPieceCount(doc.parts)}</span></h2><div className="panel-title-actions"><div className="series-multiplier" title="Bütün proje için seri adedi"><span aria-hidden="true">×</span><input aria-label="Proje seri adedi" inputMode="numeric" type="text" pattern="[0-9]*" value={seriesDraft??String(seriesMultiplier)} disabled={locked||!doc.parts.length} onFocus={e=>{setSeriesDraft(String(seriesMultiplier));e.currentTarget.select();}} onChange={e=>{if(/^\d*$/.test(e.target.value))setSeriesDraft(e.target.value)}} onBlur={finishSeriesEdit} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();e.currentTarget.blur()}else if(e.key==='Escape'){setSeriesDraft(undefined);e.currentTarget.blur()}}}/></div><button onClick={()=>setInfo('help')}>Yardım</button></div></div>
         <div className="parts-list">{doc.parts.map((p,i)=>{const b=bounds(p.outer);return <div key={p.id} className={`part-row ${selected.includes(p.id)?'selected':''}`}>
           <button className="part-select" aria-pressed={selected.includes(p.id)} onClick={e=>{
             const additive=e.metaKey||e.ctrlKey;
