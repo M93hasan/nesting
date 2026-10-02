@@ -28,7 +28,6 @@ const normalizedRotationRule=(rule:RotationRule|undefined):RotationRule=>validRo
 const rotationValue=(rule:RotationRule|undefined)=>!validRotationRule(rule)?'invalid':rule!.kind==='continuous'?'free':JSON.stringify([...new Set(rule!.degrees.map(d=>((d%360)+360)%360))].sort((a,b)=>a-b));
 const validQuantity=(n:number)=>Number.isInteger(n)&&n>=0&&n<=500;
 const displayedPieceCount=(parts:Part[])=>parts.reduce((total,part)=>total+part.quantity*(part.source.dxfSourceEntityCount??1),0);
-const TEST_DXF_FILES=['1003.dxf','1239.dxf','test.dxf'] as const;
 type RemoteAdminSettings={materialWidthMm?:number;clearanceMm?:number;rotation?:'fixed'|'half'|'free';materialType?:'roll'|'sheet';solverPreset?:'standard'|'fast'};
 function download(name:string,text:BlobPart,type='application/json') {
   const url=URL.createObjectURL(new Blob([text],{type})),link=document.createElement('a');
@@ -51,7 +50,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const factor=unitScale(unit),length=(mm:number)=>(mm/factor).toLocaleString(undefined,{maximumFractionDigits:unit==='mm'?2:4});
   const inputLength=(mm:number)=>Number.isFinite(mm)?displayLength(mm,unit):'';
   const [panel,setPanel]=useState(true),[info,setInfo]=useState<'admin'|'about'|'contact'|'help'>();
-  const [testDxfOpen,setTestDxfOpen]=useState(false),[testDxfBusy,setTestDxfBusy]=useState('');
+  const [testDxfOpen,setTestDxfOpen]=useState(false),[testDxfBusy,setTestDxfBusy]=useState(''),[testDxfFiles,setTestDxfFiles]=useState<string[]>([]);
   const [testDxfAllowed,setTestDxfAllowed]=useState(false);
   useEffect(()=>{
     let cancelled=false;
@@ -62,7 +61,15 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         if(!cancelled){
           const allowed=response.ok&&data.allowed===true;
           setTestDxfAllowed(allowed);
-          if(!allowed)setTestDxfOpen(false);
+          if(!allowed){setTestDxfOpen(false);setTestDxfFiles([]);}
+          else{
+            try{
+              const catalogResponse=await fetch('/examples/test%20klasoru%20dxf/catalog.json',{cache:'no-store'});
+              const catalog=await catalogResponse.json() as {files?:unknown};
+              const names=Array.isArray(catalog.files)?catalog.files.filter((name):name is string=>typeof name==='string'&&/\.dxf$/i.test(name)):[];
+              if(!cancelled)setTestDxfFiles(names);
+            }catch{if(!cancelled)setTestDxfFiles([])}
+          }
         }
       }catch{if(!cancelled){setTestDxfAllowed(false);setTestDxfOpen(false)}}
     };
@@ -565,7 +572,8 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     </Modal>}
     {testDxfOpen&&<Modal title="Test DXF Dosyaları" onClose={()=>setTestDxfOpen(false)} locked={!!testDxfBusy}>
       <div className="test-dxf-modal"><p><strong>test klasoru dxf</strong></p><p className="muted">Bir dosya seçin; DXF doğrudan çalışma alanına yüklenir.</p>
-        <div className="test-dxf-list">{TEST_DXF_FILES.map(name=><button key={name} disabled={!!testDxfBusy} onClick={()=>void openTestDxf(name)}><span>{name}</span><small>{testDxfBusy===name?'Yükleniyor…':'Aç'}</small></button>)}</div>
+        <div className="test-dxf-list">{testDxfFiles.map(name=><button key={name} disabled={!!testDxfBusy} onClick={()=>void openTestDxf(name)}><span>{name}</span><small>{testDxfBusy===name?'Yükleniyor…':'Aç'}</small></button>)}</div>
+        {!testDxfFiles.length&&<p className="muted">Test DXF klasöründe dosya bulunamadı.</p>
       </div>
     </Modal>}
     {nameDialog&&<Modal title={nameDialog==='new'?'Yeni proje':'Projeyi yeniden adlandır'} onClose={()=>setNameDialog(undefined)}><form onSubmit={e=>{e.preventDefault();const name=projectName.trim();if(!name)return;if(nameDialog==='new')requestProject({document:emptyProject(name),saved:true});else if(name!==doc.name)commit({...doc,name},false);setNameDialog(undefined);}}><label>Proje adı<input autoFocus onFocus={e=>e.currentTarget.select()} required maxLength={200} value={projectName} onChange={e=>setProjectAd(e.target.value)}/></label><div className="modal-actions"><button type="button" onClick={()=>setNameDialog(undefined)}>İptal</button><button className="primary" disabled={!projectName.trim()}>{nameDialog==='new'?'Proje oluştur':'Yeniden adlandır'}</button></div></form></Modal>}
