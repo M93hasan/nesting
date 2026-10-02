@@ -1,13 +1,13 @@
 use jagua_rs::Instant;
 use jagua_rs::io::import::Importer;
-use jagua_rs::io::ext_repr::{ExtLayout, ExtPlacedItem, ExtShape, ExtTransformation};
-use jagua_rs::probs::spp::entities::{SPInstance, SPSolution};
+use jagua_rs::io::ext_repr::{ExtLayout, ExtPlacedItem, ExtRotation, ExtShape, ExtTransformation};
+use jagua_rs::probs::spp::entities::SPSolution;
 use jagua_rs::probs::spp::io::{export, ext_repr::{ExtSPInstance, ExtSPSolution}, import_instance, import_solution};
 use rand::{SeedableRng, rngs::Xoshiro256PlusPlus};
-use serde_json::json;
+use serde_json::{json, Value};
 use sparrow::config::{DEFAULT_SPARROW_CONFIG, ShrinkDecayStrategy, SparrowConfig};
 use sparrow::consts::{DEFAULT_FAIL_DECAY_RATIO_CMPR, DEFAULT_MAX_CONSEQ_FAILS_EXPL};
-use sparrow::optimizer::optimize;
+use sparrow::optimizer::{lbf::ConstructionError, optimize};
 use sparrow::util::listener::{OptimizationPhase, ReportType, SolutionListener};
 use sparrow::util::terminator::{BasicTerminator, Terminator};
 use std::time::Duration;
@@ -48,6 +48,35 @@ impl Listener {
         self.callback.call1(&JsValue::NULL, &JsValue::from_str(&value.to_string()))
             .expect("worker callback must accept solver messages");
     }
+}
+
+fn normalize_external_input(input: &str, fallback_clearance: f32) -> Result<ExtSPInstance, JsValue> {
+    let mut value: Value = serde_json::from_str(input)
+        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+    let root = value.as_object_mut()
+        .ok_or_else(|| JsValue::from_str("Sparrow input must be a JSON object"))?;
+    if !root.contains_key("min_item_separation") {
+        root.insert("min_item_separation".into(), json!(fallback_clearance));
+    }
+    let items = root.get_mut("items")
+        .and_then(Value::as_array_mut)
+        .ok_or_else(|| JsValue::from_str("Sparrow input must contain an items array"))?;
+    for item in items {
+        let object = item.as_object_mut()
+            .ok_or_else(|| JsValue::from_str("Sparrow item must be an object"))?;
+        if !object.contains_key("orientation") {
+            let legacy = object.remove("allowed_orientations");
+            let rotation = match legacy {
+                Some(Value::Array(angles)) => json!({"mode":"discrete","angles":angles}),
+                Some(Value::Null) | None => json!({"mode":"continuous"}),
+                Some(_) => return Err(JsValue::from_str("allowed_orientations must be an array, null, or omitted")),
+            };
+            object.insert("orientation".into(), json!({"rotation":rotation}));
+        } else if object.contains_key("allowed_orientations") {
+            return Err(JsValue::from_str("Do not mix legacy allowed_orientations with orientation.rotation"));
+        }
+    }
+    serde_json::from_value(value).map_err(|e| JsValue::from_str(&e.to_string()))
 }
 
 const WARM_START_EPS_MM: f32 = 0.01;
@@ -115,8 +144,14 @@ fn safe_warm_start(external: &ExtSPInstance, clearance: f32) -> Result<ExtSPSolu
         if points.is_empty() {
             return Err(format!("item {} has no usable outline", item.base.id));
         }
-        let angles = item.base.allowed_orientations.clone()
-            .unwrap_or_else(|| vec![0.0, 90.0, 180.0, 270.0]);
+        let angles = match &item.base.orientation.rotation {
+            ExtRotation::Continuous {} => vec![0.0, 90.0, 180.0, 270.0],
+            ExtRotation::Discrete { angles } => angles.clone(),
+            ExtRotation::Stepped { step } => {
+                let count = (360.0 / *step).round().max(1.0) as usize;
+                (0..count).map(|i| i as f32 * 360.0 / count as f32).collect()
+            }
+        };
         let mut best: Option<WarmItem> = None;
         for angle in angles {
             let Some(bbox) = rotated_bounds(&points, angle) else { continue; };
@@ -170,6 +205,7 @@ fn safe_warm_start(external: &ExtSPInstance, clearance: f32) -> Result<ExtSPSolu
             placed_items.push(ExtPlacedItem {
                 item_id: copy.item_id,
                 transformation: ExtTransformation {
+                    reflected: false,
                     rotation: copy.angle,
                     translation: (x - copy.bbox.0, y - copy.bbox.1),
                 },
@@ -196,7 +232,7 @@ impl SolutionListener for Listener {
             "initializationMs": self.solve_started_at.unwrap().duration_since(self.initialized_at).as_secs_f64() * 1000.0}));
     }
 
-    fn report(&mut self, report: ReportType, solution: &SPSolution, instance: &SPInstance) {
+    fn report(&mut self, report: ReportType, solution: &SPSolution) {
         let feasible = matches!(report, ReportType::ExplFeas | ReportType::CmprFeas | ReportType::Final);
         let now = Instant::now();
         // Throttle live serialization at the source; always deliver feasible results.
@@ -208,7 +244,7 @@ impl SolutionListener for Listener {
         self.send(json!({"type": if feasible { "candidate" } else { "live" }, "sequence": self.sequence,
             "report": format!("{report:?}"),
             "elapsedMs": self.solve_started_at.unwrap_or(self.initialized_at).elapsed().as_secs_f64() * 1000.0,
-            "solution": export(instance, solution, self.initialized_at)}));
+            "solution": export(solution, self.initialized_at)}));
     }
 }
 
@@ -222,20 +258,20 @@ pub fn run(input: &str, seconds: Option<u32>, seed: &str, clearance: f32, preset
         return Err(JsValue::from_str("Invalid duration or oversized input"));
     }
     let seed = seed.parse::<u64>().map_err(|e| JsValue::from_str(&e.to_string()))?;
-    let external: ExtSPInstance = serde_json::from_str(input)
-        .map_err(|e| JsValue::from_str(&e.to_string()))?;
-    if !external.strip_height.is_finite() || external.strip_height <= clearance || external.strip_height > 100_000.0
-        || external.items.is_empty() || external.items.len() > 500
+    let external = normalize_external_input(input, clearance)?;
+    if !external.strip_height.is_finite() || !external.min_item_separation.is_finite()
+        || external.min_item_separation < 0.0 || external.strip_height <= external.min_item_separation
+        || external.strip_height > 100_000.0 || external.items.is_empty() || external.items.len() > 500
         || external.items.iter().any(|item| item.demand == 0 || item.demand > 500)
         || external.items.iter().map(|item| item.demand).sum::<u64>() > 500 {
         return Err(JsValue::from_str("Invalid strip dimensions or demand"));
     }
-    let mut config = solver_config(preset, thread_count(), seconds).map_err(JsValue::from_str)?;
-    config.min_item_separation = (clearance > 0.0).then_some(clearance);
+    let config = solver_config(preset, thread_count(), seconds).map_err(JsValue::from_str)?;
     callback.call1(&JsValue::NULL, &JsValue::from_str(&json!({
-        "type": "configuration", "configuration": format!("{config:#?}")
+        "type": "configuration",
+        "configuration": format!("{config:#?}\nmin_item_separation: {}", external.min_item_separation)
     }).to_string())).expect("worker callback must accept solver messages");
-    let importer = Importer::new(config.cde_config, config.poly_simpl_tolerance, config.min_item_separation, config.narrow_concavity_cutoff_ratio);
+    let importer = Importer::new(config.cde_config, config.poly_simpl_tolerance, config.narrow_concavity_cutoff_ratio);
     let instance = import_instance(&importer, &external)
         .map_err(|e| JsValue::from_str(&e.to_string()))?;
     let mut listener = Listener { callback, initialized_at, solve_started_at: None, sequence: 0, last_snapshot: None,
@@ -246,21 +282,23 @@ pub fn run(input: &str, seconds: Option<u32>, seed: &str, clearance: f32, preset
         &mut terminator, &config.expl_cfg, &config.cmpr_cfg, None) {
         Ok(solution) => solution,
         Err(error) => {
-            let warm_external = safe_warm_start(&external, clearance).map_err(|reason|
+            let Some(construction) = error.downcast_ref::<ConstructionError>() else {
+                return Err(JsValue::from_str(&error.to_string()));
+            };
+            let item_id = construction.external_id;
+            let warm_external = safe_warm_start(&external, external.min_item_separation).map_err(|reason|
                 JsValue::from_str(&format!(
-                    "No valid initial placement could be constructed for item {}. Warm-start fallback also failed: {reason}.",
-                    error.item_id
+                    "No valid initial placement could be constructed for item {item_id}. Warm-start fallback also failed: {reason}."
                 )))?;
-            let warm_solution = import_solution(&instance, &warm_external);
+            let warm_solution = import_solution(&instance, &warm_external)
+                .map_err(|e| JsValue::from_str(&format!("Warm-start import failed: {e}")))?;
             listener.send(json!({"type":"solver-log","line":format!(
-                "Warm-start recovery: initial constructor rejected item {}; all copies remain in Sparrow optimization.",
-                error.item_id
+                "Warm-start recovery: initial constructor rejected item {item_id}; all copies remain in Sparrow optimization."
             ),"timestamp":js_sys::Date::now()}));
             optimize(instance.clone(), Xoshiro256PlusPlus::seed_from_u64(seed ^ 0x9E3779B97F4A7C15), &mut listener,
                 &mut terminator, &config.expl_cfg, &config.cmpr_cfg, Some(&warm_solution))
             .map_err(|warm_error| JsValue::from_str(&format!(
-                "Warm-start optimization failed after initial placement error on item {}: {}",
-                error.item_id, warm_error
+                "Warm-start optimization failed after initial placement error on item {item_id}: {warm_error}"
             )))?
         }
     };

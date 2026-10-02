@@ -11,7 +11,7 @@ export type Start = Identity & { seed: string; threads?: number; control?: Share
   | { type: 'start'; document: Document }
   | { type: 'bridge'; input: string; seconds: 10 }
 );
-export type Placement = { item_id: number; transformation: { rotation: number; translation: [number, number] } };
+export type Placement = { item_id: number; transformation: { reflected?: boolean; rotation: number; translation: [number, number] } };
 export type SolverMessage = Identity & (
   | { type: 'ready'; threads: number; solverBinary: SolverBinary; simd: boolean; canSkip: boolean; fallbackReason?: string }
   | { type: 'phase'; phase: string; workers: number; initializationMs: number }

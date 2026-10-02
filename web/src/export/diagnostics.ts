@@ -12,7 +12,7 @@ export function reproductionFiles(diagnostics:Diagnostics|undefined):ZipEntry[] 
 ${attempts.length?'Each attempt includes native Sparrow input, seed, wrapper arguments and the resolved Rust configuration.':'No solver invocation was captured in this session. A loaded project does not restore a previous run history.'}
 Use the pinned Sparrow revision and dependencies in Cargo.toml/Cargo.lock, and the attached Studio wrapper source.
 The stock Sparrow CLI does not expose all Studio settings. Simply passing input.json to it is not an equivalent run.
-Importer uses the resolved Sparrow defaults for polygon simplification and narrow-concavity removal, plus the requested clearance.
+Importer uses Sparrow 0.3 / Jagua 1.0 geometry processing. The requested clearance is serialized as input.min_item_separation and applied by Jagua's inflate/deflate geometry import.
 Seed: decimal u64, Xoshiro256PlusPlus::seed_from_u64. Keep it as a string when reading JSON.
 Normal attempts call optimize with the exploration and compression configs and no initial solution.
 Skip interrupts exploration through the terminator, then optimize transitions to compression with its existing state and RNG. It requires shared memory; it does not restart the runtime.

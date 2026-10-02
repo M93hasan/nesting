@@ -42,14 +42,35 @@ export function importSparrow(text: string,fileName: string,scale: number): Impo
       if(w<=0 || h<=0) throw Error('Rectangle dimensions must be positive.');
       outer=scaled([[x,y],[x+w,y],[x+w,y+h],[x,y+h]]);
     } else throw Error(`Item ${id}: ${String(shape.type)} is unsupported. Disjoint JSON items cannot be split without changing demand.`);
-    const orientations=item.allowed_orientations;
-    if(orientations!==undefined && orientations!==null && (!Array.isArray(orientations) || !orientations.length || !orientations.every(a=>typeof a==='number' && Number.isFinite(a)))) throw Error(`Item ${id}: allowed_orientations must be omitted for free rotation or a nonempty degree list.`);
+    let rotations:Part['rotations'];
+    if(item.orientation!==undefined){
+      const orientation=record(item.orientation),rotation=record(orientation.rotation);
+      const axes=orientation.reflection_axes;
+      if(axes!==undefined&&(!Array.isArray(axes)||axes.some(axis=>typeof axis!=='number'||!Number.isFinite(axis))))throw Error(`Item ${id}: reflection_axes must be a finite degree list.`);
+      if(Array.isArray(axes)&&axes.length)throw Error(`Item ${id}: reflected Sparrow parts are not supported by Serula.`);
+      if(rotation.mode==='continuous')rotations={kind:'continuous'};
+      else if(rotation.mode==='discrete'){
+        const angles=rotation.angles;
+        if(!Array.isArray(angles)||!angles.length||!angles.every(a=>typeof a==='number'&&Number.isFinite(a)))throw Error(`Item ${id}: discrete rotation requires a nonempty finite angle list.`);
+        rotations={kind:'discrete',degrees:angles as number[]};
+      }else if(rotation.mode==='stepped'){
+        const step=number(rotation.step);
+        const count=Math.round(360/step);
+        if(step<=0||step>360||count<1||count>65536||Math.abs(count*step-360)>360*Number.EPSILON)throw Error(`Item ${id}: stepped rotation must divide 360 degrees.`);
+        rotations={kind:'discrete',degrees:Array.from({length:count},(_,i)=>i*360/count)};
+      }else throw Error(`Item ${id}: unsupported Sparrow rotation mode.`);
+    }else{
+      const orientations=item.allowed_orientations;
+      if(orientations!==undefined && orientations!==null && (!Array.isArray(orientations) || !orientations.length || !orientations.every(a=>typeof a==='number' && Number.isFinite(a)))) throw Error(`Item ${id}: allowed_orientations must be omitted for free rotation or a nonempty degree list.`);
+      rotations=orientations==null?{kind:'continuous'}:{kind:'discrete',degrees:orientations as number[]};
+    }
     return localize({...newPart(outer,`Part ${id}`),holes,quantity:number(item.demand),
-      source:{format:'sparrow',fileName,entityId:String(id)},
-      rotations: orientations==null?{kind:'continuous'}:{kind:'discrete',degrees:orientations as number[]},
+      source:{format:'sparrow',fileName,entityId:String(id)},rotations,
       preparationPosition:[index*50,0]});
   });
-  return {document:normalizeDocument({name:input.name,parts,settings:{...DEFAULT_SETTINGS,materialWidthMm:number(input.strip_height)*scale}}),
+  const separation=input.min_item_separation===undefined?0:number(input.min_item_separation)*scale;
+  if(separation<0)throw Error('Sparrow minimum item separation must be nonnegative.');
+  return {document:normalizeDocument({name:input.name,parts,settings:{...DEFAULT_SETTINGS,materialWidthMm:number(input.strip_height)*scale,clearanceMm:separation}}),
     replace:false,warnings:[...(input.solution!==undefined?['Stored native solution is ignored; warm starts are not supported.']:[]),
       `One coordinate unit = ${scale} mm. Benchmark coordinates have no intrinsic manufacturing units.`,
       ...(parts.some(p=>p.holes.length)?['Holes are preserved; nesting inside holes is not supported.']:[])]};
@@ -97,13 +118,15 @@ export function solverInput(doc: Document): string {
   if(!copies.length)throw Error('Add at least one copy before nesting.');
   preflightSolverFit(doc);
   const parts=new Map(doc.parts.map(part=>[part.id,part]));
-  return JSON.stringify({name:doc.name,strip_height:doc.settings.materialWidthMm,items:copies.map(copy=>{
+  return JSON.stringify({name:doc.name,strip_height:doc.settings.materialWidthMm,min_item_separation:doc.settings.clearanceMm,items:copies.map(copy=>{
     const p=parts.get(copy.partId)!;
     return {
-      // Keep each physical copy as its own Sparrow item. Jagua/Sparrow can trap
-      // in the repeated-demand path for some curved footwear polygons. Demand=1
-      // preserves identical geometry and copy count while avoiding that code path.
-      id:copy.itemId,demand:1,allowed_orientations:p.rotations.kind==='continuous'?undefined:p.rotations.degrees.map(angle=>-angle),
+      // Keep each physical copy as its own Sparrow item. Demand=1 preserves
+      // stable physical copy identity for footwear DXF parts.
+      id:copy.itemId,demand:1,
+      orientation:{rotation:p.rotations.kind==='continuous'
+        ?{mode:'continuous'}
+        :{mode:'discrete',angles:p.rotations.degrees.map(angle=>-angle)}},
       shape:{type:'simple_polygon',data:collisionRing(p).map(([x,y])=>[y,x])},
     };
   })});

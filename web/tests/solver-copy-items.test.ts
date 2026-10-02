@@ -39,8 +39,9 @@ test('a permitted 90 degree rotation can fit without broadening the rotation rul
   const part={...newPart([[0,0],[1500,0],[1500,100],[0,100]],'Upper'),id:'upper',quantity:1,rotations:{kind:'discrete' as const,degrees:[90]}};
   const doc:Document={name:'restricted-fit',parts:[part],settings:{materialWidthMm:1400,clearanceMm:.3,timeLimitSeconds:30}};
   expect(()=>preflightSolverFit(doc)).not.toThrow();
-  const input=JSON.parse(solverInput(doc)) as {items:{allowed_orientations:number[]}[]};
-  expect(input.items[0].allowed_orientations).toEqual([-90]);
+  const input=JSON.parse(solverInput(doc)) as {min_item_separation:number;items:{orientation:{rotation:{mode:string;angles:number[]}}}[]};
+  expect(input.min_item_separation).toBe(.3);
+  expect(input.items[0].orientation.rotation).toEqual({mode:'discrete',angles:[-90]});
 });
 
 test('initial placement errors identify the real part copy instead of raw solver item id',()=>{
