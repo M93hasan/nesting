@@ -47,7 +47,10 @@ export default function Workspace({ document: doc, result, live, selected, selec
   const displayedDrag = drag ?? pending;
   const selection = useMemo(()=>selectionBounds(doc, selected, selectedCopies),[doc,selected,selectedCopies]), unit = Math.max(camera.w / size.width, camera.h / size.height);
   const coordinates = coordinateGrid(camera, size.width, size.height, unitScale(displayUnit));
-  const showGenişlik = materialWidthFocused && Number.isFinite(doc.settings.materialWidthMm) && doc.settings.materialWidthMm > 0;
+  const validMaterialWidth = Number.isFinite(doc.settings.materialWidthMm) && doc.settings.materialWidthMm > 0;
+  const materialType = doc.settings.materialType??'roll';
+  const showGenişlik = validMaterialWidth && (materialType==='roll' || materialWidthFocused);
+  const showSheetFrame = materialType==='sheet' && validMaterialWidth && Number.isFinite(doc.settings.materialLengthMm) && (doc.settings.materialLengthMm??0)>0;
   const preview = displayedDrag?.transform?.edit, hit = (size.width < 700 ? 22 : 11) * unit;
 
   useEffect(() => {
@@ -86,6 +89,10 @@ export default function Workspace({ document: doc, result, live, selected, selec
         ? (result!.sheetCount??1)*doc.settings.materialLengthMm+Math.max(0,(result!.sheetCount??1)-1)*20
         : result!.usedLengthMm;
       all.push([0,0],[doc.settings.materialWidthMm,-materialLength]);
+    } else if(showSheetFrame) {
+      all.push([0,0],[doc.settings.materialWidthMm,-doc.settings.materialLengthMm!]);
+    } else if(validMaterialWidth) {
+      all.push([0,0],[doc.settings.materialWidthMm,0]);
     }
     if (!all.length) return;
     const [x0, y0, x1, y1] = bounds(all), pad = Math.max(x1 - x0, y1 - y0) * .07 + 2;
@@ -93,7 +100,7 @@ export default function Workspace({ document: doc, result, live, selected, selec
   }
   // Manual moves and candidate updates preserve the camera. Sığdır is explicit,
   // and a project switch increments fitRequest even when it has the same part count.
-  useEffect(fit, [doc.parts.length, fitRequest]);
+  useEffect(fit, [doc.parts.length, fitRequest, doc.settings.materialType, doc.settings.materialWidthMm, doc.settings.materialLengthMm]);
   // Align once at solve start / first layout, and after viewport resizing.
   // Results are displayed as a vertical strip: material width on X, used length on Y.
   useEffect(() => {
@@ -255,9 +262,15 @@ export default function Workspace({ document: doc, result, live, selected, selec
       }}
       onPointerCancel={event => { touches.current.delete(event.pointerId); if (!touches.current.size) pinch.current = undefined; touchDraw.current = undefined; setDrag(undefined); setMarquee(undefined); }}
       onLostPointerCapture={event => { touches.current.delete(event.pointerId); if (!touches.current.size) pinch.current = undefined; touchDraw.current = undefined; setDrag(undefined); setMarquee(undefined); }}>
+      {!world && showSheetFrame && <g className="material-frame" data-material-frame="sheet" pointerEvents="none">
+        <rect x="0" y={-doc.settings.materialLengthMm!} width={doc.settings.materialWidthMm} height={doc.settings.materialLengthMm!} vectorEffect="non-scaling-stroke" />
+        <text x={Math.max(2,3*unit)} y={-Math.max(2,3*unit)} fontSize={Math.max(11*unit,camera.w/75)}>
+          {displayLength(doc.settings.materialWidthMm, displayUnit)} {displayUnit} × {displayLength(doc.settings.materialLengthMm!, displayUnit)} {displayUnit}
+        </text>
+      </g>}
       {world && (doc.settings.materialType==='sheet'&&doc.settings.materialLengthMm
-        ? Array.from({length:result!.sheetCount??1},(_,sheet)=><g key={sheet} transform={`translate(0 ${-sheet*(doc.settings.materialLengthMm!+20)})`}><rect x="0" y={-doc.settings.materialLengthMm!} width={doc.settings.materialWidthMm} height={doc.settings.materialLengthMm!} fill={outlines ? 'none' : 'var(--material-fill)'} stroke="var(--secondary)" vectorEffect="non-scaling-stroke" /><text x="2" y={-2} fontSize={camera.w/70} fill="var(--muted)">Plaka {sheet+1}</text></g>)
-        : <><rect x="0" y={-result!.usedLengthMm} width={doc.settings.materialWidthMm} height={result!.usedLengthMm} fill={outlines ? 'none' : 'var(--material-fill)'} stroke="var(--secondary)" vectorEffect="non-scaling-stroke" /><text x="0" y={-result!.usedLengthMm - 2} fontSize={camera.w / 70} fill="var(--muted)">{displayLength(doc.settings.materialWidthMm, displayUnit)} {displayUnit} × {(result!.usedLengthMm / unitScale(displayUnit)).toFixed(2)} {displayUnit}</text></>)}
+        ? Array.from({length:result!.sheetCount??1},(_,sheet)=><g key={sheet} transform={`translate(0 ${-sheet*(doc.settings.materialLengthMm!+20)})`}><rect x="0" y={-doc.settings.materialLengthMm!} width={doc.settings.materialWidthMm} height={doc.settings.materialLengthMm!} fill={outlines ? 'none' : 'var(--material-fill)'} stroke="var(--secondary)" vectorEffect="non-scaling-stroke" /><text x="2" y={-2} fontSize={camera.w/70} fill="var(--muted)">Plaka {sheet+1} · {displayLength(doc.settings.materialWidthMm, displayUnit)} × {displayLength(doc.settings.materialLengthMm!, displayUnit)} {displayUnit}</text></g>)
+        : <><rect x="0" y={-result!.usedLengthMm} width={doc.settings.materialWidthMm} height={result!.usedLengthMm} fill={outlines ? 'none' : 'var(--material-fill)'} stroke="var(--secondary)" vectorEffect="non-scaling-stroke" /><text x="0" y={-result!.usedLengthMm - 2} fontSize={camera.w / 70} fill="var(--muted)">Rulo {displayLength(doc.settings.materialWidthMm, displayUnit)} {displayUnit} · kullanılan {(result!.usedLengthMm / unitScale(displayUnit)).toFixed(2)} {displayUnit}</text></>)}
       {showGenişlik && <g className="material-width-band" data-material-width-band={doc.settings.materialWidthMm} pointerEvents="none" aria-hidden="true"><rect x="0" y={coordinates.top} width={doc.settings.materialWidthMm} height={size.height * unit} /><path d={`M0,${coordinates.top}v${size.height * unit}M${doc.settings.materialWidthMm},${coordinates.top}v${size.height * unit}`} vectorEffect="non-scaling-stroke" /></g>}
       <g className="coordinate-grid" aria-hidden="true" pointerEvents="none" data-grid-step={coordinates.major}>{(['minor', 'major', 'origin'] as const).map(kind => <path key={kind} className={kind} fill="none" vectorEffect="non-scaling-stroke" d={[...coordinates.x.filter(t => (t.value === 0 ? 'origin' : t.major ? 'major' : 'minor') === kind).map(t => `M${t.mm},${coordinates.top}v${size.height * unit}`), ...coordinates.y.filter(t => (t.value === 0 ? 'origin' : t.major ? 'major' : 'minor') === kind).map(t => `M${coordinates.left},${-t.mm}h${size.width * unit}`)].join(' ')} />)}</g>
       {shapes}
@@ -271,6 +284,11 @@ export default function Workspace({ document: doc, result, live, selected, selec
       {world && live && <g transform="scale(1 -1)" pointerEvents="none" aria-label="Overlapping areas">{live.overlaps.map((rings, index) => <path key={index} data-overlap="true" d={pathData(rings)} fillRule="evenodd" fill={outlines ? 'none' : '#e34e4e'} stroke="#c72b36" strokeWidth={outlines ? 2 : 1} vectorEffect="non-scaling-stroke" />)}</g>}
       {polygon && <g transform="scale(1 -1)"><polyline points={polygon.map(p => p.join(',')).join(' ')} fill="none" stroke="#176b58" strokeWidth="2" vectorEffect="non-scaling-stroke" />{polygon.map((p, index) => <circle key={index} cx={p[0]} cy={p[1]} r={camera.w / 250} fill="#176b58" />)}</g>}
     </svg>
+    {validMaterialWidth && <div className="material-size-badge" aria-label="Malzeme ölçüsü">
+      {materialType==='sheet'&&showSheetFrame
+        ? `Plaka · ${displayLength(doc.settings.materialWidthMm,displayUnit)} × ${displayLength(doc.settings.materialLengthMm!,displayUnit)} ${displayUnit}`
+        : `Rulo · genişlik ${displayLength(doc.settings.materialWidthMm,displayUnit)} ${displayUnit}`}
+    </div>}
     <svg className="coordinate-rulers" viewBox={`0 0 ${size.width} ${size.height}`} preserveAspectRatio="none" aria-label={`Coordinate rulers, ${displayUnit}`} role="img"><rect x="0" y="0" width={size.width} height="20" /><rect x="0" y="0" width="20" height={size.height} /><path fill="none" d={[...coordinates.x.map(t => { const x = (t.mm - coordinates.left) / unit; return x < 22 ? '' : `M${x},${t.major ? 14 : 17}V20`; }), ...coordinates.y.map(t => { const y = (-t.mm - coordinates.top) / unit; return y < 22 ? '' : `M${t.major ? 14 : 17},${y}H20`; })].join(' ')} />{coordinates.x.filter(t => t.major).map(t => { const x = (t.mm - coordinates.left) / unit; return x < 22 ? null : <text key={t.value} x={x + 3} y="10" data-axis="x" data-value={t.value}>{t.value}</text>; })}{coordinates.y.filter(t => t.major).map(t => { const y = (-t.mm - coordinates.top) / unit; return y < 22 ? null : <text key={t.value} transform={`translate(10 ${y - 3}) rotate(-90)`} data-axis="y" data-value={t.value}>{t.value}</text>; })}<rect width="20" height="20" /><text x="10" y="12" textAnchor="middle">{displayUnit}</text></svg>
     <p className="canvas-hint">{disabled ? (live ? 'Live search · overlapping areas shown in red.' : result ? 'Geometry checked.' : 'Preparing search…') : polygon ? 'Click vertices · Enter to finish · Escape to cancel' : result ? 'Geometry checked. Select a copy to adjust it.' : 'Select a copy to adjust it. Drag to arrange.'} {!disabled&&<span className="preparation-shortcuts"><kbd>R</kbd> next rotation · <kbd>+</kbd>/<kbd>−</kbd> copies</span>} <span>{!disabled&&'⌘/Ctrl-click or drag to add selection · '}drag background to pan · scroll or pinch to zoom</span></p>
   </div>;
