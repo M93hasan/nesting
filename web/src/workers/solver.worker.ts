@@ -38,6 +38,7 @@ self.onmessage = ({ data }: MessageEvent<Start | { type: 'stop' } | { type: 'ski
       if (isRecoverableWasmTrap(message) && recoveryAttempts<MAX_WASM_RECOVERY_ATTEMPTS) {
         recoveryAttempts++;
         phase='';
+        if(control)Atomics.store(control,0,0);
         const nextSeed=recoverySeed(start.seed,recoveryAttempts);
         launch(1,`WASM trap recovery ${recoveryAttempts}/${MAX_WASM_RECOVERY_ATTEMPTS}: serial retry with a fresh seed.`,nextSeed);
         return;
