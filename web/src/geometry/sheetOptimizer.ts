@@ -113,7 +113,7 @@ function buildItems(doc:Document,result:Result):Item[]{
 
 type OrderKind='sparrow'|'bbox'|'maxdim';
 
-function packOrder(doc:Document,items:Item[],orderKind:OrderKind):Result|undefined{
+function packOrder(doc:Document,base:Result,items:Item[],orderKind:OrderKind):Result|undefined{
   const order=[...items].sort((a,b)=>{
     if(orderKind==='bbox')return b.boxArea-a.boxArea||b.priority-a.priority;
     if(orderKind==='maxdim')return b.maxDim-a.maxDim||b.boxArea-a.boxArea;
@@ -137,15 +137,10 @@ function packOrder(doc:Document,items:Item[],orderKind:OrderKind):Result|undefin
     placements.push(accepted.placement);
   }
   const sheetCount=Math.max(1,sheets.length),length=doc.settings.materialLengthMm!;
-  const candidate:Result={...docResultShell(doc),placements,sheetCount,usedLengthMm:length*sheetCount};
+  const candidate:Result={...base,placements,sheetCount,usedLengthMm:length*sheetCount,validation:{status:'pending',overlapAreaMm2:0,maxBoundaryViolationMm:0,minClearanceMm:null,errors:[]}};
   const checked=validate(doc,candidate);
   if(checked.status!=='passed')return;
   return {...candidate,validation:{...checked,source:'local'}};
-}
-
-function docResultShell(doc:Document):Result{
-  return {documentRevision:0,solverRevision:'sheet-blf',seed:'sheet-blf',elapsedSeconds:0,usedLengthMm:doc.settings.materialLengthMm??0,
-    placements:[],validation:{status:'pending',overlapAreaMm2:0,maxBoundaryViolationMm:0,minClearanceMm:null,errors:[]}};
 }
 
 function spanScore(doc:Document,result:Result):[number,number,number]{
@@ -167,7 +162,7 @@ export function improveSheetPacking(doc:Document,result:Result):Result{
   const items=buildItems(doc,result);
   let best=result,bestScore=spanScore(doc,result);
   for(const order of ['sparrow','bbox','maxdim'] as const){
-    const candidate=packOrder(doc,items,order);
+    const candidate=packOrder(doc,result,items,order);
     if(!candidate)continue;
     const score=spanScore(doc,candidate);
     if(better(score,bestScore)){best=candidate;bestScore=score;}
