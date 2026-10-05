@@ -64,6 +64,12 @@ async function ensureSchema(env){
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS system_settings (key TEXT PRIMARY KEY, value_json TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_settings (user_id INTEGER PRIMARY KEY, settings_json TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_features (user_id INTEGER PRIMARY KEY, test_dxf_enabled INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_preferences (
+      user_id INTEGER PRIMARY KEY,
+      locale TEXT NOT NULL DEFAULT 'tr' CHECK(locale IN ('tr','en','ar','fa')),
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_licenses (
       user_id INTEGER PRIMARY KEY,
       started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -362,7 +368,21 @@ async function handleApi(request,env){
     await audit(env,'password_changed',{actorType:'user',actorUserId:reset.user_id,targetUserId:reset.user_id});
     return json({ok:true});
   }
-  if(path==='/api/auth/logout'&&request.method==='POST'){
+  if(path==='/api/preferences'&&request.method==='GET'){
+    const user=await sessionUser(request,env);if(!user)return json({locale:null},401);
+    const row=await env.DB.prepare('SELECT locale FROM user_preferences WHERE user_id=?').bind(user.id).first();
+    return json({locale:row?.locale||'tr'});
+  }
+  if(path==='/api/preferences'&&request.method==='POST'){
+    const user=await sessionUser(request,env);if(!user)return json({error:'Giriş gerekli.'},401);
+    const data=await body(request),locale=String(data.locale||'');
+    if(!['tr','en','ar','fa'].includes(locale))return json({error:'Geçersiz dil.'},400);
+    await env.DB.prepare(`INSERT INTO user_preferences(user_id,locale,updated_at) VALUES(?,?,CURRENT_TIMESTAMP)
+      ON CONFLICT(user_id) DO UPDATE SET locale=excluded.locale,updated_at=CURRENT_TIMESTAMP`).bind(user.id,locale).run();
+    await audit(env,'language_changed',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:locale});
+    return json({ok:true,locale});
+  }
+    if(path==='/api/auth/logout'&&request.method==='POST'){
     const current=await sessionUser(request,env),raw=cookieToken(request);if(raw)await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(await sha256(raw)).run();
     if(current)await audit(env,'logout',{actorType:'user',actorUserId:current.id,targetUserId:current.id});
     return json({ok:true},200,{'set-cookie':cookie('',0)});
@@ -558,6 +578,7 @@ async function handleApi(request,env){
       env.DB.prepare('DELETE FROM support_signals WHERE session_id IN (SELECT id FROM support_sessions WHERE user_id=?)').bind(id),
       env.DB.prepare('DELETE FROM support_sessions WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM user_features WHERE user_id=?').bind(id),
+      env.DB.prepare('DELETE FROM user_preferences WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM user_licenses WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM user_settings WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(id),

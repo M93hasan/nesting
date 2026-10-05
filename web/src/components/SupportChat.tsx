@@ -1,8 +1,10 @@
 import {useEffect,useRef,useState} from 'react';
+import {localeTag,useI18n} from '../i18n';
 
 type ChatMessage={id:number;sender:'user'|'admin';body:string;createdAt:string;readAt?:string|null};
 
 export default function SupportChat(){
+  const {locale}=useI18n();
   const [messages,setMessages]=useState<ChatMessage[]>([]);
   const [message,setMessage]=useState('');
   const [status,setStatus]=useState<'loading'|'ready'|'signed-out'|'error'>('loading');
@@ -50,7 +52,7 @@ export default function SupportChat(){
   }
 
   if(status==='signed-out')return <section className="support-chat support-chat-signed-out">
-    <div><strong>Canlı destek</strong><p>Admin ile kalıcı mesajlaşmak için giriş yapın.</p></div>
+    <div><strong>Canlı destek</strong><p>Yönetici ile kalıcı mesajlaşmak için giriş yapın.</p></div>
     <button className="primary" onClick={()=>window.dispatchEvent(new Event('serula-login-required'))}>Giriş yap</button>
   </section>;
 
@@ -60,8 +62,8 @@ export default function SupportChat(){
       {status==='loading'?<p className="support-chat-empty">Mesajlar yükleniyor…</p>:messages.length?messages.map(item=><div key={item.id} className={'support-chat-message '+(item.sender==='user'?'from-user':'from-admin')}>
         <span>{item.sender==='user'?'Siz':'Serula Destek'}</span>
         <p>{item.body}</p>
-        <time>{new Date(item.createdAt).toLocaleString('tr-TR')}</time>
-      </div>):<p className="support-chat-empty">Henüz mesaj yok. Buradan admin ile doğrudan yazışabilirsiniz.</p>}
+        <time>{new Date(item.createdAt).toLocaleString(localeTag(locale))}</time>
+      </div>):<p className="support-chat-empty">Henüz mesaj yok. Buradan yönetici ile doğrudan yazışabilirsiniz.</p>}
     </div>
     {error&&<p className="field-error" role="alert">{error}</p>}
     <form className="support-chat-compose" onSubmit={e=>{e.preventDefault();void send()}}>

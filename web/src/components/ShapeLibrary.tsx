@@ -55,7 +55,7 @@ export default function ShapeLibrary({selectedParts=[],onAdd,onClose,unit='mm'}:
 
   function save(partsToSave:Part[]) {
     void perform(async()=>{
-      const saved=await saveShapes(partsToSave);setMine(await readShapes());setSource('mine');setNotice(`${saved.length===1?'Shape saved':`${saved.length} shapes saved`} on this device.`);
+      const saved=await saveShapes(partsToSave);setMine(await readShapes());setSource('mine');setNotice(`${saved.length===1?'Şekil kaydedildi':`${saved.length} şekil kaydedildi`} bu cihaza.`);
     });
   }
 
@@ -63,7 +63,7 @@ export default function ShapeLibrary({selectedParts=[],onAdd,onClose,unit='mm'}:
     if(!chosen)return;
     const b=bounds(chosen.outer);if(sizeMm===b[axis+2]-b[axis])return;
     void perform(async()=>{
-      const reply=await geometryTask({type:'resize',runId:0,documentRevision:0,document:{name:'Library shape',parts:[chosen],settings:DEFAULT_SETTINGS},partId:chosen.id,axis,sizeMm});
+      const reply=await geometryTask({type:'resize',runId:0,documentRevision:0,document:{name:'Kütüphane şekli',parts:[chosen],settings:DEFAULT_SETTINGS},partId:chosen.id,axis,sizeMm});
       if(reply.type==='normalized')setSelected([reply.document.parts[0]]);
     });
   }
@@ -91,19 +91,19 @@ export default function ShapeLibrary({selectedParts=[],onAdd,onClose,unit='mm'}:
   return <Modal title="Şekil kütüphanesi" onClose={onClose} locked={busy}>
     <div className="shape-library">
       <div className="library-toolbar">
-        <p className="library-note">Pick reusable shapes to add to the current project. Sample projects stay available from “Aç example”.</p>
-        {selectedParts.length>0&&<button disabled={blocked||!!storageError} onClick={()=>save(selectedParts)}>Save selected {selectedParts.length===1?'shape':'shapes'}</button>}
+        <p className="library-note">Geçerli projeye eklemek için tekrar kullanılabilir şekilleri seçin. Örnek projeler “Örneği aç” bölümünde kalır.</p>
+        {selectedParts.length>0&&<button disabled={blocked||!!storageError} onClick={()=>save(selectedParts)}>Seçili {selectedParts.length===1?'şekli':'şekilleri'} kaydet</button>}
       </div>
-      <p className="library-note library-normalization-note">{source==='mine'?'Saved in this browser on this device. Download projects as backups.':<>Each source file uses one scale factor. The median shape-type net area (outer minus holes) is {areaText} {unit}²; demand is ignored, so relative sizes and proportions stay intact.</>}</p>
+      <p className="library-note library-normalization-note">{source==='mine'?'Bu cihazdaki tarayıcıda kaydedilir. Yedek için projeleri indirin.':<>Her kaynak dosya tek bir ölçek katsayısı kullanır. Ortanca şekil türü net alanı (dış alan eksi delikler) {areaText} {unit}²; adet dikkate alınmaz, böylece göreli boyutlar ve oranlar korunur.</>}</p>
       {storageError&&<p role="alert" className="field-error">{storageError}</p>}
       {error&&<p role="alert" className="field-error">{error}</p>}
-      {(busy||loading)&&<p role="status">Loading shapes…</p>}
+      {(busy||loading)&&<p role="status">Şekiller yükleniyor…</p>}
       {notice&&<p role="status">{notice}</p>}
-      <p className="library-note">Click to select. ⌘/Ctrl-click toggles shapes; Shift-click selects a range.</p>
+      <p className="library-note">Seçmek için tıklayın. ⌘/Ctrl-tıklama seçimi değiştirir; Shift-tıklama aralık seçer.</p>
       <div className="library-layout">
-        <section className="library-selector" aria-label="Shape selector">
-          <h3>Shapes{parts.length?` · ${parts.length}`:''}</h3>
-          <div className="library-grid" aria-label="Library shapes">
+        <section className="library-selector" aria-label="Şekil seçici">
+          <h3>Şekiller{parts.length?` · ${parts.length}`:''}</h3>
+          <div className="library-grid" aria-label="Kütüphane şekilleri">
             {parts.map((part,index)=>{
               const [x0,y0,x1,y1]=bounds(part.outer),width=x1-x0,height=y1-y0;
               const widthLabel=displayLength(width,unit),heightLabel=displayLength(height,unit);
@@ -111,32 +111,32 @@ export default function ShapeLibrary({selectedParts=[],onAdd,onClose,unit='mm'}:
                 <Preview part={part}/><span>{part.name}</span><small>{widthLabel} × {heightLabel} {unit}</small>
               </button>;
             })}
-            {!parts.length&&!blocked&&<p>{source==='mine'?'Select shapes in your project and save them here, or choose a dataset.':'No shapes in this source file.'}</p>}
+            {!parts.length&&!blocked&&<p>{source==='mine'?'Projenizde şekilleri seçip buraya kaydedin veya bir veri seti seçin.':'Bu kaynak dosyada şekil yok.'}</p>}
           </div>
         </section>
-        <aside className="library-sidebar" aria-label="Şekil kütüphanesi sources and selection">
+        <aside className="library-sidebar" aria-label="Şekil kütüphanesi kaynakları ve seçim">
           <div className="library-categories">
-            <h3 id="library-sources-heading">Source files</h3>
-            <label>Collection<select aria-label="Collection" value={source} disabled={blocked} onChange={event=>selectSource(event.target.value)}>
-              <option value="mine">My shapes ({mine.length})</option>
-              {groups.map(group=><optgroup key={group} label={group}>{catalog.filter(item=>item.group===group).map(item=><option key={item.id} value={item.id}>{item.id}{item.continuous?' · free rotation':''}</option>)}</optgroup>)}
+            <h3 id="library-sources-heading">Kaynak dosyalar</h3>
+            <label>Koleksiyon<select aria-label="Koleksiyon" value={source} disabled={blocked} onChange={event=>selectSource(event.target.value)}>
+              <option value="mine">Şekillerim ({mine.length})</option>
+              {groups.map(group=><optgroup key={group} label={group}>{catalog.filter(item=>item.group===group).map(item=><option key={item.id} value={item.id}>{item.id}{item.continuous?' · serbest dönüş':''}</option>)}</optgroup>)}
             </select></label>
             <nav aria-labelledby="library-sources-heading">
-              <button type="button" className={source==='mine'?'active':''} aria-current={source==='mine'?'true':undefined} disabled={blocked} onClick={()=>selectSource('mine')}><span>My shapes</span><small>{mine.length} saved</small></button>
-              {groups.map(group=><div className="library-category-group" key={group}><h4>{group}</h4>{catalog.filter(item=>item.group===group).map(item=><button type="button" key={item.id} className={source===item.id?'active':''} aria-current={source===item.id?'true':undefined} disabled={blocked} onClick={()=>selectSource(item.id)}><span>{sourceName(item)}{item.continuous?' · free rotation':''}</span><small>{item.file}</small></button>)}</div>)}
+              <button type="button" className={source==='mine'?'active':''} aria-current={source==='mine'?'true':undefined} disabled={blocked} onClick={()=>selectSource('mine')}><span>Şekillerim</span><small>{mine.length} kayıtlı</small></button>
+              {groups.map(group=><div className="library-category-group" key={group}><h4>{group}</h4>{catalog.filter(item=>item.group===group).map(item=><button type="button" key={item.id} className={source===item.id?'active':''} aria-current={source===item.id?'true':undefined} disabled={blocked} onClick={()=>selectSource(item.id)}><span>{sourceName(item)}{item.continuous?' · serbest dönüş':''}</span><small>{item.file}</small></button>)}</div>)}
             </nav>
-            {dataset&&<small className="library-source-summary">{dataset.partTypes??parts.length} shape types from {dataset.file}{dataset.continuous?' · free rotation':''}</small>}
+            {dataset&&<small className="library-source-summary">{dataset.partTypes??parts.length} şekil türü · kaynak: {dataset.file}{dataset.continuous?' · serbest dönüş':''}</small>}
           </div>
-          {selected.length>0&&<div className="library-detail" aria-label="Selected library shapes">
-            <h3>{chosen?chosen.name:`${selected.length} shapes selected`}</h3>
-            {chosen&&<><Preview part={chosen}/><SizeControls unit={unit} key={chosen.id} part={chosen} disabled={blocked} onApply={resize} onValidity={setValid}/><small>{chosen.holes.length?`${chosen.holes.length} hole${chosen.holes.length===1?'':'s'} · `:''}{chosen.rotations.kind==='continuous'?'Serbest dönüş':`${chosen.rotations.degrees.join('°, ')}°`}</small></>}
-            <button type="button" className="primary" disabled={blocked||!!chosen&&!valid} onClick={()=>void perform(async()=>{await onAdd(selected.map(part=>({...part,id:newPartId(),quantity:1,preparationPosition:[0,0]})));setNotice(`${selected.length===1?'Shape':`${selected.length} shapes`} added to your project.`);})}>{chosen?'Add shape to project':`Add ${selected.length} selected shapes to project`}</button>
-            {chosen&&<button type="button" disabled={blocked||!valid||!!storageError} onClick={()=>save([chosen])}>Save as new personal shape</button>}
-            {chosen&&source==='mine'&&<button type="button" disabled={blocked||!!storageError} onClick={()=>void perform(async()=>{await removeShape(chosen.id);setSelected([]);anchor.current=0;setMine(await readShapes());})}>Remove saved shape</button>}
+          {selected.length>0&&<div className="library-detail" aria-label="Seçili kütüphane şekilleri">
+            <h3>{chosen?chosen.name:`${selected.length} şekil seçildi`}</h3>
+            {chosen&&<><Preview part={chosen}/><SizeControls unit={unit} key={chosen.id} part={chosen} disabled={blocked} onApply={resize} onValidity={setValid}/><small>{chosen.holes.length?`${chosen.holes.length} delik · `:''}{chosen.rotations.kind==='continuous'?'Serbest dönüş':`${chosen.rotations.degrees.join('°, ')}°`}</small></>}
+            <button type="button" className="primary" disabled={blocked||!!chosen&&!valid} onClick={()=>void perform(async()=>{await onAdd(selected.map(part=>({...part,id:newPartId(),quantity:1,preparationPosition:[0,0]})));setNotice(`${selected.length===1?'Şekil':`${selected.length} şekil`} projenize eklendi.`);})}>{chosen?'Şekli projeye ekle':`${selected.length} seçili şekli projeye ekle`}</button>
+            {chosen&&<button type="button" disabled={blocked||!valid||!!storageError} onClick={()=>save([chosen])}>Yeni kişisel şekil olarak kaydet</button>}
+            {chosen&&source==='mine'&&<button type="button" disabled={blocked||!!storageError} onClick={()=>void perform(async()=>{await removeShape(chosen.id);setSelected([]);anchor.current=0;setMine(await readShapes());})}>Kaydedilmiş şekli kaldır</button>}
           </div>}
         </aside>
       </div>
-      <div className="library-footer"><button type="button" disabled={busy} onClick={onClose}>Done</button></div>
+      <div className="library-footer"><button type="button" disabled={busy} onClick={onClose}>Bitti</button></div>
     </div>
   </Modal>;
 }

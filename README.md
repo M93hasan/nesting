@@ -288,6 +288,9 @@ Başlıca özellikler:
 - Lisans süresini kaldırıp kullanıcıyı süresiz yapabilme
 - Sınırsız kullanıcı
 - Kullanıcıya özel varsayılanlar
+- 4 dil arayüzü: Türkçe (varsayılan), English, العربية ve فارسی (İran)
+- Giriş yapan kullanıcının varsayılan dili hesabına kaydedilir; girişsiz kullanımda tarayıcıda saklanır
+- Arapça ve Farsça için RTL arayüz desteği
 - Sistem varsayılanları
 - Şifre sıfırlama
 - Admin kullanıcı yönetimi ve kullanıcı hesabını tamamen silme

@@ -1,6 +1,7 @@
 import {useEffect,useRef,useState,type ReactNode} from 'react';
 import {createPortal} from 'react-dom';
 import packageInfo from '../package.json';
+import {LanguageSelect,localeTag,useI18n} from './i18n';
 
 export type SessionUser={id:number;email:string;name:string;role:string;credits:number;unlimited:boolean;licenseStartedAt?:string|null;licenseExpiresAt?:string|null;licenseExpired?:boolean};
 type SupportSession={id:number;status:'pending'|'approved';mode?:'settings'|'screen';expiresAt?:string;offer?:RTCSessionDescriptionInit|null;answer?:RTCSessionDescriptionInit|null};
@@ -20,6 +21,7 @@ export async function authorizeExport(projectName:string,sourceFileName:string,f
 }
 
 export function UserGate({children}:{children:ReactNode}){
+  const {locale}=useI18n();
   const [user,setUser]=useState<SessionUser|null|undefined>(undefined);
   const resetToken=new URLSearchParams(location.search).get('reset')||'';
   const [open,setOpen]=useState(!!resetToken),[mode,setMode]=useState<'login'|'register'|'reset'>(resetToken?'reset':'login');
@@ -172,16 +174,16 @@ export function UserGate({children}:{children:ReactNode}){
     {accountHost&&createPortal(user?
       <details className="auth-account-menu">
         <summary aria-label="Hesap menüsü"><span className="auth-avatar">{(user.name||user.email).trim().charAt(0).toUpperCase()}</span><span className="auth-account-name">{user.name||user.email}</span><span className="auth-chevron" aria-hidden="true">▾</span></summary>
-        <div className="auth-account-dropdown"><strong>{user.name||'Kullanıcı'}</strong><small>{user.email}</small><div className="auth-account-meta"><span>{user.unlimited?'Sınırsız kullanım':user.credits+' hak kaldı'}</span><span>{user.licenseExpiresAt?(user.licenseExpired?'Lisans süresi doldu':'Lisans: '+new Date(user.licenseExpiresAt).toLocaleDateString('tr-TR')):'Lisans: süresiz'}</span></div><button className="danger-button" onClick={async()=>{await request('/api/auth/logout',{method:'POST',body:'{}'});setUser(null);window.dispatchEvent(new Event('serula-auth-updated'))}}>Çıkış yap</button></div>
+        <div className="auth-account-dropdown"><strong>{user.name||'Kullanıcı'}</strong><small>{user.email}</small><div className="auth-account-meta"><span>{user.unlimited?'Sınırsız kullanım':user.credits+' hak kaldı'}</span><span>{user.licenseExpiresAt?(user.licenseExpired?'Lisans süresi doldu':'Lisans: '+new Date(user.licenseExpiresAt).toLocaleDateString(localeTag(locale))):'Lisans: süresiz'}</span></div><LanguageSelect/><button className="danger-button" onClick={async()=>{await request('/api/auth/logout',{method:'POST',body:'{}'});setUser(null);window.dispatchEvent(new Event('serula-auth-updated'))}}>Çıkış yap</button></div>
       </details>
       :<button className="auth-login-header" onClick={()=>setOpen(true)}><span className="auth-avatar" aria-hidden="true">↪</span>Giriş yap</button>,accountHost)}
     {support?.status==='approved'&&<div className={'auth-support-active '+(support.mode==='screen'?'screen-'+screenConnection:'')}><span>{support.mode==='screen'?(screenConnection==='connected'?'Ekran paylaşımı canlı':screenConnection==='fallback'?'Ekran paylaşımı canlı · yedek bağlantı':screenConnection==='failed'?'Ekran bağlantısı kurulamadı':'Ekran bağlantısı kuruluyor…'):'Uzaktan destek aktif'}</span><button className="danger-button" onClick={()=>void endSupportFromUser()}>Bitir</button></div>}
     {support?.status==='pending'&&<div className="auth-screen auth-overlay"><div className="auth-card auth-support-card"><img src="/serula-logo.svg" alt=""/><h2>{support.mode==='screen'?'Ekran paylaşımı isteği':'Uzaktan destek isteği'}</h2><p>{support.mode==='screen'?'Serula yöneticisi ekranınızı canlı görmek istiyor. Paylaşılacak ekranı siz seçersiniz; izin vermeden görüntü aktarılmaz ve istediğiniz an durdurabilirsiniz.':'Serula yöneticisi yalnızca bu uygulamanın ayarlarını uzaktan düzenlemek istiyor. Tarayıcınızın diğer sekmelerine, dosyalarınıza veya cihazınıza erişim verilmez.'}</p>{error&&<p className="auth-error">{error}</p>}<div className="auth-support-actions"><button disabled={busy} onClick={()=>void declineSupport()}>Reddet</button><button disabled={busy} className="primary" onClick={()=>void approveSupport()}>{busy?'Bağlanıyor…':support.mode==='screen'?'Onayla ve ekranı paylaş':'Onayla'}</button></div></div></div>}
     {open&&!user&&<div className="auth-screen auth-overlay" onMouseDown={e=>{if(e.currentTarget===e.target)setOpen(false)}}><div className="auth-card">
-      <img src="/serula-logo.svg" alt=""/><h1>Serula Nesting</h1><p>DXF indirmek için giriş yapın. Dosya içe aktarma ve yerleştirme giriş yapmadan kullanılabilir.</p>
+      <img src="/serula-logo.svg" alt=""/><h1>Serula Nesting</h1><LanguageSelect/><p>DXF indirmek için giriş yapın. Dosya içe aktarma ve yerleştirme giriş yapmadan kullanılabilir.</p>
       {mode!=='reset'&&<div className="auth-tabs"><button className={mode==='login'?'active':''} onClick={()=>setMode('login')}>Giriş yap</button><button className={mode==='register'?'active':''} onClick={()=>setMode('register')}>Kayıt ol</button></div>}{mode==='reset'&&<h2>Yeni parola belirle</h2>}
       <form onSubmit={submit}>{mode==='register'&&<label>Adınız<input required value={name} onChange={e=>setName(e.target.value)}/></label>}{mode!=='reset'&&<label>E-posta<input type="email" required value={email} onChange={e=>setEmail(e.target.value)}/></label>}<label>{mode==='reset'?'Yeni parola':'Parola'}<input type="password" minLength={8} required value={password} onChange={e=>setPassword(e.target.value)}/></label><button disabled={busy}>{busy?'Bekleyin…':mode==='reset'?'Parolayı değiştir':mode==='register'?'Hesap oluştur':'Giriş yap'}</button></form>
-      {error&&<p className="auth-error">{error}</p>}<div className="auth-or"><span/>veya<span/></div><div className="auth-google"><button type="button" onClick={()=>{location.href="/google-login.html"}}>Google ile devam et</button></div><small>Yeni normal kullanıcılar 5 indirme/nesting hakkıyla başlar.</small>
+      {error&&<p className="auth-error">{error}</p>}<div className="auth-or"><span/>veya<span/></div><div className="auth-google"><button type="button" onClick={()=>{location.href="/google-login.html"}}>Google ile devam et</button></div><small>Yeni normal kullanıcılar 5 indirme/yerleştirme hakkıyla başlar.</small>
       <button onClick={()=>setOpen(false)}>Şimdilik kapat</button>
     </div></div>}
   </>;
@@ -190,8 +192,8 @@ export function UserGate({children}:{children:ReactNode}){
 export function AdminGate({children}:{children:ReactNode}){
   const [user,setUser]=useState<SessionUser|null|undefined>(undefined),[email,setEmail]=useState('M93Hasan@icloud.com'),[password,setPassword]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);
   useEffect(()=>{fetch('/api/auth/admin-me',{credentials:'same-origin'}).then(async r=>{const d=await r.json().catch(()=>({}));setUser(r.ok&&d.user?.role==='admin'?d.user:null)}).catch(()=>setUser(null))},[]);
-  async function submit(e:React.FormEvent){e.preventDefault();setBusy(true);setError('');try{const d=await request('/api/auth/admin-login',{method:'POST',body:JSON.stringify({email,password})});if(d.user.role!=='admin')throw Error('Bu hesabın admin yetkisi yok.');setUser(d.user)}catch(e){setError(e instanceof Error?e.message:String(e))}finally{setBusy(false)}}
-  if(user===undefined)return <div className="auth-screen"><div className="auth-card"><p>Admin oturumu kontrol ediliyor…</p></div></div>;
-  if(!user)return <div className="auth-screen"><div className="auth-card"><img src="/serula-logo.svg" alt=""/><h1>Serula Yönetim</h1><p>Admin e-posta ve parolanızı girin.</p><div style={{margin:'10px 0 18px',fontWeight:700,opacity:.75}}>Sürüm v{packageInfo.version}</div><form onSubmit={submit}><label>E-posta<input type="email" autoComplete="username" autoFocus required value={email} onChange={e=>setEmail(e.target.value)}/></label><label>Parola<input type="password" autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)}/></label><button disabled={busy}>{busy?'Bekleyin…':'Admin girişi'}</button></form>{error&&<p className="auth-error">{error}</p>}</div></div>;
+  async function submit(e:React.FormEvent){e.preventDefault();setBusy(true);setError('');try{const d=await request('/api/auth/admin-login',{method:'POST',body:JSON.stringify({email,password})});if(d.user.role!=='admin')throw Error('Bu hesabın yönetici yetkisi yok.');setUser(d.user)}catch(e){setError(e instanceof Error?e.message:String(e))}finally{setBusy(false)}}
+  if(user===undefined)return <div className="auth-screen"><div className="auth-card"><p>Yönetici oturumu kontrol ediliyor…</p></div></div>;
+  if(!user)return <div className="auth-screen"><div className="auth-card"><img src="/serula-logo.svg" alt=""/><h1>Serula Yönetim</h1><LanguageSelect/><p>Yönetici e-posta ve parolanızı girin.</p><div style={{margin:'10px 0 18px',fontWeight:700,opacity:.75}}>Sürüm v{packageInfo.version}</div><form onSubmit={submit}><label>E-posta<input type="email" autoComplete="username" autoFocus required value={email} onChange={e=>setEmail(e.target.value)}/></label><label>Parola<input type="password" autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)}/></label><button disabled={busy}>{busy?'Bekleyin…':'Yönetici girişi'}</button></form>{error&&<p className="auth-error">{error}</p>}</div></div>;
   return <>{children}</>;
 }

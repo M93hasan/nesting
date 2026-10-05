@@ -30,16 +30,16 @@ export default function ExamplePicker({onChoose,onClose}:{onChoose:(doc:Document
     try{await onChoose(doc,nest);}catch(e){setError(e instanceof Error?e.message:String(e));}finally{setBusy(false);}
   }
   const dataset=catalog.find(d=>d.id===selected);
-  return <Modal title="Try an example" onClose={onClose} locked={busy}>
-    <label>Dataset<select value={selected} disabled={busy} onChange={e=>void choose(e.target.value)}>
-      <option value="workshop">Workshop example</option>
-      {['Main','Gardeyn'].map(group=><optgroup key={group} label={group}>{catalog.filter(d=>d.group===group).map(d=><option key={d.id} value={d.id}>{d.id}{d.continuous?' · free rotation':''}</option>)}</optgroup>)}
+  return <Modal title="Bir örnek deneyin" onClose={onClose} locked={busy}>
+    <label>Veri seti<select value={selected} disabled={busy} onChange={e=>void choose(e.target.value)}>
+      <option value="workshop">Atölye örneği</option>
+      {['Main','Gardeyn'].map(group=><optgroup key={group} label={group}>{catalog.filter(d=>d.group===group).map(d=><option key={d.id} value={d.id}>{d.id}{d.continuous?' · serbest dönüş':''}</option>)}</optgroup>)}
     </select></label>
-    <p>{dataset?`${dataset.partTypes} shapes · ${dataset.copies} copies`:'4 shapes · 12 copies'} · nesting stops automatically</p>
-    {busy&&<p role="status">Loading example…</p>}
-    {catalogError&&<p role="alert" className="field-error">{catalogError} The workshop example is still available.</p>}
+    <p>{dataset?`${dataset.partTypes} şekil · ${dataset.copies} kopya`:'4 şekil · 12 kopya'} · nesting otomatik durur</p>
+    {busy&&<p role="status">Örnek yükleniyor…</p>}
+    {catalogError&&<p role="alert" className="field-error">{catalogError} Atölye örneği hâlâ kullanılabilir.</p>}
     {error&&<p role="alert" className="field-error">{error}</p>}
     {!!warnings.length&&<ul>{warnings.map(warning=><li key={warning}>{warning}</li>)}</ul>}
-    <div className="modal-actions"><button disabled={busy} onClick={onClose}>İptal</button><button disabled={busy||!doc} onClick={()=>void open(true)}>Aç and nest</button><button className="primary" disabled={busy||!doc} onClick={()=>void open()}>Aç example</button></div>
+    <div className="modal-actions"><button disabled={busy} onClick={onClose}>İptal</button><button disabled={busy||!doc} onClick={()=>void open(true)}>Aç ve yerleştir</button><button className="primary" disabled={busy||!doc} onClick={()=>void open()}>Örneği aç</button></div>
   </Modal>;
 }

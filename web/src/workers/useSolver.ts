@@ -157,7 +157,7 @@ export function useSolver() {
           if(logs.length>10_000){logs.splice(0,1000);r.diagnostics.droppedLogs=(r.diagnostics.droppedLogs??0)+1000;}
           break;
         }
-        case 'ready': setCanSkip(data.canSkip);startup.solverReadyMs??=performance.now()-requestedAt;setWorkers({actual:data.threads,requested:threads,reason:data.fallbackReason});r.diagnostics.solverBinary=data.solverBinary;r.diagnostics.buildMode=`${data.threads} solver thread${data.threads===1?'':'s'}, ${data.simd?'SIMD':'no SIMD'}${data.fallbackReason?`; serial fallback: ${data.fallbackReason}`:''}`; break;
+        case 'ready': setCanSkip(data.canSkip);startup.solverReadyMs??=performance.now()-requestedAt;setWorkers({actual:data.threads,requested:threads,reason:data.fallbackReason});r.diagnostics.solverBinary=data.solverBinary;r.diagnostics.buildMode=`${data.threads} çözücü iş parçacığı, ${data.simd?'SIMD':'SIMD yok'}${data.fallbackReason?`; seri yedek: ${data.fallbackReason}`:''}`; break;
         case 'phase':
           setPhase(data.phase);setSkipping(false);
           (r.diagnostics.phases??=[]).push({phase:data.phase,elapsedMs:r.startedAt?performance.now()-r.startedAt:0});
@@ -210,13 +210,13 @@ export function useSolver() {
         case 'error': end('Error',data.message);break;
       }
     };
-    solver.onerror=e=>{if(run.current===r && r.solver) end('Error',e.message||'A background worker could not be loaded. Reload the page and try again.');};
+    solver.onerror=e=>{if(run.current===r && r.solver) end('Error',e.message||'Arka plan işçisi yüklenemedi. Sayfayı yenileyip tekrar deneyin.');};
     solver.postMessage({type:'start',runId:id,documentRevision:revision,document:doc,seed,threads});
   }
   function invalidate() {clear();setWorkers(undefined);setResult(undefined);setLive(undefined);setLiveError('');setState('Ready');setError('');}
   function load(checked:Result) {
     clear();setWorkers(undefined);setLive(undefined);setLiveError('');setResult(checked);setElapsed(checked.elapsedSeconds);setState('Complete');setError('');
-    diagnostics.current={solverRevision:checked.solverRevision,seed:checked.seed,buildMode:'Loaded project; result rechecked locally',stopReason:'Loaded project',history:[],liveErrors:[]};
+    diagnostics.current={solverRevision:checked.solverRevision,seed:checked.seed,buildMode:'Yüklenen proje; sonuç yerel olarak yeniden doğrulandı',stopReason:'Yüklenen proje',history:[],liveErrors:[]};
   }
   function skipToCompression() {
     const r=run.current;
