@@ -40,6 +40,13 @@ function adminCookie(value,maxAge=SESSION_DAYS*86400){return `serula_admin_sessi
 async function secureEqual(a,b){const [x,y]=await Promise.all([sha256(String(a)),sha256(String(b))]);let d=x.length^y.length;const n=Math.max(x.length,y.length);for(let i=0;i<n;i++)d|=(x.charCodeAt(i%x.length)||0)^(y.charCodeAt(i%y.length)||0);return d===0;}
 async function makeAdminSession(env){const raw=randomToken(),expires=new Date(Date.now()+SESSION_DAYS*86400000).toISOString();await env.DB.prepare('INSERT INTO admin_sessions(token_hash,expires_at) VALUES(?,?)').bind(await sha256(raw),expires).run();return raw;}
 async function adminSessionValid(request,env){const raw=adminCookieToken(request);if(!raw)return false;return !!await env.DB.prepare("SELECT token_hash FROM admin_sessions WHERE token_hash=? AND datetime(expires_at)>datetime('now')").bind(await sha256(raw)).first();}
+async function cleanupExpiredHistory(env){
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM export_file_chunks WHERE export_id IN (SELECT id FROM export_files WHERE datetime(created_at)<datetime('now','-32 days'))"),
+    env.DB.prepare("DELETE FROM export_files WHERE datetime(created_at)<datetime('now','-32 days')"),
+    env.DB.prepare("DELETE FROM nesting_history WHERE datetime(created_at)<datetime('now','-32 days')")
+  ]);
+}
 async function ensureSchema(env){
   await env.DB.batch([
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS sessions (
@@ -775,7 +782,8 @@ async function handleApi(request,env){
   return json({error:'Bulunamadı.'},404);
 }
 
-export default {async fetch(request,env){
+export default {
+async fetch(request,env){
   const url=new URL(request.url);
   if(url.pathname.startsWith('/api/'))return handleApi(request,env);
   let decodedPath=url.pathname;try{decodedPath=decodeURIComponent(url.pathname)}catch{}
@@ -797,4 +805,8 @@ export default {async fetch(request,env){
     return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
   }
   return response;
-}};
+},
+async scheduled(_event,env,ctx){
+  ctx.waitUntil(cleanupExpiredHistory(env));
+}
+};
