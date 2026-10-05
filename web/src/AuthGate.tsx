@@ -1,8 +1,9 @@
 import {useEffect,useRef,useState,type ReactNode} from 'react';
 import {createPortal} from 'react-dom';
 import packageInfo from '../package.json';
+import {applyLanguage,getCurrentLanguage,SUPPORTED_LANGUAGES,type AppLanguage} from './i18n';
 
-export type SessionUser={id:number;email:string;name:string;role:string;credits:number;unlimited:boolean;licenseStartedAt?:string|null;licenseExpiresAt?:string|null;licenseExpired?:boolean};
+export type SessionUser={id:number;email:string;name:string;role:string;credits:number;unlimited:boolean;language:AppLanguage;licenseStartedAt?:string|null;licenseExpiresAt?:string|null;licenseExpired?:boolean};
 type SupportSession={id:number;status:'pending'|'approved';mode?:'settings'|'screen';expiresAt?:string;offer?:RTCSessionDescriptionInit|null;answer?:RTCSessionDescriptionInit|null};
 async function request(path:string,options?:RequestInit){
   const response=await fetch(path,{credentials:'same-origin',...options,headers:{'content-type':'application/json',...(options?.headers||{})}});
@@ -24,6 +25,7 @@ export function UserGate({children}:{children:ReactNode}){
   const resetToken=new URLSearchParams(location.search).get('reset')||'';
   const [open,setOpen]=useState(!!resetToken),[mode,setMode]=useState<'login'|'register'|'reset'>(resetToken?'reset':'login');
   const [email,setEmail]=useState(''),[password,setPassword]=useState(''),[name,setName]=useState('');
+  const [language,setLanguage]=useState<AppLanguage>(getCurrentLanguage());
   const [error,setError]=useState(''),[busy,setBusy]=useState(false);
   const [support,setSupport]=useState<SupportSession|null>(null);
   const lastRemoteSettings=useRef('');
@@ -36,7 +38,7 @@ export function UserGate({children}:{children:ReactNode}){
   const [screenConnection,setScreenConnection]=useState<'idle'|'connecting'|'connected'|'fallback'|'failed'>('idle');
   const [accountHost,setAccountHost]=useState<HTMLElement|null>(null);
 
-  const refresh=()=>fetch('/api/auth/me',{credentials:'same-origin'}).then(r=>r.ok?r.json():{user:null}).then(d=>setUser(d.user??null)).catch(()=>setUser(null));
+  const refresh=()=>fetch('/api/auth/me',{credentials:'same-origin'}).then(r=>r.ok?r.json():{user:null}).then(d=>{const next=d.user??null;setUser(next);if(next?.language){setLanguage(next.language);applyLanguage(next.language)}}).catch(()=>setUser(null));
   const stopFrameFallback=()=>{
     if(fallbackTimer.current!==undefined){clearInterval(fallbackTimer.current);fallbackTimer.current=undefined}
     if(fallbackVideo.current){fallbackVideo.current.pause();fallbackVideo.current.srcObject=null;fallbackVideo.current.remove();fallbackVideo.current=null}
@@ -165,14 +167,14 @@ export function UserGate({children}:{children:ReactNode}){
   }
 
   async function submit(e:React.FormEvent){    e.preventDefault();setBusy(true);setError('');
-    try{if(mode==='reset'){await request('/api/auth/reset-password',{method:'POST',body:JSON.stringify({token:resetToken,password})});history.replaceState({},'',location.pathname);setMode('login');setPassword('');setError('Parolanız yenilendi. Şimdi giriş yapabilirsiniz.');return;}const data=await request(mode==='register'?'/api/auth/register':'/api/auth/login',{method:'POST',body:JSON.stringify({email,password,name})});setUser(data.user);setOpen(false);window.dispatchEvent(new Event('serula-auth-updated'))}
+    try{if(mode==='reset'){await request('/api/auth/reset-password',{method:'POST',body:JSON.stringify({token:resetToken,password})});history.replaceState({},'',location.pathname);setMode('login');setPassword('');setError('Parolanız yenilendi. Şimdi giriş yapabilirsiniz.');return;}const data=await request(mode==='register'?'/api/auth/register':'/api/auth/login',{method:'POST',body:JSON.stringify({email,password,name,language})});setUser(data.user);if(data.user?.language){setLanguage(data.user.language);applyLanguage(data.user.language)}setOpen(false);window.dispatchEvent(new Event('serula-auth-updated'))}
     catch(e){setError(e instanceof Error?e.message:String(e))}finally{setBusy(false)}
   }
   return <>{children}
     {accountHost&&createPortal(user?
       <details className="auth-account-menu">
         <summary aria-label="Hesap menüsü"><span className="auth-avatar">{(user.name||user.email).trim().charAt(0).toUpperCase()}</span><span className="auth-account-name">{user.name||user.email}</span><span className="auth-chevron" aria-hidden="true">▾</span></summary>
-        <div className="auth-account-dropdown"><strong>{user.name||'Kullanıcı'}</strong><small>{user.email}</small><div className="auth-account-meta"><span>{user.unlimited?'Sınırsız kullanım':user.credits+' hak kaldı'}</span><span>{user.licenseExpiresAt?(user.licenseExpired?'Lisans süresi doldu':'Lisans: '+new Date(user.licenseExpiresAt).toLocaleDateString('tr-TR')):'Lisans: süresiz'}</span></div><button className="danger-button" onClick={async()=>{await request('/api/auth/logout',{method:'POST',body:'{}'});setUser(null);window.dispatchEvent(new Event('serula-auth-updated'))}}>Çıkış yap</button></div>
+        <div className="auth-account-dropdown"><strong>{user.name||'Kullanıcı'}</strong><small>{user.email}</small><label className="auth-language">Varsayılan dil<select value={user.language||language} onChange={async e=>{const next=e.target.value as AppLanguage,previous=user.language||language;setLanguage(next);applyLanguage(next);try{const data=await request('/api/auth/language',{method:'POST',body:JSON.stringify({language:next})});setUser(data.user)}catch(err){setLanguage(previous);applyLanguage(previous);setError(err instanceof Error?err.message:String(err))}}}>{SUPPORTED_LANGUAGES.map(item=><option key={item.code} value={item.code}>{item.nativeLabel}</option>)}</select></label><div className="auth-account-meta"><span>{user.unlimited?'Sınırsız kullanım':user.credits+' hak kaldı'}</span><span>{user.licenseExpiresAt?(user.licenseExpired?'Lisans süresi doldu':'Lisans: '+new Date(user.licenseExpiresAt).toLocaleDateString('tr-TR')):'Lisans: süresiz'}</span></div><button className="danger-button" onClick={async()=>{await request('/api/auth/logout',{method:'POST',body:'{}'});setUser(null);window.dispatchEvent(new Event('serula-auth-updated'))}}>Çıkış yap</button></div>
       </details>
       :<button className="auth-login-header" onClick={()=>setOpen(true)}><span className="auth-avatar" aria-hidden="true">↪</span>Giriş yap</button>,accountHost)}
     {support?.status==='approved'&&<div className={'auth-support-active '+(support.mode==='screen'?'screen-'+screenConnection:'')}><span>{support.mode==='screen'?(screenConnection==='connected'?'Ekran paylaşımı canlı':screenConnection==='fallback'?'Ekran paylaşımı canlı · yedek bağlantı':screenConnection==='failed'?'Ekran bağlantısı kurulamadı':'Ekran bağlantısı kuruluyor…'):'Uzaktan destek aktif'}</span><button className="danger-button" onClick={()=>void endSupportFromUser()}>Bitir</button></div>}
@@ -180,8 +182,8 @@ export function UserGate({children}:{children:ReactNode}){
     {open&&!user&&<div className="auth-screen auth-overlay" onMouseDown={e=>{if(e.currentTarget===e.target)setOpen(false)}}><div className="auth-card">
       <img src="/serula-logo.svg" alt=""/><h1>Serula Nesting</h1><p>DXF indirmek için giriş yapın. Dosya içe aktarma ve yerleştirme giriş yapmadan kullanılabilir.</p>
       {mode!=='reset'&&<div className="auth-tabs"><button className={mode==='login'?'active':''} onClick={()=>setMode('login')}>Giriş yap</button><button className={mode==='register'?'active':''} onClick={()=>setMode('register')}>Kayıt ol</button></div>}{mode==='reset'&&<h2>Yeni parola belirle</h2>}
-      <form onSubmit={submit}>{mode==='register'&&<label>Adınız<input required value={name} onChange={e=>setName(e.target.value)}/></label>}{mode!=='reset'&&<label>E-posta<input type="email" required value={email} onChange={e=>setEmail(e.target.value)}/></label>}<label>{mode==='reset'?'Yeni parola':'Parola'}<input type="password" minLength={8} required value={password} onChange={e=>setPassword(e.target.value)}/></label><button disabled={busy}>{busy?'Bekleyin…':mode==='reset'?'Parolayı değiştir':mode==='register'?'Hesap oluştur':'Giriş yap'}</button></form>
-      {error&&<p className="auth-error">{error}</p>}<div className="auth-or"><span/>veya<span/></div><div className="auth-google"><button type="button" onClick={()=>{location.href="/google-login.html"}}>Google ile devam et</button></div><small>Yeni normal kullanıcılar 5 indirme/nesting hakkıyla başlar.</small>
+      <form onSubmit={submit}>{mode==='register'&&<label>Adınız<input required value={name} onChange={e=>setName(e.target.value)}/></label>}{mode==='register'&&<label>Varsayılan dil<select required value={language} onChange={e=>{const next=e.target.value as AppLanguage;setLanguage(next);applyLanguage(next)}}>{SUPPORTED_LANGUAGES.map(item=><option key={item.code} value={item.code}>{item.nativeLabel}</option>)}</select></label>}{mode!=='reset'&&<label>E-posta<input type="email" required value={email} onChange={e=>setEmail(e.target.value)}/></label>}<label>{mode==='reset'?'Yeni parola':'Parola'}<input type="password" minLength={8} required value={password} onChange={e=>setPassword(e.target.value)}/></label><button disabled={busy}>{busy?'Bekleyin…':mode==='reset'?'Parolayı değiştir':mode==='register'?'Hesap oluştur':'Giriş yap'}</button></form>
+      {error&&<p className="auth-error">{error}</p>}<div className="auth-or"><span/>veya<span/></div><div className="auth-google"><button type="button" onClick={()=>{location.href="/google-login.html?language="+encodeURIComponent(language)}}>Google ile devam et</button></div><small>Yeni normal kullanıcılar 5 indirme/nesting hakkıyla başlar.</small>
       <button onClick={()=>setOpen(false)}>Şimdilik kapat</button>
     </div></div>}
   </>;
