@@ -189,17 +189,27 @@ E('These contours cannot be imported:','Bu konturlar içe aktarılamaz:','لا �
 E('Exclude the listed invalid contours','Listelenen geçersiz konturları hariç tut','استبعاد المسارات غير الصالحة المدرجة','کانتورهای نامعتبر فهرست‌شده را حذف کن'),
 E('Open as new project','Yeni proje olarak aç','فتح كمشروع جديد','باز کردن به عنوان پروژه جدید'),
 E('Click each vertex in the canvas. Enter closes the polygon; Escape cancels. The contour is checked before it is added.','Tuvalde her köşeye tıklayın. Enter çokgeni kapatır; Escape iptal eder. Kontur eklenmeden önce kontrol edilir.','انقر كل رأس على اللوحة. Enter يغلق المضلع وEscape يلغي. يتم فحص المسار قبل إضافته.','روی هر رأس در بوم کلیک کنید. Enter چندضلعی را می‌بندد و Escape لغو می‌کند. کانتور پیش از افزودن بررسی می‌شود.'),
-E('Start drawing','Çizime başla','ابدأ الرسم','شروع رسم')
+E('Start drawing','Çizime başla','ابدأ الرسم','شروع رسم'),
+E('Initializing','Başlatılıyor','جارٍ البدء','در حال شروع'),
+E('Running','Çalışıyor','قيد التشغيل','در حال اجرا'),
+E('Complete','Tamamlandı','اكتمل','کامل شد'),
+E('Stopped','Durduruldu','تم الإيقاف','متوقف شد'),
+E('Exploration','Keşif','استكشاف','کاوش'),
+E('Compression','Sıkıştırma','ضغط','فشرده‌سازی'),
+E('Switching…','Geçiliyor…','جارٍ التبديل…','در حال تغییر…'),
+E('Live preview unavailable:','Canlı önizleme kullanılamıyor:','المعاينة المباشرة غير متاحة:','پیش‌نمایش زنده در دسترس نیست:'),
+E('No kopya selected. Add a copy using its quantity to move or resize this part.','Kopya seçilmedi. Bu parçayı taşımak veya boyutlandırmak için adet alanından bir kopya ekleyin.','لم يتم تحديد نسخة. أضف نسخة من حقل الكمية لتحريك هذا الجزء أو تغيير حجمه.','هیچ کپی انتخاب نشده است. برای جابه‌جایی یا تغییر اندازه این قطعه از تعداد، یک کپی اضافه کنید.'),
+E('Açık/koyu görünümü değiştir','Toggle light/dark mode','تبديل المظهر الفاتح/الداكن','تغییر حالت روشن/تیره')
 ];
 
 const reverse=new Map<string,Entry>();
 for(const entry of catalog)for(const value of Object.values(entry))reverse.set(value,entry);
 
 function dynamic(text:string,locale:Locale){
-  let m=text.match(/^Up to (\d+) seconds$/);
-  if(m){const n=m[1];return locale==='tr'?'En fazla '+n+' saniye':locale==='en'?text:locale==='ar'?'حتى '+n+' ثانية':'حداکثر '+n+' ثانیه';}
-  m=text.match(/^Up to (\d+) minutes?$/);
-  if(m){const n=m[1];return locale==='tr'?'En fazla '+n+' dakika':locale==='en'?text:locale==='ar'?'حتى '+n+' دقيقة':'حداکثر '+n+' دقیقه';}
+  let m=text.match(/^(?:Up to|En fazla) (\d+) (?:seconds|saniye)$/);
+  if(m){const n=m[1];return locale==='tr'?'En fazla '+n+' saniye':locale==='en'?'Up to '+n+' seconds':locale==='ar'?'حتى '+n+' ثانية':'حداکثر '+n+' ثانیه';}
+  m=text.match(/^(?:Up to|En fazla) (\d+) (?:minutes?|dakika)$/);
+  if(m){const n=m[1];return locale==='tr'?'En fazla '+n+' dakika':locale==='en'?'Up to '+n+' minute'+(n==='1'?'':'s'):locale==='ar'?'حتى '+n+' دقيقة':'حداکثر '+n+' دقیقه';}
   return text;
 }
 export function translate(locale:Locale,text:string){
