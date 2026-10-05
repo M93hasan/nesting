@@ -1,4 +1,5 @@
 import {useEffect,useState} from 'react';
+import {localeTag,useI18n} from '../i18n';
 import Modal from './Modal';
 
 type ExportItem={
@@ -21,10 +22,10 @@ function formatBytes(bytes:number){
   if(bytes<1024*1024)return `${(bytes/1024).toFixed(1)} KB`;
   return `${(bytes/1024/1024).toFixed(1)} MB`;
 }
-function formatDate(value:string){
+function formatDate(value:string,locale:string){
   const normalized=/Z$|[+-]\d\d:\d\d$/.test(value)?value:value.replace(' ','T')+'Z';
   const date=new Date(normalized);
-  return Number.isNaN(date.getTime())?value:date.toLocaleString('tr-TR',{dateStyle:'short',timeStyle:'short'});
+  return Number.isNaN(date.getTime())?value:date.toLocaleString(locale,{dateStyle:'short',timeStyle:'short'});
 }
 async function responseError(response:Response,fallback:string){
   const data=await response.json().catch(()=>({}));
@@ -36,6 +37,7 @@ function saveBlob(name:string,blob:Blob){
 }
 
 export default function ExportHistory({onClose,onOpen}:{onClose:()=>void;onOpen:(name:string,projectText:string)=>Promise<void>}){
+  const {locale}=useI18n();const dateLocale=localeTag(locale);
   const [items,setItems]=useState<ExportItem[]>([]);
   const [cloud,setCloud]=useState<CloudItem|null>(null);
   const [busy,setBusy]=useState<string>('');
@@ -116,11 +118,11 @@ export default function ExportHistory({onClose,onOpen}:{onClose:()=>void;onOpen:
       {error&&<p role="alert" className="field-error">{error}</p>}
       {loading?<p className="muted">Geçmiş yükleniyor…</p>:<>
         {cloud&&<article className="export-history-item export-history-latest">
-          <div className="export-history-file"><strong>{cloud.label}</strong><span>{cloud.projectName||'Serula projesi'} · otomatik bulut kaydı</span><small>{formatDate(cloud.updatedAt)} · {formatBytes(cloud.byteSize)}</small></div>
+          <div className="export-history-file"><strong>{cloud.label}</strong><span>{cloud.projectName||'Serula projesi'} · otomatik bulut kaydı</span><small>{formatDate(cloud.updatedAt,dateLocale)} · {formatBytes(cloud.byteSize)}</small></div>
           <div className="export-history-actions"><button disabled={!!busy} onClick={()=>void openCloud()}>{busy==='cloud'?'Bekleyin…':'Aç'}</button><button disabled={!!busy} onClick={()=>void downloadCloud()}>Proje indir</button></div>
         </article>}
         {!cloud&&!items.length?<div className="export-history-empty"><strong>Henüz kayıt yok</strong><span>Giriş yaptıktan sonra proje değişiklikleri otomatik olarak burada saklanır.</span></div>:<div className="export-history-list">{items.map(item=><article className="export-history-item" key={item.id}>
-          <div className="export-history-file"><strong>{item.fileName}</strong><span>{item.projectName||item.sourceFileName||'Serula projesi'} · DXF dışa aktarma</span><small>{formatDate(item.createdAt)} · {formatBytes(item.byteSize)}</small></div>
+          <div className="export-history-file"><strong>{item.fileName}</strong><span>{item.projectName||item.sourceFileName||'Serula projesi'} · DXF dışa aktarma</span><small>{formatDate(item.createdAt,dateLocale)} · {formatBytes(item.byteSize)}</small></div>
           <div className="export-history-actions"><button disabled={!!busy} onClick={()=>void openItem(item)}>{busy==='export-'+item.id?'Bekleyin…':'Aç'}</button><button disabled={!!busy} onClick={()=>void downloadItem(item)}>DXF indir</button><button className="danger-button" disabled={!!busy} onClick={()=>void deleteItem(item)}>Sil</button></div>
         </article>)}</div>}
       </>}
