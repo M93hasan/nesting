@@ -256,6 +256,35 @@ function join(chains:Chain[],issues:string[]):{contours:Contour[];openMarks:Open
   }
   return {contours,openMarks,gaps,adjustment};
 }
+function repairTinySplineSelfIntersections(value:Ring):Ring|undefined {
+  const point=(a:Point,b:Point,c:Point,d:Point):Point|undefined=>{
+    const rx=b[0]-a[0],ry=b[1]-a[1],sx=d[0]-c[0],sy=d[1]-c[1],den=rx*sy-ry*sx;
+    const scale=Math.max(Math.abs(rx),Math.abs(ry),Math.abs(sx),Math.abs(sy),1);
+    if(Math.abs(den)<=1e-12*scale*scale)return;
+    const qx=c[0]-a[0],qy=c[1]-a[1],t=(qx*sy-qy*sx)/den,u=(qx*ry-qy*rx)/den,eps=1e-10;
+    if(t<=eps||t>=1-eps||u<=eps||u>=1-eps)return;
+    return [a[0]+t*rx,a[1]+t*ry];
+  };
+  let ring=value.filter((p,i)=>i===0||p[0]!==value[i-1][0]||p[1]!==value[i-1][1]).map(p=>[p[0],p[1]] as Point);
+  if(ring.length>1&&ring[0][0]===ring[ring.length-1][0]&&ring[0][1]===ring[ring.length-1][1])ring.pop();
+  for(let pass=0;pass<16;pass++){
+    let hit:{i:number;j:number;p:Point}|undefined;
+    for(let i=0;i<ring.length&&!hit;i++)for(let j=i+2;j<ring.length;j++){
+      if(i===0&&j===ring.length-1)continue;
+      const p=point(ring[i],ring[(i+1)%ring.length],ring[j],ring[(j+1)%ring.length]);
+      if(p){hit={i,j,p};break;}
+    }
+    if(!hit)return ring;
+    const a=[hit.p,...ring.slice(hit.i+1,hit.j+1)] as Ring;
+    const b=[hit.p,...ring.slice(hit.j+1),...ring.slice(0,hit.i+1)] as Ring;
+    const aa=Math.abs(area(a)),bb=Math.abs(area(b)),small=Math.min(aa,bb),large=Math.max(aa,bb);
+    // Only remove CAD seam loops that are both absolutely tiny and negligible
+    // compared with the real pattern. Anything substantial remains an error.
+    if(!(small<=1&&small<=large*1e-4))return;
+    ring=aa>=bb?a:b;
+  }
+}
+
 export function importDXF(text:string,fileName:string,options:DXFOptions):ImportReview {
   if(!Number.isFinite(options.tolerance)||options.tolerance<=0)throw Error('DXF eğri toleransı pozitif bir sayı olmalıdır.');
   const source=scan(text),{records,units}=source,parsed=parseString(source.text) as DxfFile;
@@ -363,8 +392,18 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
   layers.sort();
   const joined=join(chains,issues);contours.push(...joined.contours);
   if(joined.gaps)warnings.push(`Joined ${joined.gaps} gaps within 0.01 mm; largest endpoint adjustment ${joined.adjustment} mm. Confirm this preview before importing.`);
-  const valid:Contour[]=[];
-  for(const c of contours)try{valid.push({...c,ring:normalizeRing(c.ring)});}catch(e){issues.push(`${c.entityId}: ${String(e)}`);}
+  const valid:Contour[]=[];let repairedPeriodicSplines=0;
+  for(const c of contours){
+    try{valid.push({...c,ring:normalizeRing(c.ring)});continue;}catch(error){
+      const sourceSpline=sourceSplines.get(c.entityId);
+      if(sourceSpline&&(sourceSpline.flags&1)!==0&&(sourceSpline.flags&2)!==0){
+        const repaired=repairTinySplineSelfIntersections(c.ring);
+        if(repaired)try{valid.push({...c,ring:normalizeRing(repaired)});repairedPeriodicSplines++;continue;}catch{}
+      }
+      issues.push(`${c.entityId}: ${String(error)}`);
+    }
+  }
+  if(repairedPeriodicSplines)warnings.push(`${repairedPeriodicSplines} kapalı periodic SPLINE içindeki mikroskobik CAD döngüsü nesting konturunda temizlendi; orijinal SPLINE dışa aktarma için korundu.`);
   // Footwear CAD often stores one physical pattern as several colored contours
   // drawn on top of, inside, or partly across each other. Build connected contour
   // groups and nest each group as ONE rigid part. Only the largest contour drives
