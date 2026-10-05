@@ -32,3 +32,8 @@
 }
 
 .auth-card input:not([type=checkbox]):not([type=radio]){background:light-dark(#f1efff,#29253d);border:none;border-radius:1rem;color:light-dark(#5a4be7,#c7c0ff);box-shadow:0 .3rem light-dark(#dcd5f5,#191625);padding:.85rem .95rem}.auth-card input:focus{outline:2px solid #8a7bff;outline-offset:2px}
+
+.auth-card select,.auth-language select{width:100%;padding:11px 12px;border:1px solid var(--border,#ccd3dd);border-radius:10px;background:var(--panel,#fff);color:inherit}
+.auth-language{display:grid;gap:5px;padding-top:6px;font-size:12px;color:var(--muted,#657080)}
+html[dir="rtl"] .auth-account-dropdown{right:auto;left:0}
+@media(max-width:760px){html[dir="rtl"] .auth-account-dropdown{left:12px;right:auto}}
