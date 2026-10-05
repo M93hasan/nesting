@@ -281,6 +281,9 @@ Başlıca özellikler:
 - Google ile giriş
 - Oturum yönetimi
 - Kullanıcı kotası / nesting hakkı
+- Admin panelinden kullanıcıya özel lisans süresi (7/30/90/180/365 gün veya özel gün)
+- Lisans başlangıç/bitiş tarihi ve süresi dolan hesaplarda üretim/export yetkisi kontrolü
+- Lisans süresini kaldırıp kullanıcıyı süresiz yapabilme
 - Sınırsız kullanıcı
 - Kullanıcıya özel varsayılanlar
 - Sistem varsayılanları
