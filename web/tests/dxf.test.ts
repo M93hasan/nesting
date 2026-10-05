@@ -29,6 +29,23 @@ it('honors units, layer selection, and nested holes',()=>{
   const unitless=importDXF(dxf(outer,0),'unitless.dxf',{...options,scale:25.4});
   expect(unitless.warnings.join(' ')).toContain('1 çizim birimi = 1 mm');expect(bounds(unitless.document.parts[0].outer)[2]).toBeCloseTo(4);
 });
+it('keeps contours nested inside holes as attached DXF details instead of overlapping holes',()=>{
+  const outer=poly([[0,0],[40,0],[40,40],[0,40]],'OUTER');
+  const hole=poly([[5,5],[35,5],[35,35],[5,35]],'HOLE');
+  const inner=poly([[12,12],[20,12],[20,20],[12,20]],'INNER');
+  const review=importDXF(dxf(outer+hole+inner),'nested-hole-detail.dxf',options);
+  expect(review.issues).toEqual([]);
+  expect(review.document.parts).toHaveLength(1);
+  const part=review.document.parts[0];
+  expect(part.holes).toHaveLength(1);
+  expect(part.source.dxfDetails).toHaveLength(1);
+  expect(part.source.dxfEntities).toHaveLength(3);
+  const placements=review.document.placements??[];
+  const exported=exportDXF(review.document,worldParts(review.document,{placements}),placements,true);
+  const parsed=parseString(exported) as {entities:{type:string}[]};
+  expect(parsed.entities).toHaveLength(3);
+});
+
 it('joins only unambiguous endpoints and reports adjustments and blocked contours',()=>{
   const edges=line(0,0,10,0)+line(10.006,0,10,10)+line(10,10,0,10)+line(0,10,0,0);
   const joined=importDXF(dxf(edges),'gap.dxf',options);

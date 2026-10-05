@@ -400,8 +400,18 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
     const ranked=[...group].sort((a,b)=>Math.abs(area(b.ring))-Math.abs(area(a.ring)));
     const outer=ranked[0],holes:Contour[]=[],details:Contour[]=[];
     for(const contour of ranked.slice(1)){
-      const strictlyInside=inside(contour.ring[0],outer.ring)&&!ringCrosses(contour.ring,outer.ring);
-      if(strictlyInside)holes.push(contour);else details.push(contour);
+      // Only contours whose immediate enclosing contour is the main outer are
+      // true Part holes. A contour nested inside one of those holes is a DXF
+      // production/detail contour, not a second overlapping hole. Keeping
+      // deeper contours attached avoids normalizePart rejecting valid
+      // outer -> hole -> inner-detail hierarchies while preserving every DXF
+      // entity for rigid placement/export.
+      const containers=ranked.filter(candidate=>candidate!==contour
+        &&Math.abs(area(candidate.ring))>Math.abs(area(contour.ring))
+        &&inside(contour.ring[0],candidate.ring)
+        &&!ringCrosses(contour.ring,candidate.ring))
+        .sort((a,b)=>Math.abs(area(a.ring))-Math.abs(area(b.ring)));
+      if(containers[0]===outer)holes.push(contour);else details.push(contour);
     }
     const dxfDetails:DxfDetailContour[]=details.map(detail=>({ring:detail.ring,layer:detail.layer,...(detail.dxfColorNumber!==undefined?{colorNumber:detail.dxfColorNumber}:{})}));
     const sourceBounds=bounds(outer.ring);
