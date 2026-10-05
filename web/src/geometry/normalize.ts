@@ -90,7 +90,9 @@ export function normalizeDocument(doc: Document, allowEmpty=false): Document {
         || !Number.isInteger(placement.copyIndex) || placement.copyIndex < 0
         || !Number.isFinite(placement.xMm) || !Number.isFinite(placement.yMm)
         || Math.abs(placement.xMm) > LIMITS.extent || Math.abs(placement.yMm) > LIMITS.extent
-        || !Number.isFinite(placement.angleDeg)) throw Error('Invalid copy placement.');
+        || !Number.isFinite(placement.angleDeg)
+        || (placement.mirrorX !== undefined && typeof placement.mirrorX !== 'boolean')
+        || (placement.mirrorY !== undefined && typeof placement.mirrorY !== 'boolean')) throw Error('Invalid copy placement.');
       const part = parts.find(p=>p.id===placement.partId)!;
       if (placement.copyIndex >= part.quantity) throw Error('Copy placement exceeds its quantity.');
       const key = `${placement.partId}:${placement.copyIndex}`;
