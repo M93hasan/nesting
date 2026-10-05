@@ -3,6 +3,8 @@ const GOOGLE_CLIENT_ID='249559754500-36grgmm2jucf2159d41efqdcqut02lj6.apps.googl
 const SESSION_DAYS=30;
 const ADMIN_LOGIN_EMAIL='m93hasan@icloud.com';
 const APP_VERSION=String(packageInfo.version);
+const SUPPORTED_LANGUAGES=new Set(['tr','en','ar','fa']);
+const cleanLanguage=value=>SUPPORTED_LANGUAGES.has(String(value||'').toLowerCase())?String(value).toLowerCase():'tr';
 
 const json=(data,status=200,headers={})=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store',...headers}});
 const b64=bytes=>btoa(String.fromCharCode(...bytes));
@@ -48,6 +50,10 @@ async function cleanupExpiredHistory(env){
   ]);
 }
 async function ensureSchema(env){
+  const userColumns=await env.DB.prepare('PRAGMA table_info(users)').all();
+  if(userColumns.results?.length&&!userColumns.results.some(column=>column.name==='preferred_language')){
+    await env.DB.prepare("ALTER TABLE users ADD COLUMN preferred_language TEXT NOT NULL DEFAULT 'tr'").run();
+  }
   await env.DB.batch([
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS sessions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -173,7 +179,7 @@ async function ensureSchema(env){
 }
 async function sessionUser(request,env){
   const raw=cookieToken(request);if(!raw)return null;
-  const row=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,
+  const row=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,u.preferred_language,
       l.started_at license_started_at,l.expires_at license_expires_at
     FROM sessions s JOIN users u ON u.id=s.user_id
     LEFT JOIN user_licenses l ON l.user_id=u.id
@@ -191,7 +197,7 @@ function licenseExpired(u){
 }
 function publicUser(u){
   const licenseStartedAt=u?.license_started_at||null,licenseExpiresAt=u?.license_expires_at||null;
-  return {id:u.id,email:u.email,name:u.name||'',role:u.role,credits:Number(u.nesting_credits||0),unlimited:!!u.unlimited,
+  return {id:u.id,email:u.email,name:u.name||'',role:u.role,credits:Number(u.nesting_credits||0),unlimited:!!u.unlimited,language:cleanLanguage(u.preferred_language),
     licenseStartedAt,licenseExpiresAt,licenseExpired:licenseExpired(u)};
 }
 async function touchPresence(env,userId){
@@ -273,17 +279,18 @@ async function systemDefaults(env){
   }catch{return DEFAULT_ADMIN_SETTINGS}
 }
 
-async function googleUserFromCredential(credential,env){
+async function googleUserFromCredential(credential,env,preferredLanguage='tr'){
+  const language=cleanLanguage(preferredLanguage);
   const verify=credential&&await fetch('https://oauth2.googleapis.com/tokeninfo?id_token='+encodeURIComponent(credential));
   if(!verify||!verify.ok)return {error:'Google doğrulaması başarısız.',status:401};
   const claims=await verify.json(),email=String(claims.email||'').toLowerCase();
   if(claims.aud!==GOOGLE_CLIENT_ID||!['accounts.google.com','https://accounts.google.com'].includes(String(claims.iss||''))||claims.email_verified!=='true'||!validEmail(email))return {error:'Google hesabı doğrulanamadı.',status:401};
-  let user=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,l.started_at license_started_at,l.expires_at license_expires_at
+  let user=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,u.preferred_language,l.started_at license_started_at,l.expires_at license_expires_at
     FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.email=?`).bind(email).first();
   if(!user){
-    const result=await env.DB.prepare(`INSERT INTO users(email,name,google_id,role,nesting_credits,unlimited,last_login_at)
-      VALUES(?,?,?,'user',5,0,CURRENT_TIMESTAMP)`).bind(email,String(claims.name||'').slice(0,120),String(claims.sub||'')).run();
-    user=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,l.started_at license_started_at,l.expires_at license_expires_at
+    const result=await env.DB.prepare(`INSERT INTO users(email,name,google_id,preferred_language,role,nesting_credits,unlimited,last_login_at)
+      VALUES(?,?,?,?,'user',5,0,CURRENT_TIMESTAMP)`).bind(email,String(claims.name||'').slice(0,120),String(claims.sub||''),language).run();
+    user=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,u.preferred_language,l.started_at license_started_at,l.expires_at license_expires_at
       FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.id=?`).bind(result.meta.last_row_id).first();
   }else{
     await env.DB.prepare('UPDATE users SET google_id=COALESCE(google_id,?),last_login_at=CURRENT_TIMESTAMP WHERE id=?').bind(String(claims.sub||''),user.id).run();
@@ -313,14 +320,22 @@ async function handleApi(request,env){
     return json({user:publicUser(user)});
   }
   if(path==='/api/auth/register'&&request.method==='POST'){
-    const data=await body(request),email=String(data.email||'').trim().toLowerCase(),name=String(data.name||'').trim().slice(0,120),password=String(data.password||'');
+    const data=await body(request),email=String(data.email||'').trim().toLowerCase(),name=String(data.name||'').trim().slice(0,120),password=String(data.password||''),language=cleanLanguage(data.language);
     if(!validEmail(email)||!passwordOk(password))return json({error:'Geçerli e-posta ve en az 8 karakter parola gerekli.'},400);
     if(await env.DB.prepare('SELECT id FROM users WHERE email=?').bind(email).first())return json({error:'Bu e-posta zaten kayıtlı.'},409);
-    const result=await env.DB.prepare(`INSERT INTO users(email,name,password_hash,role,nesting_credits,unlimited,last_login_at)
-      VALUES(?,?,?,'user',5,0,CURRENT_TIMESTAMP)`).bind(email,name,await hashPassword(password)).run();
-    const user=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,l.started_at license_started_at,l.expires_at license_expires_at
+    const result=await env.DB.prepare(`INSERT INTO users(email,name,password_hash,preferred_language,role,nesting_credits,unlimited,last_login_at)
+      VALUES(?,?,?,?,'user',5,0,CURRENT_TIMESTAMP)`).bind(email,name,await hashPassword(password),language).run();
+    const user=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,u.preferred_language,l.started_at license_started_at,l.expires_at license_expires_at
       FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.id=?`).bind(result.meta.last_row_id).first();
     return json({user:publicUser(user)},201,{'set-cookie':cookie(await makeSession(user.id,env))});
+  }
+  if(path==='/api/auth/language'&&request.method==='POST'){
+    const user=await sessionUser(request,env);if(!user)return json({error:'Giriş gerekli.'},401);
+    const data=await body(request),language=String(data.language||'').toLowerCase();
+    if(!SUPPORTED_LANGUAGES.has(language))return json({error:'Desteklenmeyen dil.'},400);
+    await env.DB.prepare('UPDATE users SET preferred_language=? WHERE id=?').bind(language,user.id).run();
+    const fresh=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,u.preferred_language,l.started_at license_started_at,l.expires_at license_expires_at FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.id=?`).bind(user.id).first();
+    return json({user:publicUser(fresh)});
   }
   if(path==='/api/auth/admin-me'&&request.method==='GET'){
     return await adminSessionValid(request,env)?json({user:{id:0,email:'',name:'Admin',role:'admin',credits:0,unlimited:true}}):json({user:null},401);
@@ -337,7 +352,7 @@ async function handleApi(request,env){
   }
     if(path==='/api/auth/login'&&request.method==='POST'){
     const data=await body(request),email=String(data.email||'').trim().toLowerCase(),password=String(data.password||'');
-    const user=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,u.password_hash,
+    const user=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,u.preferred_language,u.password_hash,
       l.started_at license_started_at,l.expires_at license_expires_at
       FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.email=?`).bind(email).first();
     if(!user||!await verifyPassword(password,user.password_hash)){await audit(env,'login_failed',{actorType:'user',detail:email,success:false});return json({error:'E-posta veya parola hatalı.'},401);}
@@ -346,7 +361,7 @@ async function handleApi(request,env){
     return json({user:publicUser(user)},200,{'set-cookie':cookie(await makeSession(user.id,env))});
   }
   if(path==='/api/auth/google'&&request.method==='POST'){
-    const data=await body(request),credential=String(data.credential||''),result=await googleUserFromCredential(credential,env);
+    const data=await body(request),credential=String(data.credential||''),result=await googleUserFromCredential(credential,env,data.language);
     if(result.error)return json({error:result.error},result.status);
     return json({user:publicUser(result.user)},200,{'set-cookie':cookie(await makeSession(result.user.id,env))});
   }
@@ -393,7 +408,7 @@ async function handleApi(request,env){
     const data=await body(request);
     await env.DB.prepare('INSERT INTO nesting_history(user_id,project_name,source_file_name,used_credit) VALUES(?,?,?,?)')
       .bind(user.id,String(data.projectName||'').slice(0,200),String(data.sourceFileName||'').slice(0,255),user.unlimited?0:1).run();
-    const fresh=await env.DB.prepare('SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,l.started_at license_started_at,l.expires_at license_expires_at FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.id=?').bind(user.id).first();
+    const fresh=await env.DB.prepare('SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,u.preferred_language,l.started_at license_started_at,l.expires_at license_expires_at FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.id=?').bind(user.id).first();
     await audit(env,'nesting_start',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:String(data.projectName||'')});
     return json({ok:true,user:publicUser(fresh)});
   }
@@ -505,7 +520,7 @@ async function handleApi(request,env){
   }
   if(path==='/api/admin/users'&&request.method==='GET'){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
-    const rows=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,u.google_id,u.created_at,u.last_login_at,
+    const rows=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,u.preferred_language,u.google_id,u.created_at,u.last_login_at,
       COALESCE(f.test_dxf_enabled,0) test_dxf_enabled,p.last_seen,l.started_at license_started_at,l.expires_at license_expires_at,
       CASE WHEN ${onlineSql} THEN 1 ELSE 0 END online
       FROM users u
