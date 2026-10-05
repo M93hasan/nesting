@@ -167,7 +167,7 @@ export function UserGate({children}:{children:ReactNode}){
   }
 
   async function submit(e:React.FormEvent){    e.preventDefault();setBusy(true);setError('');
-    try{if(mode==='reset'){await request('/api/auth/reset-password',{method:'POST',body:JSON.stringify({token:resetToken,password})});history.replaceState({},'',location.pathname);setMode('login');setPassword('');setError('Parolanız yenilendi. Şimdi giriş yapabilirsiniz.');return;}const data=await request(mode==='register'?'/api/auth/register':'/api/auth/login',{method:'POST',body:JSON.stringify({email,password,name})});setUser(data.user);setOpen(false);window.dispatchEvent(new Event('serula-auth-updated'))}
+    try{if(mode==='reset'){await request('/api/auth/reset-password',{method:'POST',body:JSON.stringify({token:resetToken,password})});history.replaceState({},'',location.pathname);setMode('login');setPassword('');setError('Parolanız yenilendi. Şimdi giriş yapabilirsiniz.');return;}const data=await request(mode==='register'?'/api/auth/register':'/api/auth/login',{method:'POST',body:JSON.stringify({email,password,name,locale})});setUser(data.user);setOpen(false);window.dispatchEvent(new Event('serula-auth-updated'))}
     catch(e){setError(e instanceof Error?e.message:String(e))}finally{setBusy(false)}
   }
   return <>{children}
@@ -183,7 +183,7 @@ export function UserGate({children}:{children:ReactNode}){
       <img src="/serula-logo.svg" alt=""/><h1>Serula Nesting</h1><LanguageSelect/><p>DXF indirmek için giriş yapın. Dosya içe aktarma ve yerleştirme giriş yapmadan kullanılabilir.</p>
       {mode!=='reset'&&<div className="auth-tabs"><button className={mode==='login'?'active':''} onClick={()=>setMode('login')}>Giriş yap</button><button className={mode==='register'?'active':''} onClick={()=>setMode('register')}>Kayıt ol</button></div>}{mode==='reset'&&<h2>Yeni parola belirle</h2>}
       <form onSubmit={submit}>{mode==='register'&&<label>Adınız<input required value={name} onChange={e=>setName(e.target.value)}/></label>}{mode!=='reset'&&<label>E-posta<input type="email" required value={email} onChange={e=>setEmail(e.target.value)}/></label>}<label>{mode==='reset'?'Yeni parola':'Parola'}<input type="password" minLength={8} required value={password} onChange={e=>setPassword(e.target.value)}/></label><button disabled={busy}>{busy?'Bekleyin…':mode==='reset'?'Parolayı değiştir':mode==='register'?'Hesap oluştur':'Giriş yap'}</button></form>
-      {error&&<p className="auth-error">{error}</p>}<div className="auth-or"><span/>veya<span/></div><div className="auth-google"><button type="button" onClick={()=>{location.href="/google-login.html"}}>Google ile devam et</button></div><small>Yeni normal kullanıcılar 5 indirme/yerleştirme hakkıyla başlar.</small>
+      {error&&<p className="auth-error">{error}</p>}<div className="auth-or"><span/>veya<span/></div><div className="auth-google"><button type="button" onClick={()=>{location.href="/google-login.html?locale="+encodeURIComponent(locale)}}>Google ile devam et</button></div><small>Yeni normal kullanıcılar 5 indirme/yerleştirme hakkıyla başlar.</small>
       <button onClick={()=>setOpen(false)}>Şimdilik kapat</button>
     </div></div>}
   </>;
