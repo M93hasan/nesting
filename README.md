@@ -66,7 +66,13 @@ Desteklenen ek davranışlar:
 - Açık/geçersiz kontur raporlama
 - Kaynak SPLINE bilgisinin uygun durumlarda korunması
 
-SVG ve Serula/Sparrow proje verileri de içe aktarılabilir.
+SVG, PLT/HP-GL ve Serula/Sparrow proje verileri de içe aktarılabilir.
+
+### PLT / HP-GL içe aktarma
+
+Serula `.plt`, `.hpgl`, `.hpg` ve `.hgl` çizimlerini açabilir. Standart HP-GL plotter ölçüsü korunur: **1 plotter birimi = 0,025 mm (40 birim = 1 mm)**. `PU`, `PD`, `PA`, `PR`, `AA`, `AR` ve `CI` komutları işlenir; kapalı kesim konturları parça, içte kalan kapalı konturlar delik olarak içe alınır.
+
+Fiziksel ölçüyü güvenli belirlemek için `SC` kullanıcı ölçeklemesi kullanılan dosyalarda açık bir `IP` giriş penceresi bulunması gerekir.
 
 ### Nesting
 
@@ -210,7 +216,7 @@ Serula çalışma alanı CAD benzeri sade bir üretim arayüzü sunar.
 
 Başlıca işlevler:
 
-- DXF seçme ve içe aktarma
+- DXF, SVG ve PLT/HP-GL seçme ve içe aktarma
 - Parça adedi değiştirme
 - Parça seçme, taşıma, silme ve çoğaltma
 - Rotasyon kuralı seçme
