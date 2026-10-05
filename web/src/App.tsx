@@ -20,7 +20,7 @@ import {authorizeExport} from './AuthGate';
 import {displayLength,unitScale,type DisplayUnit} from './units';
 import {selectionBounds,type GeometryEdit} from './geometry/manipulate';
 import {isEditableTarget,preparationShortcut} from './geometry/gestures';
-import {applySeriesMultiplier,copyRefsFor,documentPlacements,duplicateCopies,maxSeriesMultiplier,removeCopies,rotateToNextOrientation,movePlacements,placementLayoutsEqual,syncQuantity,updatePlacements,withDocumentPlacements,type CopyRef} from './geometry/placements';
+import {applySeriesMultiplier,copyRefsFor,documentPlacements,duplicateCopies,maxSeriesMultiplier,mirrorPlacements,removeCopies,rotatePlacements,rotateToNextOrientation,setPlacementAngles,movePlacements,placementLayoutsEqual,syncQuantity,updatePlacements,withDocumentPlacements,type CopyRef} from './geometry/placements';
 import {LanguageSelect} from './i18n';
 
 const emptyProject=(name='Adsız proje'):Document=>({name,parts:[],settings:{...DEFAULT_SETTINGS}});
@@ -176,6 +176,14 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const chosen=doc.parts.find(p=>p.id===selected[0]);
   const mixedRotations=chosen&&doc.parts.some(part=>selected.includes(part.id)&&rotationValue(part.rotations)!==rotationValue(chosen.rotations));
   const selectedBox=useMemo(()=>selectionBounds(canvasDocument,selected,selectedCopies),[canvasDocument,selected,selectedCopies]);
+  const selectedRefs=useMemo(()=>selectedCopies.length?selectedCopies:copyRefsFor(canvasDocument,selected),[canvasDocument,selected,selectedCopies]);
+  const selectedTransform=useMemo(()=>{
+    const wanted=new Set(selectedRefs.map(ref=>`${ref.partId}:${ref.copyIndex}`));
+    const copies=documentPlacements(canvasDocument).filter(copy=>wanted.has(`${copy.partId}:${copy.copyIndex}`));
+    const angles=[...new Set(copies.map(copy=>Math.round((((copy.angleDeg%360)+360)%360)*1e9)/1e9))];
+    const xs=[...new Set(copies.map(copy=>!!copy.mirrorX))],ys=[...new Set(copies.map(copy=>!!copy.mirrorY))];
+    return {angle:angles.length===1?angles[0]:undefined,mirrorX:xs.length===1?xs[0]:undefined,mirrorY:ys.length===1?ys[0]:undefined};
+  },[canvasDocument,selectedRefs]);
   const invalidSettings=!sizeValid||!Number.isFinite(doc.settings.materialWidthMm)||doc.settings.materialWidthMm<=0||doc.settings.materialWidthMm>100_000||((doc.settings.materialType??'roll')==='sheet'&&(!Number.isFinite(doc.settings.materialLengthMm)||doc.settings.materialLengthMm!<=0||doc.settings.materialLengthMm!>100_000))||!Number.isFinite(doc.settings.clearanceMm)||doc.settings.clearanceMm<0||doc.settings.clearanceMm>=doc.settings.materialWidthMm||doc.parts.some(p=>!validQuantity(p.quantity)||(p.quantity>0&&!validRotationRule(p.rotations)))||doc.parts.reduce((n,p)=>n+p.quantity,0)>500;
   const recoveryResult=running?undefined:result;
   const browserSavePending=browserSaved?.document!==doc||browserSaved?.result!==recoveryResult||browserSaved?.revision!==revision;
@@ -451,10 +459,15 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   function positionSelection(axis:0|1,value:number) {
     if(!selectedBox||locked)return;
     const delta=value-selectedBox[axis];
-    const refs=selectedCopies.length?selectedCopies:copyRefsFor(doc,selected);
-    commit(movePlacements(canvasDocument,refs,axis===0?[delta,0]:[0,delta]));
+    commit(movePlacements(canvasDocument,selectedRefs,axis===0?[delta,0]:[0,delta]));
   }
-  async function transformSelection(edit:GeometryEdit,refs=selectedCopies.length?selectedCopies:copyRefsFor(doc,selected)) {
+  async function transformSelection(edit:GeometryEdit,refs=selectedRefs) {
+    if(locked||!selected.length)return;
+    if(edit.kind==='rotate') {
+      const next=rotatePlacements(canvasDocument,refs,edit.degrees,edit.pivot);
+      if(!placementLayoutsEqual(canvasDocument,next))commit(next);
+      return;
+    }
     if(edit.kind==='scale') {
       const ids=new Set(refs.map(ref=>ref.partId));
       const importedDxf=doc.parts.filter(part=>ids.has(part.id)&&(part.source.format==='dxf'||part.source.format==='plt'));
@@ -463,11 +476,21 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         return;
       }
     }
-    if(locked||!selected.length)return;setBusy(true);setError('');
+    setBusy(true);setError('');
     try {
       const reply=await geometryTask({type:'edit-selection',runId:++operation.current,documentRevision:revision,document:canvasDocument,ids:selected,edit,refs});
       if(reply.type==='normalized')commit(reply.document);
     }catch(e){setError(String(e));}finally{setBusy(false);}
+  }
+  function setSelectionAngle(degrees:number) {
+    if(locked||!selectedRefs.length||!Number.isFinite(degrees))return;
+    const next=setPlacementAngles(canvasDocument,selectedRefs,degrees);
+    if(!placementLayoutsEqual(canvasDocument,next))commit(next);
+  }
+  function mirrorSelection(axis:'x'|'y') {
+    if(locked||!selectedRefs.length)return;
+    const next=mirrorPlacements(canvasDocument,selectedRefs,axis);
+    if(!placementLayoutsEqual(canvasDocument,next))commit(next);
   }
   async function addShape(kind:'rectangle'|'circle'|'polygon') {
     cancelDefaultExample();setBusy(true);setError('');
@@ -549,7 +572,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         <button className="danger-button clear-all-parts" disabled={locked||!doc.parts.length} onClick={()=>commit({...doc,parts:[]})}>Tümünü sil</button>
 
         {chosen&&<section className="part-properties-inline" aria-label="Parça özellikleri"><div className="panel-title part-properties-title"><h2>Parça özellikleri</h2></div><div className="part-settings">{selected.length===1?<label>Ad<input data-undo-field value={chosen.name} disabled={locked} onChange={e=>editPart({name:e.target.value},false,`name:${chosen.id}`)}/></label>:<h2>{selected.length} parça seçildi</h2>}
-          {selectedBox?<SelectionControls key={JSON.stringify(selectedCopies)} unit={unit} box={selectedBox} disabled={locked} sizeLocked={selected.some(id=>doc.parts.some(part=>part.id===id&&(part.source.format==='dxf'||part.source.format==='plt')))} onPosition={positionSelection} onSize={(axis,value)=>void transformSelection({kind:'scale',factor:value/(selectedBox[axis+2]-selectedBox[axis]),pivot:[selectedBox[0],selectedBox[1]]})} onRotate={degrees=>void transformSelection({kind:'rotate',degrees,pivot:[(selectedBox[0]+selectedBox[2])/2,(selectedBox[1]+selectedBox[3])/2]})} onValidity={setSizeValid}/>:<p className="muted">Kopya seçilmedi. Bu parçayı taşımak veya boyutlandırmak için adet alanından bir kopya ekleyin.</p>}
+          {selectedBox?<SelectionControls key={JSON.stringify(selectedCopies)} unit={unit} box={selectedBox} disabled={locked} sizeLocked={selected.some(id=>doc.parts.some(part=>part.id===id&&(part.source.format==='dxf'||part.source.format==='plt')))} angle={selectedTransform.angle} mirroredX={selectedTransform.mirrorX} mirroredY={selectedTransform.mirrorY} onPosition={positionSelection} onSize={(axis,value)=>void transformSelection({kind:'scale',factor:value/(selectedBox[axis+2]-selectedBox[axis]),pivot:[selectedBox[0],selectedBox[1]]})} onSetAngle={setSelectionAngle} onRotate={degrees=>void transformSelection({kind:'rotate',degrees,pivot:[(selectedBox[0]+selectedBox[2])/2,(selectedBox[1]+selectedBox[3])/2]})} onMirror={mirrorSelection} onValidity={setSizeValid}/>:<p className="muted">Kopya seçilmedi. Bu parçayı taşımak veya boyutlandırmak için adet alanından bir kopya ekleyin.</p>}
           {selected.length===1&&<div className="row-actions"><button className="primary" disabled={locked||(doc.settings.materialType??'roll')!=='sheet'} title={(doc.settings.materialType??'roll')!=='sheet'?'Önce malzeme tipini Plaka seçin.':'Seçili parçayı plakanın tamamına yerleştir.'} onClick={()=>void fullPlateSelected()}>Tam plaka</button><button disabled={locked||!history.current.length} onClick={()=>restore()}>Tam plaka iptal</button></div>}
 
         </div></section>}

@@ -6,8 +6,8 @@ export type WorldPart = { partId: string; copyIndex: number; outer: Ring; holes:
 const RESULT_LINEAR_TOLERANCE_MM=0.01;
 const RESULT_OVERLAP_TOLERANCE_MM2=0.05;
 export const transform = (ring: Ring, p: Placement): Ring => {
-  const angle = p.angleDeg * Math.PI / 180, c = Math.cos(angle), s = Math.sin(angle);
-  return ring.map(([x,y]) => [x*c-y*s+p.xMm, x*s+y*c+p.yMm]);
+  const angle = p.angleDeg * Math.PI / 180, c = Math.cos(angle), s = Math.sin(angle), mx=p.mirrorX?-1:1, my=p.mirrorY?-1:1;
+  return ring.map(([x,y]) => {x*=mx;y*=my;return [x*c-y*s+p.xMm, x*s+y*c+p.yMm]});
 };
 export function worldParts(doc: Document, result: Pick<Result,'placements'>): WorldPart[] {
   const parts = new Map(doc.parts.map(p => [p.id,p]));
@@ -85,8 +85,8 @@ export function validate(doc: Document, result: Result, serialized?: WorldPart[]
     for(const p of result.placements) {
       const part=parts.get(p.partId);
       if(!part || !Number.isInteger(p.copyIndex) || p.copyIndex<0 || p.copyIndex>=part.quantity) throw Error('Unknown part or copy index.');
-      if(Object.keys(p).some(k=>!['partId','copyIndex','xMm','yMm','angleDeg','sheetIndex'].includes(k))) throw Error('Placements support rigid rotations and translations only.');
-      if(![p.xMm,p.yMm,p.angleDeg].every(Number.isFinite)) throw Error('Placement contains a non-finite transform.');
+      if(Object.keys(p).some(k=>!['partId','copyIndex','xMm','yMm','angleDeg','mirrorX','mirrorY','sheetIndex'].includes(k))) throw Error('Placement contains an unsupported transform.');
+      if(![p.xMm,p.yMm,p.angleDeg].every(Number.isFinite)||(p.mirrorX!==undefined&&typeof p.mirrorX!=='boolean')||(p.mirrorY!==undefined&&typeof p.mirrorY!=='boolean')) throw Error('Placement contains an invalid transform.');
       if(doc.settings.materialType==='sheet') {
         const sheetCount=result.sheetCount??1;
         const sheetIndex=p.sheetIndex??0;

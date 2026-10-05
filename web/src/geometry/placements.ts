@@ -13,7 +13,8 @@ function fallbackPlacement(part: Part, copyIndex: number, count = copyCount(part
   const b = bounds(part.outer) as [number, number, number, number];
   const [dx, dy] = preparationCopyOffset(copyIndex, count, b);
   return { partId: part.id, copyIndex, xMm: (parent?.xMm ?? part.preparationPosition[0]) + dx,
-    yMm: (parent?.yMm ?? part.preparationPosition[1]) + dy, angleDeg: parent?.angleDeg ?? 0 };
+    yMm: (parent?.yMm ?? part.preparationPosition[1]) + dy, angleDeg: parent?.angleDeg ?? 0,
+    ...(parent?.mirrorX ? {mirrorX:true} : {}), ...(parent?.mirrorY ? {mirrorY:true} : {}) };
 }
 
 function finitePlacement(value: unknown): value is Placement {
@@ -22,7 +23,9 @@ function finitePlacement(value: unknown): value is Placement {
   return typeof p.partId === 'string' && Number.isInteger(p.copyIndex) && p.copyIndex >= 0
     && Number.isFinite(p.xMm) && Math.abs(p.xMm) <= LIMITS.extent
     && Number.isFinite(p.yMm) && Math.abs(p.yMm) <= LIMITS.extent
-    && Number.isFinite(p.angleDeg);
+    && Number.isFinite(p.angleDeg)
+    && (p.mirrorX === undefined || typeof p.mirrorX === 'boolean')
+    && (p.mirrorY === undefined || typeof p.mirrorY === 'boolean');
 }
 
 function storedPlacements(document: Document): Map<string, Placement> {
@@ -104,6 +107,43 @@ export function rotatePlacements(document: Document, refs: CopyRef[], degrees: n
   }));
 }
 
+const normalizedAngle=(degrees:number)=>((degrees%360)+360)%360;
+function localCenter(part:Part):Point {
+  const b=bounds(part.outer);
+  return [(b[0]+b[2])/2,(b[1]+b[3])/2];
+}
+function transformedLocalPoint(point:Point,placement:Placement):Point {
+  const x=(placement.mirrorX?-1:1)*point[0],y=(placement.mirrorY?-1:1)*point[1];
+  const radians=placement.angleDeg*Math.PI/180,c=Math.cos(radians),s=Math.sin(radians);
+  return [x*c-y*s,x*s+y*c];
+}
+function keepCopyCenter(part:Part,before:Placement,after:Placement):Placement {
+  const center=localCenter(part),a=transformedLocalPoint(center,before),b=transformedLocalPoint(center,after);
+  return {...after,xMm:before.xMm+a[0]-b[0],yMm:before.yMm+a[1]-b[1]};
+}
+
+/** Set an exact direction angle on only the selected copies, keeping each copy centered in place. */
+export function setPlacementAngles(document:Document,refs:CopyRef[],degrees:number):Document {
+  if(!Number.isFinite(degrees))throw Error('Rotation must be finite.');
+  const wanted=new Set(refs.map(placementKey)),parts=new Map(document.parts.map(part=>[part.id,part]));
+  return updatePlacements(document,documentPlacements(document).filter(copy=>wanted.has(placementKey(copy))).map(copy=>{
+    const part=parts.get(copy.partId)!;
+    return keepCopyCenter(part,copy,{...copy,angleDeg:normalizedAngle(degrees)});
+  }));
+}
+
+/** Toggle a local horizontal/vertical reflection on only the selected copies, keeping their centers fixed. */
+export function mirrorPlacements(document:Document,refs:CopyRef[],axis:'x'|'y'):Document {
+  const wanted=new Set(refs.map(placementKey)),parts=new Map(document.parts.map(part=>[part.id,part]));
+  return updatePlacements(document,documentPlacements(document).filter(copy=>wanted.has(placementKey(copy))).map(copy=>{
+    const part=parts.get(copy.partId)!;
+    const after=axis==='x'
+      ? {...copy,mirrorX:copy.mirrorX?undefined:true}
+      : {...copy,mirrorY:copy.mirrorY?undefined:true};
+    return keepCopyCenter(part,copy,after);
+  }));
+}
+
 /** Retain every old index and create only newly demanded copies using the normal stack offset. */
 export function syncQuantity(document: Document): Document {
   // A quantity decrease intentionally removes trailing copies. Validate the
@@ -146,7 +186,8 @@ export function applySeriesMultiplier(document:Document,next:number):Document {
 
 export function samePlacement(a: Placement | undefined, b: Placement | undefined): boolean {
   return !!a && !!b && a.partId === b.partId && a.copyIndex === b.copyIndex
-    && a.xMm === b.xMm && a.yMm === b.yMm && a.angleDeg === b.angleDeg;
+    && a.xMm === b.xMm && a.yMm === b.yMm && a.angleDeg === b.angleDeg
+    && !!a.mirrorX === !!b.mirrorX && !!a.mirrorY === !!b.mirrorY;
 }
 
 export function placementLayoutsEqual(a: Document, b: Document): boolean {

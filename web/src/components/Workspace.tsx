@@ -79,10 +79,11 @@ export default function Workspace({ document: doc, result, live, selected, selec
   function fit() {
     const all: Point[] = [];
     for (const drawing of drawings) {
-      const radians = drawing.angleDeg * Math.PI / 180, c = Math.cos(radians), s = Math.sin(radians);
-      for (const [x, y] of drawing.outer) all.push(
-        [drawing.position[0] + x * c - y * s, -drawing.position[1] - drawing.sheetOffset - (x * s + y * c)]
-      );
+      const radians = drawing.angleDeg * Math.PI / 180, c = Math.cos(radians), s = Math.sin(radians), mx=drawing.mirrorX?-1:1, my=drawing.mirrorY?-1:1;
+      for (const point of drawing.outer) {
+        const x=point[0]*mx,y=point[1]*my;
+        all.push([drawing.position[0] + x * c - y * s, -drawing.position[1] - drawing.sheetOffset - (x * s + y * c)]);
+      }
     }
     if (world) {
       const materialLength=doc.settings.materialType==='sheet'&&doc.settings.materialLengthMm
@@ -149,7 +150,7 @@ export default function Workspace({ document: doc, result, live, selected, selec
       `light-dark(#64748b, color-mix(in srgb, ${colors[index % colors.length]} 60%, white))`;
     const strokeWidth = outlines ? (active ? 1.5 : 1) : (active ? 3 : 2);
     const opacity = selected.length && !active ? .5 : 1;
-    const transform = `translate(${position[0]} ${-position[1]-drawing.sheetOffset}) rotate(${-drawing.angleDeg}) scale(1 -1)`;
+    const transform = `translate(${position[0]} ${-position[1]-drawing.sheetOffset}) rotate(${-drawing.angleDeg}) scale(${drawing.mirrorX?-1:1} ${drawing.mirrorY?1:-1})`;
     return <g key={key} data-preparation-copy={!world ? drawing.copyIndex : undefined} data-placement-key={key} opacity={opacity}
       transform={preview?.kind==='scale' && selected.includes(drawing.partId)
         ? screenTransform(active ? preview : {...preview,pivot:position}) : active ? screenTransform(preview) : undefined}>
