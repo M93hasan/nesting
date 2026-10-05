@@ -5,8 +5,8 @@ import {documentPlacements,placementKey,type CopyRef,withDocumentPlacements} fro
 
 export type GeometryEdit={kind:'rotate';degrees:number;pivot:Point}|{kind:'scale';factor:number;pivot:Point};
 export function placementBounds(part:Document['parts'][number],placement:Placement):[number,number,number,number] {
-  const radians=placement.angleDeg*Math.PI/180,c=Math.cos(radians),s=Math.sin(radians);
-  const points=part.outer.map(([x,y])=>[x*c-y*s+placement.xMm,x*s+y*c+placement.yMm] as Point);
+  const radians=placement.angleDeg*Math.PI/180,c=Math.cos(radians),s=Math.sin(radians),mx=placement.mirrorX?-1:1,my=placement.mirrorY?-1:1;
+  const points=part.outer.map(([x,y])=>{x*=mx;y*=my;return [x*c-y*s+placement.xMm,x*s+y*c+placement.yMm] as Point});
   return bounds(points) as [number,number,number,number];
 }
 export function selectionBounds(doc:Document,ids:string[],refs?:CopyRef[]) {
