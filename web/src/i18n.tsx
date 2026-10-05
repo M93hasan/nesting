@@ -400,7 +400,29 @@ E('Canlı destek mesajlaşma','Live support messaging','مراسلة الدعم 
 E('Geçerli projeye eklemek için tekrar kullanılabilir şekilleri seçin. Örnek projeler “Örneği aç” bölümünde kalır.','Choose reusable shapes to add to the current project. Sample projects remain available under “Open example”.','اختر أشكالاً قابلة لإعادة الاستخدام لإضافتها إلى المشروع الحالي. تبقى المشاريع النموذجية ضمن “فتح المثال”.','شکل‌های قابل استفاده مجدد را برای افزودن به پروژه فعلی انتخاب کنید. پروژه‌های نمونه در بخش «باز کردن نمونه» باقی می‌مانند.'),
 E('Seçmek için tıklayın. ⌘/Ctrl-tıklama seçimi değiştirir; Shift-tıklama aralık seçer.','Click to select. ⌘/Ctrl-click toggles selection; Shift-click selects a range.','انقر للتحديد. ⌘/Ctrl يبدّل التحديد وShift يحدد نطاقاً.','برای انتخاب کلیک کنید. ⌘/Ctrl انتخاب را تغییر می‌دهد و Shift یک بازه را انتخاب می‌کند.'),
 E('Şekil kütüphanesi kaynakları ve seçim','Shape library sources and selection','مصادر مكتبة الأشكال والتحديد','منابع کتابخانه شکل و انتخاب'),
-E('Seçili kütüphane şekilleri','Selected library shapes','أشكال المكتبة المحددة','شکل‌های انتخاب‌شده کتابخانه')
+E('Seçili kütüphane şekilleri','Selected library shapes','أشكال المكتبة المحددة','شکل‌های انتخاب‌شده کتابخانه'),
+E('Yönetici','Administrator','المشرف','مدیر'),
+E('Yönetici yolu','Admin route','مسار المشرف','مسیر مدیریت'),
+E('Yerleştirme hakkı','Nesting credits','رصيد الترتيب','اعتبار چیدمان'),
+E('Yönetici API','Admin API','واجهة API للمشرف','API مدیریت'),
+E('Yönetici oturumu kontrol ediliyor…','Checking admin session…','جارٍ التحقق من جلسة المشرف…','در حال بررسی نشست مدیر…'),
+E('Yönetici e-posta ve parolanızı girin.','Enter your admin email and password.','أدخل بريد المشرف وكلمة المرور.','ایمیل و رمز عبور مدیر را وارد کنید.'),
+E('Yönetici girişi','Admin sign in','تسجيل دخول المشرف','ورود مدیر'),
+E('Yönetim paneline yalnızca yetkili Google hesabı ile giriş yapılabilir.','Only an authorized Google account can sign in to the administration panel.','يمكن تسجيل الدخول إلى لوحة الإدارة فقط بحساب Google مخوّل.','فقط حساب Google مجاز می‌تواند وارد پنل مدیریت شود.'),
+E('✓ Yerleştirme çalıştırma','✓ Run nesting','✓ تشغيل الترتيب','✓ اجرای چیدمان'),
+E('— Yönetici erişimi yok','— No admin access','— لا وصول للمشرف','— بدون دسترسی مدیر'),
+E('Yerleştirme, proje ve dışa aktarma kayıtları.','Nesting, project and export records.','سجلات الترتيب والمشروع والتصدير.','سوابق چیدمان، پروژه و خروجی.'),
+E('Giriş, yerleştirme, dışa aktarma ve yönetim işlemleri.','Sign-in, nesting, export and administration actions.','عمليات تسجيل الدخول والترتيب والتصدير والإدارة.','عملیات ورود، چیدمان، خروجی و مدیریت.'),
+E('Yönetici ile kalıcı mesajlaşmak için giriş yapın.','Sign in to keep a persistent conversation with the administrator.','سجل الدخول للمراسلة الدائمة مع المشرف.','برای گفتگوی پایدار با مدیر وارد شوید.'),
+E('Henüz mesaj yok. Buradan yönetici ile doğrudan yazışabilirsiniz.','No messages yet. You can message the administrator directly here.','لا توجد رسائل بعد. يمكنك مراسلة المشرف مباشرة من هنا.','هنوز پیامی نیست. می‌توانید از اینجا مستقیماً با مدیر پیام دهید.'),
+E('Yeni normal kullanıcılar 5 indirme/yerleştirme hakkıyla başlar.','New standard users start with 5 download/nesting credits.','يبدأ المستخدمون العاديون الجدد بـ 5 أرصدة تنزيل/ترتيب.','کاربران عادی جدید با ۵ اعتبار دانلود/چیدمان شروع می‌کنند.'),
+E('Çalışma değiştikçe son temiz proje durumu otomatik kaydedilir; DXF dışa aktarımları ayrıca geçmişte tutulur.','The latest clean project state is saved automatically as you work; DXF exports are also kept in history.','يتم حفظ آخر حالة نظيفة للمشروع تلقائياً أثناء العمل؛ وتُحفظ صادرات DXF أيضاً في السجل.','آخرین وضعیت تمیز پروژه هنگام کار به‌صورت خودکار ذخیره می‌شود؛ خروجی‌های DXF نیز در تاریخچه نگهداری می‌شوند.'),
+E('Kullanılan plaka','Sheets used','الألواح المستخدمة','ورق‌های استفاده‌شده'),
+E('Kullanılan uzunluk','Used length','الطول المستخدم','طول استفاده‌شده'),
+E('Son başlatılan çalışma:','Last started run:','آخر تشغيل بدأ:','آخرین اجرای آغازشده:'),
+E('istendi','requested','مطلوب','درخواست شد'),
+E('yedek','fallback','احتياطي','پشتیبان'),
+E('çözücü işçisi','solver worker','عامل المحلل','کارگر حل‌گر')
 ];
 
 const reverse=new Map<string,Entry>();
@@ -438,6 +460,14 @@ function dynamic(text:string,locale:Locale){
   if(m){const n=m[1];return locale==='tr'?n+' kayıtlı':locale==='en'?n+' saved':locale==='ar'?n+' محفوظ':n+' ذخیره‌شده';}
   m=text.match(/^(\d+) (?:delik|holes?|فتحات|حفره)$/);
   if(m){const n=m[1];return locale==='tr'?n+' delik':locale==='en'?n+' hole'+(n==='1'?'':'s'):locale==='ar'?n+' فتحات':n+' حفره';}
+  m=text.match(/^(\d+) çözücü işçisi(?: \/ (\d+) istendi)?(?: · yedek)?$/);
+  if(m){
+    const actual=m[1],requested=m[2];
+    if(locale==='tr')return text;
+    if(locale==='en')return actual+' solver worker'+(actual==='1'?'':'s')+(requested?' / '+requested+' requested':' · automatic')+(text.includes('· yedek')?' · fallback':'');
+    if(locale==='ar')return actual+' عامل محلل'+(requested?' / '+requested+' مطلوب':' · تلقائي')+(text.includes('· yedek')?' · احتياطي':'');
+    return actual+' کارگر حل‌گر'+(requested?' / '+requested+' درخواست شد':' · خودکار')+(text.includes('· yedek')?' · پشتیبان':'');
+  }
   return text;
 }
 export function translate(locale:Locale,text:string){
