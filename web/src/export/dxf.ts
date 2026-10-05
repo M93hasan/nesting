@@ -19,7 +19,8 @@ export function exportDXF(doc:Document,world:WorldPart[],placements:Placement[]=
   const transformAngle=(degrees:number,p:Placement)=>{
     const radians=degrees*Math.PI/180;
     const x=Math.cos(radians)*(p.mirrorX?-1:1),y=Math.sin(radians)*(p.mirrorY?-1:1);
-    return angle(Math.atan2(y,x)*180/Math.PI+p.angleDeg);
+    const transformed=Math.atan2(y,x)*180/Math.PI+p.angleDeg;
+    return ((transformed%360)+360)%360;
   };
   const sheetMode=doc.settings.materialType==='sheet'&&placements.some(placement=>placement.sheetIndex!==undefined);
   const sheetPitch=doc.settings.materialWidthMm+SHEET_EXPORT_GAP_MM;
