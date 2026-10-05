@@ -219,6 +219,7 @@ Başlıca işlevler:
 - DXF, SVG ve PLT/HP-GL seçme ve içe aktarma
 - Parça adedi değiştirme
 - Parça seçme, taşıma, silme ve çoğaltma
+- Seçili kopyaya derece yazarak yön verme, fareyle/tuşlarla sağ-sol döndürme ve yatay/dikey aynalama
 - Rotasyon kuralı seçme
 - Rulo / Plaka seçimi
 - Malzeme genişliği ve plaka uzunluğu girişi
