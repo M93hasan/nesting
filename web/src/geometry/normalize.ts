@@ -51,7 +51,7 @@ export function normalizeRing(value: unknown): Ring {
   return area(ring) < 0 ? ring.reverse() : ring;
 }
 export function normalizePart(part: Part): Part {
-  if (typeof part.id !== 'string' || !part.id || typeof part.name !== 'string' || !part.source || !['svg','dxf','sparrow','drawn'].includes(part.source.format)) throw Error('Invalid part identity or provenance.');
+  if (typeof part.id !== 'string' || !part.id || typeof part.name !== 'string' || !part.source || !['svg','dxf','plt','sparrow','drawn'].includes(part.source.format)) throw Error('Invalid part identity or provenance.');
   if (!Number.isInteger(part.quantity) || part.quantity < 0 || part.quantity > LIMITS.copies) throw Error('Quantity must be a whole number from 0 to 500.');
   if (!Number.isFinite(part.approximationToleranceMm) || part.approximationToleranceMm < 0 || part.approximationToleranceMm > 100) throw Error('Invalid approximation tolerance.');
   if (!Array.isArray(part.preparationPosition) || part.preparationPosition.length !== 2 || !part.preparationPosition.every(Number.isFinite)) throw Error('Invalid preparation position.');
