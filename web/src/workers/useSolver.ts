@@ -17,7 +17,7 @@ export const wallClockLimitSeconds=(doc:Document)=>doc.settings.timeLimitSeconds
 type Run={id:number;revision:number;doc:Document;seed:string;requestedAt:number;solver?:Worker;preview:Worker;
   latest?:Candidate;previewActive?:{candidate:Candidate;result:Result};frame?:LiveFrame;previewSequence:number;previewError?:string;
   best?:Result;bestSheetSolverLength?:number;ended?:'Complete'|'Stopped'|'Error';startedAt?:number;watchdog:ReturnType<typeof setTimeout>;deadline?:ReturnType<typeof setTimeout>;
-  deadlineRemainingMs?:number;deadlineStartedAt?:number;visibilityHandler?:()=>void;
+  deadlineAtEpochMs?:number;visibilityHandler?:()=>void;
   diagnostics:Diagnostics};
 export function candidateResult(doc:Document,candidate:Candidate,seed:string):Result {
   const copies=solverCopies(doc);
@@ -66,10 +66,10 @@ export function useSolver() {
     run.current=undefined;setPhase(undefined);setSkipping(false);setCanSkip(false);
   }
   function scheduleDeadline(r:Run) {
-    if(r.ended||(typeof document!=='undefined'&&document.hidden))return;
+    if(r.ended)return;
     if(r.deadline)clearTimeout(r.deadline);
-    const remaining=Math.max(0,r.deadlineRemainingMs??0);
-    r.deadlineStartedAt=performance.now();
+    const remaining=Math.max(0,(r.deadlineAtEpochMs??Date.now())-Date.now());
+    if(remaining<=0){end('Complete');return;}
     r.deadline=setTimeout(()=>end('Complete'),remaining);
   }
   useEffect(()=>{
@@ -116,19 +116,13 @@ export function useSolver() {
     const r:Run={id,revision,doc,seed,requestedAt,solver,preview,previewSequence:0,watchdog:setTimeout(()=>end('Stopped','Yerleştirme motoru 15 saniye içinde başlatılamadı. Tekrar deneyin.'),15_000),
       diagnostics:{runDocument:doc,solverRevision:SOLVER_REVISION,seed,buildMode:'Initializing',startup,history:[],liveSnapshots:0,liveErrors:[]}};
     run.current=r;diagnostics.current=r.diagnostics;
-    // Only foreground time consumes the automatic search budget. The solver worker
-    // may keep working while the page is in the background, but switching tabs no
-    // longer causes the UI deadline to expire and discard a still-running search.
+    // Automatic mode is a hard wall-clock budget: preparation + initialization +
+    // solving may consume at most 59 seconds. Hiding the tab never pauses the budget.
     const wallClockSeconds=wallClockLimitSeconds(doc);
-    r.deadlineRemainingMs=Math.max(0,wallClockSeconds*1000-(performance.now()-requestedAt));
+    const elapsedBeforeDeadlineMs=Math.max(0,performance.now()-requestedAt);
+    r.deadlineAtEpochMs=Date.now()+Math.max(0,wallClockSeconds*1000-elapsedBeforeDeadlineMs);
     r.visibilityHandler=()=>{
-      if(run.current!==r||r.ended)return;
-      if(typeof document!=='undefined'&&document.hidden){
-        if(r.deadline){
-          clearTimeout(r.deadline);r.deadline=undefined;
-          if(r.deadlineStartedAt!==undefined)r.deadlineRemainingMs=Math.max(0,(r.deadlineRemainingMs??0)-(performance.now()-r.deadlineStartedAt));
-        }
-      }else scheduleDeadline(r);
+      if(run.current===r&&!r.ended)scheduleDeadline(r);
     };
     if(typeof document!=='undefined')document.addEventListener('visibilitychange',r.visibilityHandler);
     scheduleDeadline(r);
@@ -211,7 +205,8 @@ export function useSolver() {
       }
     };
     solver.onerror=e=>{if(run.current===r && r.solver) end('Error',e.message||'Arka plan işçisi yüklenemedi. Sayfayı yenileyip tekrar deneyin.');};
-    solver.postMessage({type:'start',runId:id,documentRevision:revision,document:doc,seed,threads});
+    solver.postMessage({type:'start',runId:id,documentRevision:revision,document:doc,seed,threads,
+      hardLimitMs:Math.max(0,(r.deadlineAtEpochMs??Date.now())-Date.now())});
   }
   function invalidate() {clear();setWorkers(undefined);setResult(undefined);setLive(undefined);setLiveError('');setState('Ready');setError('');}
   function load(checked:Result) {
