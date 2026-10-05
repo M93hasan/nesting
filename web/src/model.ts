@@ -15,7 +15,7 @@ export type DxfAuxEntity =
 export type DxfDetailContour = { ring:Ring; layer:string; colorNumber?:number };
 export type Part = {
   id: string; name: string;
-  source: { format: 'svg' | 'dxf' | 'sparrow' | 'drawn'; fileName?: string; entityId?: string; dxfSpline?:DxfSpline; dxfEntities?:DxfSourceEntity[]; dxfColorNumber?:number; dxfHoleColorNumbers?:number[]; dxfAux?:DxfAuxEntity[]; dxfDetails?:DxfDetailContour[]; dxfSourceEntityCount?:number };
+  source: { format: 'svg' | 'dxf' | 'plt' | 'sparrow' | 'drawn'; fileName?: string; entityId?: string; dxfSpline?:DxfSpline; dxfEntities?:DxfSourceEntity[]; dxfColorNumber?:number; dxfHoleColorNumbers?:number[]; dxfAux?:DxfAuxEntity[]; dxfDetails?:DxfDetailContour[]; dxfSourceEntityCount?:number };
   outer: Ring; holes: Ring[]; approximationToleranceMm: number; quantity: number;
   rotations: RotationRule; preparationPosition: Point;
 };

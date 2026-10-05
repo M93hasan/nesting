@@ -32,7 +32,7 @@ function compound(contours:Contour[],rule:'evenodd'|'nonzero'):Contour[] {
     return rule==='evenodd' || (winding===0)!==(winding+Math.sign(area(c.ring))===0);
   });
 }
-export function contoursToParts(contours:Contour[],fileName:string,format:'svg'|'dxf',tolerance:number,enclosed:'holes'|'parts'):Part[] {
+export function contoursToParts(contours:Contour[],fileName:string,format:'svg'|'dxf'|'plt',tolerance:number,enclosed:'holes'|'parts'):Part[] {
   const parent=hierarchy(contours,format==='dxf'),depth=parent.map((p)=>{let d=0;while(p!==-1){d++;p=parent[p];}return d;});
   return contours.flatMap((c,i)=>{
     if(enclosed==='holes'&&depth[i]%2===1)return [];
