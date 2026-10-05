@@ -11,8 +11,15 @@ export function exportDXF(doc:Document,world:WorldPart[],placements:Placement[]=
   const colorGroup=(color?:number)=>color!==undefined&&color>=1&&color<=255?`62\n${color}\n`:'';
   const polyline=(ring:Ring,layer:string,color?:number)=>`0\nLWPOLYLINE\n5\n${handle()}\n330\n21\n100\nAcDbEntity\n8\n${layer}\n${colorGroup(color)}100\nAcDbPolyline\n90\n${ring.length}\n70\n1\n${ring.map(([x,y])=>`10\n${x}\n20\n${y}\n`).join('')}`;
   const transformPoint=([x,y]:Point,p:Placement):Point=>{
+    x*=p.mirrorX?-1:1;y*=p.mirrorY?-1:1;
     const angle=p.angleDeg*Math.PI/180,cos=Math.cos(angle),sin=Math.sin(angle);
     return [x*cos-y*sin+p.xMm,x*sin+y*cos+p.yMm];
+  };
+  const reflected=(p:Placement)=>!!p.mirrorX!==!!p.mirrorY;
+  const transformAngle=(degrees:number,p:Placement)=>{
+    const radians=degrees*Math.PI/180;
+    const x=Math.cos(radians)*(p.mirrorX?-1:1),y=Math.sin(radians)*(p.mirrorY?-1:1);
+    return angle(Math.atan2(y,x)*180/Math.PI+p.angleDeg);
   };
   const sheetMode=doc.settings.materialType==='sheet'&&placements.some(placement=>placement.sheetIndex!==undefined);
   const sheetPitch=doc.settings.materialWidthMm+SHEET_EXPORT_GAP_MM;
@@ -32,7 +39,7 @@ export function exportDXF(doc:Document,world:WorldPart[],placements:Placement[]=
     }
     const [x,y]=transformPoint(entity.point,p);
     if(entity.kind==='point') return `0\nPOINT\n5\n${handle()}\n330\n21\n100\nAcDbEntity\n8\n${layer}\n${color}100\nAcDbPoint\n10\n${x}\n20\n${y}\n30\n0\n`;
-    const rotation=entity.rotationDeg+p.angleDeg;
+    const rotation=transformAngle(entity.rotationDeg,p);
     if(entity.kind==='mtext') return `0\nMTEXT\n5\n${handle()}\n330\n21\n100\nAcDbEntity\n8\n${layer}\n${color}100\nAcDbMText\n10\n${x}\n20\n${y}\n30\n0\n40\n${entity.heightMm}\n1\n${entity.text}\n50\n${rotation}\n`;
     return `0\nTEXT\n5\n${handle()}\n330\n21\n100\nAcDbEntity\n8\n${layer}\n${color}100\nAcDbText\n10\n${x}\n20\n${y}\n30\n0\n40\n${entity.heightMm}\n1\n${entity.text}\n50\n${rotation}\n100\nAcDbText\n`;
   };
@@ -53,10 +60,11 @@ export function exportDXF(doc:Document,world:WorldPart[],placements:Placement[]=
     }
     if(entity.kind==='arc'){
       const [x,y]=transformPoint(entity.center,p);
-      return `0\nARC\n5\n${handle()}\n330\n21\n100\nAcDbEntity\n8\n${layer}\n${color}100\nAcDbCircle\n10\n${x}\n20\n${y}\n30\n0\n40\n${entity.radius}\n100\nAcDbArc\n50\n${angle(entity.startAngleDeg+p.angleDeg)}\n51\n${angle(entity.endAngleDeg+p.angleDeg)}\n`;
+      const a0=transformAngle(entity.startAngleDeg,p),a1=transformAngle(entity.endAngleDeg,p),start=reflected(p)?a1:a0,end=reflected(p)?a0:a1;
+      return `0\nARC\n5\n${handle()}\n330\n21\n100\nAcDbEntity\n8\n${layer}\n${color}100\nAcDbCircle\n10\n${x}\n20\n${y}\n30\n0\n40\n${entity.radius}\n100\nAcDbArc\n50\n${start}\n51\n${end}\n`;
     }
     if(entity.kind==='spline')return spline(entity,p,layer,entity.colorNumber);
-    const points=entity.points.map(point=>transformPoint(point,p)),bulges=entity.bulges??[];
+    const points=entity.points.map(point=>transformPoint(point,p)),bulges=(entity.bulges??[]).map(value=>reflected(p)?-value:value);
     if(entity.sourceType==='LWPOLYLINE'){
       return `0\nLWPOLYLINE\n5\n${handle()}\n330\n21\n100\nAcDbEntity\n8\n${layer}\n${color}100\nAcDbPolyline\n90\n${points.length}\n70\n${entity.closed?1:0}\n${points.map(([x,y],i)=>`10\n${x}\n20\n${y}\n${bulges[i]?`42\n${bulges[i]}\n`:''}`).join('')}`;
     }
