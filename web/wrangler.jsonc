@@ -7,10 +7,6 @@
     {
       "pattern": "serula.site",
       "custom_domain": true
-    },
-    {
-      "pattern": "www.serula.site",
-      "custom_domain": true
     }
   ],
   "assets": {
