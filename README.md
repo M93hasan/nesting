@@ -269,6 +269,8 @@ Kayıtlar kullanıcı hesabına bağlıdır; kullanıcılar birbirlerinin proje 
 
 Büyük proje ve DXF içerikleri Cloudflare D1 tek-satır sınırına takılmamak için parçalara bölünerek saklanır.
 
+**Saklama süresi:** DXF export geçmişi ve ona bağlı proje kopyaları 32 günü geçince otomatik silinir. Güncel otomatik proje kaydı (`Serula Nesting En Temiz Hali`) bu temizlemeden etkilenmez.
+
 ---
 
 ## Kullanıcı ve yönetim altyapısı
