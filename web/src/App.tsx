@@ -363,7 +363,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   async function openFiles(list:FileList|File[],intent:'project'|'shapes'|'auto'='auto') {
     if(locked) return;
     const batch=Array.from(list);
-    if(batch.some(f=>f.size>(/\.zip$/i.test(f.name)?25:10)*1024*1024)||batch.reduce((n,f)=>n+f.size,0)>25*1024*1024) {setError('İçe aktarma sınırı: çizim başına 10 MiB, proje ZIP'i veya toplu işlem için 25 MiB.');return;}
+    if(batch.some(f=>f.size>(/\.zip$/i.test(f.name)?25:10)*1024*1024)||batch.reduce((n,f)=>n+f.size,0)>25*1024*1024) {setError("İçe aktarma sınırı: çizim başına 10 MiB, proje ZIP'i veya toplu işlem için 25 MiB.");return;}
     if(!batch.length)return;cancelDefaultExample();setBusy(true);setError('');
     try{
       const read=await Promise.all(batch.map(async f=>({name:f.name,text:/\.zip$/i.test(f.name)?(await import('./zip')).projectArchiveText(new Uint8Array(await f.arrayBuffer())):await f.text()})));
