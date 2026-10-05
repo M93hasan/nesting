@@ -6,9 +6,12 @@ import './auth.css';
 import {AdminGate,UserGate} from './AuthGate';
 import {loadCatalog} from './datasets';
 import { prepareIsolation } from './isolation';
+import {startI18n} from './i18n';
 
 const ADMIN_EMAIL='m93hasan@icloud.com';
 const GOOGLE_CLIENT_ID='249559754500-36grgmm2jucf2159d41efqdcqut02lj6.apps.googleusercontent.com';
+
+startI18n();
 
 void prepareIsolation().catch(()=>{}).then(async () => {
   if (import.meta.env.PROD && ['sparrowstudio.app', 'www.sparrowstudio.app'].includes(location.hostname)) {
