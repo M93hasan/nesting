@@ -26,6 +26,11 @@
   </main>
 <script>
 const statusEl=document.getElementById('status');
+const requestedLocale=new URLSearchParams(location.search).get('locale')||'tr';
+const selectedLocale=['tr','en','ar','fa'].includes(requestedLocale)?requestedLocale:'tr';
+document.documentElement.lang=selectedLocale==='fa'?'fa-IR':selectedLocale;
+document.documentElement.dir=selectedLocale==='ar'||selectedLocale==='fa'?'rtl':'ltr';
+try{localStorage.setItem('serula-locale',selectedLocale)}catch{}
 function fail(message){statusEl.className='error';statusEl.textContent=message;}
 async function cleanIsolation(){
   if(!('serviceWorker' in navigator))return false;
@@ -41,7 +46,7 @@ async function cleanIsolation(){
 function loadGoogle(){
   return new Promise((resolve,reject)=>{
     const script=document.createElement('script');
-    script.src='https://accounts.google.com/gsi/client?hl=tr';
+    script.src='https://accounts.google.com/gsi/client?hl='+encodeURIComponent(selectedLocale);
     script.async=true;
     script.defer=true;
     script.onload=resolve;
@@ -59,7 +64,7 @@ async function handleCredential(response){
       method:'POST',
       credentials:'same-origin',
       headers:{'content-type':'application/json'},
-      body:JSON.stringify({credential})
+      body:JSON.stringify({credential,locale:selectedLocale})
     });
     const data=await r.json().catch(()=>({}));
     if(!r.ok)throw new Error(data.error||'Google girişi başarısız.');
@@ -91,7 +96,7 @@ async function start(){
       text:'continue_with',
       shape:'pill',
       width:300,
-      locale:'tr'
+      locale:selectedLocale
     });
     statusEl.textContent='';
   }catch(error){fail(error instanceof Error?error.message:String(error));}
