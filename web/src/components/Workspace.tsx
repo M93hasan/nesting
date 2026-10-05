@@ -203,7 +203,7 @@ export default function Workspace({ document: doc, result, live, selected, selec
         const partId = target?.getAttribute('data-part') ?? undefined, rawCopy = target?.getAttribute('data-copy-index');
         const copyIndex = rawCopy === null || rawCopy === undefined ? NaN : Number(rawCopy);
         const ref = partId && Number.isInteger(copyIndex) ? { partId, copyIndex } : undefined;
-        if((event.metaKey||event.ctrlKey)&&!space.current&&!polygon&&!disabled&&event.button===0) {
+        if((event.metaKey||event.ctrlKey||event.shiftKey)&&!space.current&&!polygon&&!disabled&&event.button===0) {
           event.preventDefault();setMarquee({pointer:event.pointerId,start:cursor,end:cursor,screen:[event.clientX,event.clientY],ref});event.currentTarget.setPointerCapture(event.pointerId);return;
         }
         const pan = space.current || event.button === 1 || (!ref && !polygon);
