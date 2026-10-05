@@ -52,7 +52,7 @@ export default function SupportChat(){
   }
 
   if(status==='signed-out')return <section className="support-chat support-chat-signed-out">
-    <div><strong>Canlı destek</strong><p>Admin ile kalıcı mesajlaşmak için giriş yapın.</p></div>
+    <div><strong>Canlı destek</strong><p>Yönetici ile kalıcı mesajlaşmak için giriş yapın.</p></div>
     <button className="primary" onClick={()=>window.dispatchEvent(new Event('serula-login-required'))}>Giriş yap</button>
   </section>;
 
@@ -63,7 +63,7 @@ export default function SupportChat(){
         <span>{item.sender==='user'?'Siz':'Serula Destek'}</span>
         <p>{item.body}</p>
         <time>{new Date(item.createdAt).toLocaleString(localeTag(locale))}</time>
-      </div>):<p className="support-chat-empty">Henüz mesaj yok. Buradan admin ile doğrudan yazışabilirsiniz.</p>}
+      </div>):<p className="support-chat-empty">Henüz mesaj yok. Buradan yönetici ile doğrudan yazışabilirsiniz.</p>}
     </div>
     {error&&<p className="field-error" role="alert">{error}</p>}
     <form className="support-chat-compose" onSubmit={e=>{e.preventDefault();void send()}}>
