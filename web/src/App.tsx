@@ -590,10 +590,11 @@ export default function App({initialDocument=emptyProject(),initialError='',load
       <aside className="material-panel" aria-label="Malzeme ve Yerleşim">
         <div className="panel-title"><h2>Malzeme ve Yerleşim</h2></div>
         <section className="settings material-settings">
-          {chosen&&<div className="material-rotation">
-          <RotationControl key={JSON.stringify([selected,mixedRotations,chosen.rotations])} rule={normalizedRotationRule(chosen.rotations)} mixed={!!mixedRotations} disabled={locked} required onChange={rotations=>editPart({rotations})}/>
-          {!validRotationRule(chosen.rotations)&&<small role="alert" className="field-error">İzin verilen dönüşler zorunludur.</small>}
-        </div>}
+          <div className="material-rotation">
+          <RotationControl key={JSON.stringify([selected,mixedRotations,chosen?.rotations])} rule={chosen?normalizedRotationRule(chosen.rotations):DEFAULT_ROTATIONS} mixed={!!chosen&&!!mixedRotations} disabled={locked||!chosen} required onChange={rotations=>{if(chosen)editPart({rotations})}}/>
+          {chosen&&!validRotationRule(chosen.rotations)&&<small role="alert" className="field-error">İzin verilen dönüşler zorunludur.</small>}
+          {!chosen&&<small className="muted">Dönüş ayarını değiştirmek için bir parça seçin.</small>}
+        </div>
           <label>Malzeme tipi<select value={doc.settings.materialType??'roll'} disabled={locked} onChange={e=>{const materialType=e.target.value as 'roll'|'sheet';const settings=materialType==='roll'?{...doc.settings,materialType,materialLengthMm:undefined}:{...doc.settings,materialType,materialLengthMm:doc.settings.materialLengthMm??1000};commit({...doc,settings},false)}}><option value="roll">Rulo</option><option value="sheet">Plaka</option></select></label>
           <label>Malzeme genişliği <span>{unit}</span><input data-undo-field type="number" min={0.001/factor} max={100000/factor} step="any" value={inputLength(doc.settings.materialWidthMm)} onFocus={()=>setMaterialWidthFocused(true)} onBlur={()=>setMaterialWidthFocused(false)} disabled={locked} onChange={e=>commit({...doc,settings:{...doc.settings,materialWidthMm:e.target.valueAsNumber*factor}},true,'material-width')}/></label>
           {(!Number.isFinite(doc.settings.materialWidthMm)||doc.settings.materialWidthMm<=0||doc.settings.materialWidthMm>100_000)&&<small role="alert" className="field-error">Geçerli bir malzeme genişliği girin.</small>}
