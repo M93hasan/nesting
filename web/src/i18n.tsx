@@ -422,7 +422,10 @@ E('Kullanılan uzunluk','Used length','الطول المستخدم','طول اس
 E('Son başlatılan çalışma:','Last started run:','آخر تشغيل بدأ:','آخرین اجرای آغازشده:'),
 E('istendi','requested','مطلوب','درخواست شد'),
 E('yedek','fallback','احتياطي','پشتیبان'),
-E('çözücü işçisi','solver worker','عامل المحلل','کارگر حل‌گر')
+E('çözücü işçisi','solver worker','عامل المحلل','کارگر حل‌گر'),
+E('Sabit','Fixed','ثابت','ثابت'),
+E('Yarım dönüşler','Half-turns','دوران 180°','چرخش‌های ۱۸۰ درجه'),
+E('Dört yön','Four directions','أربعة اتجاهات','چهار جهت')
 ];
 
 const reverse=new Map<string,Entry>();
