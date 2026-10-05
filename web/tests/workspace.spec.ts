@@ -2,6 +2,18 @@ import {readFile} from 'node:fs/promises';
 import {openExamples,workshop,finishSwitch} from './project-helpers';
 import {test,expect} from '@playwright/test';
 
+test('Ctrl-I opens drawing import and Ctrl-E exports DXF',async({page})=>{
+  await page.goto('/');await workshop(page);
+  const chooser=page.waitForEvent('filechooser');
+  await page.keyboard.press('Control+i');
+  await chooser;
+
+  const download=page.waitForEvent('download');
+  await page.keyboard.press('Control+e');
+  const file=await download;
+  expect(file.suggestedFilename()).toMatch(/\.dxf$/i);
+});
+
 test('JSON import, checked result, serialized export and invalidation',async({page},testInfo)=>{
   await page.goto('/');
   await expect(page.getByRole('status')).toHaveText('Ready');
