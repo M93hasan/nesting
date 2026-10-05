@@ -21,6 +21,7 @@
 
 .admin-user-row{display:grid;grid-template-columns:2fr 1fr 1.25fr 1.3fr 1.25fr;gap:14px;align-items:start;padding:16px 14px;border-bottom:1px solid var(--border);background:var(--panel)}
 .admin-user-row:last-child{border-bottom:0}.admin-user-row>span{min-width:0;display:grid;gap:5px;align-content:start}.admin-user-row strong{overflow-wrap:anywhere}.admin-user-row small{color:var(--muted);line-height:1.35;overflow-wrap:anywhere}.admin-user-row input[type="number"]{max-width:110px}.admin-user-actions{display:flex!important;flex-wrap:wrap;gap:7px!important}.admin-user-actions button{font-size:11px}.admin-user-quota label{display:grid;gap:4px;font-size:11px;color:var(--muted)}
+.admin-license-controls{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:4px}.admin-license-controls select,.admin-license-controls input{min-width:88px;max-width:112px;font-size:11px}.admin-license-controls button{font-size:11px;padding:7px 9px}.admin-user-license>strong:first-child{font-size:13px}
 .admin-toggle{display:flex!important;align-items:center;gap:7px!important;color:var(--ink)!important;font-weight:600}.admin-toggle input{width:18px;height:18px}
 .admin-notice{margin:8px 0 12px;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--selected);font-size:12px}
 .admin-selected-user{display:flex;justify-content:space-between;gap:12px;align-items:center;margin:0 0 16px;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--page)}.admin-selected-user span{font-size:12px;color:var(--muted)}
