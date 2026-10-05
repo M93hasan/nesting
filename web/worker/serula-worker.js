@@ -57,6 +57,14 @@ async function ensureSchema(env){
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS system_settings (key TEXT PRIMARY KEY, value_json TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_settings (user_id INTEGER PRIMARY KEY, settings_json TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_features (user_id INTEGER PRIMARY KEY, test_dxf_enabled INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_licenses (
+      user_id INTEGER PRIMARY KEY,
+      started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      expires_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_user_licenses_expires ON user_licenses(expires_at)'),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS audit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, actor_type TEXT NOT NULL, actor_user_id INTEGER, target_user_id INTEGER, action TEXT NOT NULL, detail TEXT, success INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at)'),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_audit_logs_target ON audit_logs(target_user_id)'),
@@ -158,8 +166,10 @@ async function ensureSchema(env){
 }
 async function sessionUser(request,env){
   const raw=cookieToken(request);if(!raw)return null;
-  const row=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited
+  const row=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,
+      l.started_at license_started_at,l.expires_at license_expires_at
     FROM sessions s JOIN users u ON u.id=s.user_id
+    LEFT JOIN user_licenses l ON l.user_id=u.id
     WHERE s.token_hash=? AND datetime(s.expires_at)>datetime('now')`).bind(await sha256(raw)).first();
   return row||null;
 }
@@ -168,7 +178,15 @@ async function makeSession(userId,env){
   await env.DB.prepare('INSERT INTO sessions(user_id,token_hash,expires_at) VALUES(?,?,?)').bind(userId,await sha256(raw),expires).run();
   return raw;
 }
-function publicUser(u){return {id:u.id,email:u.email,name:u.name||'',role:u.role,credits:Number(u.nesting_credits||0),unlimited:!!u.unlimited}}
+function licenseExpired(u){
+  const expires=String(u?.license_expires_at||'');
+  return !!expires&&Number.isFinite(Date.parse(expires))&&Date.parse(expires)<=Date.now();
+}
+function publicUser(u){
+  const licenseStartedAt=u?.license_started_at||null,licenseExpiresAt=u?.license_expires_at||null;
+  return {id:u.id,email:u.email,name:u.name||'',role:u.role,credits:Number(u.nesting_credits||0),unlimited:!!u.unlimited,
+    licenseStartedAt,licenseExpiresAt,licenseExpired:licenseExpired(u)};
+}
 async function touchPresence(env,userId){
   if(!userId)return;
   await env.DB.prepare(`INSERT INTO user_presence(user_id,last_seen) VALUES(?,CURRENT_TIMESTAMP)
@@ -253,11 +271,13 @@ async function googleUserFromCredential(credential,env){
   if(!verify||!verify.ok)return {error:'Google doğrulaması başarısız.',status:401};
   const claims=await verify.json(),email=String(claims.email||'').toLowerCase();
   if(claims.aud!==GOOGLE_CLIENT_ID||!['accounts.google.com','https://accounts.google.com'].includes(String(claims.iss||''))||claims.email_verified!=='true'||!validEmail(email))return {error:'Google hesabı doğrulanamadı.',status:401};
-  let user=await env.DB.prepare('SELECT id,email,name,role,nesting_credits,unlimited FROM users WHERE email=?').bind(email).first();
+  let user=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,l.started_at license_started_at,l.expires_at license_expires_at
+    FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.email=?`).bind(email).first();
   if(!user){
     const result=await env.DB.prepare(`INSERT INTO users(email,name,google_id,role,nesting_credits,unlimited,last_login_at)
       VALUES(?,?,?,'user',5,0,CURRENT_TIMESTAMP)`).bind(email,String(claims.name||'').slice(0,120),String(claims.sub||'')).run();
-    user=await env.DB.prepare('SELECT id,email,name,role,nesting_credits,unlimited FROM users WHERE id=?').bind(result.meta.last_row_id).first();
+    user=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,l.started_at license_started_at,l.expires_at license_expires_at
+      FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.id=?`).bind(result.meta.last_row_id).first();
   }else{
     await env.DB.prepare('UPDATE users SET google_id=COALESCE(google_id,?),last_login_at=CURRENT_TIMESTAMP WHERE id=?').bind(String(claims.sub||''),user.id).run();
   }
@@ -291,7 +311,8 @@ async function handleApi(request,env){
     if(await env.DB.prepare('SELECT id FROM users WHERE email=?').bind(email).first())return json({error:'Bu e-posta zaten kayıtlı.'},409);
     const result=await env.DB.prepare(`INSERT INTO users(email,name,password_hash,role,nesting_credits,unlimited,last_login_at)
       VALUES(?,?,?,'user',5,0,CURRENT_TIMESTAMP)`).bind(email,name,await hashPassword(password)).run();
-    const user=await env.DB.prepare('SELECT id,email,name,role,nesting_credits,unlimited FROM users WHERE id=?').bind(result.meta.last_row_id).first();
+    const user=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,l.started_at license_started_at,l.expires_at license_expires_at
+      FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.id=?`).bind(result.meta.last_row_id).first();
     return json({user:publicUser(user)},201,{'set-cookie':cookie(await makeSession(user.id,env))});
   }
   if(path==='/api/auth/admin-me'&&request.method==='GET'){
@@ -309,7 +330,9 @@ async function handleApi(request,env){
   }
     if(path==='/api/auth/login'&&request.method==='POST'){
     const data=await body(request),email=String(data.email||'').trim().toLowerCase(),password=String(data.password||'');
-    const user=await env.DB.prepare('SELECT id,email,name,role,nesting_credits,unlimited,password_hash FROM users WHERE email=?').bind(email).first();
+    const user=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,u.password_hash,
+      l.started_at license_started_at,l.expires_at license_expires_at
+      FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.email=?`).bind(email).first();
     if(!user||!await verifyPassword(password,user.password_hash)){await audit(env,'login_failed',{actorType:'user',detail:email,success:false});return json({error:'E-posta veya parola hatalı.'},401);}
     await env.DB.prepare('UPDATE users SET last_login_at=CURRENT_TIMESTAMP WHERE id=?').bind(user.id).run();
     await audit(env,'login',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:'E-posta ile giriş'});
@@ -355,6 +378,7 @@ async function handleApi(request,env){
   }
   if(path==='/api/nesting/start'&&request.method==='POST'){
     const user=await sessionUser(request,env);if(!user)return json({error:'Nesting için giriş yapmalısınız.'},401);
+    if(licenseExpired(user))return json({error:'Lisans süreniz doldu. Devam etmek için yöneticinizden lisans süresini uzatmasını isteyin.'},403);
     if(!user.unlimited){
       const updated=await env.DB.prepare('UPDATE users SET nesting_credits=nesting_credits-1 WHERE id=? AND nesting_credits>0').bind(user.id).run();
       if(!updated.meta.changes)return json({error:'Nesting hakkınız kalmadı.'},402);
@@ -362,7 +386,7 @@ async function handleApi(request,env){
     const data=await body(request);
     await env.DB.prepare('INSERT INTO nesting_history(user_id,project_name,source_file_name,used_credit) VALUES(?,?,?,?)')
       .bind(user.id,String(data.projectName||'').slice(0,200),String(data.sourceFileName||'').slice(0,255),user.unlimited?0:1).run();
-    const fresh=await env.DB.prepare('SELECT id,email,name,role,nesting_credits,unlimited FROM users WHERE id=?').bind(user.id).first();
+    const fresh=await env.DB.prepare('SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,l.started_at license_started_at,l.expires_at license_expires_at FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.id=?').bind(user.id).first();
     await audit(env,'nesting_start',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:String(data.projectName||'')});
     return json({ok:true,user:publicUser(fresh)});
   }
@@ -397,6 +421,7 @@ async function handleApi(request,env){
   }
   if(path==='/api/export/authorize'&&request.method==='POST'){
     const user=await sessionUser(request,env);if(!user)return json({error:'DXF indirmek için giriş yapmalısınız.'},401);
+    if(licenseExpired(user))return json({error:'Lisans süreniz doldu. DXF indirmek için yöneticinizden lisans süresini uzatmasını isteyin.'},403);
     const data=await body(request);
     const projectName=String(data.projectName||'').trim().slice(0,200);
     const sourceFileName=String(data.sourceFileName||'').trim().slice(0,255);
@@ -433,7 +458,7 @@ async function handleApi(request,env){
       await audit(env,'export_save_failed',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:fileName,success:false});
       return json({error:'DXF buluta kaydedilemedi. Lütfen yeniden deneyin.'},500);
     }
-    const fresh=await env.DB.prepare('SELECT id,email,name,role,nesting_credits,unlimited FROM users WHERE id=?').bind(user.id).first();
+    const fresh=await env.DB.prepare('SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,l.started_at license_started_at,l.expires_at license_expires_at FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.id=?').bind(user.id).first();
     await audit(env,'export_saved',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:fileName});
     return json({ok:true,exportId,user:publicUser(fresh)});
   }
@@ -474,9 +499,12 @@ async function handleApi(request,env){
   if(path==='/api/admin/users'&&request.method==='GET'){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
     const rows=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,u.google_id,u.created_at,u.last_login_at,
-      COALESCE(f.test_dxf_enabled,0) test_dxf_enabled,p.last_seen,
+      COALESCE(f.test_dxf_enabled,0) test_dxf_enabled,p.last_seen,l.started_at license_started_at,l.expires_at license_expires_at,
       CASE WHEN ${onlineSql} THEN 1 ELSE 0 END online
-      FROM users u LEFT JOIN user_features f ON f.user_id=u.id LEFT JOIN user_presence p ON p.user_id=u.id
+      FROM users u
+      LEFT JOIN user_features f ON f.user_id=u.id
+      LEFT JOIN user_presence p ON p.user_id=u.id
+      LEFT JOIN user_licenses l ON l.user_id=u.id
       ORDER BY u.created_at DESC LIMIT 500`).all();
     const online=await env.DB.prepare("SELECT COUNT(*) n FROM user_presence WHERE datetime(last_seen)>=datetime('now','-15 seconds')").first();
     return json({onlineCount:Number(online?.n||0),users:rows.results.map(u=>({...publicUser(u),testDxfEnabled:!!u.test_dxf_enabled,authProvider:u.google_id?'google':'email',createdAt:u.created_at,lastLoginAt:u.last_login_at,lastSeen:u.last_seen||null,online:!!u.online}))});
@@ -523,6 +551,7 @@ async function handleApi(request,env){
       env.DB.prepare('DELETE FROM support_signals WHERE session_id IN (SELECT id FROM support_sessions WHERE user_id=?)').bind(id),
       env.DB.prepare('DELETE FROM support_sessions WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM user_features WHERE user_id=?').bind(id),
+      env.DB.prepare('DELETE FROM user_licenses WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM user_settings WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM password_reset_tokens WHERE user_id=?').bind(id),
@@ -684,6 +713,25 @@ async function handleApi(request,env){
   if(userSettingsMatch&&request.method==='DELETE'){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
     const id=Number(userSettingsMatch[1]);await env.DB.prepare('DELETE FROM user_settings WHERE user_id=?').bind(id).run();await audit(env,'user_settings_reset',{actorType:'admin',targetUserId:id});return json({settings:await systemDefaults(env),custom:false});
+  }
+  const licenseMatch=path.match(/^\/api\/admin\/users\/(\d+)\/license$/);
+  if(licenseMatch&&request.method==='POST'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const id=Number(licenseMatch[1]),data=await body(request),target=await env.DB.prepare('SELECT id,email FROM users WHERE id=?').bind(id).first();
+    if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
+    if(data.days===null||data.days===''){
+      await env.DB.prepare('DELETE FROM user_licenses WHERE user_id=?').bind(id).run();
+      await audit(env,'license_changed',{actorType:'admin',targetUserId:id,detail:'Süresiz'});
+      return json({ok:true,licenseStartedAt:null,licenseExpiresAt:null,licenseExpired:false});
+    }
+    const days=Math.trunc(Number(data.days));
+    if(!Number.isFinite(days)||days<1||days>36500)return json({error:'Lisans süresi 1 ile 36500 gün arasında olmalıdır.'},400);
+    const startedAt=new Date(),expiresAt=new Date(startedAt.getTime()+days*86400000);
+    await env.DB.prepare(`INSERT INTO user_licenses(user_id,started_at,expires_at,updated_at) VALUES(?,?,?,CURRENT_TIMESTAMP)
+      ON CONFLICT(user_id) DO UPDATE SET started_at=excluded.started_at,expires_at=excluded.expires_at,updated_at=CURRENT_TIMESTAMP`)
+      .bind(id,startedAt.toISOString(),expiresAt.toISOString()).run();
+    await audit(env,'license_changed',{actorType:'admin',targetUserId:id,detail:`${days} gün · ${expiresAt.toISOString()}`});
+    return json({ok:true,licenseStartedAt:startedAt.toISOString(),licenseExpiresAt:expiresAt.toISOString(),licenseExpired:false});
   }
   const testDxfMatch=path.match(/^\/api\/admin\/users\/(\d+)\/test-dxf$/);
   if(testDxfMatch&&request.method==='POST'){
