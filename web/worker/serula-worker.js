@@ -239,6 +239,7 @@ async function readCloudProjectText(env,userId){
   return rows.results.length?decodeExportChunks(rows.results):'';
 }
 const validEmail=e=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+const cleanLocale=value=>['tr','en','ar','fa'].includes(String(value||'').toLowerCase())?String(value).toLowerCase():'tr';
 const passwordOk=p=>typeof p==='string'&&p.length>=8&&p.length<=200;
 const TEST_DXF_FILES=['1003.dxf','1239.dxf','test.dxf'];
 async function testDxfAllowed(userId,env){
@@ -279,7 +280,8 @@ async function systemDefaults(env){
   }catch{return DEFAULT_ADMIN_SETTINGS}
 }
 
-async function googleUserFromCredential(credential,env){
+async function googleUserFromCredential(credential,env,requestedLocale='tr'){
+  const locale=cleanLocale(requestedLocale);
   const verify=credential&&await fetch('https://oauth2.googleapis.com/tokeninfo?id_token='+encodeURIComponent(credential));
   if(!verify||!verify.ok)return {error:'Google doğrulaması başarısız.',status:401};
   const claims=await verify.json(),email=String(claims.email||'').toLowerCase();
@@ -289,8 +291,11 @@ async function googleUserFromCredential(credential,env){
   if(!user){
     const result=await env.DB.prepare(`INSERT INTO users(email,name,google_id,role,nesting_credits,unlimited,last_login_at)
       VALUES(?,?,?,'user',5,0,CURRENT_TIMESTAMP)`).bind(email,String(claims.name||'').slice(0,120),String(claims.sub||'')).run();
+    const userId=Number(result.meta.last_row_id);
+    await env.DB.prepare(`INSERT INTO user_preferences(user_id,locale,updated_at) VALUES(?,?,CURRENT_TIMESTAMP)
+      ON CONFLICT(user_id) DO NOTHING`).bind(userId,locale).run();
     user=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,l.started_at license_started_at,l.expires_at license_expires_at
-      FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.id=?`).bind(result.meta.last_row_id).first();
+      FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.id=?`).bind(userId).first();
   }else{
     await env.DB.prepare('UPDATE users SET google_id=COALESCE(google_id,?),last_login_at=CURRENT_TIMESTAMP WHERE id=?').bind(String(claims.sub||''),user.id).run();
   }
@@ -319,13 +324,16 @@ async function handleApi(request,env){
     return json({user:publicUser(user)});
   }
   if(path==='/api/auth/register'&&request.method==='POST'){
-    const data=await body(request),email=String(data.email||'').trim().toLowerCase(),name=String(data.name||'').trim().slice(0,120),password=String(data.password||'');
+    const data=await body(request),email=String(data.email||'').trim().toLowerCase(),name=String(data.name||'').trim().slice(0,120),password=String(data.password||''),locale=cleanLocale(data.locale);
     if(!validEmail(email)||!passwordOk(password))return json({error:'Geçerli e-posta ve en az 8 karakter parola gerekli.'},400);
     if(await env.DB.prepare('SELECT id FROM users WHERE email=?').bind(email).first())return json({error:'Bu e-posta zaten kayıtlı.'},409);
     const result=await env.DB.prepare(`INSERT INTO users(email,name,password_hash,role,nesting_credits,unlimited,last_login_at)
       VALUES(?,?,?,'user',5,0,CURRENT_TIMESTAMP)`).bind(email,name,await hashPassword(password)).run();
+    const userId=Number(result.meta.last_row_id);
+    await env.DB.prepare(`INSERT INTO user_preferences(user_id,locale,updated_at) VALUES(?,?,CURRENT_TIMESTAMP)
+      ON CONFLICT(user_id) DO UPDATE SET locale=excluded.locale,updated_at=CURRENT_TIMESTAMP`).bind(userId,locale).run();
     const user=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,l.started_at license_started_at,l.expires_at license_expires_at
-      FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.id=?`).bind(result.meta.last_row_id).first();
+      FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.id=?`).bind(userId).first();
     return json({user:publicUser(user)},201,{'set-cookie':cookie(await makeSession(user.id,env))});
   }
   if(path==='/api/auth/admin-me'&&request.method==='GET'){
@@ -352,7 +360,7 @@ async function handleApi(request,env){
     return json({user:publicUser(user)},200,{'set-cookie':cookie(await makeSession(user.id,env))});
   }
   if(path==='/api/auth/google'&&request.method==='POST'){
-    const data=await body(request),credential=String(data.credential||''),result=await googleUserFromCredential(credential,env);
+    const data=await body(request),credential=String(data.credential||''),result=await googleUserFromCredential(credential,env,data.locale);
     if(result.error)return json({error:result.error},result.status);
     return json({user:publicUser(result.user)},200,{'set-cookie':cookie(await makeSession(result.user.id,env))});
   }
