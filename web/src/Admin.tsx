@@ -22,7 +22,7 @@ function Metric({label,value,detail}:{label:string;value:string;detail:string}){
   return <article className="admin-metric"><span>{label}</span><strong>{value}</strong><small>{detail}</small></article>;
 }
 
-type AdminUser={id:number;email:string;name:string;role:string;credits:number;unlimited:boolean;testDxfEnabled?:boolean;authProvider?:string;suspended?:boolean;licenseStartedAt?:string;licenseExpiresAt?:string;createdAt?:string;lastLoginAt?:string;lastSeen?:string|null;online?:boolean};
+type AdminUser={id:number;email:string;name:string;role:string;credits:number;unlimited:boolean;testDxfEnabled?:boolean;authProvider?:string;suspended?:boolean;licenseStartedAt?:string|null;licenseExpiresAt?:string|null;licenseExpired?:boolean;createdAt?:string;lastLoginAt?:string;lastSeen?:string|null;online?:boolean};
 type AdminSettings={materialWidthMm:number;clearanceMm:number;marginMm:number;rotation:'fixed'|'half'|'free';materialType:'roll'|'sheet';solverPreset:'standard'|'fast'};
 type AuditLog={id:number;actorType:string;actorEmail:string;targetEmail:string;action:string;detail:string;success:boolean;createdAt:string};
 type Health={adminApi:boolean;auth:boolean;userStore:boolean};
@@ -310,6 +310,15 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
     }catch(e){setUsersError(e instanceof Error?e.message:String(e))}
     finally{setSavingUserId(undefined)}
   }
+  async function setLicenseDays(user:AdminUser,days:number|null){
+    setSavingUserId(user.id);setUsersError('');setUserNotice('');
+    try{
+      await getJson(`/api/admin/users/${user.id}/license`,{method:'POST',body:JSON.stringify({days})});
+      setUserNotice(user.email+' lisansı '+(days===null?'süresiz yapıldı.':days+' gün olarak tanımlandı.'));
+      await loadUsers();
+    }catch(e){setUsersError(e instanceof Error?e.message:String(e))}
+    finally{setSavingUserId(undefined)}
+  }
   async function saveCredits(user:AdminUser,credits:number){
     setSavingUserId(user.id);setUsersError('');
     try{
@@ -374,7 +383,7 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
         </>}
 
         {section==='users'&&<section className="admin-card admin-users">
-          <div className="admin-card-head"><div><h2>Kullanıcı Yönetimi</h2><p>E-posta veya Google ile giriş yapan kullanıcıların hesap, kota ve 375 günlük lisans bilgilerini yönetin.</p></div><button onClick={()=>void loadUsers()} disabled={usersLoading}>↻ Yenile</button></div>
+          <div className="admin-card-head"><div><h2>Kullanıcı Yönetimi</h2><p>E-posta veya Google ile giriş yapan kullanıcıların hesap, kota ve lisans sürelerini yönetin.</p></div><button onClick={()=>void loadUsers()} disabled={usersLoading}>↻ Yenile</button></div>
           <div className="admin-toolbar"><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Kullanıcı ara…" aria-label="Kullanıcı ara"/><select value={role} onChange={e=>setRole(e.target.value)}><option>Tümü</option><option>Admin</option><option>Operatör</option></select></div>
           {usersError&&<p className="field-error" role="alert">{usersError}</p>}{userNotice&&<p className="admin-notice" role="status">{userNotice}</p>}
           <div className="admin-table"><div className="admin-table-head"><span>Kullanıcı</span><span>Rol / Giriş</span><span>Nesting hakkı</span><span>Lisans</span><span>İşlemler</span></div>
@@ -382,7 +391,7 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
               <span className="admin-user-identity"><strong>{user.online&&<i className="admin-presence-tick" aria-label="Çevrim içi">✓</i>}{user.name||'İsimsiz'}</strong><small>{user.email}</small><small>{user.online?'Şu anda çevrim içi':user.lastLoginAt?'Son giriş: '+new Date(user.lastLoginAt).toLocaleString('tr-TR'):'Henüz giriş yok'}</small></span>
               <span><strong>{user.role==='admin'?'Admin':'Kullanıcı'}</strong><small>{user.authProvider==='google'?'Google / Gmail':'E-posta'}</small></span>
               <span className="admin-user-quota"><div className="admin-switch-row"><label className="switch"><input type="checkbox" checked={user.unlimited} disabled={savingUserId===user.id} onChange={e=>void setUnlimited(user,e.target.checked)}/><span className="slider"><span className="glow"/><span className="icon-on">✓</span><span className="icon-off">○</span></span></label><span>Kotasız / Sınırsız</span></div>{!user.unlimited&&<label>Hak<input aria-label={user.email+' nesting hakkı'} type="number" min="0" max="100000" defaultValue={user.credits} key={user.id+'-'+user.credits} onBlur={e=>{const value=Math.max(0,Math.trunc(e.currentTarget.valueAsNumber||0));if(value!==user.credits)void saveCredits(user,value)}}/></label>}</span>
-              <span><strong>{user.licenseExpiresAt?new Date(user.licenseExpiresAt).toLocaleDateString('tr-TR'):'Lisans yok'}</strong><small>{user.licenseStartedAt?'Başlangıç: '+new Date(user.licenseStartedAt).toLocaleDateString('tr-TR'):'375 gün · etkinleştirme bekliyor'}</small></span>
+              <span className="admin-user-license"><strong>{user.licenseExpiresAt?(user.licenseExpired?'Süresi doldu · ':'Bitiş · ')+new Date(user.licenseExpiresAt).toLocaleDateString('tr-TR'):'Süresiz'}</strong><small>{user.licenseStartedAt?'Başlangıç: '+new Date(user.licenseStartedAt).toLocaleDateString('tr-TR'):'Lisans süresi sınırlandırılmamış'}</small><div className="admin-license-controls"><select aria-label={user.email+' hızlı lisans süresi'} defaultValue="" disabled={savingUserId===user.id} onChange={e=>{const days=Number(e.currentTarget.value);if(days>0)void setLicenseDays(user,days);e.currentTarget.value=''}}><option value="">Süre ver…</option><option value="7">7 gün</option><option value="30">30 gün</option><option value="90">90 gün</option><option value="180">180 gün</option><option value="365">1 yıl</option></select><input key={user.id+'-'+String(user.licenseExpiresAt)} aria-label={user.email+' özel lisans günü'} type="number" min="1" max="36500" placeholder="Özel gün" disabled={savingUserId===user.id} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur()}} onBlur={e=>{const days=Math.trunc(e.currentTarget.valueAsNumber);if(Number.isFinite(days)&&days>0)void setLicenseDays(user,days)}}/><button type="button" disabled={savingUserId===user.id||!user.licenseExpiresAt} onClick={()=>void setLicenseDays(user,null)}>Süresiz</button></div></span>
               <span className="admin-user-actions"><button className={user.testDxfEnabled?'primary':''} onClick={()=>void setTestDxf(user,!user.testDxfEnabled)} disabled={savingUserId===user.id}>{user.testDxfEnabled?'Test DXF Kapat':'Test DXF Aç'}</button><button onClick={()=>{setSection('user-settings');void loadUserSettings(user.id)}}>Ayarlar</button><button onClick={()=>{setSection('messages');void loadChat(user.id)}}>Mesajlar</button><button className="screen-support-button" onClick={()=>{setSection('user-settings');void loadUserSettings(user.id).then(()=>requestSupport('screen',user.id))}}>Ekrana bağlan</button><button onClick={()=>void sendPasswordReset(user)} disabled={resettingUserId===user.id}>{resettingUserId===user.id?'Gönderiliyor…':'Şifre sıfırla'}</button><button className="danger-button" onClick={()=>void deleteUser(user)} disabled={savingUserId===user.id}>{savingUserId===user.id?'Siliniyor…':'Kullanıcıyı sil'}</button></span>
             </div>):<Empty title="Kullanıcı bulunamadı">Filtreye uyan kullanıcı yok.</Empty>}
           </div>
