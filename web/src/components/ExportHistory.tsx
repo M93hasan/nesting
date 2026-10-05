@@ -114,7 +114,7 @@ export default function ExportHistory({onClose,onOpen}:{onClose:()=>void;onOpen:
 
   return <Modal title="Geçmiş" onClose={onClose} locked={!!busy}>
     <div className="export-history">
-      <div className="export-history-head"><div><strong>Bulut kayıtları</strong><small>Çalışma değiştikçe son temiz proje durumu otomatik kaydedilir; DXF exportları ayrıca geçmişte tutulur.</small></div><button disabled={loading||!!busy} onClick={()=>void load()}>Yenile</button></div>
+      <div className="export-history-head"><div><strong>Bulut kayıtları</strong><small>Çalışma değiştikçe son temiz proje durumu otomatik kaydedilir; DXF dışa aktarımları ayrıca geçmişte tutulur.</small></div><button disabled={loading||!!busy} onClick={()=>void load()}>Yenile</button></div>
       {error&&<p role="alert" className="field-error">{error}</p>}
       {loading?<p className="muted">Geçmiş yükleniyor…</p>:<>
         {cloud&&<article className="export-history-item export-history-latest">
