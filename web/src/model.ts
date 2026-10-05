@@ -52,8 +52,8 @@ export function example(): Document {
 export function rotationSummary(rule: RotationRule): string {
   if (rule.kind === 'continuous') return 'Serbest dönüş';
   const degrees = [...new Set(rule.degrees.map(d => ((d % 360) + 360) % 360))].sort((a,b) => a-b);
-  if (degrees.length === 1) return 'Fixed';
-  if (degrees.length === 2 && degrees[1]-degrees[0] === 180) return 'Half-turns';
-  if (degrees.length === 4 && degrees.every((d,i) => d-degrees[0] === i*90)) return 'Quarter-turns';
+  if (degrees.length === 1) return 'Sabit';
+  if (degrees.length === 2 && degrees[1]-degrees[0] === 180) return 'Yarım dönüşler';
+  if (degrees.length === 4 && degrees.every((d,i) => d-degrees[0] === i*90)) return 'Dört yön';
   return `${degrees.length} açı`;
 }
