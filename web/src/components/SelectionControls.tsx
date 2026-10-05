@@ -13,12 +13,13 @@ export default function SelectionControls({
   const scale=unitScale(unit),initial=values.map(v=>displayLength(v,unit));
   const [fields,setFields]=useState(initial),[angleText,setAngleText]=useState(angle===undefined?'':String(angle)),[step,setStep]=useState('5');
   const previous=useRef({values,unit});
+  const angleEditing=useRef(false);
   useLayoutEffect(()=>{
     const old=previous.current;
     setFields(fields=>values.map((value,i)=>old.unit!==unit||old.values[i]!==value?displayLength(value,unit):fields[i]));
     previous.current={values,unit};
   },[...values,unit]);
-  useEffect(()=>setAngleText(angle===undefined?'':String(angle)),[angle]);
+  useEffect(()=>{if(!angleEditing.current)setAngleText(angle===undefined?'':String(angle));},[angle]);
   const valid=(text:string,i:number)=>!!text.trim()&&Number.isFinite(Number(text))&&Math.abs(Number(text)*scale)<=100_000&&(i<2||Number(text)>0);
   const invalid=fields.some((text,i)=>!valid(text,i));
   useEffect(()=>{onValidity(!invalid);return()=>onValidity(true);},[invalid,onValidity]);
@@ -30,11 +31,11 @@ export default function SelectionControls({
   const stepValue=Number(step),stepValid=!!step.trim()&&Number.isFinite(stepValue)&&stepValue>0&&stepValue<=360;
   return <><div className="size-controls">{['X','Y','Genişlik','Yükseklik'].map((label,i)=><label key={label}>{label}, {unit}<input type="number" step="any" min={(i<2?-100000:.000001)/scale} max={100000/scale} required disabled={disabled||(sizeLocked&&i>=2)} aria-invalid={!valid(fields[i],i)} value={fields[i]} onChange={e=>setFields(f=>f.map((v,j)=>j===i?e.target.value:v))} onBlur={()=>apply(i)} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur();}}/></label>)}<small>Konum, döndürme ve aynalama seçili kopyaları etkiler. Boyutlandırma bu şeklin tüm kopyalarını değiştirir; en-boy oranı kilitlidir.</small>{invalid&&<small className="field-error" role="alert">Geçerli konumlar ve şu sınıra kadar pozitif ölçüler girin: {unit==='mm'?'100,000':displayLength(100000,unit)} {unit}.</small>}{sizeLocked&&<small>DXF ölçüleri kilitlidir; genişlik ve yükseklik değiştirilemez.</small>}</div>
     <form className="rotation-control" onSubmit={e=>{e.preventDefault();if(!disabled&&angleValid)onSetAngle(Number(angleText));}}>
-      <label>Yön açısı, derece<input type="number" step="any" placeholder={angle===undefined?'—':undefined} value={angleText} disabled={disabled} onChange={e=>setAngleText(e.target.value)}/></label>
+      <label>Yön açısı, derece<input type="text" inputMode="decimal" placeholder={angle===undefined?'—':undefined} value={angleText} disabled={disabled} onFocus={e=>{angleEditing.current=true;e.currentTarget.select();}} onChange={e=>setAngleText(e.target.value.replace(',', '.'))} onBlur={()=>{angleEditing.current=false;if(angle!==undefined&&!angleText.trim())setAngleText(String(angle));}}/></label>
       <button disabled={disabled||!angleValid}>Açıyı uygula</button>
     </form>
     <div className="rotation-control">
-      <label>Elle çevirme adımı, derece<input type="number" min="0.000001" max="360" step="any" value={step} disabled={disabled} onChange={e=>setStep(e.target.value)}/></label>
+      <label>Elle çevirme adımı, derece<input type="text" inputMode="decimal" value={step} disabled={disabled} onFocus={e=>e.currentTarget.select()} onChange={e=>setStep(e.target.value.replace(',', '.'))}/></label>
       <div className="row-actions"><button type="button" disabled={disabled||!stepValid} onClick={()=>onRotate(stepValue)}>Sola ↺</button><button type="button" disabled={disabled||!stepValid} onClick={()=>onRotate(-stepValue)}>Sağa ↻</button></div>
       <small>Tuvaldeki döndürme kolunu fareyle sürükleyerek de çevirebilirsiniz.</small>
     </div>
