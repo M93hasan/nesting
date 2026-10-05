@@ -5,12 +5,26 @@ import {friendlyInitialPlacementError} from '../import/sparrow';
 type PoolInit = { type: 'pool-init'; threads: number; init: { module_or_path: WebAssembly.Module; memory: WebAssembly.Memory }; receiver: number };
 let dispose = () => {};
 let skip = () => {};
+let hardStopTimer: ReturnType<typeof setTimeout> | undefined;
 
 // Keep this coordinator idle: it owns every runtime and pool worker, and can
 // terminate them even while the solver is blocked in synchronous WASM.
 self.onmessage = ({ data }: MessageEvent<Start | { type: 'stop' } | { type: 'skip' }>) => {
-  if (data.type === 'stop') { dispose(); self.close(); return; }
+  if (data.type === 'stop') {
+    if (hardStopTimer) clearTimeout(hardStopTimer);
+    hardStopTimer = undefined;
+    dispose();
+    self.close();
+    return;
+  }
   if (data.type === 'skip') { skip(); return; }
+  if (hardStopTimer) clearTimeout(hardStopTimer);
+  const hardLimitMs=data.hardLimitMs??(data.type==='bridge'?data.seconds*1000:(data.document.settings.timeLimitSeconds??59)*1000);
+  hardStopTimer=setTimeout(()=>{
+    dispose();
+    self.postMessage({type:'finished',runId:data.runId,documentRevision:data.documentRevision});
+    self.close();
+  },Math.max(0,hardLimitMs));
   const requested = data.threads ?? 1;
   const threads = self.crossOriginIsolated && typeof SharedArrayBuffer !== 'undefined' ? requested : 1;
   if (!Number.isInteger(requested) || requested < 1 || requested > 3) {
