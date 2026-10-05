@@ -777,10 +777,6 @@ async function handleApi(request,env){
 
 export default {async fetch(request,env){
   const url=new URL(request.url);
-  if(url.hostname==='www.serula.site'||url.protocol==='http:'){
-    url.protocol='https:';url.hostname='serula.site';url.port='';
-    return Response.redirect(url.toString(),308);
-  }
   if(url.pathname.startsWith('/api/'))return handleApi(request,env);
   let decodedPath=url.pathname;try{decodedPath=decodeURIComponent(url.pathname)}catch{}
   if(decodedPath.startsWith('/examples/test klasoru dxf/')){
