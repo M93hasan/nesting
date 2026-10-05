@@ -12,20 +12,46 @@
     img{width:72px;height:72px}h1{font-size:23px;margin:12px 0 8px}p{color:#596579;margin:0 0 18px}
     #google{min-height:44px;display:flex;justify-content:center;align-items:center;margin:18px 0}
     #status{min-height:22px;font-size:13px;color:#596579}.error{color:#b42318!important}
-    a{display:inline-block;margin-top:10px;color:#176b58;text-decoration:none}
+    a{display:inline-block;margin-top:10px;color:#176b58;text-decoration:none}select{width:100%;padding:11px 12px;border:1px solid #dde2e9;border-radius:10px;background:#fff;color:#18212f;margin:8px 0 2px}
   </style>
 </head>
 <body>
   <main class="card">
     <img src="/serula-logo.svg" alt="Serula">
     <h1>Serula Nesting</h1>
-    <p>Google hesabınızla devam edin.</p>
+    <p id="lead">Google hesabınızla devam edin.</p>
+    <label id="languageLabel" for="language">Varsayılan dil</label>
+    <select id="language"><option value="tr">Türkçe</option><option value="en">English</option><option value="ar">العربية</option><option value="fa">فارسی</option></select>
     <div id="google"></div>
     <div id="status">Google giriş servisi hazırlanıyor…</div>
     <a href="/">Ana sayfaya dön</a>
   </main>
 <script>
 const statusEl=document.getElementById('status');
+const languageEl=document.getElementById('language');
+const params=new URLSearchParams(location.search);
+const supported=['tr','en','ar','fa'];
+const browserLanguage=(navigator.language||'tr').toLowerCase().split('-')[0];
+const requested=params.get('language')||localStorage.getItem('serula-language')||browserLanguage;
+languageEl.value=supported.includes(requested)?requested:'tr';
+function applyLanguage(){
+  const language=languageEl.value;
+  document.documentElement.lang=language;
+  document.documentElement.dir=language==='ar'||language==='fa'?'rtl':'ltr';
+  localStorage.setItem('serula-language',language);
+  const copy={
+    tr:['Google hesabınızla devam edin.','Varsayılan dil','Google giriş servisi hazırlanıyor…','Ana sayfaya dön'],
+    en:['Continue with your Google account.','Default language','Preparing Google sign-in…','Back to home'],
+    ar:['تابع باستخدام حساب Google.','اللغة الافتراضية','جارٍ تجهيز تسجيل الدخول عبر Google…','العودة إلى الصفحة الرئيسية'],
+    fa:['با حساب Google خود ادامه دهید.','زبان پیش‌فرض','در حال آماده‌سازی ورود با Google…','بازگشت به صفحه اصلی']
+  }[language];
+  document.getElementById('lead').textContent=copy[0];
+  document.getElementById('languageLabel').textContent=copy[1];
+  statusEl.textContent=copy[2];
+  document.querySelector('a').textContent=copy[3];
+}
+applyLanguage();
+languageEl.addEventListener('change',()=>{applyLanguage();location.replace('/google-login.html?language='+encodeURIComponent(languageEl.value));});
 function fail(message){statusEl.className='error';statusEl.textContent=message;}
 async function cleanIsolation(){
   if(!('serviceWorker' in navigator))return false;
@@ -41,7 +67,7 @@ async function cleanIsolation(){
 function loadGoogle(){
   return new Promise((resolve,reject)=>{
     const script=document.createElement('script');
-    script.src='https://accounts.google.com/gsi/client?hl=tr';
+    script.src='https://accounts.google.com/gsi/client?hl='+encodeURIComponent(languageEl.value);
     script.async=true;
     script.defer=true;
     script.onload=resolve;
@@ -59,10 +85,11 @@ async function handleCredential(response){
       method:'POST',
       credentials:'same-origin',
       headers:{'content-type':'application/json'},
-      body:JSON.stringify({credential})
+      body:JSON.stringify({credential,language:languageEl.value})
     });
     const data=await r.json().catch(()=>({}));
     if(!r.ok)throw new Error(data.error||'Google girişi başarısız.');
+    if(data.user?.language)localStorage.setItem('serula-language',data.user.language);
     location.replace('/?google=ok');
   }catch(error){fail(error instanceof Error?error.message:String(error));}
 }
@@ -91,7 +118,7 @@ async function start(){
       text:'continue_with',
       shape:'pill',
       width:300,
-      locale:'tr'
+      locale:languageEl.value
     });
     statusEl.textContent='';
   }catch(error){fail(error instanceof Error?error.message:String(error));}
