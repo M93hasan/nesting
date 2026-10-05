@@ -16,6 +16,21 @@ for(const modifier of ['Meta','Control'] as const)test(`${modifier}-click toggle
   expect(await copies.evaluateAll(nodes=>nodes.map(n=>n.getAttribute('transform')))).toEqual(before);
 });
 
+
+for(const modifier of ['Control','Shift'] as const)test(`${modifier}-drag creates a marquee multi-selection`,async({page})=>{
+  await page.goto('/');await workshop(page);
+  const canvas=page.locator('.workspace-svg'),copies=canvas.locator('g[data-part][data-copy-index]');
+  const box=await copies.evaluateAll(nodes=>{
+    const rects=nodes.map(node=>node.getBoundingClientRect());
+    return {left:Math.min(...rects.map(r=>r.left))-3,top:Math.min(...rects.map(r=>r.top))-3,right:Math.max(...rects.map(r=>r.right))+3,bottom:Math.max(...rects.map(r=>r.bottom))+3};
+  });
+  await page.keyboard.down(modifier);
+  await page.mouse.move(box.left,box.top);await page.mouse.down();await page.mouse.move(box.right,box.bottom,{steps:6});
+  await expect(page.locator('[data-selection-marquee]')).toBeVisible();
+  await page.mouse.up();await page.keyboard.up(modifier);
+  await expect(page.locator('.part-select[aria-pressed=true]')).toHaveCount(4);
+});
+
 test('mixed rotations preserve individual rules until an explicit choice, and Undo restores them',async({page})=>{
   await page.goto('/');await workshop(page);
   const parts=page.locator('.part-select'),rotations=page.getByLabel('Permitted rotations');
