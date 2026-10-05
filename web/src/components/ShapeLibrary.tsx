@@ -122,7 +122,7 @@ export default function ShapeLibrary({selectedParts=[],onAdd,onClose,unit='mm'}:
               {groups.map(group=><optgroup key={group} label={group}>{catalog.filter(item=>item.group===group).map(item=><option key={item.id} value={item.id}>{item.id}{item.continuous?' · serbest dönüş':''}</option>)}</optgroup>)}
             </select></label>
             <nav aria-labelledby="library-sources-heading">
-              <button type="button" className={source==='mine'?'active':''} aria-current={source==='mine'?'true':undefined} disabled={blocked} onClick={()=>selectSource('mine')}<span>Şekillerim</span><small>{mine.length} kayıtlı</small></button>
+              <button type="button" className={source==='mine'?'active':''} aria-current={source==='mine'?'true':undefined} disabled={blocked} onClick={()=>selectSource('mine')}><span>Şekillerim</span><small>{mine.length} kayıtlı</small></button>
               {groups.map(group=><div className="library-category-group" key={group}><h4>{group}</h4>{catalog.filter(item=>item.group===group).map(item=><button type="button" key={item.id} className={source===item.id?'active':''} aria-current={source===item.id?'true':undefined} disabled={blocked} onClick={()=>selectSource(item.id)}><span>{sourceName(item)}{item.continuous?' · serbest dönüş':''}</span><small>{item.file}</small></button>)}</div>)}
             </nav>
             {dataset&&<small className="library-source-summary">{dataset.partTypes??parts.length} şekil türü · kaynak: {dataset.file}{dataset.continuous?' · serbest dönüş':''}</small>}
