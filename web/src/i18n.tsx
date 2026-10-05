@@ -406,11 +406,38 @@ E('Seçili kütüphane şekilleri','Selected library shapes','أشكال الم�
 const reverse=new Map<string,Entry>();
 for(const entry of catalog)for(const value of Object.values(entry))reverse.set(value,entry);
 
+export function localeTag(locale:Locale){return locale==='tr'?'tr-TR':locale==='en'?'en-US':locale==='ar'?'ar': 'fa-IR'}
 function dynamic(text:string,locale:Locale){
-  let m=text.match(/^(?:Up to|En fazla) (\d+) (?:seconds|saniye)$/);
+  let m=text.match(/^(?:Up to|En fazla|حتى|حداکثر) (\d+) (?:seconds?|saniye|ثانية|ثوان|ثانیه)$/);
   if(m){const n=m[1];return locale==='tr'?'En fazla '+n+' saniye':locale==='en'?'Up to '+n+' seconds':locale==='ar'?'حتى '+n+' ثانية':'حداکثر '+n+' ثانیه';}
-  m=text.match(/^(?:Up to|En fazla) (\d+) (?:minutes?|dakika)$/);
+  m=text.match(/^(?:Up to|En fazla|حتى|حداکثر) (\d+) (?:minutes?|dakika|دقيقة|دقائق|دقیقه)$/);
   if(m){const n=m[1];return locale==='tr'?'En fazla '+n+' dakika':locale==='en'?'Up to '+n+' minute'+(n==='1'?'':'s'):locale==='ar'?'حتى '+n+' دقيقة':'حداکثر '+n+' دقیقه';}
+  m=text.match(/^(\d+) (?:açı|angles?|زوايا|زاویه)$/);
+  if(m){const n=m[1];return locale==='tr'?n+' açı':locale==='en'?n+' angle'+(n==='1'?'':'s'):locale==='ar'?n+' زوايا':n+' زاویه';}
+  m=text.match(/^(\d+) (?:parça seçildi|parts? selected|جزء محدد|أجزاء محددة|قطعه انتخاب شد)$/);
+  if(m){const n=m[1];return locale==='tr'?n+' parça seçildi':locale==='en'?n+' part'+(n==='1'?'':'s')+' selected':locale==='ar'?n+' أجزاء محددة':n+' قطعه انتخاب شد';}
+  m=text.match(/^(\d+) (?:köşe|vertices|رؤوس|رأس|رأس)$/);
+  if(m){const n=m[1];return locale==='tr'?n+' köşe':locale==='en'?n+' vertices':locale==='ar'?n+' رؤوس':n+' رأس';}
+  m=text.match(/^(\d+) (?:hak kaldı|credits? left|رصيد متبق|اعتبار باقی مانده)$/);
+  if(m){const n=m[1];return locale==='tr'?n+' hak kaldı':locale==='en'?n+' credits left':locale==='ar'?n+' رصيد متبق':n+' اعتبار باقی مانده';}
+  m=text.match(/^(?:Lisans:|License:|الترخيص:|مجوز:)\s*(.+)$/);
+  if(m){const v=m[1];return locale==='tr'?'Lisans: '+v:locale==='en'?'License: '+v:locale==='ar'?'الترخيص: '+v:'مجوز: '+v;}
+  m=text.match(/^(?:Son giriş:|Last sign-in:|آخر تسجيل دخول:|آخرین ورود:)\s*(.+)$/);
+  if(m){const v=m[1];return locale==='tr'?'Son giriş: '+v:locale==='en'?'Last sign-in: '+v:locale==='ar'?'آخر تسجيل دخول: '+v:'آخرین ورود: '+v;}
+  m=text.match(/^(?:Başlangıç:|Start:|البداية:|شروع:)\s*(.+)$/);
+  if(m){const v=m[1];return locale==='tr'?'Başlangıç: '+v:locale==='en'?'Start: '+v:locale==='ar'?'البداية: '+v:'شروع: '+v;}
+  m=text.match(/^(?:Bitiş|Expires|الانتهاء|پایان)\s*·\s*(.+)$/);
+  if(m){const v=m[1];return locale==='tr'?'Bitiş · '+v:locale==='en'?'Expires · '+v:locale==='ar'?'الانتهاء · '+v:'پایان · '+v;}
+  m=text.match(/^(?:Süresi doldu|Expired|منتهي|منقضی)\s*·\s*(.+)$/);
+  if(m){const v=m[1];return locale==='tr'?'Süresi doldu · '+v:locale==='en'?'Expired · '+v:locale==='ar'?'منتهي · '+v:'منقضی · '+v;}
+  m=text.match(/^(\d+) (?:çevrim içi|online|متصل|آنلاین)$/);
+  if(m){const n=m[1];return locale==='tr'?n+' çevrim içi':locale==='en'?n+' online':locale==='ar'?n+' متصل':n+' آنلاین';}
+  m=text.match(/^(\d+) (?:şekil seçildi|shapes? selected|أشكال محددة|شکل انتخاب شد)$/);
+  if(m){const n=m[1];return locale==='tr'?n+' şekil seçildi':locale==='en'?n+' shape'+(n==='1'?'':'s')+' selected':locale==='ar'?n+' أشكال محددة':n+' شکل انتخاب شد';}
+  m=text.match(/^(\d+) (?:kayıtlı|saved|محفوظ|ذخیره‌شده)$/);
+  if(m){const n=m[1];return locale==='tr'?n+' kayıtlı':locale==='en'?n+' saved':locale==='ar'?n+' محفوظ':n+' ذخیره‌شده';}
+  m=text.match(/^(\d+) (?:delik|holes?|فتحات|حفره)$/);
+  if(m){const n=m[1];return locale==='tr'?n+' delik':locale==='en'?n+' hole'+(n==='1'?'':'s'):locale==='ar'?n+' فتحات':n+' حفره';}
   return text;
 }
 export function translate(locale:Locale,text:string){
