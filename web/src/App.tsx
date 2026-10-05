@@ -288,6 +288,8 @@ export default function App({initialDocument=emptyProject(),initialError='',load
       if(document.querySelector('dialog[open]'))return;
       const editable=isEditableTarget(e.target);
       if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'&&!editable) {e.preventDefault();restore(e.shiftKey);return;}
+      if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='i'&&!editable) {e.preventDefault();if(!locked)input.current?.click();return;}
+      if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='e'&&!editable) {e.preventDefault();if(!exportBlockedReason)void exportLayout();else setError(exportBlockedReason);return;}
       if(e.key==='Escape') {setUnusedSelection([]);setSelectedCopies([]);setPolygon(undefined);}
       if(e.key==='Enter'&&polygon&&!locked&&!editable) {e.preventDefault();void addShape('polygon');return;}
       if(editable||locked||e.altKey||!selected.length)return;
