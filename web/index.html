@@ -23,28 +23,11 @@
   <meta name="twitter:image:alt" content="Serula Nesting çalışma alanında düzensiz parçaların doğrulanmış kompakt kesim yerleşimi.">
   <link rel="icon" type="image/svg+xml" href="/serula-logo.svg">
   <link rel="stylesheet" href="/src/styles.css">
-  <style>
-    .loading-logo {
-      width: 90px;
-      animation: serulaPulse 1.5s ease-in-out infinite;
-    }
-
-    @keyframes serulaPulse {
-      0%, 100% {
-        transform: scale(1);
-        opacity: .65;
-      }
-
-      50% {
-        transform: scale(1.08);
-        opacity: 1;
-      }
-    }
-  </style>
   <script>document.documentElement.dataset.theme='light';try{const theme=localStorage.getItem('serula-theme');if(theme==='light'||theme==='dark'||theme==='system')document.documentElement.dataset.theme=theme;}catch{}</script>
 </head>
 <body>
-  <div id="root"><img class="loading-logo" src="/serula-logo.svg" alt="Serula"><p style="padding:24px">Serula editörü yükleniyor…</p><noscript>Serula Nesting kullanmak için JavaScript etkin olmalıdır.</noscript></div>
+  <div id="root"></div>
+  <noscript>Serula Nesting kullanmak için JavaScript etkin olmalıdır.</noscript>
   <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
