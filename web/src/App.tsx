@@ -56,6 +56,21 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const [panel,setPanel]=useState(true),[info,setInfo]=useState<'admin'|'about'|'contact'|'help'>(),[historyOpen,setHistoryOpen]=useState(false);
   const [testDxfOpen,setTestDxfOpen]=useState(false),[testDxfBusy,setTestDxfBusy]=useState(''),[testDxfFiles,setTestDxfFiles]=useState<string[]>([]);
   const [testDxfAllowed,setTestDxfAllowed]=useState(false);
+  const [rdworksAllowed,setRdworksAllowed]=useState(false);
+  const [rdworksNotice,setRdworksNotice]=useState('');
+  useEffect(()=>{
+    let active=true;
+    const check=async()=>{
+      try{
+        const response=await fetch('/api/rdworks/access',{credentials:'same-origin',cache:'no-store'});
+        const data=await response.json() as {enabled?:boolean};
+        if(active)setRdworksAllowed(response.ok&&data.enabled===true);
+      }catch{if(active)setRdworksAllowed(false);}
+    };
+    void check();
+    const interval=window.setInterval(()=>{void check()},30000);
+    return()=>{active=false;window.clearInterval(interval)};
+  },[]);
   useEffect(()=>{
     let cancelled=false;
     const refresh=async()=>{
@@ -502,10 +517,19 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     }catch(e){setError(String(e));}finally{setBusy(false);}
   }
   const exportBlockedReason=busy?'Mevcut işlemin bitmesini bekleyin.':invalidSettings?'İndirmeden önce geçersiz ayarları düzeltin.':showingLive?'İndirmek için en iyi geçerli çözüm görünümüne geçin.':running&&!result?'İndirmeden önce en iyi geçerli çözümün oluşmasını bekleyin.':undefined;
-  async function exportLayout() {
+  async function exportLayout(mode:'download'|'rdworks'='download') {
     if(busy||invalidSettings||showingLive||(running&&!result))return false;
-    setBusy(true);setError('');
+    setBusy(true);setError('');setRdworksNotice('');
     try {
+      let ticket='';
+      if(mode==='rdworks'){
+        const ready=await fetch('http://127.0.0.1:43842/health',{cache:'no-store'});
+        if(!ready.ok||(await ready.text()).trim()!=='safe-staging-only')throw new Error('Güvenli Serula köprüsü çalışmıyor. En son Windows köprüsünü açın.');
+        const permit=await fetch('/api/rdworks/ticket',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:'{}'});
+        const data=await permit.json() as {ticket?:string;error?:string};
+        if(!permit.ok||!data.ticket)throw new Error(data.error||'RDWorks kullanım yetkisi alınamadı.');
+        ticket=data.ticket;
+      }
       const reply=await geometryTask({type:'export',runId:++operation.current,documentRevision:revision,document:canvasDocument,result});
       if(reply.type==='export-result'){
         const content=reply.bundle.dxf;
@@ -513,7 +537,19 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         const sourceFileName=doc.parts.find(part=>part.source.format==='dxf'||part.source.format==='plt')?.source.fileName??doc.name;
         const projectJson=JSON.stringify({...doc,...(result?{placements:result.placements,result}:{}),schemaVersion:1,revision,serulaCloud:{label:CLOUD_SAVE_NAME,ui:{theme,unit}}});
         await authorizeExport(doc.name,sourceFileName,fileName,content,projectJson);
-        download(fileName,content,'application/dxf');setDownloadedResult(true);setExported({document:doc,result});return true;
+        if(mode==='rdworks'){
+          const staged=await fetch('http://127.0.0.1:43842/stage',{
+            method:'POST',
+            headers:{'Content-Type':'application/octet-stream','X-Serula-Ticket':ticket},
+            body:new Blob([content],{type:'application/dxf'})
+          });
+          const data=await staged.json() as {path?:string;message?:string};
+          if(!staged.ok)throw new Error(data.message||'DXF yerel hazırlık klasörüne aktarılamadı.');
+          setRdworksNotice('DXF hazırlandı: '+(data.path||'')+' — RDWorks otomatik açılmadı; kesim başlamadı.');
+        }else{
+          download(fileName,content,'application/dxf');
+        }
+        setDownloadedResult(true);setExported({document:doc,result});return true;
       }
       return false;
     } catch(e){setError(String(e));return false;}finally{setBusy(false);}
@@ -612,9 +648,10 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     <footer className="statusbar"><div className="run-controls"><span id="compression-tooltip" role="tooltip" className="compression-tooltip"><strong>Sıkıştırmaya geç</strong>Keşfi bitir ve en iyi yerleşimi sıkıştır.</span>{running?<><button className="run-button" onClick={solver.stop}>Durdur</button>{solver.canSkip&&(solver.state==='Initializing'||solver.state==='Running'&&solver.phase==='Exploration')&&<button className="run-button skip-compression" aria-label="Sıkıştırmaya geç" disabled={solver.state!=='Running'||solver.skipping||!solver.result} aria-describedby="compression-tooltip" onClick={solver.skipToCompression}><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3 5v14l9-7zM12 5v14l9-7z"/></svg></button>}</>:<button className="run-button" disabled={locked||invalidSettings||!doc.parts.some(part=>part.quantity>0)||!!polygon} onClick={()=>void run()}>{result?'Yeniden yerleştir':'Parçaları yerleştir'}</button>}</div>
       <div className="run-status"><span className="status-symbol" aria-hidden="true"><i className={running||busy?'active':undefined}/></span><span role="status" className="run-state"><span>{busy?'Girdiler kontrol ediliyor':loadingExample?'Örnek yükleniyor…':solver.state==='Running'&&solver.phase?(solver.skipping?'Geçiliyor…':solver.phase):solver.state}</span>{(running||solver.state==='Complete'||solver.state==='Stopped')&&<span className="run-elapsed">{solver.elapsed.toFixed(1)} s</span>}</span>{solver.workers&&<small className="worker-status" title={solver.workers.reason} data-worker-count={solver.workers.actual}>{`${solver.workers.actual} çözücü işçisi`}{solver.workers.requested?` / ${solver.workers.requested} istendi`:' · otomatik'}{solver.workers.reason&&' · yedek'}</small>}</div>
       <div className="metrics"><span>{doc.settings.materialType==='sheet'?'Kullanılan plaka':showingLive?'En iyi geçerli uzunluk':'Kullanılan uzunluk'} <strong>{result?(doc.settings.materialType==='sheet'?String(result.sheetCount??1):`${length(result.usedLengthMm)} ${unit}`):'—'}</strong></span><span>Malzeme verimliliği <strong>{result?`${utilization.toFixed(2)}%`:'—'}</strong></span><span>Fire <strong>{result?`${waste.toFixed(2)}%`:'—'}</strong></span>{improvement&&doc.settings.materialType!=='sheet'&&<span title="Keşif: ilk geçerli uzunluktan azalma. Sıkıştırma: en iyi keşif uzunluğundan ek azalma.">İyileştirme keşfet / sıkıştır <strong>{improvement.explore.toFixed(1)}% / {improvement.compress.toFixed(1)}%</strong></span>}</div>
-      <div className="export-actions"><span className="download-control" tabIndex={exportBlockedReason?0:undefined} aria-describedby={exportBlockedReason?'download-tooltip':undefined}><button disabled={!!exportBlockedReason} className="download-button" onClick={()=>void exportLayout()}><svg className="download-button__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg><span>DXF İndir</span></button>{exportBlockedReason&&<span id="download-tooltip" role="tooltip" className="compression-tooltip">{exportBlockedReason}</span>}</span></div>
+      <div className="export-actions"><span className="download-control" tabIndex={exportBlockedReason?0:undefined} aria-describedby={exportBlockedReason?'download-tooltip':undefined}><button disabled={!!exportBlockedReason} className="download-button" onClick={()=>void exportLayout()}><svg className="download-button__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg><span>DXF İndir</span></button>{rdworksAllowed&&<button type="button" disabled={!!exportBlockedReason} className="download-button" onClick={()=>void exportLayout('rdworks')} title="Makineye komut göndermez. DXF dosyasını güvenli yerel hazırlık klasörüne kopyalar.">RDWorks için Hazırla</button>}{exportBlockedReason&&<span id="download-tooltip" role="tooltip" className="compression-tooltip">{exportBlockedReason}</span>}</span></div>
 
     </footer>
+    {rdworksNotice&&<div role="status" style={{position:'fixed',bottom:66,right:16,zIndex:1200,maxWidth:460,padding:'12px 16px',borderRadius:8,background:'#183d37',color:'#eafff9',boxShadow:'0 2px 12px #0006'}}>{rdworksNotice}<button style={{marginLeft:12}} onClick={()=>setRdworksNotice('')}>Kapat</button></div>}
     {historyOpen&&<ExportHistory onClose={()=>setHistoryOpen(false)} onOpen={async(name,projectText)=>{try{const saved=JSON.parse(projectText) as {serulaCloud?:{ui?:{theme?:string;unit?:string}}};const savedTheme=saved.serulaCloud?.ui?.theme,savedUnit=saved.serulaCloud?.ui?.unit;if(savedTheme==='system'||savedTheme==='light'||savedTheme==='dark')setTheme(savedTheme);if(savedUnit==='mm'||savedUnit==='in')setUnit(savedUnit)}catch{}setHistoryOpen(false);await openFiles([new File([projectText],name,{type:'application/json'})],'project')}}/>}
     {files&&<Modal title="İçe aktarmayı gözden geçir" locked={busy} onClose={()=>{setFiles(undefined);setReview(undefined);setError('');}}><p>{files.map(f=>f.name).join(', ')}</p><p className="muted">{fileIntent==='project'?'Proje dosyaları tüm işi geri yükler. Çizim dosyaları şekil olarak eklenebilir.':'SVG, DXF ve instance JSON şekil ekler. Kaydedilmiş proje tüm işi geri yükler.'}</p>
       {!review?.replace&&<><label>Bir çizim birimi<select value={scale} disabled={busy} onChange={e=>{setScale(Number(e.target.value));setPreviewStale(true);}}><option value="1">1 mm</option><option value="25.4">1 inç · 25.4 mm</option></select></label><p className="muted">Fiziksel SVG ölçüleri ve tanınan DXF birimleri korunur. Birimsiz çizimler seçilen ölçeği kullanır.</p></>}
