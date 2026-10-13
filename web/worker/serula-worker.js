@@ -334,6 +334,7 @@ async function handleApi(request,env){
       const user=await sessionUser(request,env);
       if(!user)return json({error:'Giriş gerekli.'},401);
       if(licenseExpired(user)||!await rdworksEnabled(user.id,env))return json({error:'RDWorks aktarım yetkiniz yok.'},403);
+      await env.DB.prepare("DELETE FROM rdworks_tickets WHERE datetime(expires_at)<datetime('now','-1 day')").run();
       const ticket=randomToken(),expiresAt=new Date(Date.now()+120000).toISOString();
       await env.DB.prepare('INSERT INTO rdworks_tickets(token_hash,user_id,expires_at) VALUES(?,?,?)').bind(await sha256(ticket),user.id,expiresAt).run();
       return json({ticket,expiresAt});
