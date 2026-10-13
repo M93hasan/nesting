@@ -64,6 +64,9 @@ async function ensureSchema(env){
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS system_settings (key TEXT PRIMARY KEY, value_json TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_settings (user_id INTEGER PRIMARY KEY, settings_json TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_features (user_id INTEGER PRIMARY KEY, test_dxf_enabled INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_rdworks_access (user_id INTEGER PRIMARY KEY, enabled INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS rdworks_tickets (token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL, expires_at TEXT NOT NULL, redeemed_at TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_rdworks_tickets_expire ON rdworks_tickets(expires_at)'),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_preferences (
       user_id INTEGER PRIMARY KEY,
       locale TEXT NOT NULL DEFAULT 'tr' CHECK(locale IN ('tr','en','ar','fa')),
@@ -242,6 +245,11 @@ const validEmail=e=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 const cleanLocale=value=>['tr','en','ar','fa'].includes(String(value||'').toLowerCase())?String(value).toLowerCase():'tr';
 const passwordOk=p=>typeof p==='string'&&p.length>=8&&p.length<=200;
 const TEST_DXF_FILES=['1003.dxf','1239.dxf','test.dxf'];
+async function rdworksEnabled(userId,env){
+  if(!userId)return false;
+  const permission=await env.DB.prepare('SELECT enabled FROM user_rdworks_access WHERE user_id=?').bind(userId).first();
+  return permission?.enabled===1;
+}
 async function testDxfAllowed(userId,env){
   if(!userId)return false;
   const row=await env.DB.prepare('SELECT test_dxf_enabled FROM user_features WHERE user_id=?').bind(userId).first();
@@ -317,6 +325,34 @@ async function handleApi(request,env){
     const allowed=await testDxfAllowed(user.id,env);
     return allowed?json({allowed:true,files:TEST_DXF_FILES}):json({allowed:false},403);
   }
+    if(path==='/api/rdworks/access'&&request.method==='GET'){
+      const user=await sessionUser(request,env);
+      if(!user)return json({enabled:false});
+      return json({enabled:!licenseExpired(user)&&await rdworksEnabled(user.id,env)});
+    }
+    if(path==='/api/rdworks/ticket'&&request.method==='POST'){
+      const user=await sessionUser(request,env);
+      if(!user)return json({error:'Giriş gerekli.'},401);
+      if(licenseExpired(user)||!await rdworksEnabled(user.id,env))return json({error:'RDWorks aktarım yetkiniz yok.'},403);
+      const ticket=randomToken(),expiresAt=new Date(Date.now()+120000).toISOString();
+      await env.DB.prepare('INSERT INTO rdworks_tickets(token_hash,user_id,expires_at) VALUES(?,?,?)').bind(await sha256(ticket),user.id,expiresAt).run();
+      return json({ticket,expiresAt});
+    }
+    if(path==='/api/rdworks/redeem'&&request.method==='POST'){
+      const data=await body(request),ticket=String(data.ticket||'');
+      if(!/^[a-f0-9]{64}$/.test(ticket))return json({ok:false},403);
+      const digest=await sha256(ticket);
+      const found=await env.DB.prepare(`SELECT t.user_id,t.redeemed_at,t.expires_at,l.expires_at license_expires_at,a.enabled
+        FROM rdworks_tickets t
+        LEFT JOIN user_licenses l ON l.user_id=t.user_id
+        LEFT JOIN user_rdworks_access a ON a.user_id=t.user_id
+        WHERE t.token_hash=?`).bind(digest).first();
+      if(!found||found.redeemed_at||!found.enabled||licenseExpired(found)||Date.parse(String(found.expires_at))<=Date.now())return json({ok:false},403);
+      const used=await env.DB.prepare("UPDATE rdworks_tickets SET redeemed_at=CURRENT_TIMESTAMP WHERE token_hash=? AND redeemed_at IS NULL AND datetime(expires_at)>datetime('now')").bind(digest).run();
+      if(!used.meta.changes)return json({ok:false},403);
+      await audit(env,'rdworks_staged',{actorType:'user',actorUserId:found.user_id,targetUserId:found.user_id});
+      return json({ok:true});
+    }
     if(path==='/api/auth/me'&&request.method==='GET'){
     const user=await sessionUser(request,env);
     if(!user)return json({user:null},401);
@@ -534,15 +570,16 @@ async function handleApi(request,env){
   if(path==='/api/admin/users'&&request.method==='GET'){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
     const rows=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,u.google_id,u.created_at,u.last_login_at,
-      COALESCE(f.test_dxf_enabled,0) test_dxf_enabled,p.last_seen,l.started_at license_started_at,l.expires_at license_expires_at,
+      COALESCE(f.test_dxf_enabled,0) test_dxf_enabled,COALESCE(rw.enabled,0) rdworks_enabled,p.last_seen,l.started_at license_started_at,l.expires_at license_expires_at,
       CASE WHEN ${onlineSql} THEN 1 ELSE 0 END online
       FROM users u
       LEFT JOIN user_features f ON f.user_id=u.id
+      LEFT JOIN user_rdworks_access rw ON rw.user_id=u.id
       LEFT JOIN user_presence p ON p.user_id=u.id
       LEFT JOIN user_licenses l ON l.user_id=u.id
       ORDER BY u.created_at DESC LIMIT 500`).all();
     const online=await env.DB.prepare("SELECT COUNT(*) n FROM user_presence WHERE datetime(last_seen)>=datetime('now','-15 seconds')").first();
-    return json({onlineCount:Number(online?.n||0),users:rows.results.map(u=>({...publicUser(u),testDxfEnabled:!!u.test_dxf_enabled,authProvider:u.google_id?'google':'email',createdAt:u.created_at,lastLoginAt:u.last_login_at,lastSeen:u.last_seen||null,online:!!u.online}))});
+    return json({onlineCount:Number(online?.n||0),users:rows.results.map(u=>({...publicUser(u),testDxfEnabled:!!u.test_dxf_enabled,rdworksEnabled:!!u.rdworks_enabled,authProvider:u.google_id?'google':'email',createdAt:u.created_at,lastLoginAt:u.last_login_at,lastSeen:u.last_seen||null,online:!!u.online}))});
   }
   if(path==='/api/admin/chats'&&request.method==='GET'){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
@@ -586,6 +623,8 @@ async function handleApi(request,env){
       env.DB.prepare('DELETE FROM support_signals WHERE session_id IN (SELECT id FROM support_sessions WHERE user_id=?)').bind(id),
       env.DB.prepare('DELETE FROM support_sessions WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM user_features WHERE user_id=?').bind(id),
+      env.DB.prepare('DELETE FROM rdworks_tickets WHERE user_id=?').bind(id),
+      env.DB.prepare('DELETE FROM user_rdworks_access WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM user_preferences WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM user_licenses WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM user_settings WHERE user_id=?').bind(id),
@@ -768,6 +807,17 @@ async function handleApi(request,env){
       .bind(id,startedAt.toISOString(),expiresAt.toISOString()).run();
     await audit(env,'license_changed',{actorType:'admin',targetUserId:id,detail:`${days} gün · ${expiresAt.toISOString()}`});
     return json({ok:true,licenseStartedAt:startedAt.toISOString(),licenseExpiresAt:expiresAt.toISOString(),licenseExpired:false});
+  }
+  const rdworksMatch=path.match(/^\/api\/admin\/users\/(\d+)\/rdworks$/);
+  if(rdworksMatch&&request.method==='POST'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const id=Number(rdworksMatch[1]),data=await body(request),enabled=data.enabled===true;
+    const target=await env.DB.prepare('SELECT id FROM users WHERE id=?').bind(id).first();
+    if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
+    await env.DB.prepare(`INSERT INTO user_rdworks_access(user_id,enabled,updated_at) VALUES(?,?,CURRENT_TIMESTAMP)
+      ON CONFLICT(user_id) DO UPDATE SET enabled=excluded.enabled,updated_at=CURRENT_TIMESTAMP`).bind(id,enabled?1:0).run();
+    await audit(env,'rdworks_access_changed',{actorType:'admin',targetUserId:id,detail:enabled?'Açık':'Kapalı'});
+    return json({ok:true,enabled});
   }
   const testDxfMatch=path.match(/^\/api\/admin\/users\/(\d+)\/test-dxf$/);
   if(testDxfMatch&&request.method==='POST'){
