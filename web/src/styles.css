@@ -431,3 +431,11 @@ html[dir="rtl"] body{direction:rtl}html[dir="rtl"] .workspace-svg,html[dir="rtl"
 .part-properties-inline .rotation-control,.part-properties-inline .mirror-control{display:grid;gap:8px;margin-top:10px}
 .part-properties-inline .rotation-control .row-actions,.part-properties-inline .mirror-control .row-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .part-properties-inline .mirror-control button[aria-pressed=true]{background:var(--accent)!important;color:#fff!important;border-color:var(--accent)!important;font-weight:700}
+
+
+/* Restricted RDWORK export button: staged DXF only, never starts a laser. */
+.statusbar .rdworks-button{display:inline-flex;align-items:center;justify-content:space-between;gap:10px;min-width:125px;height:42px;padding:5px 6px 5px 14px;border:1px solid #337cb4;border-radius:12px;background:#164766;color:#fff;font-weight:700;letter-spacing:.02em;box-shadow:0 4px 12px #0002;white-space:nowrap}
+.statusbar .rdworks-button:hover:enabled{background:#215e85;transform:translateY(-1px)}
+.statusbar .rdworks-button:disabled{opacity:.45;cursor:not-allowed}
+.statusbar .rdworks-button .iconButton{height:30px;width:32px;display:grid;place-items:center;border-radius:8px;background:#2679aa;color:#fff;flex-shrink:0}
+@media(max-width:699px){.statusbar .rdworks-button{height:44px;min-width:104px;padding:5px 5px 5px 8px;font-size:12px;gap:4px}.statusbar .rdworks-button .iconButton{width:26px;height:30px}}
