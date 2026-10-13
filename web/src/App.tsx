@@ -536,10 +536,6 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         if(!ready.ok)throw new Error('Yerel köprü yanıtı: HTTP '+ready.status);
         const bridgeVersion=(await ready.text()).trim();
         if(bridgeVersion!=='serula-admin-staging-v2')throw new Error('Windows köprüsünün sürümü eski ('+bridgeVersion+'). Son sürümü indirip yeniden çalıştırın.');
-        const permit=await fetch('/api/rdworks/ticket',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:'{}'});
-        const data=await permit.json() as {ticket?:string;error?:string};
-        if(!permit.ok||!data.ticket)throw new Error(data.error||'RDWorks kullanım yetkisi alınamadı.');
-        ticket=data.ticket;
       }
       const reply=await geometryTask({type:'export',runId:++operation.current,documentRevision:revision,document:canvasDocument,result});
       if(reply.type==='export-result'){
@@ -549,6 +545,10 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         const projectJson=JSON.stringify({...doc,...(result?{placements:result.placements,result}:{}),schemaVersion:1,revision,serulaCloud:{label:CLOUD_SAVE_NAME,ui:{theme,unit}}});
         await authorizeExport(doc.name,sourceFileName,fileName,content,projectJson);
         if(mode==='rdworks'){
+          const permit=await fetch('/api/rdworks/ticket',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:'{}'});
+          const data=await permit.json() as {ticket?:string;error?:string};
+          if(!permit.ok||!data.ticket)throw new Error(data.error||'RDWorks kullanım yetkisi alınamadı.');
+          ticket=data.ticket;
           let staged:Response;
           try {
             staged=await fetch(RDWORKS_BRIDGE_URL+'/stage',{
