@@ -524,7 +524,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
       let ticket='';
       if(mode==='rdworks'){
         const ready=await fetch('http://127.0.0.1:43842/health',{cache:'no-store'});
-        if(!ready.ok||(await ready.text()).trim()!=='safe-staging-only')throw new Error('Güvenli Serula köprüsü çalışmıyor. En son Windows köprüsünü açın.');
+        if(!ready.ok||(await ready.text()).trim()!=='serula-admin-staging-v2')throw new Error('Güvenli Serula köprüsü çalışmıyor. En son Windows köprüsünü açın.');
         const permit=await fetch('/api/rdworks/ticket',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:'{}'});
         const data=await permit.json() as {ticket?:string;error?:string};
         if(!permit.ok||!data.ticket)throw new Error(data.error||'RDWorks kullanım yetkisi alınamadı.');
