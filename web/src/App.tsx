@@ -26,7 +26,15 @@ import {LanguageSelect} from './i18n';
 const emptyProject=(name='Adsız proje'):Document=>({name,parts:[],settings:{...DEFAULT_SETTINGS}});
 const CLOUD_SAVE_NAME='Serula Nesting En Temiz Hali';
 const RDWORKS_BRIDGE_URL='http://127.0.0.1:43842';
-const RDWORKS_HELP='Chrome site ayarlarından serula.site için Yerel ağ erişimi (Loopback) iznini açın; güncel Windows köprüsünü çalıştırın.';
+const RDWORKS_HELP='Chrome adres çubuğundaki site ayarlarında "Bu cihazdaki uygulamalar" / "Yerel ağ erişimi" iznini Açık yapın. Windows köprüsünü çalıştırın.';
+const RDWORKS_LOCAL_OPTIONS:RequestInit & {targetAddressSpace:'loopback'}={targetAddressSpace:'loopback',mode:'cors'};
+async function rdworksConnectionError(){
+  try{
+    const permission=await navigator.permissions.query({name:'loopback-network' as PermissionName});
+    if(permission.state==='denied')return 'Serula için cihazdaki uygulamalara erişim ENGELLENMİŞ. '+RDWORKS_HELP;
+  }catch{/* Browser does not expose the permission API. */}
+  return 'Yerel köprüye bağlantı kurulamadı. '+RDWORKS_HELP;
+}
 
 type ProjectSwitch={document:Document;result?:Result;warnings?:string[];saved?:boolean;nest?:boolean};
 const DEFAULT_ROTATIONS:RotationRule={kind:'discrete',degrees:[0,180]};
@@ -529,9 +537,9 @@ export default function App({initialDocument=emptyProject(),initialError='',load
       if(mode==='rdworks'){
         let ready:Response;
         try {
-          ready=await fetch(RDWORKS_BRIDGE_URL+'/health',{cache:'no-store',signal:AbortSignal.timeout(5000)});
+          ready=await fetch(RDWORKS_BRIDGE_URL+'/health',{...RDWORKS_LOCAL_OPTIONS,cache:'no-store',signal:AbortSignal.timeout(5000)});
         }catch{
-          throw new Error('RDWORK bağlantısı engellendi veya köprü kapalı. '+RDWORKS_HELP);
+          throw new Error(await rdworksConnectionError());
         }
         if(!ready.ok)throw new Error('Yerel köprü yanıtı: HTTP '+ready.status);
         const bridgeVersion=(await ready.text()).trim();
@@ -552,12 +560,13 @@ export default function App({initialDocument=emptyProject(),initialError='',load
           let staged:Response;
           try {
             staged=await fetch(RDWORKS_BRIDGE_URL+'/stage',{
+              ...RDWORKS_LOCAL_OPTIONS,
               method:'POST',
               headers:{'Content-Type':'application/octet-stream','X-Serula-Ticket':ticket},
               body:new Blob([content],{type:'application/dxf'})
             });
           }catch{
-            throw new Error('Yerel DXF bağlantısı tarayıcıda engellendi. '+RDWORKS_HELP);
+            throw new Error(await rdworksConnectionError());
           }
           const data=await staged.json() as {path?:string;message?:string};
           if(!staged.ok)throw new Error(data.message||'DXF yerel hazırlık klasörüne aktarılamadı.');
