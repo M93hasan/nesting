@@ -19,6 +19,7 @@ public static class SerulaWindowApi {
     [DllImport("user32.dll")] public static extern int GetClassName(IntPtr h, StringBuilder buffer, int max);
     [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
     [DllImport("user32.dll")] public static extern bool AttachThreadInput(uint source, uint dest, bool attach);
+    [DllImport("user32.dll")] public static extern void keybd_event(byte virtualKey, byte scanCode, uint flags, UIntPtr extraInfo);
 }
 '@
 function ForegroundProcessId {
@@ -59,6 +60,17 @@ function Activate-RDWorks($rd) {
         if($attachedTarget){$null=[SerulaWindowApi]::AttachThreadInput($ownThread,$targetThread,$false)}
         if($attachedForeground){$null=[SerulaWindowApi]::AttachThreadInput($ownThread,$foregroundThread,$false)}
       }
+      if((ForegroundProcessId) -eq $rd.Id){return $true}
+    }
+    # Windows blocks SetForegroundWindow for background services, even if the
+    # target HWND is valid. A synthetic Alt key transition sometimes permits
+    # activation; we still verify the true foreground owner before SendKeys.
+    if($attempt -eq 2){
+      [SerulaWindowApi]::keybd_event(0x12,0,0,[UIntPtr]::Zero)
+      [SerulaWindowApi]::keybd_event(0x12,0,2,[UIntPtr]::Zero)
+      $null=[SerulaWindowApi]::ShowWindowAsync($handle,9)
+      $null=[SerulaWindowApi]::SetForegroundWindow($handle)
+      Start-Sleep -Milliseconds 200
       if((ForegroundProcessId) -eq $rd.Id){return $true}
     }
     Start-Sleep -Milliseconds 250
@@ -109,7 +121,7 @@ try {
     $req=$ctx.Request
     $reqOrigin=$req.Headers['Origin']
     if($req.HttpMethod -eq 'GET' -and $req.Url.AbsolutePath -eq '/health'){
-      Reply $ctx 200 @{ok=$true;service='serula-bridge';version='1.1'}
+      Reply $ctx 200 @{ok=$true;service='serula-bridge';version='1.2'}
       continue
     }
     if($reqOrigin -ne $origin){Reply $ctx 403 @{ok=$false;error='Origin izinli değil.'};continue}
@@ -149,7 +161,16 @@ try {
       $rd=Get-Process -ErrorAction SilentlyContinue | Where-Object {$_.ProcessName -match '^(RDWorks.*|RDLaser.*)$' -and $_.MainWindowHandle -ne 0} | Select-Object -First 1
       if(!$rd){throw 'RDWorks açık değil. RDWorks penceresini başlatın.'}
       if(!(Activate-RDWorks $rd)){
-        throw 'RDWorks penceresi Windows tarafindan etkinlestirilemedi. RDWorks yonetici olarak aciksa kapatip normal baslatin; Serula butonuna yeniden basin. Ekran kilitli veya uzak masaustu oturumu kapali olmamali.'
+        # Windows sometimes refuses keyboard focus regardless of Win32 calls.
+        # Avoid typing into the wrong window. Leave the prepared, authorized
+        # DXF in the temporary folder and put its path on the clipboard instead.
+        try{
+          [System.Windows.Forms.Clipboard]::SetText($tempPath)
+          throw 'RDWorks Windows tarafindan one getirilemedi. DXF dosya yolu panoya kopyalandi. RDWorks penceresine tiklayin, Ctrl+I ve Ctrl+V ardindan Enter basin. Yeniden DXF kaydetmenize gerek yok. RDWorks yonetici olarak aciksa normal yetkiyle yeniden baslatin.'
+        }catch{
+          if($_.Exception.Message -like 'RDWorks Windows tarafindan*'){throw}
+          throw ('RDWorks penceresi etkinlestirilemedi. Gecici DXF: '+$tempPath+' ; RDWorks uzerinden Ctrl+I ile bu yolu acin.')
+        }
       }
       $shell=New-Object -ComObject WScript.Shell
       $shell.SendKeys('^i')
