@@ -471,7 +471,7 @@ try {
   }catch{
     $message=$_.Exception.Message
     $path=if($tempPath -and (Test-Path -LiteralPath $tempPath -PathType Leaf)){$tempPath}else{$null}
-    try{Reply $ctx 500 @{ok=$false;code='rdworks_import_failed';error=$message;filePath=$path;manualImportRequired=!!$path}}catch{}
+    try{Reply $ctx 500 @{ok=$false;code='rdworks_import_failed';error=$message;filePath=$path;manualImportRequired=[bool]$path}}catch{}
   }
  }
 }finally{$listener.Stop();$listener.Close()}
