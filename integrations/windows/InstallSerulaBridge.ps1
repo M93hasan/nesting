@@ -2,9 +2,10 @@
 # Bridge source is pinned to a specific GitHub commit. Run as the current user.
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
-$commit = '8f0617d3ffdcb210c8d4c9fbe71fe0f28e682dad'
+$commit = '5538e9f1bb9ec4558ff408c2e8bec4b7a19a09e0'
 $url = "https://raw.githubusercontent.com/M93hasan/nesting/$commit/integrations/windows/SerulaTransferBridge.ps1"
-$blobSha = '363cf3d4e287bdc9a6fe34531a0ce58f531cc4e5'
+$blobSha = '59d9176665f421460751f210f2fb06867b8b2d0c'
+$bridgeVersion = '1.1'
 $prefix = 'http://127.0.0.1:43842/'
 $folder = Join-Path $env:LOCALAPPDATA 'SerulaBridge'
 $file = Join-Path $folder 'SerulaTransferBridge.ps1'
@@ -14,7 +15,7 @@ $healthUrl = 'http://127.0.0.1:43842/health'
 function Healthy {
   try {
     $v = Invoke-RestMethod -Method Get -Uri $healthUrl -TimeoutSec 2
-    return ($v.ok -eq $true -and $v.service -eq 'serula-bridge')
+    return ($v.ok -eq $true -and $v.service -eq 'serula-bridge' -and $v.version -eq $bridgeVersion)
   } catch { return $false }
 }
 function Check-Source($path) {
@@ -38,10 +39,31 @@ try {
   Write-Host 'Downloading Serula Bridge from an immutable GitHub revision...'
   Invoke-WebRequest -Uri $url -OutFile $temp -TimeoutSec 30 -UseBasicParsing
   Check-Source $temp
+  # PowerShell 5.1 treats files without BOM as the local ANSI codepage.
+  # Keep the UTF-8 BOM supplied by the pinned bridge source.
   Copy-Item -LiteralPath $temp -Destination $file -Force
 } finally { Remove-Item -LiteralPath $temp -Force -ErrorAction SilentlyContinue }
 
 if (-not (Healthy)) {
+  # An older installed bridge stays alive after its PS1 file is replaced.
+  # Stop only the current user's matching local script, never arbitrary PowerShell.
+  $existing = @(Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction Stop |
+    Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -and
+      $_.CommandLine.Contains($file) -and $_.SessionId -eq (Get-Process -Id $PID).SessionId })
+  foreach($process in $existing){
+    Write-Host ("Stopping older Serula Bridge PID " + $process.ProcessId)
+    Stop-Process -Id $process.ProcessId -Force -ErrorAction Stop
+  }
+  if($existing.Count -gt 0){Start-Sleep -Milliseconds 600}
+  # If another process owns the localhost port, do not report a false success.
+  try{
+    $running=Invoke-RestMethod -Uri $healthUrl -TimeoutSec 2
+    if($running.ok -eq $true -and $running.service -eq 'serula-bridge' -and $running.version -ne $bridgeVersion){
+      throw 'An older Serula Bridge is still running. Close it and retry the installer.'
+    }
+  }catch{
+    if($_.Exception.Message -like '*older Serula Bridge*'){throw}
+  }
   & netsh.exe http show urlacl "url=$prefix" *> $null
   if ($LASTEXITCODE -ne 0) {
     # Only current Windows user is granted access, not everyone.
