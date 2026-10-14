@@ -1,9 +1,81 @@
-# Serula Nesting local transfer bridge for Windows PowerShell 5.1 (STA).
+﻿# Serula Nesting local transfer bridge for Windows PowerShell 5.1 (STA).
 # Run locally. Accepts requests only from the Serula web origin and validates
 # a short-lived server ticket before opening any received DXF.
 param([int]$Port=43842)
 $ErrorActionPreference='Stop'
 Add-Type -AssemblyName System.Windows.Forms
+# Native activation is needed when Windows denies WScript.Shell.AppActivate.
+# Never send keys unless the target RDWorks process owns the foreground window.
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+using System.Text;
+public static class SerulaWindowApi {
+    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+    [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr h, int mode);
+    [DllImport("user32.dll")] public static extern bool BringWindowToTop(IntPtr h);
+    [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+    [DllImport("user32.dll")] public static extern int GetClassName(IntPtr h, StringBuilder buffer, int max);
+    [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
+    [DllImport("user32.dll")] public static extern bool AttachThreadInput(uint source, uint dest, bool attach);
+}
+'@
+function ForegroundProcessId {
+  $handle=[SerulaWindowApi]::GetForegroundWindow()
+  if($handle -eq [IntPtr]::Zero){return 0}
+  [uint32]$processId=0
+  $null=[SerulaWindowApi]::GetWindowThreadProcessId($handle,[ref]$processId)
+  return [int]$processId
+}
+function Activate-RDWorks($rd) {
+  $handle=[IntPtr]$rd.MainWindowHandle
+  if($handle -eq [IntPtr]::Zero){return $false}
+  $shell=New-Object -ComObject WScript.Shell
+  for($attempt=0;$attempt -lt 4;$attempt++){
+    if((ForegroundProcessId) -eq $rd.Id){return $true}
+    $null=[SerulaWindowApi]::ShowWindowAsync($handle,9) # SW_RESTORE
+    try{$null=$shell.AppActivate([int]$rd.Id)}catch{}
+    if((ForegroundProcessId) -eq $rd.Id){return $true}
+    try{$null=$shell.AppActivate([string]$rd.MainWindowTitle)}catch{}
+    if((ForegroundProcessId) -eq $rd.Id){return $true}
+    $null=[SerulaWindowApi]::BringWindowToTop($handle)
+    $null=[SerulaWindowApi]::SetForegroundWindow($handle)
+    if((ForegroundProcessId) -eq $rd.Id){return $true}
+    $foreground=[SerulaWindowApi]::GetForegroundWindow()
+    [uint32]$foregroundPid=0
+    [uint32]$targetPid=0
+    $foregroundThread=if($foreground -ne [IntPtr]::Zero){[SerulaWindowApi]::GetWindowThreadProcessId($foreground,[ref]$foregroundPid)}else{0}
+    $targetThread=[SerulaWindowApi]::GetWindowThreadProcessId($handle,[ref]$targetPid)
+    $ownThread=[SerulaWindowApi]::GetCurrentThreadId()
+    if($targetThread -ne 0 -and $foregroundThread -ne 0){
+      $attachedForeground=$false;$attachedTarget=$false
+      try{
+        if($ownThread -ne $foregroundThread){$attachedForeground=[SerulaWindowApi]::AttachThreadInput($ownThread,$foregroundThread,$true)}
+        if($ownThread -ne $targetThread){$attachedTarget=[SerulaWindowApi]::AttachThreadInput($ownThread,$targetThread,$true)}
+        $null=[SerulaWindowApi]::BringWindowToTop($handle)
+        $null=[SerulaWindowApi]::SetForegroundWindow($handle)
+      }finally{
+        if($attachedTarget){$null=[SerulaWindowApi]::AttachThreadInput($ownThread,$targetThread,$false)}
+        if($attachedForeground){$null=[SerulaWindowApi]::AttachThreadInput($ownThread,$foregroundThread,$false)}
+      }
+      if((ForegroundProcessId) -eq $rd.Id){return $true}
+    }
+    Start-Sleep -Milliseconds 250
+  }
+  return $false
+}
+function Wait-RDWorksImportDialog($rd,$mainHandle) {
+  for($i=0;$i -lt 20;$i++){
+    Start-Sleep -Milliseconds 150
+    $active=[SerulaWindowApi]::GetForegroundWindow()
+    if($active -eq [IntPtr]::Zero -or $active -eq $mainHandle){continue}
+    if((ForegroundProcessId) -ne $rd.Id){continue}
+    # Only type into a separate dialog owned by RDWorks, never the drawing canvas.
+    return $true
+  }
+  return $false
+}
 $origin='https://serula.site'
 $folder=Join-Path $env:LOCALAPPDATA 'SerulaBridge\Transfers'
 [System.IO.Directory]::CreateDirectory($folder) | Out-Null
@@ -37,7 +109,7 @@ try {
     $req=$ctx.Request
     $reqOrigin=$req.Headers['Origin']
     if($req.HttpMethod -eq 'GET' -and $req.Url.AbsolutePath -eq '/health'){
-      Reply $ctx 200 @{ok=$true;service='serula-bridge';version='1.0'}
+      Reply $ctx 200 @{ok=$true;service='serula-bridge';version='1.1'}
       continue
     }
     if($reqOrigin -ne $origin){Reply $ctx 403 @{ok=$false;error='Origin izinli değil.'};continue}
@@ -76,15 +148,27 @@ try {
       # Import dialog via UI. User should verify the file in RDWorks afterward.
       $rd=Get-Process -ErrorAction SilentlyContinue | Where-Object {$_.ProcessName -match '^(RDWorks.*|RDLaser.*)$' -and $_.MainWindowHandle -ne 0} | Select-Object -First 1
       if(!$rd){throw 'RDWorks açık değil. RDWorks penceresini başlatın.'}
+      if(!(Activate-RDWorks $rd)){
+        throw 'RDWorks penceresi Windows tarafindan etkinlestirilemedi. RDWorks yonetici olarak aciksa kapatip normal baslatin; Serula butonuna yeniden basin. Ekran kilitli veya uzak masaustu oturumu kapali olmamali.'
+      }
       $shell=New-Object -ComObject WScript.Shell
-      if(!$shell.AppActivate([int]$rd.Id)){throw 'RDWorks penceresi etkinleştirilemedi.'}
-      Start-Sleep -Milliseconds 400
       $shell.SendKeys('^i')
-      Start-Sleep -Milliseconds 800
-      $escaped=$tempPath.Replace('{','{{}').Replace('}','{}}').Replace('+','{+}').Replace('^','{^}').Replace('%','{%}').Replace('~','{~}').Replace('(','{(}').Replace(')','{)}')
-      $shell.SendKeys($escaped)
-      $shell.SendKeys('{ENTER}')
-      Reply $ctx 200 @{ok=$true;message='RDWorks içe aktarma komutu gönderildi. Çizimin açıldığını RDWorks ekranında doğrulayın.'}
+      if(!(Wait-RDWorksImportDialog $rd ([IntPtr]$rd.MainWindowHandle))){
+        throw 'RDWorks icinde Import penceresi algilanamadi. RDWorks surumunde Ctrl+I ile Import acildigini kontrol edin.'
+      }
+      # Clipboard paste supports paths containing Turkish/Unicode user names.
+      # Restore the original clipboard data after the filename is submitted.
+      $oldClipboard=[System.Windows.Forms.Clipboard]::GetDataObject()
+      try{
+        [System.Windows.Forms.Clipboard]::SetText($tempPath)
+        $shell.SendKeys('^v')
+        Start-Sleep -Milliseconds 200
+        if((ForegroundProcessId) -ne $rd.Id){throw 'RDWorks dosya secme penceresi odagi kaybetti. Komut iptal edildi.'}
+        $shell.SendKeys('{ENTER}')
+      }finally{
+        if($null -ne $oldClipboard){try{[System.Windows.Forms.Clipboard]::SetDataObject($oldClipboard,$true)}catch{}}
+      }
+      Reply $ctx 200 @{ok=$true;message='RDWorks dosya ice aktarma komutu gonderildi. Parcalarin acildigini RDWorks penceresinde kontrol edin.'}
     }
   }catch{
     try{Reply $ctx 500 @{ok=$false;error=$_.Exception.Message}}catch{}
