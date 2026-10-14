@@ -8,12 +8,12 @@ Tarayıcı Windows uygulamasının belleğine doğrudan veri veremez. Bunun içi
 
 1. [Serula-Kur.cmd](Serula-Kur.cmd) dosyasını GitHub'dan **yeniden indirin**. Önceden indirilen kurucu, sabitlenmiş eski sürümü yükler.
 2. Dosyayı Windows'ta çift tıklayın. Gerekirse yalnızca ilk kurulumda localhost URL rezervasyonu için yönetici izni verin.
-3. Kurucu eski çalışan Serula Bridge işlemini durdurur, imzası/hash'i doğrulanmış **v1.1** betiğini günceller ve yeniden başlatır. Windows kullanıcı hesabı açılışındaki otomatik başlangıç korunur.
-4. [Yerel sağlık kontrolü](http://127.0.0.1:43842/health) JSON sonucunda `"version":"1.1"` ve `"ok":true` görünmelidir.
+3. Kurucu eski çalışan Serula Bridge işlemini durdurur, imzası/hash'i doğrulanmış **v1.2** betiğini günceller ve yeniden başlatır. Windows kullanıcı hesabı açılışındaki otomatik başlangıç korunur.
+4. [Yerel sağlık kontrolü](http://127.0.0.1:43842/health) JSON sonucunda `"version":"1.2"` ve `"ok":true` görünmelidir.
 
-**RDWorks penceresi etkinleştirilemedi:** Köprü önce WScript ardından Win32 pencere aktivasyonu dener. RDWorks yönetici olarak çalışıyorsa kapatıp standart kullanıcı olarak açın; ekran kilitliyken veya arka planda farklı oturumdayken tuş aktarımı yapılamaz. Pencere etkinleştirilemezse yanlış pencereye tuş gönderilmez. RDWorks içindeki dosya önizlemesini ve ölçüleri kontrol edin.
+**RDWorks penceresi etkinleştirilemedi:** Köprü WScript, Win32 pencere aktivasyonu ve Alt-yardımlı yeniden deneme yapar. Windows yine reddederse geçici DXF yolunu panoya kopyalayıp RDWorks için Ctrl+I, Ctrl+V, Enter yönergesi verir. RDWorks yönetici olarak çalışıyorsa kapatıp standart kullanıcı olarak açın; ekran kilitliyken veya arka planda farklı oturumdayken tuş aktarımı yapılamaz. Pencere etkinleştirilemezse yanlış pencereye tuş gönderilmez. RDWorks içindeki dosya önizlemesini ve ölçüleri kontrol edin.
 
-**Bozuk Türkçe karakterler:** v1.1 köprü betiği Windows PowerShell 5.1 için UTF-8 BOM içerir. Eski köprü bellekte çalışmaya devam edebileceğinden kurucuyu yeniden çalıştırmak gerekir.
+**Bozuk Türkçe karakterler:** v1.2 köprü betiği Windows PowerShell 5.1 için UTF-8 BOM içerir. Eski köprü bellekte çalışmaya devam edebileceğinden kurucuyu yeniden çalıştırmak gerekir.
 
 ## Kurulum (Windows)
 
