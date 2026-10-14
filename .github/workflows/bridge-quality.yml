@@ -46,6 +46,19 @@ jobs:
           $a = (Get-FileHash "integrations/windows/Serula-Kur.cmd" -Algorithm SHA256).Hash
           $b = (Get-FileHash "web/public/downloads/Serula-Kur.cmd" -Algorithm SHA256).Hash
           if ($a -ne $b) { throw "Published Windows installer is stale" }
+      - name: Verify web installer pins current verified source and keeps newer bridges
+        shell: powershell
+        run: |
+          $source = Get-Content "integrations/windows/InstallSerulaBridge.ps1" -Raw
+          if ($source -notmatch 'function Keep-NewerBridge' -or
+              $source -notmatch '\[version\]\$v.version -ge \[version\]\$bridgeVersion') {
+            throw "The web installer can downgrade a newer running bridge."
+          }
+          $currentBlob = (git rev-parse HEAD:integrations/windows/InstallSerulaBridge.ps1).Trim()
+          $command = Get-Content "integrations/windows/Serula-Kur.cmd" -Raw
+          if (-not $command.Contains($currentBlob)) {
+            throw "The public CMD installer pins an outdated source checksum."
+          }
 
   web-typescript:
     runs-on: ubuntu-latest
