@@ -1,513 +1,613 @@
 # Serula Nesting Pro
 
 <div align="center">
+  <img src="web/public/serula-logo.svg" width="100" alt="Serula Nesting logosu" />
 
-<img src="web/public/serula-logo.svg" alt="Serula Nesting Pro" width="96" />
+  ### Üretim odaklı DXF nesting ve kesim hazırlığı
 
-### Web tabanlı DXF nesting ve üretim hazırlık sistemi
+  Ayakkabı, suni deri, tekstil, lazer ve CNC üretimi için gerçek geometriyle rulo/plaka yerleştirme.
 
-**Rulo ve plaka malzemelerde düzensiz parçaları gerçek geometrileriyle yerleştirir, üretim ölçülerini korur ve DXF çıktısını üretime hazırlar.**
+  **[🌐 Serula Web](https://serula.site/)** · **[🖥️ Serula Pro PC](https://github.com/M93hasan/serula-nesting-pro-pc/releases/latest)** · **[⬇️ Windows Aktarım Köprüsü](integrations/windows/Serula-Kur.cmd)** · **[Sorun bildir](https://github.com/M93hasan/nesting/issues)**
 
-[![Version](https://img.shields.io/github/package-json/v/M93hasan/nesting?filename=web%2Fpackage.json&style=flat-square)](web/package.json)
-[![React](https://img.shields.io/badge/React-19-20232a?style=flat-square&logo=react)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178c6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Rust](https://img.shields.io/badge/Rust-WASM-000000?style=flat-square&logo=rust)](web/wasm/)
-[![Cloudflare](https://img.shields.io/badge/Cloudflare-Workers-f38020?style=flat-square&logo=cloudflare&logoColor=white)](web/wrangler.jsonc)
-
-**Canlı uygulama:** [serula.site](https://serula.site/) 
-
+  [![React](https://img.shields.io/badge/React-19-149eca)](https://react.dev/) [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178c6)](https://www.typescriptlang.org/) [![Rust](https://img.shields.io/badge/Rust-WASM-63452c)](web/wasm/) [![Cloudflare](https://img.shields.io/badge/Cloudflare-Workers-f38020)](web/wrangler.jsonc)
 </div>
 
----
-
-## Serula nedir?
-
-**Serula Nesting Pro**, özellikle ayakkabı, suni deri, tekstil, lazer kesim ve CNC üretim akışları için geliştirilen tarayıcı tabanlı bir 2D nesting uygulamasıdır.
-
-Amaç yalnızca parçaları bir yüzeye sığdırmak değildir. Serula; gerçek DXF geometrisini, iç boşlukları, dönüş izinlerini, malzeme sınırlarını, parça aralığını ve üretim yönünü koruyarak mümkün olduğunca verimli bir yerleşim üretmeye çalışır.
-
-Uygulama iki temel malzeme tipini destekler:
-
-- **Rulo:** Sabit genişlik, optimize edilen kullanılan uzunluk.
-- **Plaka:** Sabit genişlik × uzunluk, gerektiğinde Plaka 1, Plaka 2, Plaka 3… şeklinde çoklu plaka.
-
-Varsayılan üretim ayarları:
-
-- **Malzeme genişliği:** 1400 mm
-- **Parça aralığı:** 0 mm
-- **Başlangıç yönü:** Sağ alt
-- **Varsayılan dönüş:** 0° / 180°
+> **İki GitHub deposu ayrı kalıyor.** Buradaki **M93hasan/nesting** web uygulamasının, Cloudflare Worker'ın, WASM motorunun ve Windows aktarım köprüsü kurucusunun deposudur. Windows masaüstü uygulaması **[M93hasan/serula-nesting-pro-pc](https://github.com/M93hasan/serula-nesting-pro-pc)** içinde tutulur. Bu README, iki depoyu birleştirmez.
 
 ---
 
-## Temel özellikler
+## İçindekiler
 
-### DXF içe aktarma
+1. [Proje ve sürümler](#1-proje-ve-sürümler)
+2. [Hızlı kullanım](#2-hızlı-kullanım)
+3. [Özelliklerin kapsamı](#3-özelliklerin-kapsamı)
+4. [Dosya içe aktarma](#4-dosya-içe-aktarma)
+5. [Nesting ve malzeme kuralları](#5-nesting-ve-malzeme-kuralları)
+6. [DXF dışa aktarım ve geometri](#6-dxf-dışa-aktarım-ve-geometri)
+7. [CorelDRAW / RDWorks köprüsü](#7-coreldraw--rdworks-köprüsü)
+8. [Bulut, geçmiş ve hesaplar](#8-bulut-geçmiş-ve-hesaplar)
+9. [Yönetici paneli](#9-yönetici-paneli)
+10. [Klavye ve arayüz](#10-klavye-ve-arayüz)
+11. [Mimari ve klasör yapısı](#11-mimari-ve-klasör-yapısı)
+12. [Kurulum ve geliştirme](#12-kurulum-ve-geliştirme)
+13. [WASM derleme ve doğrulama](#13-wasm-derleme-ve-doğrulama)
+14. [Cloudflare dağıtımı](#14-cloudflare-dağıtımı)
+15. [Testler](#15-testler)
+16. [Güvenlik ve veriler](#16-güvenlik-ve-veriler)
+17. [Sık karşılaşılan sorunlar](#17-sık-karşılaşılan-sorunlar)
+18. [Sınırlar ve üretim kontrolü](#18-sınırlar-ve-üretim-kontrolü)
+19. [Katkı, lisans ve iletişim](#19-katkı-lisans-ve-iletişim)
 
-Serula kapalı üretim konturlarını içe aktarır ve geçersiz geometrileri sessizce düzeltmek yerine kullanıcıya bildirir.
+## 1. Proje ve sürümler
 
-Desteklenen başlıca DXF varlıkları:
+**Serula Nesting Pro**, üretim parçalarını gerçek ölçüleriyle rulo veya sabit ölçülü plaka malzemeye yerleştiren, sonucu görüntüleyen ve DXF olarak dışa aktarabilen web tabanlı bir 2B nesting sistemidir. Hedef alanları arasında ayakkabı, deri/suni deri, tekstil, lazer kesim ve CNC hazırlığı bulunur.
 
-- LINE
-- ARC
-- CIRCLE
-- ELLIPSE
-- LWPOLYLINE
-- POLYLINE
-- SPLINE
-- INSERT
+| Bileşen | Kaynak | 14.10.2026 itibarıyla |
+|---|---|---|
+| Web uygulaması | [web/package.json](web/package.json) | **0.1.10** |
+| Canlı adres | [serula.site](https://serula.site) | Cloudflare Git entegrasyonu |
+| Windows PC sürümü | [ayrı PC deposu](https://github.com/M93hasan/serula-nesting-pro-pc) | **0.1.3** |
+| Windows aktarım köprüsü | [SerulaTransferBridge.ps1](integrations/windows/SerulaTransferBridge.ps1) | **1.3** |
+| Nesting motoru | [Sparrow](https://github.com/JeroenGar/sparrow) + Jagua | Rust / WebAssembly |
+| Veri ve API | [Cloudflare Worker](web/worker/serula-worker.js) | Cloudflare D1 |
 
-Desteklenen ek davranışlar:
+Sürüm bilgisini her zaman ilgili **package.json**, **GitHub Release** ve çalışan köprünün **/health** yanıtı üzerinden doğrulayın. Bu tablo gelecekteki sürümleri otomatik takip etmez.
 
-- Katman seçimi
-- İç boşlukların korunması
-- DXF renk ve bağlı detay geometrilerinin korunması
-- Milimetre birimlerinin korunması
-- Açık/geçersiz kontur raporlama
-- Kaynak SPLINE bilgisinin uygun durumlarda korunması
+### Temel ilkeler
 
-SVG, PLT/HP-GL ve Serula/Sparrow proje verileri de içe aktarılabilir.
+- **Gerçek geometri korunur.** İzin verilmedikçe parça ölçüsü değiştirilmez.
+- **Yerleşim kısıtları uygulanır.** Malzeme sınırı, parça aralığı ve dönüş izinleri önemlidir.
+- **Rulo ve plaka farklı üretim senaryolarıdır.** Rulo stabilitesini plaka düzenlemeleri bozmamalıdır.
+- **Geçerli sonuç kontrol edilir.** Hatalı veya boş yerleşim başarılı sonuç gibi sunulmamalıdır.
+- **DXF mümkün olduğunda özgün çizim varlıklarıyla çıkar.** Kaynak SPLINE/ARC/CIRCLE çizimlerini gereksiz yere noktalandırmamak önceliktir.
+- **Kesim yetkisi Serula'da değildir.** DXF aktarımı makineye otomatik kesim komutu göndermez.
 
-### PLT / HP-GL içe aktarma
+## 2. Hızlı kullanım
 
-Serula `.plt`, `.hpgl`, `.hpg` ve `.hgl` çizimlerini açabilir. Standart HP-GL plotter ölçüsü korunur: **1 plotter birimi = 0,025 mm (40 birim = 1 mm)**. `PU`, `PD`, `PA`, `PR`, `AA`, `AR` ve `CI` komutları işlenir; kapalı kesim konturları parça, içte kalan kapalı konturlar delik olarak içe alınır.
+1. **[https://serula.site](https://serula.site)** adresinden editörü açın.
+2. DXF, SVG veya PLT/HP-GL parçalarını içe aktarın.
+3. Parça sayısı, açık kontur, katman, ölçek ve ölçüleri gözden geçirin.
+4. Her parça için **İzin verilen dönüşler** değerini belirleyin.
+5. **Rulo** veya **Plaka** seçip malzeme ölçülerini ve **parça aralığı** değerini girin.
+6. İhtiyaç varsa başlangıç köşesini ve durdurma koşulunu seçin.
+7. **Yerleştir** işlemini çalıştırın; geçerli yerleşimi kontrol edin.
+8. **DXF İndir** ile kaydedin ya da yetkiniz ve Windows köprüsü varsa **CorelDRAW'a Aktar** / **RDWorks'e Aktar** seçin.
+9. Hesabınıza bağlı proje/çıktıları **Geçmiş** bölümünden tekrar açın.
 
-Fiziksel ölçüyü güvenli belirlemek için `SC` kullanıcı ölçeklemesi kullanılan dosyalarda açık bir `IP` giriş penceresi bulunması gerekir.
+**Örnek çalışma:** 1400 mm genişliğinde rulo, 0 mm parça boşluğu, 0°/180° dönüş. Bu yalnızca bir başlangıç senaryosudur; malzemenin ve makinenin gerektirdiği toleranslar operatör tarafından girilmelidir.
 
-### Nesting
+## 3. Özelliklerin kapsamı
 
-Yerleştirme motoru tarayıcı içinde **Rust + WebAssembly** ile çalışır. Ağır hesaplamalar Web Worker üzerinde yürütülür; böylece UI ana iş parçacığı mümkün olduğunca serbest kalır.
+| Alan | İşlev |
+|---|---|
+| Düzenleme | Parça seçme, taşıma, adet değiştirme, çoğaltma, silme |
+| Çoklu seçim | Fare alan seçimi; Ctrl/Shift destekli toplu seçim |
+| Dönüş | İzin verilen açı kuralları; seçili parçaya derece girerek döndürme |
+| Aynalama | Seçilmiş kopyayı yatay veya dikey aynalama |
+| Malzeme | Rulo, sabit ölçülü plaka ve çoklu plaka |
+| Yerleştirme | Rust/WASM Sparrow/Jagua, Web Worker üzerinde hesap |
+| İçe aktarma | DXF, SVG, PLT/HP-GL, desteklenen proje JSON/ZIP |
+| Dışa aktarma | Geçerli DXF, kaynak geometriyi korumaya yönelik dönüşümler |
+| Kurtarma | Tarayıcı içi proje kaydı ve geri yükleme |
+| Bulut | Giriş yapılmış hesaba bağlı otomatik proje kaydı |
+| Geçmiş | DXF export kayıtları; proje geri yükleme |
+| Hesap | E-posta/parola, Google giriş ve yönetici yetkileri |
+| Destek | Kalıcı mesajlaşma, onaylı uzaktan destek akışı |
+| Dil | Türkçe, English, العربية, فارسی (İran) ve RTL destek |
+| Tema/birim | Açık, koyu, sistem teması; mm/inç görüntüleme |
+| Windows | CorelDRAW ve RDWorks'e izinli yerel DXF aktarımı |
 
-Serula kendi yerine bağımsız bir nesting motoru icat etmez. Üretim yerleşiminin temel motoru doğrudan upstream Sparrow projesidir:
+Bazı özellikler hesap veya yönetici yetkisi gerektirir. Bir özelliğin arayüzde görünmesi, her Windows/RDWorks sürümünde sorunsuz çalışacağını garanti etmez.
 
-```text
-https://github.com/JeroenGar/sparrow.git
-```
+## 4. Dosya içe aktarma
 
-Projede sabitlenen Sparrow revizyonu:
+### DXF
 
-```text
-7f0e10f946f70a86138d3938548a13ee46464f39
-```
+Başlıca desteklenen 2B entity tipleri:
 
-Sparrow, çakışma ve yerleşim geometrisi için Jagua tabanlı altyapı kullanır.
+- **LINE**
+- **ARC**
+- **CIRCLE**
+- **ELLIPSE**
+- **LWPOLYLINE / POLYLINE** (uygun bulge bilgileri dâhil)
+- **SPLINE** (desteklenen eğri biçimleri)
+- **INSERT / BLOCK** (desteklenen 2B dönüşümlerle)
 
-### Rotasyon seçenekleri
+Katman bilgileri, iç boşluklar, kaynak renkleri ve desteklenen yardımcı işaret/detay çizimleri değerlendirilir. Bağlı orijinal DXF varlıkları parça veri modelinde saklanabilir. Geometrisi bozuk veya açık kontur, güvenli inceleme adımı ya da uyarı gerektirebilir.
 
-Kullanıcı arayüzündeki üretim seçenekleri:
+**Birim:** Geometri milimetre temellidir. Tanınan DXF birimleri içe aktarımda kullanılır. Dışa aktarılan DXF başlığındaki **INSUNITS 4**, 1 birimin 1 mm olduğunu belirtir. Özellikle farklı CAD programlarından gelen dosyalarda gerçek ölçüyü kontrol edin.
 
-- **0°**
-- **0° / 180°**
-- **Her yöne**
+**SPLINE:** Desteklenen kontrol noktası/knot bilgisiyle geldiğinde kaynak eğriyi koruma hedeflenir. Her tür spline, 3B DXF veya üreticiye özgü veri biçimi desteklenmez.
 
-Parçanın izin verilen dönüşleri nesting motoruna aktarılır; yerleşim sonrası parça yönleri keyfî olarak değiştirilmez.
+### SVG
 
-### Başlangıç yönü
+Kapalı üretim konturları, desteklenen yol/transform işlemleri ve iç delikler işlenir. Yazı, görsel, filtre/maske ve harici kaynaklar doğrudan lazer kesim konturu kabul edilmez. İçe aktarma sonrası konturları inceleyin.
 
-Desteklenen başlangıç yönleri:
+### PLT / HP-GL
 
-- **Sağ alt**
-- **Sağ üst**
+Desteklenen uzantılar **.plt, .hpgl, .hpg, .hgl**. PU, PD, PA, PR gibi çizici komutları ve desteklenen yay/daireler çözülür. Standart HP-GL ölçeği **40 plotter birimi = 1 mm** olabilir. SC/IP gibi ölçeklemelerde ve cihazlara özgü çıktılarda gerçek ölçüyü doğrulayın.
 
-Sonuç geometrisi seçilen görsel başlangıç köşesine göre konumlandırılır. Bu işlem parçaların kendi aralarındaki Sparrow yerleşimini bozmaz.
+### Proje / ZIP
 
----
+Desteklenen proje JSON ve ZIP arşivleri yeniden açılabilir. **Projeyi açma**, tüm proje durumunu yükleyebilir; **parça içe aktarma**, mevcut projeye yeni konturlar ekler. İkisini karıştırmayın.
 
-## Rulo modu
+## 5. Nesting ve malzeme kuralları
 
-Rulo modunda kullanıcı malzeme genişliğini belirler. Sparrow bu genişlik içerisinde parçaları yerleştirir ve kullanılan rulo uzunluğunu azaltmaya çalışır.
+### Motor
 
-Örnek:
+Hesaplama çekirdeği **Rust + WebAssembly**'dir. [Sparrow](https://github.com/JeroenGar/sparrow) tabanlı yerleştirme ve Jagua geometrisi kullanılır; hesap ağır yükü Web Worker'larda yürütülür.
 
-```text
-Genişlik: 1400 mm
-Uzunluk: nesting sonucuna göre değişir
-```
+Kaynak kodun pinlediği Sparrow commit'i:
 
-Rulo DXF dışa aktarma davranışı, plaka modundaki çoklu plaka düzeninden bağımsızdır.
+~~~text
+5901a79b6c5a74d8b9c356ee2916736567308108
+~~~
 
----
+Kesin güncel bağımlılıklar [web/wasm/Cargo.toml](web/wasm/Cargo.toml) ve [web/wasm/Cargo.lock](web/wasm/Cargo.lock) dosyalarındadır. **Eski README'de belirtilen önceki Sparrow/Jagua sürümleri bu kodun kaynağı değildir.**
 
-## Plaka modu
+### Varsayılan ayarlar
 
-Plaka modunda hem genişlik hem uzunluk sabittir.
+| Ayar | Başlangıç değeri |
+|---|---|
+| Malzeme tipi | Rulo |
+| Malzeme genişliği | **1400 mm** |
+| Parça aralığı | **0 mm** |
+| Başlangıç köşesi | **Sağ alt** |
+| Yeni parçanın dönüşleri | **0° ve 180°** |
+| Varsayılan çözüm süresi | **30 saniye** |
 
-Örnek:
+İzin verilen dönüşler parça bazında sabit, yarım dönüş veya serbest kural olarak ayarlanabilir. Elle dönüş/aynalama sonrasında DXF doğrulaması yine geçerlidir.
 
-```text
-1400 × 2000 mm
-```
+**Süre uyarısı:** Arayüzde otomatik durdurma ve süre seçenekleri bulunur. Ağır geometrilerde tamamlanma süresi değişebilir; **her dosya 59 saniyede mutlaka biter** garantisi yoktur.
 
-Birinci plakaya bütün parçalar sığmıyorsa Serula kalan kopyaları **aynı Sparrow/Jagua motoruyla** sonraki fiziksel plakada yeniden çözer:
+### Rulo modu
 
-```text
-Plaka 1 → sığan parçalar
-Plaka 2 → kalan parçalar
-Plaka 3 → hâlâ kalan parçalar
-...
-```
+Kullanıcı **genişliği** belirler; çözüm bu sınır içinde kullanılan uzunluğu mümkün olduğunca azaltmayı hedefler. Ruloda plaka sayısı veya plaka X-ofset kuralı uygulanmaz.
 
-Serula plaka modunda ikinci bir shelf/grid nesting algoritmasına geçmez. Her fiziksel plakanın gerçek yerleşimi Sparrow tarafından üretilir; Serula çoklu plaka orkestrasyonunu ve plaka sınırı kontrolünü yönetir.
+### Plaka modu
 
-Bu yaklaşım, upstream Sparrow'un doğal olarak bir **irregular strip packing** çözücüsü olması nedeniyle çoklu fiziksel plaka davranışını uygulama katmanında koordine eder.
+Kullanıcı hem **genişlik hem uzunluk** belirler. Birinci fiziksel plakaya sığmayan kopyalar sonraki plakalara alınabilir. Amaç plaka için ikinci bir gizli shelf/grid algoritmasına geçmek değil, Sparrow tabanlı çözümü fiziksel plaka kısıtlarıyla yönetmektir.
 
----
+### Çoklu plaka dışa aktarma
 
-## DXF dışa aktarma
+Birden fazla plaka çıktısı **tek DXF** olur. Plakalar yatay dizilir ve aralarında **50 mm** boşluk bırakılır; parçaların kendi iç yerleşimi ve yönleri değiştirilmez.
 
-Üretim çıktısı **DXF** olarak alınır ve CorelDRAW gibi CAD/vektör uygulamalarında kullanılmak üzere hazırlanır.
+~~~text
+Plaka genişliği: 1400 mm
 
-### Tek plaka
-
-Tek plaka varsa mevcut yerleşim koordinatları korunur.
-
-### Çoklu plaka
-
-Birden fazla plaka varsa çıktı yine **tek bir DXF dosyasıdır**.
-
-Plakaların içindeki Sparrow/Jagua yerleşimi kesinlikle değiştirilmez. Yalnızca dışa aktarım sırasında her plakanın gerçek çizim geometrisine yatay X ofseti uygulanır.
-
-Plakalar arasında sabit **50 mm** boşluk bulunur.
-
-1400 mm genişlik örneği:
-
-```text
-Plaka 1 başlangıcı: X = 0 mm
+Plaka 1 başlangıcı: X =    0 mm
 Plaka 2 başlangıcı: X = 1450 mm
 Plaka 3 başlangıcı: X = 2900 mm
-```
 
-Genel kural:
+X ofseti = plaka index × (malzeme genişliği + 50 mm)
+~~~
 
-```text
-X ofseti = plakaIndex × (malzemeGenişliği + 50 mm)
-```
+Sabit kaynak: [web/src/export/dxf.ts](web/src/export/dxf.ts), **SHEET_EXPORT_GAP_MM = 50**. Kesim DXF'ine yalnızca plaka göstermek için dekoratif kapalı bir çerçeve/dikdörtgen eklenmez.
 
-Önemli:
+### Doğrulama kuralları
 
-- DXF içine plaka çerçevesi eklenmez.
-- Ek dikdörtgen/kutu çizilmez.
-- Yalnızca gerçek üretim geometrisi dışa aktarılır.
-- Parçaların plaka içindeki göreli X/Y konumu korunur.
-- Dönüş açısı korunur.
-- Ölçek ve gerçek ölçü korunur.
-- İç boşluk ve bağlı detay geometrileri aynı ofsetle taşınır.
-- Rulo modu bu davranıştan etkilenmez.
+- Parçalar gerçek boyutlarını ve iç boşluklarını korumalıdır.
+- Çakışma ve sınır ihlalleri kontrol edilmelidir.
+- Parça aralığı **kerf (ışın kalınlığı)** yerine geçmez.
+- İzin verilen dönüşler kaybolmamalıdır.
+- Hatalı/boş çözüm başarılıymış gibi dışa aktarılmamalıdır.
+- Rulo optimizasyonuna yapılan değişiklikler plaka üzerinden dolaylı bozulmaya neden olmamalıdır.
 
----
+## 6. DXF dışa aktarım ve geometri
 
-## Geometri doğruluğu
+Serula, hesaplama için poligon/sampling kullanabilse de kaynak CAD entity bilgilerini ayrı saklayarak **gereksiz noktalandırmayı önlemeyi** hedefler.
 
-Serula'nın temel üretim kuralları:
+Uygun kaynak ve dönüşümlerde:
 
-1. **Gerçek ölçü korunur.** Nesting parçaları otomatik küçültmez veya büyütmez.
-2. **Gerçek kontur kullanılır.** İçbükey dış sınırlar korunur.
-3. **Bounding box / convex hull gerçek yerleşimin yerine kullanılmaz.** Bunlar yalnızca gerekli ön kontroller veya güvenli yardımcı durumlar için kullanılabilir.
-4. **Geçersiz geometri sessizce düzeltilmez.**
-5. **İç boşluklar korunur.**
-6. **Parça aralığı ayrı bir üretim parametresidir.**
-7. **Kontrol edilmiş sonuç doğrulanmadan üretim DXF'i oluşturulmaz.**
-
----
-
-## Kullanıcı arayüzü
-
-Serula çalışma alanı CAD benzeri sade bir üretim arayüzü sunar.
-
-Başlıca işlevler:
-
-- DXF, SVG ve PLT/HP-GL seçme ve içe aktarma
-- Parça adedi değiştirme
-- Parça seçme, taşıma, silme ve çoğaltma
-- Seçili kopyaya derece yazarak yön verme, fareyle/tuşlarla sağ-sol döndürme ve yatay/dikey aynalama
-- Rotasyon kuralı seçme
-- Rulo / Plaka seçimi
-- Malzeme genişliği ve plaka uzunluğu girişi
-- Parça aralığı ayarı
-- Sağ alt / sağ üst başlangıç yönü
-- Otomatik nesting
-- Canlı yerleşim görüntüsü
-- Geometri doğrulaması
-- DXF indirme
-- Tarayıcıda proje kurtarma
-- Kullanıcı hesabına bağlı otomatik bulut kayıt
-- **Geçmiş** sekmesinden son proje durumunu ve DXF exportlarını açma/indirme
-- Açık / koyu görünüm
-- mm / inç görüntüleme
-
----
-
-## Bulut kayıt ve Geçmiş
-
-Giriş yapmış kullanıcının çalıştığı proje yalnızca DXF export anında değil, proje üzerinde değişiklik oldukça otomatik olarak buluta senkronlanır.
-
-Ana otomatik kayıt adı:
-
-```text
-Serula Nesting En Temiz Hali
-```
-
-Bu kayıt son geçerli çalışma durumunu saklar:
-
-- Proje adı
-- Parçalar ve adetler
-- Orijinal DXF kaynak entity bilgileri
-- İç boşluklar ve bağlı detay geometrileri
-- İzin verilen dönüşler
-- Malzeme tipi ve ölçüleri
-- Parça aralığı ve başlangıç yönü
-- Kopya konumları / yerleşim
-- Geçerli nesting sonucu
-- Seri adedi
-- Görünüm (açık/koyu/sistem) ve mm/inç tercihi
-
-**Geçmiş** sekmesinde iki kayıt türü bulunur:
-
-1. **Serula Nesting En Temiz Hali** — sürekli güncellenen son proje durumu; tekrar açılabilir veya proje dosyası olarak indirilebilir.
-2. **DXF export geçmişi** — her export ayrı kayıt olarak tutulur; DXF tekrar indirilebilir, o export anındaki proje tekrar açılabilir veya kayıt silinebilir.
-
-Kayıtlar kullanıcı hesabına bağlıdır; kullanıcılar birbirlerinin proje veya export kayıtlarını göremez.
-
-Büyük proje ve DXF içerikleri Cloudflare D1 tek-satır sınırına takılmamak için parçalara bölünerek saklanır.
-
-**Saklama süresi:** DXF export geçmişi ve ona bağlı proje kopyaları 32 günü geçince otomatik silinir. Güncel otomatik proje kaydı (`Serula Nesting En Temiz Hali`) bu temizlemeden etkilenmez.
-
----
-
-## Kullanıcı ve yönetim altyapısı
-
-Serula'nın Cloudflare tabanlı sunucu katmanı kullanıcı ve yönetim işlemlerini yürütür.
-
-Başlıca özellikler:
-
-- E-posta/parola ile giriş
-- Google ile giriş
-- Oturum yönetimi
-- Kullanıcı kotası / nesting hakkı
-- Admin panelinden kullanıcıya özel lisans süresi (7/30/90/180/365 gün veya özel gün)
-- Lisans başlangıç/bitiş tarihi ve süresi dolan hesaplarda üretim/export yetkisi kontrolü
-- Lisans süresini kaldırıp kullanıcıyı süresiz yapabilme
-- Sınırsız kullanıcı
-- Kullanıcıya özel varsayılanlar
-- 4 dil arayüzü: Türkçe (varsayılan), English, العربية ve فارسی (İran)
-- Giriş yapan kullanıcının varsayılan dili hesabına kaydedilir; girişsiz kullanımda tarayıcıda saklanır
-- Arapça ve Farsça için RTL arayüz desteği
-- Sistem varsayılanları
-- Şifre sıfırlama
-- Admin kullanıcı yönetimi ve kullanıcı hesabını tamamen silme
-- İletişim bölümünde kullanıcı ↔ admin kalıcı destek mesajlaşması
-- Admin destek gelen kutusu, okunmamış mesajlar, çevrim içi sayısı ve yeşil durum noktası
-- Audit / sistem logları
-- Kullanıcıya özel otomatik proje bulut kaydı ve DXF geçmişi
-- Kullanıcı onaylı uzaktan destek
-
-Yönetim paneli:
-
-```text
-https://serula.site/admin
-```
-
----
-
-## Mimari
-
-```text
-┌──────────────────────────┐
-│      React + TypeScript  │
-│        Vite SPA          │
-└────────────┬─────────────┘
-             │
-       ┌─────┴─────┐
-       │           │
-       ▼           ▼
-┌──────────────┐  ┌──────────────────┐
-│ Web Workers  │  │ Cloudflare Worker│
-│ Geometry /   │  │ Auth / Admin/API │
-│ Solver       │  └────────┬─────────┘
-└──────┬───────┘           │
-       │                   ▼
-       ▼             ┌──────────────┐
-┌──────────────┐     │ Cloudflare D1│
-│ Rust + WASM  │     └──────────────┘
-│ Sparrow/Jagua│
-└──────────────┘
-```
-
-### İstemci
-
-React + TypeScript; çalışma alanı, içe aktarma, ayarlar, sonuç görüntüleme ve kullanıcı etkileşimlerini yönetir.
-
-### Worker katmanı
-
-Geometri hazırlığı ve solver işlemleri UI iş parçacığından ayrılır.
-
-### WASM
-
-Rust wrapper, sabitlenen upstream Sparrow sürümünü tarayıcıda çalıştırır.
-
-### Sunucu
-
-Cloudflare Worker; auth, admin API, kota, ayarlar, loglar ve D1 erişimini yönetir.
-
----
-
-## Teknoloji yığını
-
-| Katman | Teknoloji |
+| Kaynak | Tercih edilen export |
 |---|---|
-| UI | React 19, TypeScript, Vite |
-| Nesting | Sparrow |
-| Çakışma / geometri altyapısı | Jagua |
-| WASM | Rust, wasm-bindgen / wasm-pack |
-| Arka plan hesaplama | Web Workers |
-| Sunucu | Cloudflare Workers |
-| Veri | Cloudflare D1 |
-| Test | Vitest, Playwright |
+| LINE | LINE |
+| ARC | ARC |
+| CIRCLE | CIRCLE |
+| SPLINE | SPLINE |
+| LWPOLYLINE | LWPOLYLINE |
+| POLYLINE | POLYLINE |
 
----
+Konum, dönüş, ayna ve çoklu plaka X-ofseti bu nesnelere uygulanır. İç delik, katman ve bağlı detay geometrileri korunmaya çalışılır. Bazı uyumsuz kaynak dosyalarda poligon tabanlı dışa aktarma gerekebilir: **tüm DXF çeşitlerinde kayıpsız export sözü verilmez**.
 
-## Proje yapısı
+Kaynak eğrilerin varlık tipinin veya SPLINE kontrol noktası sayısının beklenmedik değişmesi gibi durumlar için kontrol kodları bulunur. Dışa aktarımdan sonra **CorelDRAW veya RDWorks içinde parça adedini, ölçüleri, katmanları ve kontur sürekliliğini mutlaka kontrol edin.**
 
-```text
+## 7. CorelDRAW / RDWorks köprüsü
+
+### İndirme seçenekleri
+
+| Kullanım | İndirme | Ek kurulum |
+|---|---|---|
+| **PC uygulaması** | [Serula Nesting Pro PC · son Release](https://github.com/M93hasan/serula-nesting-pro-pc/releases/latest) | Masaüstü kurulum; köprü paket içinde |
+| **Sadece web / Chrome** | [Serula-Kur.cmd](integrations/windows/Serula-Kur.cmd) | Windows'a yerel köprüyü kurar |
+| **Geliştirici / manuel** | [SerulaTransferBridge.ps1](integrations/windows/SerulaTransferBridge.ps1) | PowerShell ve localhost yetkileri |
+
+**Köprü v1.3**, Windows PowerShell 5.1 üzerinde çalışacak şekilde hazırlanmıştır. Tek tıklamalı kurucu güncel sürümü indirip doğrular, kullanıcının yerel makinesine kurar ve Windows oturum açılışında çalıştıracak kısayol oluşturur. İlk kurulumda sadece yerel HTTP URL rezervasyonu için yönetici onayı gerekebilir.
+
+Kurulumu kontrol etmek için **aynı Windows bilgisayarında**:
+
+~~~text
+http://127.0.0.1:43842/health
+~~~
+
+Beklenen örnek:
+
+~~~json
+{"ok":true,"service":"serula-bridge","version":"1.3"}
+~~~
+
+Kurucunun güvenlik özelliği: içeriği GitHub'da belirli commit/blob kimliğine sabitler ve indirilen dosyanın Git blob SHA-1 değerini kontrol eder. Daha önce indirdiğiniz **eski Serula-Kur.cmd**, sabitlendiği eski sürümü yükleyebileceğinden güncellemeler için dosyayı **yeniden indirin**.
+
+### Aktarım nasıl çalışır?
+
+1. Yönetici ilgili kullanıcı için **CorelDRAW** veya **RDWorks** aktarım iznini açar.
+2. Kullanıcı geçerli nesting çıktısı için ilgili aktarım düğmesine basar.
+3. Web, sunucudan **tek kullanımlık ve kısa süreli** yetki bileti alır.
+4. Yerel köprü sunucuya bilet doğrulaması yapar.
+5. DXF geçici olarak Windows'ta oluşturulur ve hedef programa aktarılır.
+
+**CorelDRAW:** Desteklenen CorelDRAW COM otomasyonu ile DXF açılmaya çalışılır.
+
+**RDWorks:** Önceden açık RDWorks penceresine odaklanma, **Ctrl+I Import**, Windows dosya seçme penceresinin tespiti ve UI Automation ile dosya alanını doldurup **Aç** komutunu çalıştırma denenir.
+
+**Önemli sınırlama:** RDWorks'ün yaygın ve güvenilir bir resmî otomasyon API'si bulunmadığından bu akış Windows/RDWorks sürümüne bağlıdır. Köprünün başarılı yanıt vermesi, çizimin gerçekten doğru koordinatlarla RDWorks çalışma alanına yüklendiğini **garanti etmez**. Windows pencere odağını engellerse otomatik işlem tamamlanmayabilir. Herhangi bir kesimi köprü otomatik başlatmaz.
+
+Ayrıntılar: **[Windows entegrasyonu rehberi](integrations/windows/README.md)**.
+
+## 8. Bulut, geçmiş ve hesaplar
+
+### Hesaplar
+
+- E-posta ve parola ile kayıt/giriş.
+- Google hesabıyla giriş.
+- Oturum, lisans ve nesting/export hakkı kontrolleri.
+- Desteklenen varsayılan dil: Türkçe, İngilizce, Arapça, Farsça.
+- Arapça/Farsçada sağdan sola arayüz uyarlaması.
+- Kullanıcıya özel tercihler ve varsayılanlar.
+
+### Tarayıcı kurtarma ve bulut farklıdır
+
+**Tarayıcı kurtarma**, aynı cihazdaki tarayıcı depolamasına dayanır; tarayıcı verileri temizlenirse kaybolabilir.
+
+**Bulut otomatik kaydı**, giriş yapmış kullanıcı için sunucuya kaydedilir. Projenin malzeme ayarları, adetleri, dönüşleri, seçilen yerleşimi ve desteklenen DXF kaynakları tekrar açmak üzere kayda girebilir.
+
+Son proje kaydı etiketi:
+
+~~~text
+Serula Nesting En Temiz Hali
+~~~
+
+**Geçmiş** sekmesinde otomatik proje kaydı ve önceki DXF exportları listelenir. Kullanıcı kendi kayıtlarını tekrar indirebilir, projeyi yeniden açabilir ve izin verilen kayıtları silebilir.
+
+**Saklama:** Dışa aktarılan DXF/geçmiş kayıtları sunucudaki günlük temizleme ile **32 günden eski** olduklarında silinir. Güncel otomatik proje kaydı bu export temizleme kuralından ayrı tutulur. D1'e büyük içerikler parça parça yazılabilir.
+
+**Üretim için öneri:** Bulut geçmişi tek arşiviniz olmasın; kritik DXF ve proje sürümlerini ayrıca yedekleyin.
+
+## 9. Yönetici paneli
+
+- **[serula.site/admin](https://serula.site/admin):** ana yönetim paneli.
+- **[serula.site/admin2](https://serula.site/admin2):** mobil odaklı yönetim görünümü.
+
+Panelin kapsamı: kullanıcılar, kota/nesting hakkı, lisans süreleri, hesap silme, kullanıcı ve sistem varsayılanları, canlı mesajlar, okunmamış mesajlar, çevrim içi kullanıcı durumu, loglar ve izin verilen uzaktan destek akışları.
+
+Kullanıcı satırlarında **CorelDRAW Aç/Kapat** ve **RDWorks Aç/Kapat** işlemleri bağımsız yönetilir. Sunucuya bağlı yetkiler kullanıcı arayüzü gizlemesinden ayrıdır: sunucu izin vermediği bir aktarım için geçerli bilet üretmemelidir.
+
+**Yönetici kimlik bilgilerini, e-posta parola sıfırlama anahtarlarını veya canlı veritabanı kopyalarını GitHub'a commit etmeyin.**
+
+## 10. Klavye ve arayüz
+
+| Kısayol | İşlev / koşul |
+|---|---|
+| **Ctrl/Cmd + I** | İçe aktarma hazırlığı (bağlama göre) |
+| **Ctrl/Cmd + E** | Geçerli yerleşimi dışa aktarma |
+| **Ctrl/Cmd + S** | Projeyi tarayıcıya kaydetme |
+| **Ctrl/Cmd + A** | Seçim |
+| **Ctrl/Cmd + C / V / X** | Parça kopyalama / yapıştırma / kesme |
+| **Ctrl/Cmd + D** | Seçilen kopyayı çoğaltma |
+| **Ctrl/Cmd + Z** | Geri al; Shift ile yeniden yap |
+| **Delete / Backspace** | Seçilmiş kopyaları kaldırma |
+| **R** | İzin verilen sonraki dönüşe geçme |
+| **Yön okları** | Kopyaları küçük adımlarla taşıma |
+| **Shift + yön okları** | Daha büyük taşıma adımı |
+| **Esc** | Seçimi kapatma |
+
+Kısayollar genellikle metin düzenlenmeyen çalışma alanında etkindir; dialog veya input odaktayken davranış değişebilir. Bütün tarayıcılarda aynı tuş kombinasyonu serbest olmayabilir.
+
+**Hakkında penceresi**, PC/aktarım köprüsü indirme butonlarını ve görüntü birimi, tema, dil seçimlerini içerir. Ana editördeki dil menüsü kaldırılmıştır. Normal butonlar kompakt **mavi**, CorelDRAW aktarımı **yeşil**, RDWorks aktarımı **kırmızı** olacak biçimde stillendirilmiştir.
+
+## 11. Mimari ve klasör yapısı
+
+~~~text
 nesting/
-├── README.md
-├── LICENSE
+├── README.md                         Bu dosya
+├── LICENSE                           Depo lisansı
+├── .github/workflows/
+│   ├── pages.yml                     PR build + test doğrulaması
+│   ├── build-wasm.yml                WASM paket derleme iş akışı
+│   └── cloudflare-trigger.yml        Elle çalıştırılabilen pasif bilgilendirme
+├── integrations/windows/
+│   ├── SerulaTransferBridge.ps1      Yerel CorelDRAW / RDWorks köprüsü
+│   ├── InstallSerulaBridge.ps1       Sürüm doğrulamalı Windows kurucusu
+│   ├── Serula-Kur.cmd                Tek tık kurulum
+│   └── README.md                     Windows köprüsü rehberi
+├── notes/                            Tasarım ve geliştirme notları
 └── web/
-    ├── public/
-    ├── scripts/
+    ├── package.json                  Web uygulaması / npm komutları
+    ├── wrangler.jsonc                Cloudflare dağıtım bağları
+    ├── vite.config.ts                Vite yapılandırması
+    ├── public/                       Statik dosyalar ve örnekler
+    ├── scripts/                      WASM, doğrulama ve katalog komutları
     ├── src/
-    │   ├── components/      UI bileşenleri
-    │   ├── export/          DXF dışa aktarma
-    │   ├── geometry/        Geometri ve çoklu plaka işlemleri
-    │   ├── import/          DXF / SVG / proje içe aktarma
-    │   ├── storage/         Tarayıcı proje kurtarma
-    │   ├── workers/         Solver ve geometri worker'ları
-    │   ├── App.tsx
-    │   └── Admin.tsx
-    ├── wasm/                Rust/WASM Sparrow wrapper
-    ├── worker/              Cloudflare sunucu kodu
-    ├── tests/
-    ├── package.json
-    └── wrangler.jsonc
-```
+    │   ├── App.tsx                   Kullanıcı arayüzü
+    │   ├── Admin.tsx                 Yönetici arayüzü
+    │   ├── AuthGate.tsx              Oturum / hesap kontrolleri
+    │   ├── components/               Arayüz parçaları
+    │   ├── import/                   DXF / SVG / PLT / proje içe aktarma
+    │   ├── export/                   DXF / SVG / PDF çıktı yardımcıları
+    │   ├── geometry/                 Geometri doğrulama ve dönüşümler
+    │   ├── storage/                  Tarayıcı kayıtları
+    │   └── workers/                  Solver ve geometri worker'ları
+    ├── wasm/                          Rust ve derlenmiş WASM paketleri
+    ├── worker/serula-worker.js       Cloudflare API sunucusu
+    └── tests/                         Vitest / Playwright testleri
+~~~
 
----
+### Veri akışı
 
-## Yerel geliştirme
+~~~text
+Tarayıcı / PC web arayüzü (React + TypeScript)
+   ├── geometri ve nesting işleri → Web Worker → Rust/WASM → Sparrow/Jagua
+   ├── hesap / lisans / geçmiş   → Cloudflare Worker API → D1
+   └── izinli yerel aktarım      → 127.0.0.1:43842 → CorelDRAW / RDWorks
+~~~
+
+**Not:** Bu depo hem browser içinde işlenen geometriyi hem de kullanıcı tarafından açıkça talep edilen bulut kayıt/export işlemlerini içerir. Bütün DXF'lerin daima yalnızca cihazda kaldığı iddiası doğru değildir; oturumlu export ve bulut kayıt sunucuya veri gönderebilir.
+
+## 12. Kurulum ve geliştirme
 
 ### Gereksinimler
 
-- Node.js
-- npm
-- Rust toolchain — WASM yeniden derlenecekse
-- wasm-pack — WASM yeniden derlenecekse
+- Git
+- Node.js ve npm (CI doğrulama akışı Node **22** kullanır)
+- Modern Chromium/Firefox/Safari tarayıcısı
+- **Sadece WASM yeniden derlenecekse:** Rust, ilgili nightly sürüm, wasm32 hedefi ve wasm-pack
 
-### Kurulum
+### Web uygulamasını yerelde açma
 
-```bash
+~~~bash
 git clone https://github.com/M93hasan/nesting.git
 cd nesting/web
 npm ci
 npm run dev
-```
+~~~
 
-### Üretim derlemesi
+Geliştirme sunucusu yapılandırmada **127.0.0.1** adresini kullanır. Terminalin gösterdiği yerel Vite adresini açın.
 
-```bash
+### Temel komutlar
+
+~~~bash
 cd web
+
+npm run dev             # yerel geliştirme
+npm run typecheck       # TypeScript kontrolü
+npm test                # Vitest birim testleri
+npm run build           # katalog + kaynak + WASM + tip + Vite kontrolü
+npm run preview         # üretim çıktısını yerelde görüntüleme
+npm run test:e2e        # önce build, ardından Playwright
+npm run wasm:verify     # önceden derlenen WASM tutarlılık kontrolü
+npm run wasm:build      # Rust kaynaklarından dört WASM varyantı
+~~~
+
+İlk Playwright çalıştırması için gerekirse:
+
+~~~bash
+npx playwright install chromium firefox webkit
+~~~
+
+### Build beklenmedik biçimde başarısızsa
+
+**npm run build**, sadece TypeScript derlemesi değildir. Test DXF kataloğunu, kaynak bütünlüğünü, Worker JS sözdizimini, önceden derlenen WASM parmak izini ve tip kontrolünü de doğrular. WASM kaynağı değiştirildiğinde yeniden derleme gerekebilir.
+
+Yerel geliştirmede doğrudan üretim veritabanı kullanılmamalıdır. API gerektiren senaryolarda gerekli Cloudflare/D1 yapılandırması ayrıca hazırlanmalıdır.
+
+## 13. WASM derleme ve doğrulama
+
+WASM kaynağı **web/wasm/** içindedir. Derleme betiği, SIMD ve thread özellikleri için toplam **dört paket** üretir:
+
+~~~text
+web/wasm/pkg/
+web/wasm/pkg-threads/
+web/wasm/pkg-nosimd/
+web/wasm/pkg-threads-nosimd/
+~~~
+
+Betik, portable SIMD ve paylaşılan bellek gereksinimleri nedeniyle **nightly-2026-08-30** toolchain'ini kullanır. Örnek ön hazırlık:
+
+~~~bash
+rustup toolchain install nightly-2026-08-30 --profile minimal --component rust-src --target wasm32-unknown-unknown
+npm install --global wasm-pack@0.15.0
+cd web
+npm run wasm:build
+node scripts/wasm-fingerprint.mjs > wasm/prebuilt.sha256
+npm run wasm:verify
 npm run build
-```
+~~~
 
-### Test
+Gerçek komut ve hedefler için [build-wasm.mjs](web/scripts/build-wasm.mjs) ile [build-wasm.yml](.github/workflows/build-wasm.yml) dosyaları kaynak kabul edilmelidir. Dört varyantın mevcut olması her cihazın çok iş parçacıklı çalışacağı anlamına gelmez; tarayıcı yeteneklerine göre seri fallback kullanılabilir.
 
-```bash
+## 14. Cloudflare dağıtımı
+
+**Üretim adresi:** [https://serula.site](https://serula.site)
+
+Cloudflare Worker uygulaması için yapılandırma: **[web/wrangler.jsonc](web/wrangler.jsonc)**.
+
+- **Worker:** web/worker/serula-worker.js
+- **Statik çıktı:** web/dist
+- **D1 binding:** DB
+- **Statik içerik binding:** ASSETS
+- **Scheduled trigger:** günlük temizlik işleri için tanımlanmış cron
+- **E-posta binding:** EMAIL (ilgili ortam yapılandırması gerekir)
+- **Üretim kaynağı:** GitHub **main** dalını takip eden Cloudflare entegrasyonu
+
+### CI / CD akışları
+
+1. **Validate Serula Web** — [pages.yml](.github/workflows/pages.yml): ana dala açılan pull request'lerde ve manuel çalıştırmada npm build/test kontrol eder. **Adı pages.yml olsa da bu akış mevcut hâliyle GitHub Pages'e üretim deploy yapmaz.**
+2. **Build WASM packages** — [build-wasm.yml](.github/workflows/build-wasm.yml): ilgili Rust/WASM kaynakları değiştiğinde veya manuel tetikleyiciyle paketleri derler ve commit edebilir.
+3. **Fast Cloudflare trigger** — [cloudflare-trigger.yml](.github/workflows/cloudflare-trigger.yml): bilgilendirici/pasif iş akışıdır; tek başına üretim yayını yapmaz.
+4. **Cloudflare Git entegrasyonu:** main güncellemesini üretime taşımak üzere yapılandırılmıştır; **GitHub commit başarılı diye canlı yayının başarıyla tamamlandığı varsayılmaz**.
+
+### Güvenli yayın sırası
+
+~~~text
+feature branch
+   ↓
+pull request
+   ↓
+npm run build + npm test
+   ↓
+review / merge → main
+   ↓
+Cloudflare dağıtım durumunu kontrol et
+   ↓
+serula.site canlı duman testi
+~~~
+
+Duman testi: giriş, DXF import, rulo, plaka, doğrulanmış export, Hakkında indirme butonları, kullanıcı/admin girişleri ve yerel köprüyle aktarım (uygun Windows cihazında).
+
+**Gizli bilgiler:** ADMIN_PASSWORD gibi secret'lar, mail servis ayarları ve üretim oturum/veritabanı verileri README'ye veya GitHub'a yüklenmemelidir. Cloudflare bağlarının adlarını belgelemek yeterlidir; canlı kimlik bilgileri ayrı güvenli ortamda tutulur.
+
+## 15. Testler
+
+Testler **web/tests/** altında yer alır. Başlıca kapsam:
+
+- DXF/SVG/PLT import, ölçek ve kaynak kontur kontrolü
+- Spline/kapalı kontur regresyonları
+- Yerleşim doğrulaması, rulo/plaka davranışı, çoklu plaka
+- Seçme, taşıma, çoğaltma, klavye ve aynalama
+- Tarayıcı proje kurtarma
+- Tema, birim, çeviri ve RTL
+- Geçmiş, kullanıcı arayüzü ve rol/yetki akışları
+- Web Worker başlatma/durdurma ve fallback
+- Export biçimleri ve dışa aktarma ön kontrolleri
+
+~~~bash
 cd web
+npm run typecheck
 npm test
-```
-
-Uçtan uca testler:
-
-```bash
+npm run build
+npx playwright install chromium firefox webkit
 npm run test:e2e
-```
+~~~
 
----
+**CI'nin yeşil olması, RDWorks'ün gerçek bir Windows bilgisayardaki penceresine çizimin yüklendiğini kanıtlamaz.** Windows/CorelDRAW/RDWorks canlı uçtan uca testi ayrıca gerekir.
 
-## Yayın ve sürümleme
+## 16. Güvenlik ve veriler
 
-Üretim branch'i:
+### Sunucu ve yetkilendirme
 
-```text
-main
-```
+- Oturumlar sunucu tarafında doğrulanır; oturum cookie'lerinde **HttpOnly**, **Secure** ve **SameSite=Lax** kullanılır.
+- Nesting hakkı, aktif lisans ve export izinleri sunucu tarafında değerlendirilir.
+- Aktarım izinleri CorelDRAW/RDWorks için kullanıcıya göre ayrıdır.
+- Aktarım yetki bileti kısa sürelidir (**yaklaşık 2 dakika**) ve **tek kullanımlıktır**.
+- Kullanıcıya ait kayıtlar oturum kimliğiyle ilişkili tutulur.
+- Yönetici işlemleri ayrı kimlik doğrulaması ve audit/log süreçleri gerektirir.
 
-Ana sürüm kaynağı:
+### Windows yerel köprü
 
-```text
-web/package.json
-```
+- Yalnızca **127.0.0.1:43842** üzerinde dinler; bütün ağa açık bir servis değildir.
+- Tarayıcı CORS izinli kaynak olarak **https://serula.site** ile kısıtlanır.
+- Kaynak kontrolüne ek olarak yetki bileti sunucu tarafından doğrulanır.
+- DXF, hedef programın açabilmesi için **geçici yerel dosya** olarak oluşturulur.
+- Eski geçici dosyalar köprü yeniden başlatıldığında yaşa göre temizlenir.
+- Köprü otomatik lazer kesimi başlatmaz; operatörün onayı ve üretim kontrolü gerekir.
 
-Yayın sürümü ayrıca lockfile ve deploy marker ile senkron tutulur.
+### Saklama ve gizlilik
 
-Cloudflare üretim dağıtımı repository entegrasyonu üzerinden `main` branch'ini takip eder.
+İçe aktarma/geometri çözme işlemlerinin önemli bölümü tarayıcıda çalışır. Ancak **bulut autosave ve yetkilendirilen DXF export**, hesap ve arşiv özelliklerinin parçası olarak sunucuya içerik gönderebilir. Kullanıcıya yanlış biçimde “tüm dosyalar her zaman yalnızca bilgisayarınızda kalır” denmemelidir.
 
-Canlı adres:
+Sunucunun export/geçmiş temizleme akışı **32 günden eski kayıtları** kaldırmayı hedefler. Etkin son proje autosave kaydı bu temizleme akışından ayrıdır. Önemli çizimlerin ayrı yedeğini saklayın.
 
-```text
-https://serula.site/
-```
+## 17. Sık karşılaşılan sorunlar
 
----
+| Sorun | Kontrol / çözüm |
+|---|---|
+| **DXF içe alınmıyor** | ASCII DXF uyumluluğu, birim (INSUNITS), açık kontur, desteklenmeyen entity, ölçek/katman |
+| **64 beklerken daha az parça görünüyor** | Gruplanan/atlanan konturlar, blok yapısı, bozuk/açık konturlar ve import uyarılarını inceleyin |
+| **Plakada geçerli yerleşim bulunamadı** | Gerçek plaka ölçülerini, dönme izinlerini, parça boyunu/boşluğu kontrol edin; ruloda çalışması plakada garanti değildir |
+| **Nesting uzun sürüyor / bitmiyor** | Durdurma koşulu, geometri karmaşıklığı, tarayıcı CPU/RAM ve solver Worker durumunu kontrol edin |
+| **DXF'te gereksiz nokta oluştu** | Kaynak entity koruması için [export/dxf.ts](web/src/export/dxf.ts) davranışını, SPLINE tipini ve kaynak örneği karşılaştırın |
+| **Hakkında/tema güncellenmedi** | Cloudflare dağıtımını doğrulayın; sonra tarayıcıda Ctrl+Shift+R ile yenileyin |
+| **Köprüye bağlanılamıyor** | Aynı bilgisayarda /health, yerel ağ izni ve 43842 portunu kontrol edin |
+| **Köprü hâlâ eski sürüm** | Yeni **Serula-Kur.cmd** indirip tekrar çalıştırın; bellekteki eski bridge işlemi durmalı |
+| **CorelDRAW açılmıyor** | Program kurulu mu, COM otomasyonu kayıtlı mı, standart kullanıcı yetkisi uygun mu? |
+| **RDWorks açılıyor ama DXF görünmüyor** | Bridge v1.3'ü, Import kısayolunu ve Windows pencere odağını kontrol edin; RDWorks'te çizimi ve ölçüyü elle doğrulayın |
+| **RDWorks Import penceresi algılanmadı** | RDWorks sürümü ve diyalog davranışı değişken olabilir; eski köprüyü yeniden yükleyin; sorun sürerse kullanılan RDWorks sürümünü raporlayın |
+| **PC web ile aynı görünmüyor** | Web güncellemesi ile Electron/Bridge paket sürümü farklıdır; gerektiğinde PC Release'i kurun |
+| **Bulut geçmişi boş** | Oturum açık mı, arşiv süresi dolmuş mu, sunucuya kayıt başarılı mı? |
 
-## Geliştirme ilkeleri
+Bir hata raporuna şu bilgileri ekleyin: **web sürümü, PC sürümü, Bridge sürümü, Windows/RDWorks sürümü, beklenen sonuç, gerçekleşen sonuç, varsa hata metni ve hassas veri çıkarılmış örnek DXF**.
 
-Serula'da değişiklik yapılırken şu kurallar korunmalıdır:
+## 18. Sınırlar ve üretim kontrolü
 
-- Üretim geometrisi ve ölçüleri bozulmamalıdır.
-- Sparrow/Jagua yerleşiminin yerine ayrı bir gizli nesting algoritması konulmamalıdır.
-- Plaka ve rulo davranışları açık biçimde ayrılmalıdır.
-- Geçersiz DXF geometrisi kullanıcıdan saklanmamalıdır.
-- Export, ekrandaki doğrulanmış yerleşimi temsil etmelidir.
-- CorelDRAW uyumluluğu üretim gereksinimi olarak korunmalıdır.
-- Değişiklikler test edilmeden `main` branch'ine alınmamalıdır.
-- Her yayınlanan değişiklikte sürüm artırılmalıdır.
+Veri modelindeki üst sınırlar (kaynağa göre):
 
----
+| Alan | Limit |
+|---|---:|
+| İstenen parça kopyası | 500 |
+| Parça başına vertex | 5.000 |
+| Toplam vertex | 100.000 |
+| Koordinat kapsamı | 100.000 mm |
 
-## İletişim
+Bu değerler başarının garantisi değil, kabul/koruma sınırlarıdır. Karmaşık geometrilerde daha az parçayla bile yavaşlık veya geçerli çözüm bulunamaması mümkündür. İç boşluklar geometrik olarak korunurken solver başka parçayı bir boşluğun içine yerleştirmeyebilir. Dönüş hassasiyeti, temas ve gerçek makine toleransları ayrıdır.
 
-**Geliştirici:** Muhammet Hasanoğlu
+**Her üretim öncesi kontrol edin:**
 
-- E-posta: [m93hasan@gmail.com](mailto:m93hasan@gmail.com)
-- GitHub: [M93hasan](https://github.com/M93hasan)
-- Uygulama: [serula.site](https://serula.site/)
+- Ölçüler ve birim (mm)
+- Parça ve delik sayısı
+- Kesim katmanları, kapalı konturlar, kontur sürekliliği
+- Plaka sıralaması, yatay kaydırmalar, 50 mm ayırma boşluğu
+- Malzeme gerçek sınırı, fire ve parça aralığı
+- Lazer makinesi başlangıç noktası, yön, hız, güç ve kerf
+- RDWorks/CorelDRAW içe aktarma sonucu
 
----
+**Bu yazılım bir CAD/CAM makine emniyeti veya otomatik kesim sertifikasyon sistemi değildir.**
 
-## Lisans ve üçüncü taraf bileşenler
+## 19. Katkı, lisans ve iletişim
 
-Repository lisansı:
+### Değişiklik yaparken korunması gerekenler
 
-```text
-LICENSE
-```
+1. Çalışan **nesting motoruna** gereksiz değişiklik yapmayın; motor sürüm değişikliği ayrı test ve karşılaştırma gerektirir.
+2. Rulo/plaka sınırları ile çoklu plaka X-ofset kuralını koruyun.
+3. DXF kaynak eğrilerini mümkün olduğunca **ARC/CIRCLE/SPLINE** olarak koruyun; gereksiz kontrol noktası üretmeyin.
+4. Kullanıcı yetkilerini yalnızca buton gizlemeyle değil **sunucu tarafında** denetleyin.
+5. PC ile web depolarını **birleştirmeyin**; iki bağımsız yayın hattını belgeleyin.
+6. Değişiklik için branch açın, **npm run build** ve **npm test** çalıştırın, ardından PR üzerinden main'e alın.
+7. Dağıtımın tamamlandığını yalnızca GitHub merge'üne bakarak ilan etmeyin; Cloudflare ve mümkünse gerçek Windows testi de yapın.
+8. Kullanıcıların gerçek DXF, şifre, oturum veya üretim dosyalarını test amaçlı herkese açık depoya yüklemeyin.
 
-Üçüncü taraf bildirimleri:
+### Lisans ve atıf
 
-```text
-web/public/THIRD_PARTY_NOTICES.txt
-```
+Depodaki [LICENSE](LICENSE) dosyası **MIT** lisansıdır; mevcut lisans metninde 2026 **Jeroen Gardeyn** telif bildirimi bulunur. Upstream Sparrow/Jagua, React ve diğer bağımlılıkların lisansları birbirinden bağımsızdır. Ayrıntılar **[THIRD_PARTY_NOTICES.txt](web/public/THIRD_PARTY_NOTICES.txt)** ve Cargo/npm lock dosyalarında yer alır. Kaynak ve telif bildirimlerini kaldırmayın.
 
-Sparrow ve diğer Rust/WASM bağımlılıklarının kesin sürüm ve revizyonları ilgili `Cargo.toml` / lock dosyalarında sabitlenir.
+### İletişim
+
+**Proje geliştiricisi:** Muhammet Hasanoğlu
+
+- **Uygulama:** [serula.site](https://serula.site)
+- **GitHub:** [M93hasan](https://github.com/M93hasan)
+- **E-posta:** [m93hasan@gmail.com](mailto:m93hasan@gmail.com)
+- **Geliştirme deposu:** [M93hasan/nesting](https://github.com/M93hasan/nesting)
+- **PC deposu:** [M93hasan/serula-nesting-pro-pc](https://github.com/M93hasan/serula-nesting-pro-pc)
+- **Windows aktarım ayrıntıları:** [integrations/windows/README.md](integrations/windows/README.md)
 
 ---
 
 <div align="center">
 
-### Serula Nesting Pro
+**Serula Nesting Pro**
 
-**DXF nesting · Rulo ve plaka · Sparrow/Jagua · Üretim DXF**
+_Rulo + plaka • Gerçek DXF geometrisi • Sparrow/Jagua • Web + PC köprüsü_
 
-[Uygulamayı Aç](https://serula.site/) · [Admin Paneli](https://serula.site/admin)
+**[Uygulamayı Aç](https://serula.site/)**
 
 </div>
