@@ -15,8 +15,20 @@ $healthUrl = 'http://127.0.0.1:43842/health'
 function Healthy {
   try {
     $v = Invoke-RestMethod -Method Get -Uri $healthUrl -TimeoutSec 2
-    return ($v.ok -eq $true -and $v.service -eq 'serula-bridge' -and $v.version -eq $bridgeVersion)
+    return ($v.ok -eq $true -and $v.service -eq 'serula-bridge' -and
+      [version]$v.version -ge [version]$bridgeVersion)
   } catch { return $false }
+}
+# Prevent web installation from overwriting a newer PC-bundled bridge.
+function Keep-NewerBridge {
+  if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { return $false }
+  try {
+    $existing = Get-Content -LiteralPath $file -Raw -ErrorAction Stop
+    if ($existing -match "service='serula-bridge';version='([0-9]+(?:\.[0-9]+){1,3})'") {
+      return ([version]$matches[1] -gt [version]$bridgeVersion)
+    }
+  } catch {}
+  return $false
 }
 function Check-Source($path) {
   # Verify the precise Git blob, not just a filename on GitHub.
@@ -34,15 +46,19 @@ function Check-Source($path) {
 if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) { throw 'Windows is required.' }
 [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 [IO.Directory]::CreateDirectory($folder) | Out-Null
-$temp = Join-Path $env:TEMP ('serula-install-' + [guid]::NewGuid().ToString('N') + '.ps1')
-try {
-  Write-Host 'Downloading Serula Bridge from an immutable GitHub revision...'
-  Invoke-WebRequest -Uri $url -OutFile $temp -TimeoutSec 30 -UseBasicParsing
-  Check-Source $temp
-  # PowerShell 5.1 treats files without BOM as the local ANSI codepage.
-  # Keep the UTF-8 BOM supplied by the pinned bridge source.
-  Copy-Item -LiteralPath $temp -Destination $file -Force
-} finally { Remove-Item -LiteralPath $temp -Force -ErrorAction SilentlyContinue }
+if (Keep-NewerBridge) {
+  Write-Host 'A newer Serula Bridge is already installed; keeping it.'
+} else {
+  $temp = Join-Path $env:TEMP ('serula-install-' + [guid]::NewGuid().ToString('N') + '.ps1')
+  try {
+    Write-Host 'Downloading Serula Bridge from an immutable GitHub revision...'
+    Invoke-WebRequest -Uri $url -OutFile $temp -TimeoutSec 30 -UseBasicParsing
+    Check-Source $temp
+    # PowerShell 5.1 treats files without BOM as the local ANSI codepage.
+    # Keep the UTF-8 BOM supplied by the pinned bridge source.
+    Copy-Item -LiteralPath $temp -Destination $file -Force
+  } finally { Remove-Item -LiteralPath $temp -Force -ErrorAction SilentlyContinue }
+}
 
 if (-not (Healthy)) {
   # An older installed bridge stays alive after its PS1 file is replaced.
