@@ -47,7 +47,7 @@
 | Web uygulaması | [web/package.json](web/package.json) | **0.1.10** |
 | Canlı adres | [serula.site](https://serula.site) | Cloudflare Git entegrasyonu |
 | Windows PC sürümü | [ayrı PC deposu](https://github.com/M93hasan/serula-nesting-pro-pc) | **0.1.3** |
-| Windows aktarım köprüsü | [SerulaTransferBridge.ps1](integrations/windows/SerulaTransferBridge.ps1) | **1.3** |
+| Windows aktarım köprüsü | [SerulaTransferBridge.ps1](integrations/windows/SerulaTransferBridge.ps1) | **1.4** |
 | Nesting motoru | [Sparrow](https://github.com/JeroenGar/sparrow) + Jagua | Rust / WebAssembly |
 | Veri ve API | [Cloudflare Worker](web/worker/serula-worker.js) | Cloudflare D1 |
 
@@ -222,7 +222,7 @@ Kaynak eğrilerin varlık tipinin veya SPLINE kontrol noktası sayısının bekl
 | **Sadece web / Chrome** | [Serula-Kur.cmd](integrations/windows/Serula-Kur.cmd) | Windows'a yerel köprüyü kurar |
 | **Geliştirici / manuel** | [SerulaTransferBridge.ps1](integrations/windows/SerulaTransferBridge.ps1) | PowerShell ve localhost yetkileri |
 
-**Köprü v1.3**, Windows PowerShell 5.1 üzerinde çalışacak şekilde hazırlanmıştır. Tek tıklamalı kurucu güncel sürümü indirip doğrular, kullanıcının yerel makinesine kurar ve Windows oturum açılışında çalıştıracak kısayol oluşturur. İlk kurulumda sadece yerel HTTP URL rezervasyonu için yönetici onayı gerekebilir.
+**Köprü v1.4**, Windows PowerShell 5.1 üzerinde çalışacak şekilde hazırlanmıştır. Tek tıklamalı kurucu güncel sürümü indirip doğrular, kullanıcının yerel makinesine kurar ve Windows oturum açılışında çalıştıracak kısayol oluşturur. İlk kurulumda sadece yerel HTTP URL rezervasyonu için yönetici onayı gerekebilir.
 
 Kurulumu kontrol etmek için **aynı Windows bilgisayarında**:
 
@@ -233,7 +233,7 @@ http://127.0.0.1:43842/health
 Beklenen örnek:
 
 ~~~json
-{"ok":true,"service":"serula-bridge","version":"1.3"}
+{"ok":true,"service":"serula-bridge","version":"1.4"}
 ~~~
 
 Kurucunun güvenlik özelliği: içeriği GitHub'da belirli commit/blob kimliğine sabitler ve indirilen dosyanın Git blob SHA-1 değerini kontrol eder. Daha önce indirdiğiniz **eski Serula-Kur.cmd**, sabitlendiği eski sürümü yükleyebileceğinden güncellemeler için dosyayı **yeniden indirin**.
