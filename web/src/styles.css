@@ -459,72 +459,84 @@ html[dir="rtl"] body{direction:rtl}html[dir="rtl"] .workspace-svg,html[dir="rtl"
 }
 
 
-/* Serula button finish based on the supplied glass-gradient interaction. */
-:root{
-  --button-bezier:cubic-bezier(.22,.61,.36,1);
-  --button-edge-light:hsla(0,0%,50%,.8);
-  --button-text-light:rgba(255,255,255,.4);
-}
-button,.button{
-  --bezier:var(--button-bezier);
-  --edge-light:var(--button-edge-light);
-  --text-light:var(--button-text-light);
+/* Shared Serula button system — user's cobalt-blue glass-gradient design.
+   Covers all React buttons across the main UI, admin and sign-in.
+   Special CorelDRAW (green), RDWorks (red), and delete (danger) actions
+   retain their semantic colors. Layout and access logic are unchanged. */
+#root button,#root a.button{
+  --bezier:cubic-bezier(0.22,0.61,0.36,1);
+  --edge-light:hsla(0,0%,50%,0.8);
+  --text-light:rgba(255,255,255,0.4);
   --back-color:240,40%;
   cursor:pointer;
-  min-height:2.4em;
-  border-radius:.5em;
-  letter-spacing:.05em;
-  box-shadow:inset .4px 1px 4px var(--edge-light);
-  transition:background .1s var(--bezier),color .1s var(--bezier),
-    box-shadow .1s var(--bezier),transform .1s var(--bezier),
-    text-shadow .1s var(--bezier),letter-spacing .1s var(--bezier);
-}
-/* Compact/selectable CAD elements and semantic actions keep their own palette. */
-button:not(.part-select):not(.text-button):not(.download-button):not(.primary):not(.danger-button):not(.run-button):not(.corel-transfer-toggle):not(.rdworks-transfer-toggle),
-a.button{
-  background:linear-gradient(140deg,
-    hsla(var(--back-color),50%,1) min(2em,20%),
-    hsla(var(--back-color),50%,.6) min(8em,100%))!important;
-  color:hsla(0,0%,95%,1)!important;
-  border:0!important;
-  box-shadow:inset .4px 1px 4px var(--edge-light)!important;
-}
-button:hover:enabled,.button:hover{
-  --edge-light:hsla(0,0%,50%,1);
-  text-shadow:0 0 10px var(--text-light);
-  transform:scale(1.06);
-  box-shadow:inset .4px 1px 4px var(--edge-light),
-    2px 4px 8px hsla(0,0%,0%,.295);
-}
-button:not(.part-select):not(.text-button):not(.download-button):not(.primary):not(.danger-button):not(.run-button):not(.corel-transfer-toggle):not(.rdworks-transfer-toggle):hover:enabled,
-a.button:hover{
-  box-shadow:inset .4px 1px 4px var(--edge-light),
-    2px 4px 8px hsla(0,0%,0%,.295)!important;
-}
-button:active:enabled,.button:active{
-  --text-light:rgba(255,255,255,1);
-  box-shadow:inset .4px 1px 8px var(--edge-light),
-    0 0 8px hsla(var(--back-color),50%,.6);
-  text-shadow:0 0 20px var(--text-light);
-  letter-spacing:.1em;
-  transform:scale(1);
-}
-button:disabled{transform:none!important;text-shadow:none!important;cursor:not-allowed}
-a.button{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  gap:.5em;
-  padding:.7em 1em;
-  border-radius:.5em;
+  padding:0.7em 1em;
+  border-radius:0.5em!important;
   min-height:2.4em;
   min-width:3em;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:0.5em;
   font-size:18px;
+  letter-spacing:0.05em;
   line-height:1;
-  font-weight:700;
-  letter-spacing:.05em;
-  text-decoration:none;
-  text-align:center;
+  font-weight:bold;
+  transition:all 0.1s var(--bezier)!important;
+}
+/* Use a single blue palette for every ordinary action, including the
+   existing primary, export, navigation, login and admin button variants. */
+#root button:not(.corel-transfer-button):not(.rdworks-transfer-button):not(.corel-transfer-toggle):not(.rdworks-transfer-toggle):not(.danger-button),
+#root a.button{
+  background:linear-gradient(
+    140deg,
+    hsla(var(--back-color),50%,1) min(2em,20%),
+    hsla(var(--back-color),50%,0.6) min(8em,100%)
+  )!important;
+  color:hsla(0,0%,90%)!important;
+  border:0!important;
+  box-shadow:inset 0.4px 1px 4px var(--edge-light)!important;
+}
+#root button:hover:enabled,#root a.button:hover{
+  --edge-light:hsla(0,0%,50%,1);
+  text-shadow:0 0 10px var(--text-light)!important;
+  box-shadow:inset 0.4px 1px 4px var(--edge-light),
+    2px 4px 8px hsla(0,0%,0%,0.295)!important;
+  transform:scale(1.1)!important;
+}
+#root button:active:enabled,#root a.button:active{
+  --text-light:rgba(255,255,255,1);
+  box-shadow:inset 0.4px 1px 8px var(--edge-light),
+    0 0 8px hsla(var(--back-color),50%,0.6)!important;
+  text-shadow:0 0 20px var(--text-light)!important;
+  color:#fff!important;
+  letter-spacing:0.1em;
+  transform:scale(1)!important;
+}
+#root button:disabled{
+  opacity:0.45;cursor:not-allowed;transform:none!important;text-shadow:none!important;
+}
+#root a.button{
+  text-decoration:none;text-align:center;
+}
+/* Buttons that convey a separate purpose still follow the same transitions
+   and dimensions but preserve their previously requested brand color. */
+#root button.download-button.corel-transfer-button,
+#root .admin-page .admin-user-actions button.corel-transfer-toggle{
+  --back-color:147,60%;
+  background:linear-gradient(140deg,#167845,#21975b)!important;
+  border-color:#12693c!important;color:#fff!important;
+}
+#root button.download-button.rdworks-transfer-button,
+#root .admin-page .admin-user-actions button.rdworks-transfer-toggle{
+  --back-color:350,60%;
+  background:linear-gradient(140deg,#ad2337,#d33949)!important;
+  border-color:#972032!important;color:#fff!important;
+}
+/* Deleting a user or project remains visually destructive, not blue. */
+#root button.danger-button{
+  --back-color:355,60%;
+  background:linear-gradient(140deg,#b32239,#d44659)!important;
+  color:#fff!important;
 }
 .about-download-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:14px 0}
 .about-download-card{display:flex;flex-direction:column;align-items:stretch;gap:10px;
@@ -532,22 +544,14 @@ a.button{
 .about-download-card>strong{font-size:15px}
 .about-download-card>p{font-size:12px;color:var(--muted);line-height:1.55;flex:1}
 .about-download-card>.about-download-button{width:100%;white-space:normal}
+@media(max-width:900px){
+  #root button,#root a.button{font-size:14px}
+}
 @media(max-width:700px){
   .about-download-grid{grid-template-columns:1fr}
-  a.about-download-button{font-size:15px;min-height:44px}
+  #root a.about-download-button{font-size:15px;min-height:44px}
 }
 @media(prefers-reduced-motion:reduce){
-  button,.button{transition:none!important}
-  button:hover:enabled,.button:hover{transform:none!important}
-}
-/* Keep customer-facing transfer brands even with the new shared button style. */
-button.download-button.corel-transfer-button{
-  --back-color:147,60%;
-  background:linear-gradient(140deg,#167845,#21975b)!important;
-  border-color:#12693c!important;color:#fff!important;
-}
-button.download-button.rdworks-transfer-button{
-  --back-color:350,60%;
-  background:linear-gradient(140deg,#ad2337,#d33949)!important;
-  border-color:#972032!important;color:#fff!important;
+  #root button,#root a.button{transition:none!important}
+  #root button:hover:enabled,#root a.button:hover{transform:none!important}
 }
