@@ -2,6 +2,8 @@ name: Validate Serula Web
 # trigger refresh 2026-09-30
 
 on:
+  push:
+    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
