@@ -32,3 +32,203 @@
 }
 
 .auth-card input:not([type=checkbox]):not([type=radio]){background:light-dark(#f1efff,#29253d);border:none;border-radius:1rem;color:light-dark(#5a4be7,#c7c0ff);box-shadow:0 .3rem light-dark(#dcd5f5,#191625);padding:.85rem .95rem}.auth-card input:focus{outline:2px solid #8a7bff;outline-offset:2px}
+
+
+/* Serula account panel visual refresh 2026-10-14
+   CSS only: keep login, registration, session, permissions and logout intact. */
+#serula-account-slot {
+  min-width:0;
+  z-index:12;
+}
+#root #serula-account-slot > button.auth-login-header {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:9px;
+  min-height:40px;
+  padding:5px 14px 5px 6px;
+  border:1px solid light-dark(#2b8fc9,#428fc3)!important;
+  border-radius:12px;
+  background:linear-gradient(135deg,#176aaf,#328fda)!important;
+  box-shadow:0 3px 12px rgba(14,90,159,.20)!important;
+  color:#fff!important;
+  font-size:13px;
+  line-height:1.25;
+  font-weight:650;
+  letter-spacing:.01em;
+  white-space:nowrap;
+}
+#root #serula-account-slot > button.auth-login-header:hover:enabled {
+  background:linear-gradient(135deg,#217bbb,#3a9ce4)!important;
+  box-shadow:0 5px 14px rgba(14,90,159,.26)!important;
+}
+#serula-account-slot > button.auth-login-header .auth-avatar {
+  width:28px;
+  height:28px;
+  font-size:17px;
+  font-weight:650;
+  background:rgba(255,255,255,.17);
+  color:#fff;
+  box-shadow:none;
+}
+#serula-account-slot .auth-account-menu>summary {
+  min-width:0;
+  min-height:40px;
+  padding:5px 11px 5px 6px;
+  gap:10px;
+  border:1px solid light-dark(#c5d9e8,#3e5e74);
+  border-radius:12px;
+  background:light-dark(#f1f7fc,#20313f);
+  color:var(--ink);
+  box-shadow:0 2px 10px rgba(14,54,86,.08);
+  transition:border-color .16s ease,background .16s ease,box-shadow .16s ease;
+}
+#serula-account-slot .auth-account-menu>summary:hover,
+#serula-account-slot .auth-account-menu[open]>summary {
+  border-color:light-dark(#5aa3d5,#5db1e9);
+  background:light-dark(#e7f3fd,#243e50);
+  box-shadow:0 3px 14px rgba(19,105,166,.12);
+}
+#serula-account-slot .auth-account-menu>summary:focus-visible {
+  outline:2px solid var(--accent,#2ea8f2);
+  outline-offset:3px;
+}
+#serula-account-slot .auth-account-menu .auth-avatar {
+  width:29px;
+  height:29px;
+  font-size:13px;
+  background:linear-gradient(150deg,#136cac,#2d9be1);
+  box-shadow:none;
+}
+#serula-account-slot .auth-account-name {
+  min-width:0;
+  max-width:156px;
+  font-weight:650;
+  font-size:12px;
+  line-height:1.3;
+}
+#serula-account-slot .auth-chevron {
+  margin-left:2px;
+  opacity:.85;
+  font-size:11px;
+}
+#serula-account-slot .auth-account-dropdown {
+  right:0;
+  top:calc(100% + 10px);
+  width:min(310px,calc(100vw - 24px));
+  max-height:min(80dvh,600px);
+  overflow-y:auto;
+  padding:16px;
+  gap:10px;
+  border:1px solid light-dark(#d7e4ed,#3b5261);
+  border-radius:16px;
+  background:var(--panel);
+  box-shadow:0 16px 48px rgba(6,24,42,.22);
+}
+#serula-account-slot .auth-account-dropdown>strong {
+  font-size:15px;
+  font-weight:700;
+  line-height:1.4;
+}
+#serula-account-slot .auth-account-dropdown>small {
+  display:block;
+  font-size:12px;
+  line-height:1.5;
+  color:var(--muted);
+}
+#serula-account-slot .auth-account-meta {
+  display:grid;
+  gap:6px;
+  padding:11px 12px;
+  border:1px solid var(--border);
+  border-radius:11px;
+  background:light-dark(#f4f8fc,#1c2c36);
+  line-height:1.5;
+}
+#serula-account-slot .auth-account-dropdown .language-select {
+  max-width:100%;
+}
+#serula-account-slot .auth-account-dropdown button {
+  min-height:38px;
+  border-radius:10px;
+  font-weight:600;
+}
+/* Public login dialog only; admin and remote-support dialogs are unaffected. */
+.auth-overlay>.auth-card:not(.auth-support-card) {
+  width:min(440px,100%);
+  padding:clamp(20px,4vw,30px);
+  gap:15px;
+  border:1px solid light-dark(#d7e5ef,#405467);
+  border-radius:18px;
+  background:var(--panel);
+  box-shadow:0 24px 68px rgba(7,25,42,.30);
+}
+.auth-overlay>.auth-card:not(.auth-support-card)>img {
+  width:48px;
+  height:48px;
+}
+.auth-overlay>.auth-card:not(.auth-support-card)>h1 {
+  color:var(--ink);
+  font-size:22px;
+  line-height:1.25;
+  letter-spacing:-.02em;
+}
+.auth-overlay>.auth-card:not(.auth-support-card)>p {
+  font-size:13px;
+  line-height:1.6;
+}
+.auth-overlay>.auth-card:not(.auth-support-card) .auth-tabs {
+  padding:3px;
+  gap:4px;
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:light-dark(#edf4fa,#253744);
+}
+#root .auth-overlay>.auth-card:not(.auth-support-card) .auth-tabs button {
+  min-height:38px;
+  border-radius:9px;
+  font-size:13px;
+  box-shadow:none!important;
+}
+#root .auth-overlay>.auth-card:not(.auth-support-card) .auth-tabs button.active {
+  background:linear-gradient(135deg,#176aaf,#328fda)!important;
+  color:#fff!important;
+}
+.auth-overlay>.auth-card:not(.auth-support-card) form {
+  gap:13px;
+}
+.auth-overlay>.auth-card:not(.auth-support-card) form label {
+  color:var(--muted);
+  font-size:12px;
+  font-weight:600;
+  gap:6px;
+}
+.auth-overlay>.auth-card:not(.auth-support-card) form input {
+  min-height:42px;
+  border:1px solid var(--border)!important;
+  border-radius:10px!important;
+  padding:10px 12px!important;
+  background:var(--panel)!important;
+  color:var(--ink)!important;
+  box-shadow:none!important;
+}
+.auth-overlay>.auth-card:not(.auth-support-card) form input:focus {
+  outline:2px solid var(--accent,#2ea8f2);
+  outline-offset:1px;
+}
+#root .auth-overlay>.auth-card:not(.auth-support-card) form button {
+  min-height:42px;
+  border-radius:10px;
+  background:linear-gradient(135deg,#176aaf,#328fda)!important;
+  color:#fff!important;
+  font-weight:700;
+}
+@media(max-width:760px){
+  #serula-account-slot .auth-account-menu>summary{gap:7px;padding:5px 8px}
+  #serula-account-slot .auth-account-name{max-width:88px}
+  #serula-account-slot .auth-account-dropdown{right:12px;top:64px;width:min(310px,calc(100vw - 24px));padding:14px}
+  #root #serula-account-slot > button.auth-login-header{min-height:42px;padding:5px 10px 5px 6px}
+}
+@media(prefers-reduced-motion:reduce){
+  #serula-account-slot .auth-account-menu>summary{transition:none}
+}
