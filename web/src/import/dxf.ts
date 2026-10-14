@@ -257,6 +257,59 @@ function join(chains:Chain[],issues:string[]):{contours:Contour[];openMarks:Open
   }
   return {contours,openMarks,gaps,adjustment};
 }
+// Repair only zero-area retraces in the sampled nesting polygon.
+// Do not rewrite the underlying DXF SPLINE: the original CAD source is kept for export.
+function removeZeroAreaSplineBacktracks(value:Ring):Ring|undefined {
+  if(value.length<4)return;
+  const ring:Ring=value.map(([x,y]):Point=>[x,y]);
+  const originalArea=Math.abs(area(ring));
+  let changed=false;
+  for(let pass=0;pass<value.length&&ring.length>3;pass++){
+    let removed=false;
+    for(let i=0;i<ring.length;i++){
+      const a=ring[(i+ring.length-1)%ring.length],b=ring[i],c=ring[(i+1)%ring.length];
+      const ux=b[0]-a[0],uy=b[1]-a[1],vx=c[0]-b[0],vy=c[1]-b[1];
+      const first=Math.hypot(ux,uy),second=Math.hypot(vx,vy);
+      if(first<=1e-10||second<=1e-10)continue;
+      const cross=Math.abs(ux*vy-uy*vx);
+      if(ux*vx+uy*vy>=0||cross>1e-9*first*second||cross/first>1e-6)continue;
+      const candidate=ring.filter((_,index)=>index!==i);
+      if(candidate.length<3||Math.abs(Math.abs(area(candidate))-originalArea)>1e-6+originalArea*1e-9)continue;
+      ring.splice(i,1);
+      changed=true;removed=true;break;
+    }
+    if(!removed)break;
+  }
+  return changed?ring:undefined;
+}
+
+// Some periodic CAD splines contain real self-crossing loops. If they cannot
+// safely be repaired, use a conservative collision envelope rather than omit
+// the piece. This boundary is ONLY for nesting; never export it as cutting geometry.
+function conservativeSplineNestingHull(value:Ring):Ring|undefined {
+  if(value.length<3)return;
+  const sorted=value.map(([x,y]):Point=>[x,y]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+  const points:Ring=[];
+  for(const p of sorted)if(!points.length||p[0]!==points[points.length-1][0]||p[1]!==points[points.length-1][1])points.push(p);
+  if(points.length<3)return;
+  const turn=(a:Point,b:Point,c:Point)=>(b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]);
+  const lower:Ring=[],upper:Ring=[];
+  for(const p of points){
+    while(lower.length>=2&&turn(lower[lower.length-2],lower[lower.length-1],p)<=0)lower.pop();
+    lower.push(p);
+  }
+  for(let i=points.length-1;i>=0;i--){
+    const p=points[i];
+    while(upper.length>=2&&turn(upper[upper.length-2],upper[upper.length-1],p)<=0)upper.pop();
+    upper.push(p);
+  }
+  const hull=[...lower.slice(0,-1),...upper.slice(0,-1)];
+  if(hull.length<3)return;
+  const sourceArea=Math.abs(area(value)),hullArea=Math.abs(area(hull));
+  // Refuse unreasonable approximations; leave those as explicit import errors.
+  if(sourceArea<=1e-6||hullArea<=1e-6||hullArea>sourceArea*1.2)return;
+  return hull;
+}
 function repairTinySplineSelfIntersections(value:Ring):Ring|undefined {
   const point=(a:Point,b:Point,c:Point,d:Point):Point|undefined=>{
     const rx=b[0]-a[0],ry=b[1]-a[1],sx=d[0]-c[0],sy=d[1]-c[1],den=rx*sy-ry*sx;
@@ -403,18 +456,30 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
   const joined=join(chains,issues);contours.push(...joined.contours);
   if(joined.gaps)warnings.push(`Joined ${joined.gaps} gaps within 0.01 mm; largest endpoint adjustment ${joined.adjustment} mm. Confirm this preview before importing.`);
   if(repairedOpenSplines)warnings.push(`${repairedOpenSplines} adet açık SPLINE, kısa giriş çizgisi çıkarılarak kapalı parçaya dönüştürüldü. Kesim önizlemesini kontrol edin.`);
-  const valid:Contour[]=[];let repairedPeriodicSplines=0;
+  const valid:Contour[]=[];let repairedPeriodicSplines=0,conservativeSplineCount=0;
   for(const c of contours){
     try{valid.push({...c,ring:normalizeRing(c.ring)});continue;}catch(error){
       const sourceSpline=sourceSplines.get(c.entityId);
       if(sourceSpline&&(sourceSpline.flags&1)!==0&&(sourceSpline.flags&2)!==0){
-        const repaired=repairTinySplineSelfIntersections(c.ring);
-        if(repaired)try{valid.push({...c,ring:normalizeRing(repaired)});repairedPeriodicSplines++;continue;}catch{}
+        const withoutBacktracks=removeZeroAreaSplineBacktracks(c.ring)??c.ring;
+        if(withoutBacktracks!==c.ring){
+          try{valid.push({...c,ring:normalizeRing(withoutBacktracks)});repairedPeriodicSplines++;continue;}catch{}
+        }
+        const repaired=repairTinySplineSelfIntersections(withoutBacktracks);
+        if(repaired){
+          const finalRing=removeZeroAreaSplineBacktracks(repaired)??repaired;
+          try{valid.push({...c,ring:normalizeRing(finalRing)});repairedPeriodicSplines++;continue;}catch{}
+        }
+        const envelope=conservativeSplineNestingHull(c.ring);
+        if(envelope){
+          try{valid.push({...c,ring:normalizeRing(envelope)});conservativeSplineCount++;continue;}catch{}
+        }
       }
       issues.push(`${c.entityId}: ${String(error)}`);
     }
   }
-  if(repairedPeriodicSplines)warnings.push(`${repairedPeriodicSplines} kapalı periodic SPLINE içindeki mikroskobik CAD döngüsü nesting konturunda temizlendi; orijinal SPLINE dışa aktarma için korundu.`);
+  if(repairedPeriodicSplines)warnings.push(`${repairedPeriodicSplines} periodic SPLINE konturundaki küçük CAD döngüsü veya sıfır alanlı geri dönüş nesting için düzeltildi; kaynak eğriler korundu.`);
+  if(conservativeSplineCount)warnings.push(`${conservativeSplineCount} kendini kesen SPLINE için DXF eğrisi değiştirilmeden güvenli dışbükey nesting sınırı kullanıldı. Bu parçalarda yerleşim verimi düşebilir; kesim çizimini hedef yazılımda kontrol edin.`);
   // Footwear CAD often stores one physical pattern as several colored contours
   // drawn on top of, inside, or partly across each other. Build connected contour
   // groups and nest each group as ONE rigid part. Only the largest contour drives
