@@ -10,6 +10,7 @@ Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Collections.Generic;
 public static class SerulaWindowApi {
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
     [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr h, int mode);
@@ -20,6 +21,17 @@ public static class SerulaWindowApi {
     [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
     [DllImport("user32.dll")] public static extern bool AttachThreadInput(uint source, uint dest, bool attach);
     [DllImport("user32.dll")] public static extern void keybd_event(byte virtualKey, byte scanCode, uint flags, UIntPtr extraInfo);
+    [DllImport("user32.dll")] public static extern IntPtr GetWindow(IntPtr h, uint command);
+    [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr h);
+    [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
+    [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetWindowText(IntPtr h, StringBuilder output, int max);
+    public delegate bool EnumWindowsCallback(IntPtr h, IntPtr extra);
+    [DllImport("user32.dll")] public static extern bool EnumWindows(EnumWindowsCallback callback, IntPtr extra);
+    public static IntPtr[] VisibleWindows() {
+        List<IntPtr> result = new List<IntPtr>();
+        EnumWindows((h, extra) => { if(IsWindowVisible(h)) result.Add(h); return true; }, IntPtr.Zero);
+        return result.ToArray();
+    }
 }
 '@
 function ForegroundProcessId {
@@ -77,16 +89,137 @@ function Activate-RDWorks($rd) {
   }
   return $false
 }
-function Wait-RDWorksImportDialog($rd,$mainHandle) {
-  for($i=0;$i -lt 20;$i++){
-    Start-Sleep -Milliseconds 150
-    $active=[SerulaWindowApi]::GetForegroundWindow()
-    if($active -eq [IntPtr]::Zero -or $active -eq $mainHandle){continue}
-    if((ForegroundProcessId) -ne $rd.Id){continue}
-    # Only type into a separate dialog owned by RDWorks, never the drawing canvas.
-    return $true
+# The stock RDWorks Open dialog often has a different process/thread context
+# than its owner. Checking only the foreground PID incorrectly rejects it.
+function IsRDWorksWindow([IntPtr]$window,[int]$rdProcessId) {
+  for($i=0;$i -lt 10 -and $window -ne [IntPtr]::Zero;$i++){
+    [uint32]$ownerPid=0
+    $null=[SerulaWindowApi]::GetWindowThreadProcessId($window,[ref]$ownerPid)
+    if([int]$ownerPid -eq $rdProcessId){return $true}
+    $window=[SerulaWindowApi]::GetWindow($window,4) # GW_OWNER
   }
   return $false
+}
+function IsImportWindow([IntPtr]$window,$rd,[IntPtr]$mainHandle) {
+  if($window -eq [IntPtr]::Zero -or $window -eq $mainHandle){return $false}
+  if(![SerulaWindowApi]::IsWindowVisible($window)){return $false}
+  if(!(IsRDWorksWindow $window ([int]$rd.Id))){return $false}
+  $class=New-Object System.Text.StringBuilder 256
+  $caption=New-Object System.Text.StringBuilder 256
+  $null=[SerulaWindowApi]::GetClassName($window,$class,$class.Capacity)
+  $null=[SerulaWindowApi]::GetWindowText($window,$caption,$caption.Capacity)
+  return ($class.ToString() -eq '#32770' -or $caption.ToString() -match '(?i)import|open|dosya|aç|öffnen|ouvrir|abrir|导入|打开')
+}
+function Wait-RDWorksImportDialog($rd,[IntPtr]$mainHandle) {
+  for($i=0;$i -lt 42;$i++){
+    $foreground=[SerulaWindowApi]::GetForegroundWindow()
+    if(IsImportWindow $foreground $rd $mainHandle){return $foreground}
+    foreach($window in [SerulaWindowApi]::VisibleWindows()){
+      if(IsImportWindow $window $rd $mainHandle){return $window}
+    }
+    Start-Sleep -Milliseconds 150
+  }
+  return [IntPtr]::Zero
+}
+function Import-DxfThroughDialog([IntPtr]$dialog,[string]$path) {
+  # Use Windows UI Automation (the dialog's actual filename edit + Open
+  # button), avoiding keyboard focus races and locale-dependent hotkeys.
+  Add-Type -AssemblyName UIAutomationClient
+  Add-Type -AssemblyName UIAutomationTypes
+  $root=[System.Windows.Automation.AutomationElement]::FromHandle($dialog)
+  if($null -eq $root){throw 'RDWorks Import penceresi UI Automation ile erişilebilir değil.'}
+  $nodes=$root.FindAll(
+    [System.Windows.Automation.TreeScope]::Descendants,
+    [System.Windows.Automation.Condition]::TrueCondition
+  )
+  $fields=@()
+  $openButtons=@()
+  foreach($element in $nodes){
+    try{
+      if(!$element.Current.IsEnabled){continue}
+      $controlType=$element.Current.ControlType
+      $id=[string]$element.Current.AutomationId
+      $name=[string]$element.Current.Name
+      if($controlType -eq [System.Windows.Automation.ControlType]::Edit -or
+         $controlType -eq [System.Windows.Automation.ControlType]::ComboBox){
+        $score=0
+        if($id -eq '1148'){$score=100}
+        elseif($name -match '(?i)file\s*name|dosya\s*adı|dateiname|nom du fichier|nome file|nombre de archivo|文件名'){$score=85}
+        elseif($controlType -eq [System.Windows.Automation.ControlType]::Edit -and $name -notmatch '(?i)search|ara|suchen'){$score=10}
+        if($score -gt 0){$fields+=@{element=$element;score=$score}}
+      }
+      if($controlType -eq [System.Windows.Automation.ControlType]::Button){
+        $score=0
+        if($id -eq '1'){$score=100}
+        elseif($name -match '(?i)^(open|aç|ouvrir|öffnen|abrir|打开)(\b|[(&\s])'){$score=80}
+        if($score -gt 0){$openButtons+=@{element=$element;score=$score}}
+      }
+    }catch{/* Skip stale or inaccessible UIA elements. */}
+  }
+  $setFilename=$false
+  foreach($entry in ($fields | Sort-Object -Property score -Descending)){
+    $pattern=$null
+    try{
+      if($entry.element.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern,[ref]$pattern)){
+        ([System.Windows.Automation.ValuePattern]$pattern).SetValue($path)
+        $setFilename=$true
+        break
+      }
+    }catch{/* Some RDWorks dialogs expose read-only combo boxes. */}
+  }
+  if(!$setFilename){
+    # Only keyboard fallback after the matching file dialog has been identified.
+    # Never paste into a random foreground application.
+    $null=[SerulaWindowApi]::SetForegroundWindow($dialog)
+    Start-Sleep -Milliseconds 140
+    if([SerulaWindowApi]::GetForegroundWindow() -ne $dialog){
+      throw 'RDWorks Import dosya alanına erişilemedi; dosya penceresi odaklanamadı.'
+    }
+    $editable=@($fields | Sort-Object -Property score -Descending |
+      Where-Object {$_.element.Current.ControlType -eq [System.Windows.Automation.ControlType]::Edit} |
+      Select-Object -First 1)
+    if($editable.Count -eq 0){throw 'RDWorks dosya adı alanı bulunamadı.'}
+    $editable[0].element.SetFocus()
+    $oldClipboard=[System.Windows.Forms.Clipboard]::GetDataObject()
+    try{
+      [System.Windows.Forms.Clipboard]::SetText($path)
+      $shell=New-Object -ComObject WScript.Shell
+      $shell.SendKeys('^a')
+      $shell.SendKeys('^v')
+      Start-Sleep -Milliseconds 160
+    }finally{
+      if($null -ne $oldClipboard){
+        try{[System.Windows.Forms.Clipboard]::SetDataObject($oldClipboard,$true)}catch{}
+      }
+    }
+  }
+  $clicked=$false
+  foreach($entry in ($openButtons | Sort-Object -Property score -Descending)){
+    $pattern=$null
+    try{
+      if($entry.element.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern,[ref]$pattern)){
+        ([System.Windows.Automation.InvokePattern]$pattern).Invoke()
+        $clicked=$true
+        break
+      }
+    }catch{/* Try the next file-open button. */}
+  }
+  if(!$clicked){
+    $null=[SerulaWindowApi]::SetForegroundWindow($dialog)
+    Start-Sleep -Milliseconds 100
+    if([SerulaWindowApi]::GetForegroundWindow() -ne $dialog){
+      throw 'RDWorks Aç düğmesi otomatik etkinleştirilemedi.'
+    }
+    (New-Object -ComObject WScript.Shell).SendKeys('{ENTER}')
+  }
+  # A closed file picker is evidence that the selection was accepted, but not
+  # proof of cutting readiness. Never start a laser job from this bridge.
+  for($i=0;$i -lt 32;$i++){
+    Start-Sleep -Milliseconds 160
+    if(![SerulaWindowApi]::IsWindow($dialog)){return}
+    if(![SerulaWindowApi]::IsWindowVisible($dialog)){return}
+  }
+  throw 'RDWorks dosya seçme penceresi kapanmadı. Dosya filtresi veya bir uyarı penceresi olabilir.'
 }
 $origin='https://serula.site'
 $folder=Join-Path $env:LOCALAPPDATA 'SerulaBridge\Transfers'
@@ -121,7 +254,7 @@ try {
     $req=$ctx.Request
     $reqOrigin=$req.Headers['Origin']
     if($req.HttpMethod -eq 'GET' -and $req.Url.AbsolutePath -eq '/health'){
-      Reply $ctx 200 @{ok=$true;service='serula-bridge';version='1.2'}
+      Reply $ctx 200 @{ok=$true;service='serula-bridge';version='1.3'}
       continue
     }
     if($reqOrigin -ne $origin){Reply $ctx 403 @{ok=$false;error='Origin izinli değil.'};continue}
@@ -174,22 +307,12 @@ try {
       }
       $shell=New-Object -ComObject WScript.Shell
       $shell.SendKeys('^i')
-      if(!(Wait-RDWorksImportDialog $rd ([IntPtr]$rd.MainWindowHandle))){
-        throw 'RDWorks icinde Import penceresi algilanamadi. RDWorks surumunde Ctrl+I ile Import acildigini kontrol edin.'
+      $dialog=Wait-RDWorksImportDialog $rd ([IntPtr]$rd.MainWindowHandle)
+      if($dialog -eq [IntPtr]::Zero){
+        throw 'RDWorks Import penceresi açılmadı. Aktarım gönderilmedi; RDWorks sürümünün Ctrl+I Import kısayolunu desteklediğini kontrol edin.'
       }
-      # Clipboard paste supports paths containing Turkish/Unicode user names.
-      # Restore the original clipboard data after the filename is submitted.
-      $oldClipboard=[System.Windows.Forms.Clipboard]::GetDataObject()
-      try{
-        [System.Windows.Forms.Clipboard]::SetText($tempPath)
-        $shell.SendKeys('^v')
-        Start-Sleep -Milliseconds 200
-        if((ForegroundProcessId) -ne $rd.Id){throw 'RDWorks dosya secme penceresi odagi kaybetti. Komut iptal edildi.'}
-        $shell.SendKeys('{ENTER}')
-      }finally{
-        if($null -ne $oldClipboard){try{[System.Windows.Forms.Clipboard]::SetDataObject($oldClipboard,$true)}catch{}}
-      }
-      Reply $ctx 200 @{ok=$true;message='RDWorks dosya ice aktarma komutu gonderildi. Parcalarin acildigini RDWorks penceresinde kontrol edin.'}
+      Import-DxfThroughDialog $dialog $tempPath
+      Reply $ctx 200 @{ok=$true;message='Yerleştirilmiş DXF, RDWorks Import penceresine otomatik gönderildi. RDWorks çalışma alanında çizimi ve ölçüleri kontrol edin.'}
     }
   }catch{
     try{Reply $ctx 500 @{ok=$false;error=$_.Exception.Message}}catch{}
