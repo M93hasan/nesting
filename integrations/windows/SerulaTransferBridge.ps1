@@ -221,6 +221,161 @@ function Import-DxfThroughDialog([IntPtr]$dialog,[string]$path) {
   }
   throw 'RDWorks dosya seçme penceresi kapanmadı. Dosya filtresi veya bir uyarı penceresi olabilir.'
 }
+
+# RDWorks compatibility layer: native menus, UI Automation, and classic dialogs.
+# The exporter never starts a laser job, and only touches the verified RDWorks window.
+Add-Type -TypeDefinition @'
+using System;
+using System.Text;
+using System.Runtime.InteropServices;
+public static class SerulaImportApi {
+  [DllImport("user32.dll")] public static extern IntPtr GetMenu(IntPtr h);
+  [DllImport("user32.dll")] public static extern int GetMenuItemCount(IntPtr h);
+  [DllImport("user32.dll",CharSet=CharSet.Unicode)] public static extern int GetMenuString(IntPtr h,uint pos,StringBuilder text,int max,uint flags);
+  [DllImport("user32.dll")] public static extern IntPtr GetSubMenu(IntPtr h,int pos);
+  [DllImport("user32.dll")] public static extern uint GetMenuItemID(IntPtr h,int pos);
+  [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h,uint msg,IntPtr w,IntPtr l);
+  [DllImport("user32.dll")] public static extern IntPtr GetDlgItem(IntPtr h,int id);
+  [DllImport("user32.dll",CharSet=CharSet.Unicode)] public static extern bool SetWindowText(IntPtr h,string text);
+  [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr h,uint msg,IntPtr w,IntPtr l);
+}
+'@
+function Find-RDWorksImportMenu([IntPtr]$menu,[int]$depth=0) {
+  if($menu -eq [IntPtr]::Zero -or $depth -gt 5){return -1}
+  $n=[SerulaImportApi]::GetMenuItemCount($menu)
+  for($i=0;$i -lt $n;$i++){
+    $caption=New-Object System.Text.StringBuilder 512
+    $null=[SerulaImportApi]::GetMenuString($menu,[uint32]$i,$caption,$caption.Capacity,0x400)
+    $name=$caption.ToString().Replace('&','').Trim()
+    $sub=[SerulaImportApi]::GetSubMenu($menu,$i)
+    if($sub -ne [IntPtr]::Zero){
+      $found=Find-RDWorksImportMenu $sub ($depth+1)
+      if($found -ge 0){return $found}
+    }elseif($name -match '(?i)^(import(\\b|[ .(])|içe\\s*aktar|içeri\\s*al|importer\\b|importieren\\b|importar\\b|导入|импорт)'){
+      $id=[SerulaImportApi]::GetMenuItemID($menu,$i)
+      if($id -ne [uint32]::MaxValue){return [long]$id}
+    }
+  }
+  return -1
+}
+function Is-RDWorksFilePicker([IntPtr]$dialog,$rd,[IntPtr]$main) {
+  if(!(IsImportWindow $dialog $rd $main)){return $false}
+  if([SerulaImportApi]::GetDlgItem($dialog,1148) -ne [IntPtr]::Zero){return $true}
+  try {
+    Add-Type -AssemblyName UIAutomationClient
+    Add-Type -AssemblyName UIAutomationTypes
+    $root=[System.Windows.Automation.AutomationElement]::FromHandle($dialog)
+    if($null -eq $root){return $false}
+    $nodes=$root.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition)
+    foreach($n in $nodes){
+      try {
+        if($n.Current.ControlType -eq [System.Windows.Automation.ControlType]::Edit -and
+          ([string]$n.Current.Name -match '(?i)file\\s*name|dosya\\s*adı|filename|dateiname' -or [string]$n.Current.AutomationId -eq '1148')){return $true}
+      }catch{}
+    }
+  }catch{}
+  return $false
+}
+function Wait-VerifiedRDWorksPicker($rd,[IntPtr]$main,[int]$attempts=14) {
+  for($i=0;$i -lt $attempts;$i++){
+    $foreground=[SerulaWindowApi]::GetForegroundWindow()
+    if(Is-RDWorksFilePicker $foreground $rd $main){return $foreground}
+    foreach($window in [SerulaWindowApi]::VisibleWindows()){
+      if(Is-RDWorksFilePicker $window $rd $main){return $window}
+    }
+    Start-Sleep -Milliseconds 180
+  }
+  return [IntPtr]::Zero
+}
+function Invoke-RDWorksImportUIA($rd) {
+  try {
+    Add-Type -AssemblyName UIAutomationClient
+    Add-Type -AssemblyName UIAutomationTypes
+    $root=[System.Windows.Automation.AutomationElement]::FromHandle([IntPtr]$rd.MainWindowHandle)
+    if($null -eq $root){return $false}
+    for($pass=0;$pass -lt 3;$pass++){
+      $nodes=$root.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition)
+      foreach($item in $nodes){
+        try {
+          if(!$item.Current.IsEnabled -or $item.Current.ControlType -ne [System.Windows.Automation.ControlType]::MenuItem){continue}
+          $label=[string]$item.Current.Name
+          if($label -notmatch '(?i)^(import\\b|içe\\s*aktar|importer\\b|importieren\\b|importar\\b|导入|импорт)'){continue}
+          $pat=$null
+          if($item.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern,[ref]$pat)){
+            ([System.Windows.Automation.InvokePattern]$pat).Invoke()
+            return $true
+          }
+        }catch{}
+      }
+      if($pass -ne 0){continue}
+      foreach($item in $nodes){
+        try {
+          if($item.Current.ControlType -ne [System.Windows.Automation.ControlType]::MenuItem -or [string]$item.Current.Name -notmatch '(?i)^(file|dosya|datei|fichier|archivo|文件)'){continue}
+          $pat=$null
+          if($item.TryGetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern,[ref]$pat)){
+            ([System.Windows.Automation.ExpandCollapsePattern]$pat).Expand()
+            break
+          }
+          if($item.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern,[ref]$pat)){
+            ([System.Windows.Automation.InvokePattern]$pat).Invoke()
+            break
+          }
+        }catch{}
+      }
+      Start-Sleep -Milliseconds 200
+    }
+  }catch{}
+  return $false
+}
+function Open-RDWorksImportPicker($rd) {
+  $main=[IntPtr]$rd.MainWindowHandle
+  if((ForegroundProcessId) -ne [int]$rd.Id -and !(Activate-RDWorks $rd)){
+    throw 'RDWorks odaklanamadı; başka uygulamaya yanlışlıkla tuş gönderilmedi.'
+  }
+  $shell=New-Object -ComObject WScript.Shell
+  $shell.SendKeys('^i')
+  $dialog=Wait-VerifiedRDWorksPicker $rd $main 11
+  if($dialog -ne [IntPtr]::Zero){return $dialog}
+  $menu=[SerulaImportApi]::GetMenu($main)
+  $id=Find-RDWorksImportMenu $menu
+  if($id -ge 0){
+    $null=[SerulaImportApi]::PostMessage($main,0x111,[IntPtr]$id,[IntPtr]::Zero)
+    $dialog=Wait-VerifiedRDWorksPicker $rd $main 11
+    if($dialog -ne [IntPtr]::Zero){return $dialog}
+  }
+  if(Invoke-RDWorksImportUIA $rd){
+    $dialog=Wait-VerifiedRDWorksPicker $rd $main 11
+    if($dialog -ne [IntPtr]::Zero){return $dialog}
+  }
+  return [IntPtr]::Zero
+}
+function Try-RDWorksClassicPicker([IntPtr]$dialog,[string]$path) {
+  if(!(Test-Path -LiteralPath $path -PathType Leaf)){return $false}
+  $field=[SerulaImportApi]::GetDlgItem($dialog,1148)
+  $button=[SerulaImportApi]::GetDlgItem($dialog,1)
+  if($field -eq [IntPtr]::Zero -or $button -eq [IntPtr]::Zero){return $false}
+  $null=[SerulaWindowApi]::SetForegroundWindow($dialog)
+  if(-not [SerulaImportApi]::SetWindowText($field,$path)){return $false}
+  $null=[SerulaImportApi]::SendMessage($button,0x00F5,[IntPtr]::Zero,[IntPtr]::Zero)
+  for($i=0;$i -lt 28;$i++){
+    Start-Sleep -Milliseconds 170
+    if(![SerulaWindowApi]::IsWindow($dialog) -or ![SerulaWindowApi]::IsWindowVisible($dialog)){return $true}
+  }
+  return $false
+}
+function Import-DxfRDWorks($rd,[IntPtr]$dialog,[string]$path) {
+  if(!(Test-Path -LiteralPath $path -PathType Leaf)){throw 'Geçici DXF dosyası bulunamadı.'}
+  if(!(Is-RDWorksFilePicker $dialog $rd ([IntPtr]$rd.MainWindowHandle))){
+    throw 'Dosya seçici RDWorks ile güvenli biçimde eşleştirilemedi.'
+  }
+  try { Import-DxfThroughDialog $dialog $path; return }
+  catch {
+    $uiaError=$_.Exception.Message
+    if([SerulaWindowApi]::IsWindow($dialog) -and (Try-RDWorksClassicPicker $dialog $path)){return}
+    throw ('RDWorks dosya seçimi başarısız. Otomasyon: '+$uiaError)
+  }
+}
+
 $origin='https://serula.site'
 $folder=Join-Path $env:LOCALAPPDATA 'SerulaBridge\Transfers'
 [System.IO.Directory]::CreateDirectory($folder) | Out-Null
@@ -251,10 +406,11 @@ try {
  while($listener.IsListening){
   $ctx=$listener.GetContext()
   try{
+    $tempPath=$null
     $req=$ctx.Request
     $reqOrigin=$req.Headers['Origin']
     if($req.HttpMethod -eq 'GET' -and $req.Url.AbsolutePath -eq '/health'){
-      Reply $ctx 200 @{ok=$true;service='serula-bridge';version='1.3'}
+      Reply $ctx 200 @{ok=$true;service='serula-bridge';version='1.4';rdworksStrategies=@('shortcut','native-menu','uia-menu','uia-picker','classic-picker')}
       continue
     }
     if($reqOrigin -ne $origin){Reply $ctx 403 @{ok=$false;error='Origin izinli değil.'};continue}
@@ -305,17 +461,17 @@ try {
           throw ('RDWorks penceresi etkinlestirilemedi. Gecici DXF: '+$tempPath+' ; RDWorks uzerinden Ctrl+I ile bu yolu acin.')
         }
       }
-      $shell=New-Object -ComObject WScript.Shell
-      $shell.SendKeys('^i')
-      $dialog=Wait-RDWorksImportDialog $rd ([IntPtr]$rd.MainWindowHandle)
+      $dialog=Open-RDWorksImportPicker $rd
       if($dialog -eq [IntPtr]::Zero){
-        throw 'RDWorks Import penceresi açılmadı. Aktarım gönderilmedi; RDWorks sürümünün Ctrl+I Import kısayolunu desteklediğini kontrol edin.'
+        throw 'RDWorks Import penceresi açılamadı. Ctrl+I, File > Import ve arayüz menüsü denendi. Geçici DXF kaydedildi.'
       }
-      Import-DxfThroughDialog $dialog $tempPath
-      Reply $ctx 200 @{ok=$true;message='Yerleştirilmiş DXF, RDWorks Import penceresine otomatik gönderildi. RDWorks çalışma alanında çizimi ve ölçüleri kontrol edin.'}
+      Import-DxfRDWorks $rd $dialog $tempPath
+      Reply $ctx 200 @{ok=$true;status='submitted_unverified';message='DXF, RDWorks Import penceresinde seçildi. Çizimin yüklendiğini, ölçüleri ve katmanları RDWorks içinde doğrulayın.'}
     }
   }catch{
-    try{Reply $ctx 500 @{ok=$false;error=$_.Exception.Message}}catch{}
+    $message=$_.Exception.Message
+    $path=if($tempPath -and (Test-Path -LiteralPath $tempPath -PathType Leaf)){$tempPath}else{$null}
+    try{Reply $ctx 500 @{ok=$false;code='rdworks_import_failed';error=$message;filePath=$path;manualImportRequired=!!$path}}catch{}
   }
  }
 }finally{$listener.Stop();$listener.Close()}
