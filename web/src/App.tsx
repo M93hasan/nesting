@@ -585,20 +585,33 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     if(exportBlockedReason||!doc.parts.some(part=>part.quantity>0))return;
     setBusy(true);setError('');
     try{
-      // The Cloudflare worker verifies an admin-granted feature flag and produces
-      // a short-lived one-use ticket. The drawing itself never goes to the cloud.
+      // Preflight first: a stale or unavailable local bridge must never consume
+      // a one-use server ticket. The Windows installer is always accessible
+      // from Hakkında > Otomatik Aktarım Köprüsü.
+      const ready=await fetch('http://127.0.0.1:43842/health',{cache:'no-store'});
+      const health=await ready.json() as {ok?:boolean;service?:string;version?:string};
+      if(!ready.ok||health.ok!==true||health.service!=='serula-bridge')
+        throw Error('Windows aktarım köprüsü çalışmıyor. Hakkında > Otomatik Aktarım Köprüsü bölümünden kurulum yapın.');
+      if(target==='rdworks'&&health.version!=='1.4')
+        throw Error(`RDWorks aktarım köprüsü eski sürüm (${health.version||'bilinmiyor'}). Hakkında > Otomatik Aktarım Köprüsü bölümünden güncel kurucuyu yeniden indirin.`);
+      // Prepare DXF before obtaining a short-lived one-use ticket. Large DXF
+      // exports can otherwise cause the ticket to expire before redemption.
+      const reply=await geometryTask({type:'export',runId:++operation.current,documentRevision:revision,document:canvasDocument,result});
+      if(reply.type!=='export-result')throw Error('Güncel yerleşimin DXF verisi hazırlanamadı.');
       const auth=await fetch('/api/transfer/ticket',{method:'POST',credentials:'same-origin',
         headers:{'content-type':'application/json'},body:JSON.stringify({target})});
       const permit=await auth.json() as {ticket?:string;error?:string};
       if(!auth.ok||!permit.ticket)throw Error(permit.error||'Aktarım izni alınamadı.');
-      const reply=await geometryTask({type:'export',runId:++operation.current,documentRevision:revision,document:canvasDocument,result});
-      if(reply.type!=='export-result')throw Error('Güncel yerleşimin DXF verisi hazırlanamadı.');
       const bridge=await fetch('http://127.0.0.1:43842/transfer',{method:'POST',
         headers:{'content-type':'application/json'},
         body:JSON.stringify({target,ticket:permit.ticket,dxf:reply.bundle.dxf,fileName:exportAd+'.dxf'})});
-      const response=await bridge.json() as {ok?:boolean;message?:string;error?:string};
-      if(!bridge.ok||response.ok!==true)throw Error(response.error||response.message||'Yerel aktarım başarısız.');
-      setError(response.message||'Aktarım komutu yerel programa gönderildi.');
+      const response=await bridge.json() as {ok?:boolean;status?:string;message?:string;error?:string;filePath?:string;manualImportRequired?:boolean};
+      if(!bridge.ok||response.ok!==true){
+        const backup=response.manualImportRequired&&response.filePath
+          ?` DXF kaybolmadı, dosya hazır: ${response.filePath}. RDWorks > File > Import ile açabilirsiniz.`:'';
+        throw Error((response.error||response.message||'Yerel aktarım başarısız.')+backup);
+      }
+      setError(response.message||'DXF hedef programa gönderildi. RDWorks çalışma alanında dosyayı kontrol edin.');
     }catch(e){
       const message=e instanceof TypeError
         ?'Yerel Serula Bridge bulunamadı veya tarayıcı yerel ağ bağlantısını engelledi. Windows aktarım köprüsünü başlatın ve serula.site için yerel ağ erişimine izin verin.'
