@@ -457,3 +457,97 @@ html[dir="rtl"] body{direction:rtl}html[dir="rtl"] .workspace-svg,html[dir="rtl"
   border-color:#821a2c;
   box-shadow:0 7px 18px rgba(173,35,55,.33);
 }
+
+
+/* Serula button finish based on the supplied glass-gradient interaction. */
+:root{
+  --button-bezier:cubic-bezier(.22,.61,.36,1);
+  --button-edge-light:hsla(0,0%,50%,.8);
+  --button-text-light:rgba(255,255,255,.4);
+}
+button,.button{
+  --bezier:var(--button-bezier);
+  --edge-light:var(--button-edge-light);
+  --text-light:var(--button-text-light);
+  --back-color:240,40%;
+  cursor:pointer;
+  min-height:2.4em;
+  border-radius:.5em;
+  letter-spacing:.05em;
+  box-shadow:inset .4px 1px 4px var(--edge-light);
+  transition:background .1s var(--bezier),color .1s var(--bezier),
+    box-shadow .1s var(--bezier),transform .1s var(--bezier),
+    text-shadow .1s var(--bezier),letter-spacing .1s var(--bezier);
+}
+/* Compact/selectable CAD elements and semantic actions keep their own palette. */
+button:not(.part-select):not(.text-button):not(.download-button):not(.primary):not(.danger-button):not(.run-button):not(.corel-transfer-toggle):not(.rdworks-transfer-toggle),
+a.button{
+  background:linear-gradient(140deg,
+    hsla(var(--back-color),50%,1) min(2em,20%),
+    hsla(var(--back-color),50%,.6) min(8em,100%))!important;
+  color:hsla(0,0%,95%,1)!important;
+  border:0!important;
+  box-shadow:inset .4px 1px 4px var(--edge-light)!important;
+}
+button:hover:enabled,.button:hover{
+  --edge-light:hsla(0,0%,50%,1);
+  text-shadow:0 0 10px var(--text-light);
+  transform:scale(1.06);
+  box-shadow:inset .4px 1px 4px var(--edge-light),
+    2px 4px 8px hsla(0,0%,0%,.295);
+}
+button:not(.part-select):not(.text-button):not(.download-button):not(.primary):not(.danger-button):not(.run-button):not(.corel-transfer-toggle):not(.rdworks-transfer-toggle):hover:enabled,
+a.button:hover{
+  box-shadow:inset .4px 1px 4px var(--edge-light),
+    2px 4px 8px hsla(0,0%,0%,.295)!important;
+}
+button:active:enabled,.button:active{
+  --text-light:rgba(255,255,255,1);
+  box-shadow:inset .4px 1px 8px var(--edge-light),
+    0 0 8px hsla(var(--back-color),50%,.6);
+  text-shadow:0 0 20px var(--text-light);
+  letter-spacing:.1em;
+  transform:scale(1);
+}
+button:disabled{transform:none!important;text-shadow:none!important;cursor:not-allowed}
+a.button{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:.5em;
+  padding:.7em 1em;
+  border-radius:.5em;
+  min-height:2.4em;
+  min-width:3em;
+  font-size:18px;
+  line-height:1;
+  font-weight:700;
+  letter-spacing:.05em;
+  text-decoration:none;
+  text-align:center;
+}
+.about-download-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:14px 0}
+.about-download-card{display:flex;flex-direction:column;align-items:stretch;gap:10px;
+  padding:16px;border:1px solid var(--border);border-radius:14px;background:var(--panel)}
+.about-download-card>strong{font-size:15px}
+.about-download-card>p{font-size:12px;color:var(--muted);line-height:1.55;flex:1}
+.about-download-card>.about-download-button{width:100%;white-space:normal}
+@media(max-width:700px){
+  .about-download-grid{grid-template-columns:1fr}
+  a.about-download-button{font-size:15px;min-height:44px}
+}
+@media(prefers-reduced-motion:reduce){
+  button,.button{transition:none!important}
+  button:hover:enabled,.button:hover{transform:none!important}
+}
+/* Keep customer-facing transfer brands even with the new shared button style. */
+button.download-button.corel-transfer-button{
+  --back-color:147,60%;
+  background:linear-gradient(140deg,#167845,#21975b)!important;
+  border-color:#12693c!important;color:#fff!important;
+}
+button.download-button.rdworks-transfer-button{
+  --back-color:350,60%;
+  background:linear-gradient(140deg,#ad2337,#d33949)!important;
+  border-color:#972032!important;color:#fff!important;
+}
