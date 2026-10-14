@@ -251,7 +251,7 @@ function Find-RDWorksImportMenu([IntPtr]$menu,[int]$depth=0) {
     if($sub -ne [IntPtr]::Zero){
       $found=Find-RDWorksImportMenu $sub ($depth+1)
       if($found -ge 0){return $found}
-    }elseif($name -match '(?i)^(import(\\b|[ .(])|içe\\s*aktar|içeri\\s*al|importer\\b|importieren\\b|importar\\b|导入|импорт)'){
+    }elseif($name -match '(?i)^(import(\b|[ .(])|içe\s*aktar|içeri\s*al|importer\b|importieren\b|importar\b|导入|импорт)'){
       $id=[SerulaImportApi]::GetMenuItemID($menu,$i)
       if($id -ne [uint32]::MaxValue){return [long]$id}
     }
@@ -270,7 +270,7 @@ function Is-RDWorksFilePicker([IntPtr]$dialog,$rd,[IntPtr]$main) {
     foreach($n in $nodes){
       try {
         if($n.Current.ControlType -eq [System.Windows.Automation.ControlType]::Edit -and
-          ([string]$n.Current.Name -match '(?i)file\\s*name|dosya\\s*adı|filename|dateiname' -or [string]$n.Current.AutomationId -eq '1148')){return $true}
+          ([string]$n.Current.Name -match '(?i)file\s*name|dosya\s*adı|filename|dateiname' -or [string]$n.Current.AutomationId -eq '1148')){return $true}
       }catch{}
     }
   }catch{}
@@ -299,7 +299,7 @@ function Invoke-RDWorksImportUIA($rd) {
         try {
           if(!$item.Current.IsEnabled -or $item.Current.ControlType -ne [System.Windows.Automation.ControlType]::MenuItem){continue}
           $label=[string]$item.Current.Name
-          if($label -notmatch '(?i)^(import\\b|içe\\s*aktar|importer\\b|importieren\\b|importar\\b|导入|импорт)'){continue}
+          if($label -notmatch '(?i)^(import\b|içe\s*aktar|importer\b|importieren\b|importar\b|导入|импорт)'){continue}
           $pat=$null
           if($item.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern,[ref]$pat)){
             ([System.Windows.Automation.InvokePattern]$pat).Invoke()
