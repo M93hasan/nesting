@@ -610,3 +610,91 @@ dialog.modal.modal-about{
   .modal-about .about-hero{padding:15px}
   .modal-about .about-hero h2{font-size:17px}
 }
+
+/* Studio visual consistency: October 2026.
+   This section changes presentation only: no nesting, DXF or bridge behavior. */
+
+/* Keep the destructive action in the Parts panel but give import and nesting
+   primary visual priority. The generic red danger button style remains intact. */
+#root button.danger-button.clear-all-parts{
+  align-self:flex-end;
+  width:auto;
+  margin:0 16px 10px auto;
+  min-height:34px;
+  padding:6px 12px;
+  border:1px solid light-dark(#db9ba8,#77505a)!important;
+  border-radius:9px;
+  background:light-dark(#fff6f7,#35272e)!important;
+  color:light-dark(#9c2940,#ffb5c1)!important;
+  font-size:12px;
+  font-weight:600;
+  box-shadow:none!important;
+}
+#root button.danger-button.clear-all-parts:hover:enabled{
+  background:light-dark(#ffe9ed,#462d37)!important;
+  border-color:light-dark(#c67788,#bd7988)!important;
+  box-shadow:none!important;
+  transform:none!important;
+}
+
+/* Align label, live unit and input without squeezing "mm" against numbers. */
+.material-settings label.measurement-field{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  gap:6px 12px;
+  min-width:0;
+}
+.material-settings label.measurement-field>.measurement-field__name{
+  min-width:0;
+  margin:0;
+  color:var(--muted);
+}
+.material-settings label.measurement-field>.measurement-field__unit{
+  justify-self:end;
+  margin:0;
+  color:var(--muted);
+  font-size:11px;
+  font-weight:600;
+  white-space:nowrap;
+}
+.material-settings label.measurement-field>input{
+  grid-column:1 / -1;
+  width:100%;
+  min-width:0;
+  margin:0;
+}
+
+/* Same icon-label rhythm for the header actions, without increasing size. */
+.header nav .nav-action{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+}
+.header nav .nav-action>span[aria-hidden]{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:none;
+  line-height:1;
+}
+.header nav .hello-button.nav-action{gap:6px}
+
+/* A small, meaningful readiness light; running still uses the existing spinner. */
+.run-status[data-visual-state=ready] .status-symbol i:not(.active){
+  width:10px;
+  height:10px;
+  background:light-dark(#268755,#5bd49a);
+  box-shadow:0 0 0 3px light-dark(#e0f3e9,#244739);
+}
+.run-status[data-visual-state=error] .status-symbol i:not(.active){
+  width:10px;
+  height:10px;
+  background:light-dark(#c53c55,#ff7181);
+  box-shadow:0 0 0 3px light-dark(#fce8ec,#4a2832);
+}
+@media(max-width:699px){
+  #root button.danger-button.clear-all-parts{min-height:44px}
+  .material-settings label.measurement-field{gap:7px 10px}
+}
