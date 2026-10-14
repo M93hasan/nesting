@@ -592,7 +592,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
       const health=await ready.json() as {ok?:boolean;service?:string;version?:string};
       if(!ready.ok||health.ok!==true||health.service!=='serula-bridge')
         throw Error('Windows aktarım köprüsü çalışmıyor. Hakkında > Otomatik Aktarım Köprüsü bölümünden kurulum yapın.');
-      const bridgeVersion=/^(\\d+)\\.(\\d+)/.exec(health.version||'');
+      const bridgeVersion=/^(\d+)\.(\d+)/.exec(health.version||'');
       const supportsRdworks=!!bridgeVersion&&(Number(bridgeVersion[1])>1||
         Number(bridgeVersion[1])===1&&Number(bridgeVersion[2])>=4);
       if(target==='rdworks'&&!supportsRdworks)
