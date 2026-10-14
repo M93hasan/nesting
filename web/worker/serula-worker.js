@@ -262,11 +262,11 @@ function cleanSettings(value,defaults=DEFAULT_ADMIN_SETTINGS){
   const input=value&&typeof value==='object'?value:{};
   const num=(v,fallback,min,max)=>{const n=Number(v);return Number.isFinite(n)?Math.min(max,Math.max(min,n)):fallback};
   return {
-    materialWidthMm:num(input.materialWidthMm,DEFAULT_ADMIN_SETTINGS.materialWidthMm,1,100000),
-    clearanceMm:num(input.clearanceMm,DEFAULT_ADMIN_SETTINGS.clearanceMm,0,1000),
-    marginMm:num(input.marginMm,DEFAULT_ADMIN_SETTINGS.marginMm,0,1000),
-    rotation:['fixed','half','free'].includes(input.rotation)?input.rotation:DEFAULT_ADMIN_SETTINGS.rotation,
-    materialType:['roll','sheet'].includes(input.materialType)?input.materialType:DEFAULT_ADMIN_SETTINGS.materialType,
+    materialWidthMm:num(input.materialWidthMm,defaults.materialWidthMm,1,100000),
+    clearanceMm:num(input.clearanceMm,defaults.clearanceMm,0,1000),
+    marginMm:num(input.marginMm,defaults.marginMm,0,1000),
+    rotation:['fixed','half','free'].includes(input.rotation)?input.rotation:defaults.rotation,
+    materialType:['roll','sheet'].includes(input.materialType)?input.materialType:defaults.materialType,
     solverPreset:['standard','fast'].includes(input.solverPreset)?input.solverPreset:defaults.solverPreset,
     corelTransferEnabled:typeof input.corelTransferEnabled==='boolean'?input.corelTransferEnabled:defaults.corelTransferEnabled,
     rdworksTransferEnabled:typeof input.rdworksTransferEnabled==='boolean'?input.rdworksTransferEnabled:defaults.rdworksTransferEnabled
@@ -613,16 +613,27 @@ async function handleApi(request,env){
   if(path==='/api/admin/users'&&request.method==='GET'){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
     const rows=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,u.google_id,u.created_at,u.last_login_at,
-      COALESCE(f.test_dxf_enabled,0) test_dxf_enabled,COALESCE(rw.enabled,0) rdworks_enabled,p.last_seen,l.started_at license_started_at,l.expires_at license_expires_at,
+      COALESCE(f.test_dxf_enabled,0) test_dxf_enabled,COALESCE(rw.enabled,0) rdworks_enabled,us.settings_json transfer_settings_json,p.last_seen,l.started_at license_started_at,l.expires_at license_expires_at,
       CASE WHEN ${onlineSql} THEN 1 ELSE 0 END online
       FROM users u
       LEFT JOIN user_features f ON f.user_id=u.id
       LEFT JOIN user_rdworks_access rw ON rw.user_id=u.id
+      LEFT JOIN user_settings us ON us.user_id=u.id
       LEFT JOIN user_presence p ON p.user_id=u.id
       LEFT JOIN user_licenses l ON l.user_id=u.id
       ORDER BY u.created_at DESC LIMIT 500`).all();
     const online=await env.DB.prepare("SELECT COUNT(*) n FROM user_presence WHERE datetime(last_seen)>=datetime('now','-15 seconds')").first();
-    return json({onlineCount:Number(online?.n||0),users:rows.results.map(u=>({...publicUser(u),testDxfEnabled:!!u.test_dxf_enabled,rdworksEnabled:!!u.rdworks_enabled,authProvider:u.google_id?'google':'email',createdAt:u.created_at,lastLoginAt:u.last_login_at,lastSeen:u.last_seen||null,online:!!u.online}))});
+    const defaults=await systemDefaults(env);
+    return json({onlineCount:Number(online?.n||0),users:rows.results.map(u=>{
+      let settings=defaults;
+      if(u.transfer_settings_json){
+        try{settings=cleanSettings(JSON.parse(u.transfer_settings_json),defaults)}catch{/* Use safe defaults for malformed saved settings. */}
+      }
+      return {...publicUser(u),testDxfEnabled:!!u.test_dxf_enabled,rdworksEnabled:!!u.rdworks_enabled,
+        corelTransferEnabled:settings.corelTransferEnabled===true,
+        rdworksTransferEnabled:settings.rdworksTransferEnabled===true,
+        authProvider:u.google_id?'google':'email',createdAt:u.created_at,lastLoginAt:u.last_login_at,lastSeen:u.last_seen||null,online:!!u.online};
+    })});
   }
   if(path==='/api/admin/chats'&&request.method==='GET'){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
@@ -813,6 +824,32 @@ async function handleApi(request,env){
     const row=await env.DB.prepare('SELECT settings_json FROM user_settings WHERE user_id=?').bind(user.id).first();
     if(!row?.settings_json)return json({settings:defaults});
     try{return json({settings:cleanSettings(JSON.parse(row.settings_json),defaults)})}catch{return json({settings:defaults})}
+  }
+  // Quick transfer permissions from the user list: update only the chosen flag,
+  // retaining every other custom setting and the other transfer flag.
+  const transferToggleMatch=path.match(/^\/api\/admin\/users\/(\d+)\/transfer$/);
+  if(transferToggleMatch&&request.method==='POST'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const id=Number(transferToggleMatch[1]),data=await body(request),target=data.target;
+    if(!['corel','rdworks'].includes(target)||typeof data.enabled!=='boolean')
+      return json({error:'Geçersiz aktarım hedefi veya durum.'},400);
+    const exists=await env.DB.prepare('SELECT id FROM users WHERE id=?').bind(id).first();
+    if(!exists)return json({error:'Kullanıcı bulunamadı.'},404);
+    const row=await env.DB.prepare('SELECT settings_json FROM user_settings WHERE user_id=?').bind(id).first();
+    let custom={};
+    if(row?.settings_json){
+      try{
+        const parsed=JSON.parse(row.settings_json);
+        if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))throw Error('Invalid settings');
+        custom=parsed;
+      }catch{return json({error:'Mevcut kullanıcı ayarları okunamadı; hiçbir ayar değiştirilmedi.'},409)}
+    }
+    const field=target==='corel'?'corelTransferEnabled':'rdworksTransferEnabled';
+    const settings={...custom,[field]:data.enabled};
+    await env.DB.prepare('INSERT INTO user_settings(user_id,settings_json,updated_at) VALUES(?,?,CURRENT_TIMESTAMP) ON CONFLICT(user_id) DO UPDATE SET settings_json=excluded.settings_json,updated_at=CURRENT_TIMESTAMP').bind(id,JSON.stringify(settings)).run();
+    await audit(env,'transfer_permission_changed',{actorType:'admin',targetUserId:id,detail:target+':'+(data.enabled?'enabled':'disabled')});
+    const effective=cleanSettings(settings,await systemDefaults(env));
+    return json({ok:true,corel:effective.corelTransferEnabled===true,rdworks:effective.rdworksTransferEnabled===true});
   }
   const userSettingsMatch=path.match(/^\/api\/admin\/users\/(\d+)\/settings$/);
   if(userSettingsMatch&&request.method==='GET'){
