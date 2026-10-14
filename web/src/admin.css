@@ -406,3 +406,28 @@
   .admin-mobile-page .admin-workspace-link::after{content:'Uygulama';font-size:11px}
   .admin-mobile-page .admin-user-actions button{flex-basis:100%}
 }
+
+/* Per-user transfer permission buttons: CorelDRAW green, RDWorks red. */
+.admin-page .admin-user-actions button.corel-transfer-toggle{
+  background:linear-gradient(135deg,#167845,#21975b)!important;
+  border:1px solid #12693c!important;
+  color:#fff!important;
+  box-shadow:0 4px 12px rgba(22,120,69,.20)!important;
+}
+.admin-page .admin-user-actions button.corel-transfer-toggle:hover:enabled{
+  background:linear-gradient(135deg,#11673b,#1b8550)!important;
+  border-color:#0d5932!important;
+}
+.admin-page .admin-user-actions button.rdworks-transfer-toggle{
+  background:linear-gradient(135deg,#ad2337,#d33949)!important;
+  border:1px solid #972032!important;
+  color:#fff!important;
+  box-shadow:0 4px 12px rgba(173,35,55,.20)!important;
+}
+.admin-page .admin-user-actions button.rdworks-transfer-toggle:hover:enabled{
+  background:linear-gradient(135deg,#961c30,#bd3040)!important;
+  border-color:#821a2c!important;
+}
+.admin-page .admin-user-actions button.admin-transfer-toggle[aria-pressed="false"]{
+  opacity:.78;
+}
