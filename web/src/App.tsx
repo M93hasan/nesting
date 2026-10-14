@@ -592,7 +592,10 @@ export default function App({initialDocument=emptyProject(),initialError='',load
       const health=await ready.json() as {ok?:boolean;service?:string;version?:string};
       if(!ready.ok||health.ok!==true||health.service!=='serula-bridge')
         throw Error('Windows aktarım köprüsü çalışmıyor. Hakkında > Otomatik Aktarım Köprüsü bölümünden kurulum yapın.');
-      if(target==='rdworks'&&health.version!=='1.4')
+      const bridgeVersion=/^(\\d+)\\.(\\d+)/.exec(health.version||'');
+      const supportsRdworks=!!bridgeVersion&&(Number(bridgeVersion[1])>1||
+        Number(bridgeVersion[1])===1&&Number(bridgeVersion[2])>=4);
+      if(target==='rdworks'&&!supportsRdworks)
         throw Error(`RDWorks aktarım köprüsü eski sürüm (${health.version||'bilinmiyor'}). Hakkında > Otomatik Aktarım Köprüsü bölümünden güncel kurucuyu yeniden indirin.`);
       // Prepare DXF before obtaining a short-lived one-use ticket. Large DXF
       // exports can otherwise cause the ticket to expire before redemption.
