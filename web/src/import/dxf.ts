@@ -5,6 +5,7 @@ import {DEFAULT_SETTINGS,newPart,type DxfAuxEntity,type DxfDetailContour,type Dx
 import {apply,multiply,append,ellipse,type Matrix} from '../geometry/flatten';
 import {area,bounds,inside,normalizeDocument,normalizeRing,ringCrosses} from '../geometry/normalize';
 import {localize,type ImportReview} from './sparrow';
+import {repairOpenSplineLoop} from './spline-loop-repair';
 
 type DxfPoint={x:number;y:number;z?:number;bulge?:number};
 type DxfEntity={type:string;handle:string;layer?:string;x?:number;y?:number;z?:number;
@@ -294,7 +295,7 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
   const byHandle=new Map(records.map(r=>[r.id,r])),blocks=new Map(parsed.blocks.map(b=>[b.name,b]));
   const supported=['LINE','ARC','CIRCLE','ELLIPSE','LWPOLYLINE','POLYLINE','SPLINE','INSERT','POINT','TEXT','MTEXT'];
   for(const r of records)if(!supported.includes(r.type)&&!['BLOCK','ENDBLK'].includes(r.type))unsupported.set(r.type,(unsupported.get(r.type)??0)+1);
-  const layers:string[]=[],contours:Contour[]=[],chains:Chain[]=[],auxEntities:Exclude<DxfAuxEntity,{kind:'path'}>[]=[],sourceSplines=new Map<string,DxfSpline>(),sourceEntities=new Map<string,DxfSourceEntity>();let totalVertices=0,expanded=0;
+  const layers:string[]=[],contours:Contour[]=[],chains:Chain[]=[],auxEntities:Exclude<DxfAuxEntity,{kind:'path'}>[]=[],sourceSplines=new Map<string,DxfSpline>(),sourceEntities=new Map<string,DxfSourceEntity>();let totalVertices=0,expanded=0,repairedOpenSplines=0;
   const visit=(entity:DxfEntity,parent:Matrix,inheritedLayer:string,path:string[])=>{
     if(++expanded>10_000)throw Error('DXF exceeds 10,000 expanded entities.');
     const r=byHandle.get(entity.handle);if(!r||!supported.includes(entity.type))return;
@@ -329,6 +330,7 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
         return [p.x,p.y];
       };
       let ring:Ring,closed=false,curved=false;
+      let workingEntity=entity;
       const rawColor=value(r,62),dxfColorNumber=rawColor===undefined?undefined:Math.abs(finite(rawColor));
       if(['POINT','TEXT','MTEXT'].includes(entity.type)) {
         const at=apply(matrix,[finite(value(r,10)),finite(value(r,20))]);
@@ -344,16 +346,24 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
       if(entity.type==='LINE')ring=[point(entity.start),point(entity.end)];
       else if(entity.type==='SPLINE'){
         ring=spline(entity,tolerance);curved=true;
-        // DXF SPLINE flag bit 1 marks a closed curve. Treat it as a contour
-        // directly instead of sending its coincident endpoints through the
-        // open-chain joiner (common in footwear CAD exports).
+        // Repair only a short CAD lead-in whose end reconnects to the curve.
+        // Genuine open engraving/cutting marks remain open and diagnosable.
         const flags=finite(value(r,70),0);
         closed=(flags&1)!==0;
+        if(!closed){
+          const repaired=repairOpenSplineLoop(entity,ring,tolerance,candidate=>spline(candidate,tolerance));
+          if(repaired){
+            workingEntity=repaired.entity;
+            ring=repaired.ring;
+            closed=true;
+            repairedOpenSplines++;
+          }
+        }
         if(closed&&ring.length>1&&Math.hypot(ring[0][0]-ring[ring.length-1][0],ring[0][1]-ring[ring.length-1][1])<=Math.max(.01,tolerance))ring.pop();
         if(closed){
-          const controlPoints=(entity.controlPoints??[]).map(point).map(p=>apply(matrix,p));
-          sourceSplines.set(r.id,{degree:entity.degree??0,knots:[...(entity.knots??[])],controlPoints,
-            ...(entity.weights?.length?{weights:[...entity.weights]}:{}),flags,layer});
+          const controlPoints=(workingEntity.controlPoints??[]).map(point).map(p=>apply(matrix,p));
+          sourceSplines.set(r.id,{degree:workingEntity.degree??0,knots:[...(workingEntity.knots??[])],controlPoints,
+            ...(workingEntity.weights?.length?{weights:[...workingEntity.weights]}:{}),flags:flags|1,layer});
         }
       }
       else if(['ARC','CIRCLE','ELLIPSE'].includes(entity.type)) {
@@ -380,7 +390,7 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
         if(closed)ring.pop();
         if(r.groups.some(([code,v])=>[40,41,43].includes(code)&&finite(v)!==0))warnings.push(`${r.id}: polyline width is ignored; the centerline is the contour.`);
       }
-      const native=sourceEntity(entity,matrix,layer,dxfColorNumber,finite(value(r,70),0));
+      const native=sourceEntity(workingEntity,matrix,layer,dxfColorNumber,finite(value(r,70),0)|(workingEntity===entity?0:1));
       if(native)sourceEntities.set(r.id,native);
       ring=ring.map(p=>apply(matrix,p));
       if(ring.some(p=>!p.every(v=>Number.isFinite(v)&&Math.abs(v)<=100_000)))throw Error('Coordinates exceed the 100,000 mm limit.');
@@ -392,6 +402,7 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
   layers.sort();
   const joined=join(chains,issues);contours.push(...joined.contours);
   if(joined.gaps)warnings.push(`Joined ${joined.gaps} gaps within 0.01 mm; largest endpoint adjustment ${joined.adjustment} mm. Confirm this preview before importing.`);
+  if(repairedOpenSplines)warnings.push(`${repairedOpenSplines} adet açık SPLINE, kısa giriş çizgisi çıkarılarak kapalı parçaya dönüştürüldü. Kesim önizlemesini kontrol edin.`);
   const valid:Contour[]=[];let repairedPeriodicSplines=0;
   for(const c of contours){
     try{valid.push({...c,ring:normalizeRing(c.ring)});continue;}catch(error){

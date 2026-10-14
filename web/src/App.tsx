@@ -22,6 +22,7 @@ import {selectionBounds,type GeometryEdit} from './geometry/manipulate';
 import {isEditableTarget,preparationShortcut} from './geometry/gestures';
 import {applySeriesMultiplier,copyRefsFor,documentPlacements,duplicateCopies,maxSeriesMultiplier,mirrorPlacements,removeCopies,rotatePlacements,rotateToNextOrientation,setPlacementAngles,movePlacements,placementLayoutsEqual,syncQuantity,updatePlacements,withDocumentPlacements,type CopyRef} from './geometry/placements';
 import {LanguageSelect} from './i18n';
+import {captureClipboard,pasteClipboard,type ClipboardItem} from './geometry/clipboard';
 
 const emptyProject=(name='Adsız proje'):Document=>({name,parts:[],settings:{...DEFAULT_SETTINGS}});
 const CLOUD_SAVE_NAME='Serula Nesting En Temiz Hali';
@@ -99,6 +100,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const [shape,setShape]=useState<'rectangle'|'circle'|'polygon'>(),[shapeWidth,setShapeWidth]=useState(40),[shapeHeight,setShapeHeight]=useState(30),[polygon,setPolygon]=useState<Point[]>();
   const history=useRef<{doc:Document;geometry:boolean;selection:CopyRef[];unused:string[]}[]>([]),future=useRef<{doc:Document;geometry:boolean;selection:CopyRef[];unused:string[]}[]>([]),operation=useRef(0);
   const input=useRef<HTMLInputElement>(null),solver=useSolver();
+  const copyBuffer=useRef<{items:ClipboardItem[];cut:boolean;pastes:number}>({items:[],cut:false,pastes:0});
   const fieldEdit=useRef<{key:string;document:Document}|undefined>(undefined);
   const running=['Initializing','Running'].includes(solver.state),locked=running||busy;
   const result=solver.result?.documentRevision===revision?solver.result:undefined;
@@ -107,7 +109,22 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const [browserSaved,setBrowserSaved]=useState<{document:Document;result?:Result;revision:number}>();
   const [recoveryReady,setRecoveryReady]=useState(false),[recoveryError,setRecoveryError]=useState('');
   const [cloudSaveState,setCloudSaveState]=useState<'idle'|'saving'|'saved'|'signed-out'|'error'>('idle'),[cloudSaveTick,setCloudSaveTick]=useState(0);
+  const [transferAccess,setTransferAccess]=useState({corel:false,rdworks:false});
   useEffect(()=>{const changed=()=>setCloudSaveTick(value=>value+1);window.addEventListener('serula-auth-updated',changed);return()=>window.removeEventListener('serula-auth-updated',changed)},[]);
+  useEffect(()=>{
+    let active=true;
+    const refresh=async()=>{
+      try{
+        const response=await fetch('/api/transfer/access',{credentials:'same-origin',cache:'no-store'});
+        const data=await response.json() as {corel?:boolean;rdworks?:boolean};
+        if(active)setTransferAccess(response.ok?{corel:data.corel===true,rdworks:data.rdworks===true}:{corel:false,rdworks:false});
+      }catch{if(active)setTransferAccess({corel:false,rdworks:false});}
+    };
+    void refresh();
+    const timer=window.setInterval(()=>void refresh(),15000);
+    window.addEventListener('serula-auth-updated',refresh);
+    return()=>{active=false;window.clearInterval(timer);window.removeEventListener('serula-auth-updated',refresh)};
+  },[]);
   useEffect(()=>{
     if(loadingExample)return;
     const worker=new Worker(new URL('./workers/solver-runtime.worker.ts',import.meta.url),{type:'module'});
@@ -291,11 +308,56 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     const leave=(e:BeforeUnloadEvent)=>{e.preventDefault();e.returnValue='';};
     window.addEventListener('beforeunload',leave);return ()=>window.removeEventListener('beforeunload',leave);
   },[solver.state]);
+  async function saveNow() {
+    if(invalidSettings||!!polygon?.length){setError('Proje kaydedilemiyor: Geçersiz ayarları veya açık çizimi düzeltin.');return;}
+    if(!recoveryReady){setError('Proje kaydı henüz hazır değil.');return;}
+    const project={...doc,...(recoveryResult?{placements:recoveryResult.placements,result:recoveryResult}:{}),schemaVersion:1 as const,revision};
+    try{
+      await saveRecovery(project);
+      setBrowserSaved({document:doc,result:recoveryResult,revision});
+      setRecoveryError('');
+      // The existing autosave endpoint handles authentication and cloud sync.
+      setCloudSaveTick(tick=>tick+1);
+    }catch{setRecoveryError('Ctrl+S ile tarayıcıya kaydetme başarısız oldu.');}
+  }
   useEffect(()=>{
     const key=(e:KeyboardEvent)=>{try {
       if(document.querySelector('dialog[open]'))return;
       const editable=isEditableTarget(e.target);
-      if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'&&!editable) {e.preventDefault();restore(e.shiftKey);return;}
+      const modifier=e.metaKey||e.ctrlKey;
+      const letter=e.key.toLowerCase();
+      if(modifier&&!e.altKey&&letter==='s'){e.preventDefault();void saveNow();return;}
+      if(modifier&&!e.altKey&&!editable){
+        if(letter==='i'){e.preventDefault();if(!locked)input.current?.click();return;}
+        if(letter==='e'){e.preventDefault();if(!locked)void exportLayout();return;}
+        if(letter==='a'){
+          e.preventDefault();
+          const refs=documentPlacements(canvasDocument).map(({partId,copyIndex})=>({partId,copyIndex}));
+          setUnusedSelection([]);setSelectedCopies(refs);return;
+        }
+        if(letter==='c'||letter==='x'){
+          if(locked||!selectedRefs.length)return;
+          e.preventDefault();
+          const items=captureClipboard(canvasDocument,selectedRefs);
+          if(!items.length)return;
+          copyBuffer.current={items,cut:letter==='x',pastes:0};
+          if(letter==='x'){
+            commit(removeCopies(canvasDocument,selectedRefs));
+            setUnusedSelection([]);setSelectedCopies([]);
+          }
+          return;
+        }
+        if(letter==='v'){
+          if(locked||!copyBuffer.current.items.length)return;
+          e.preventDefault();
+          const buffer=copyBuffer.current,offset=buffer.cut&&buffer.pastes===0?0:15*(buffer.pastes+1);
+          const pasted=pasteClipboard(canvasDocument,buffer.items,offset);
+          commit(pasted.document);
+          setUnusedSelection([]);setSelectedCopies(pasted.selection);
+          buffer.pastes++;buffer.cut=false;return;
+        }
+      }
+      if(modifier&&letter==='z'&&!editable) {e.preventDefault();restore(e.shiftKey);return;}
       if(e.key==='Escape') {setUnusedSelection([]);setSelectedCopies([]);setPolygon(undefined);}
       if(e.key==='Enter'&&polygon&&!locked&&!editable) {e.preventDefault();void addShape('polygon');return;}
       if(editable||locked||e.altKey||!selected.length)return;
@@ -519,6 +581,31 @@ export default function App({initialDocument=emptyProject(),initialError='',load
       return false;
     }catch(e){setError(String(e));return false;}finally{setBusy(false);}
   }
+  async function transferLayout(target:'corel'|'rdworks') {
+    if(exportBlockedReason||!doc.parts.some(part=>part.quantity>0))return;
+    setBusy(true);setError('');
+    try{
+      // The Cloudflare worker verifies an admin-granted feature flag and produces
+      // a short-lived one-use ticket. The drawing itself never goes to the cloud.
+      const auth=await fetch('/api/transfer/ticket',{method:'POST',credentials:'same-origin',
+        headers:{'content-type':'application/json'},body:JSON.stringify({target})});
+      const permit=await auth.json() as {ticket?:string;error?:string};
+      if(!auth.ok||!permit.ticket)throw Error(permit.error||'Aktarım izni alınamadı.');
+      const reply=await geometryTask({type:'export',runId:++operation.current,documentRevision:revision,document:canvasDocument,result});
+      if(reply.type!=='export-result')throw Error('Güncel yerleşimin DXF verisi hazırlanamadı.');
+      const bridge=await fetch('http://127.0.0.1:43842/transfer',{method:'POST',
+        headers:{'content-type':'application/json'},
+        body:JSON.stringify({target,ticket:permit.ticket,dxf:reply.bundle.dxf,fileName:exportAd+'.dxf'})});
+      const response=await bridge.json() as {ok?:boolean;message?:string;error?:string};
+      if(!bridge.ok||response.ok!==true)throw Error(response.error||response.message||'Yerel aktarım başarısız.');
+      setError(response.message||'Aktarım komutu yerel programa gönderildi.');
+    }catch(e){
+      const message=e instanceof TypeError
+        ?'Yerel Serula Bridge bulunamadı veya tarayıcı yerel ağ bağlantısını engelledi. Windows aktarım köprüsünü başlatın ve serula.site için yerel ağ erişimine izin verin.'
+        :e instanceof Error?e.message:String(e);
+      setError(message);
+    }finally{setBusy(false)}
+  }
   const sourceAd=(doc.parts.find(part=>part.source.format==='dxf'||part.source.format==='plt')?.source.fileName??doc.name).replace(/\.(?:dxf|plt|hpgl|hpg|hgl)$/i,'').trim().replace(/[<>:"/\\|?*\x00-\x1f]/g,'-').replace(/[. ]+$/g,'').slice(0,100)||'project';
   const exportAd=`${sourceAd}-serula`;
   const totalArea=useMemo(()=>doc.parts.reduce((n,p)=>n+netArea(p)*p.quantity,0),[doc.parts]);
@@ -613,7 +700,10 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     <footer className="statusbar"><div className="run-controls"><span id="compression-tooltip" role="tooltip" className="compression-tooltip"><strong>Sıkıştırmaya geç</strong>Keşfi bitir ve en iyi yerleşimi sıkıştır.</span>{running?<><button className="run-button" onClick={solver.stop}>Durdur</button>{solver.canSkip&&(solver.state==='Initializing'||solver.state==='Running'&&solver.phase==='Exploration')&&<button className="run-button skip-compression" aria-label="Sıkıştırmaya geç" disabled={solver.state!=='Running'||solver.skipping||!solver.result} aria-describedby="compression-tooltip" onClick={solver.skipToCompression}><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3 5v14l9-7zM12 5v14l9-7z"/></svg></button>}</>:<button className="run-button" disabled={locked||invalidSettings||!doc.parts.some(part=>part.quantity>0)||!!polygon} onClick={()=>void run()}>{result?'Yeniden yerleştir':'Parçaları yerleştir'}</button>}</div>
       <div className="run-status"><span className="status-symbol" aria-hidden="true"><i className={running||busy?'active':undefined}/></span><span role="status" className="run-state"><span>{busy?'Girdiler kontrol ediliyor':loadingExample?'Örnek yükleniyor…':solver.state==='Running'&&solver.phase?(solver.skipping?'Geçiliyor…':solver.phase):solver.state}</span>{(running||solver.state==='Complete'||solver.state==='Stopped')&&<span className="run-elapsed">{solver.elapsed.toFixed(1)} s</span>}</span>{solver.workers&&<small className="worker-status" title={solver.workers.reason} data-worker-count={solver.workers.actual}>{`${solver.workers.actual} çözücü işçisi`}{solver.workers.requested?` / ${solver.workers.requested} istendi`:' · otomatik'}{solver.workers.reason&&' · yedek'}</small>}</div>
       <div className="metrics"><span>{doc.settings.materialType==='sheet'?'Kullanılan plaka':showingLive?'En iyi geçerli uzunluk':'Kullanılan uzunluk'} <strong>{result?(doc.settings.materialType==='sheet'?String(result.sheetCount??1):`${length(result.usedLengthMm)} ${unit}`):'—'}</strong></span><span>Malzeme verimliliği <strong>{result?`${utilization.toFixed(2)}%`:'—'}</strong></span><span>Fire <strong>{result?`${waste.toFixed(2)}%`:'—'}</strong></span>{improvement&&doc.settings.materialType!=='sheet'&&<span title="Keşif: ilk geçerli uzunluktan azalma. Sıkıştırma: en iyi keşif uzunluğundan ek azalma.">İyileştirme keşfet / sıkıştır <strong>{improvement.explore.toFixed(1)}% / {improvement.compress.toFixed(1)}%</strong></span>}</div>
-      <div className="export-actions"><span className="download-control" tabIndex={exportBlockedReason?0:undefined} aria-describedby={exportBlockedReason?'download-tooltip':undefined}><button disabled={!!exportBlockedReason} className="download-button" onClick={()=>void exportLayout()}><svg className="download-button__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg><span>DXF İndir</span></button>{exportBlockedReason&&<span id="download-tooltip" role="tooltip" className="compression-tooltip">{exportBlockedReason}</span>}</span></div>
+      <div className="export-actions">
+        {transferAccess.corel&&<button type="button" disabled={!!exportBlockedReason} className="download-button" title="CorelDRAW'a dosya indirmeden aktar; Windows Serula Bridge gerekir" onClick={()=>void transferLayout('corel')}>CorelDRAW'a Aktar</button>}
+        {transferAccess.rdworks&&<button type="button" disabled={!!exportBlockedReason} className="download-button" title="RDWorks'e dosya indirmeden aktar; Windows Serula Bridge gerekir" onClick={()=>void transferLayout('rdworks')}>RDWorks'e Aktar</button>}
+        <span className="download-control" tabIndex={exportBlockedReason?0:undefined} aria-describedby={exportBlockedReason?'download-tooltip':undefined}><button disabled={!!exportBlockedReason} className="download-button" onClick={()=>void exportLayout()}><svg className="download-button__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg><span>DXF İndir</span></button>{exportBlockedReason&&<span id="download-tooltip" role="tooltip" className="compression-tooltip">{exportBlockedReason}</span>}</span></div>
 
     </footer>
     

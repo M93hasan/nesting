@@ -66,6 +66,7 @@ async function ensureSchema(env){
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_features (user_id INTEGER PRIMARY KEY, test_dxf_enabled INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_rdworks_access (user_id INTEGER PRIMARY KEY, enabled INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS rdworks_tickets (token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL, expires_at TEXT NOT NULL, redeemed_at TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS transfer_tickets (token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL, target TEXT NOT NULL CHECK(target IN ('corel','rdworks')), expires_at TEXT NOT NULL, redeemed_at TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_rdworks_tickets_expire ON rdworks_tickets(expires_at)'),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_preferences (
       user_id INTEGER PRIMARY KEY,
@@ -256,8 +257,8 @@ async function testDxfAllowed(userId,env){
   return !!row?.test_dxf_enabled;
 }
 
-const DEFAULT_ADMIN_SETTINGS={materialWidthMm:1400,clearanceMm:0,marginMm:0,rotation:'half',materialType:'roll',solverPreset:'standard'};
-function cleanSettings(value){
+const DEFAULT_ADMIN_SETTINGS={materialWidthMm:1400,clearanceMm:0,marginMm:0,rotation:'half',materialType:'roll',solverPreset:'standard',corelTransferEnabled:false,rdworksTransferEnabled:false};
+function cleanSettings(value,defaults=DEFAULT_ADMIN_SETTINGS){
   const input=value&&typeof value==='object'?value:{};
   const num=(v,fallback,min,max)=>{const n=Number(v);return Number.isFinite(n)?Math.min(max,Math.max(min,n)):fallback};
   return {
@@ -266,7 +267,9 @@ function cleanSettings(value){
     marginMm:num(input.marginMm,DEFAULT_ADMIN_SETTINGS.marginMm,0,1000),
     rotation:['fixed','half','free'].includes(input.rotation)?input.rotation:DEFAULT_ADMIN_SETTINGS.rotation,
     materialType:['roll','sheet'].includes(input.materialType)?input.materialType:DEFAULT_ADMIN_SETTINGS.materialType,
-    solverPreset:['standard','fast'].includes(input.solverPreset)?input.solverPreset:DEFAULT_ADMIN_SETTINGS.solverPreset
+    solverPreset:['standard','fast'].includes(input.solverPreset)?input.solverPreset:defaults.solverPreset,
+    corelTransferEnabled:typeof input.corelTransferEnabled==='boolean'?input.corelTransferEnabled:defaults.corelTransferEnabled,
+    rdworksTransferEnabled:typeof input.rdworksTransferEnabled==='boolean'?input.rdworksTransferEnabled:defaults.rdworksTransferEnabled
   };
 }
 async function audit(env,action,{actorType='system',actorUserId=null,targetUserId=null,detail='',success=true}={}){
@@ -286,6 +289,13 @@ async function systemDefaults(env){
     }
     return cleanSettings(raw);
   }catch{return DEFAULT_ADMIN_SETTINGS}
+}
+
+async function effectiveTransferSettings(env,userId){
+  const defaults=await systemDefaults(env);
+  const row=await env.DB.prepare('SELECT settings_json FROM user_settings WHERE user_id=?').bind(userId).first();
+  if(!row?.settings_json)return defaults;
+  try{return cleanSettings(JSON.parse(row.settings_json),defaults)}catch{return defaults;}
 }
 
 async function googleUserFromCredential(credential,env,requestedLocale='tr'){
@@ -320,6 +330,38 @@ async function handleApi(request,env){
   if(request.method!=='GET'&&!sameOrigin(request))return json({error:'Geçersiz istek.'},403);
 
   if(path==='/api/version'&&request.method==='GET')return json({version:APP_VERSION});
+  if(path==='/api/transfer/access'&&request.method==='GET'){
+    const user=await sessionUser(request,env);
+    if(!user||licenseExpired(user))return json({corel:false,rdworks:false});
+    const settings=await effectiveTransferSettings(env,user.id);
+    return json({corel:settings.corelTransferEnabled===true,rdworks:settings.rdworksTransferEnabled===true});
+  }
+  if(path==='/api/transfer/ticket'&&request.method==='POST'){
+    const user=await sessionUser(request,env);
+    if(!user||licenseExpired(user))return json({error:'Giriş ve geçerli lisans gerekli.'},403);
+    const data=await body(request),target=data.target;
+    if(target!=='corel'&&target!=='rdworks')return json({error:'Geçersiz aktarım hedefi.'},400);
+    const settings=await effectiveTransferSettings(env,user.id);
+    if(!settings[target==='corel'?'corelTransferEnabled':'rdworksTransferEnabled'])return json({error:'Bu aktarım yetkisi yönetici tarafından kapatılmış.'},403);
+    const ticket=randomToken(),expiresAt=new Date(Date.now()+120000).toISOString();
+    await env.DB.prepare("DELETE FROM transfer_tickets WHERE datetime(expires_at)<datetime('now','-1 day')").run();
+    await env.DB.prepare("INSERT INTO transfer_tickets(token_hash,user_id,target,expires_at) VALUES(?,?,?,?)").bind(await sha256(ticket),user.id,target,expiresAt).run();
+    return json({ticket,expiresAt});
+  }
+  if(path==='/api/transfer/redeem'&&request.method==='POST'){
+    const data=await body(request),ticket=String(data.ticket||''),target=data.target;
+    if(!/^[a-f0-9]{64}$/.test(ticket)||!['corel','rdworks'].includes(target))return json({ok:false},403);
+    const found=await env.DB.prepare('SELECT user_id,target,redeemed_at,expires_at FROM transfer_tickets WHERE token_hash=?').bind(await sha256(ticket)).first();
+    if(!found||found.target!==target||found.redeemed_at||Date.parse(String(found.expires_at))<=Date.now())return json({ok:false},403);
+    const user=await env.DB.prepare('SELECT u.id,u.role,l.expires_at license_expires_at FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.id=?').bind(found.user_id).first();
+    if(!user||licenseExpired(user))return json({ok:false},403);
+    const settings=await effectiveTransferSettings(env,user.id);
+    if(!settings[target==='corel'?'corelTransferEnabled':'rdworksTransferEnabled'])return json({ok:false},403);
+    const redeemed=await env.DB.prepare("UPDATE transfer_tickets SET redeemed_at=CURRENT_TIMESTAMP WHERE token_hash=? AND redeemed_at IS NULL AND datetime(expires_at)>datetime('now')").bind(await sha256(ticket)).run();
+    if(!redeemed.meta.changes)return json({ok:false},403);
+    await audit(env,'local_transfer_authorized',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:target});
+    return json({ok:true});
+  }
   if(path==='/api/test-dxf'&&request.method==='GET'){
     const user=await sessionUser(request,env);if(!user)return json({allowed:false},401);
     const allowed=await testDxfAllowed(user.id,env);
@@ -770,7 +812,7 @@ async function handleApi(request,env){
     const user=await sessionUser(request,env),defaults=await systemDefaults(env);if(!user)return json({settings:defaults});
     const row=await env.DB.prepare('SELECT settings_json FROM user_settings WHERE user_id=?').bind(user.id).first();
     if(!row?.settings_json)return json({settings:defaults});
-    try{return json({settings:{...defaults,...cleanSettings(JSON.parse(row.settings_json))}})}catch{return json({settings:defaults})}
+    try{return json({settings:cleanSettings(JSON.parse(row.settings_json),defaults)})}catch{return json({settings:defaults})}
   }
   const userSettingsMatch=path.match(/^\/api\/admin\/users\/(\d+)\/settings$/);
   if(userSettingsMatch&&request.method==='GET'){
@@ -778,11 +820,11 @@ async function handleApi(request,env){
     const id=Number(userSettingsMatch[1]),target=await env.DB.prepare('SELECT id FROM users WHERE id=?').bind(id).first();if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
     const defaults=await systemDefaults(env),row=await env.DB.prepare('SELECT settings_json FROM user_settings WHERE user_id=?').bind(id).first();
     if(!row?.settings_json)return json({settings:defaults,custom:false});
-    try{return json({settings:{...defaults,...cleanSettings(JSON.parse(row.settings_json))},custom:true})}catch{return json({settings:defaults,custom:false})}
+    try{return json({settings:cleanSettings(JSON.parse(row.settings_json),defaults),custom:true})}catch{return json({settings:defaults,custom:false})}
   }
   if(userSettingsMatch&&request.method==='POST'){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
-    const id=Number(userSettingsMatch[1]),data=await body(request),settings=cleanSettings(data.settings),target=await env.DB.prepare('SELECT id FROM users WHERE id=?').bind(id).first();if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
+    const id=Number(userSettingsMatch[1]),data=await body(request),settings=cleanSettings(data.settings,await systemDefaults(env)),target=await env.DB.prepare('SELECT id FROM users WHERE id=?').bind(id).first();if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
     await env.DB.prepare('INSERT INTO user_settings(user_id,settings_json,updated_at) VALUES(?,?,CURRENT_TIMESTAMP) ON CONFLICT(user_id) DO UPDATE SET settings_json=excluded.settings_json,updated_at=CURRENT_TIMESTAMP').bind(id,JSON.stringify(settings)).run();
     await audit(env,'user_settings_changed',{actorType:'admin',targetUserId:id,detail:JSON.stringify(settings)});return json({settings,custom:true});
   }
