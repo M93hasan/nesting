@@ -1,6 +1,6 @@
 # Serula — Windows Otomatik Aktarım Köprüsü
 
-**Güncel sürüm: 1.3** · [Ana proje belgesi](../../README.md) · [PC sürümü](https://github.com/M93hasan/serula-nesting-pro-pc/releases/latest)
+**Güncel sürüm: 1.4** · [Ana proje belgesi](../../README.md) · [PC sürümü](https://github.com/M93hasan/serula-nesting-pro-pc/releases/latest)
 
 Bu klasör, Serula Nesting üzerinden tamamlanmış DXF yerleşimini Windows'ta çalışan **CorelDRAW** veya **RDWorks** programına aktarmak için gereken yerel uygulama köprüsünü içerir.
 
@@ -30,7 +30,7 @@ Serula Nesting Pro PC uygulamasını kullananlar için köprü PC kurulum paketi
 
 1. Serula'da **Hakkında → Otomatik Aktarım Köprüsü → Otomatik Kurulumu İndir (.cmd)** düğmesini kullanın.
 2. İndirilen **Serula-Kur.cmd** dosyasına çift tıklayın.
-3. Kurucu doğrulanan GitHub revizyonundan köprü v1.3'ü indirir.
+3. Kurucu doğrulanan GitHub revizyonundan köprü v1.4'ü indirir.
 4. Gerekirse Windows'un yalnızca **127.0.0.1:43842** URL rezervasyonu onayını verin.
 5. Önceki köprü işlemi güncel değilse sonlandırılır ve yenisi başlatılır.
 6. Windows kullanıcı oturumu açılışında otomatik başlatma kısayolu oluşturulur.
@@ -39,7 +39,7 @@ Serula Nesting Pro PC uygulamasını kullananlar için köprü PC kurulum paketi
 Beklenen yanıt örneği:
 
 ~~~json
-{"ok":true,"service":"serula-bridge","version":"1.3"}
+{"ok":true,"service":"serula-bridge","version":"1.4"}
 ~~~
 
 **Eski kurucuyu yeniden kullanmayın:** Serula-Kur.cmd belirli bir commit ve dosya SHA'sına sabitlenmiştir. Yeni köprü çıktığında .cmd dosyasını **yeniden indirin**.
@@ -58,7 +58,24 @@ Beklenen yanıt örneği:
 
 CorelDRAW otomasyon nesnesi **COM** aracılığıyla açılır veya erişilir. Geçici DXF için **OpenDocument** denenir. Kurulu CorelDRAW sürümü veya COM kaydı uygun değilse aktarım gerçekleşmeyebilir.
 
-### RDWorks — v1.3
+
+### Çoklu RDWorks sürümü desteği (1.4)
+
+Köprü aktarımı sırayla şu yöntemlerle dener:
+
+1. **Ctrl+I** kısayoluyla Import ekranını açar.
+2. Kısayol bu sürümde çalışmazsa **yerel File → Import komutunu** Windows menü kimliğiyle gönderir.
+3. Menü klasik değilse Windows **UI Automation** ile Import menüsünü bulur.
+4. Dosya seçicinin RDWorks'e ait olduğunu doğrular ve **UI Automation** ile dosya adını girer.
+5. UI Automation başarısızsa klasik Windows dosya seçicisini **GetDlgItem/SetWindowText** üzerinden dener.
+
+Köprü sadece yetkilendirilmiş Serula biletini kabul eder. **RDWorks açıldı veya dosya seçme penceresi kapandı diye kesim hazır sayılmaz**; başarılı yanıt `status=submitted_unverified` olarak döner. Operatör katman, ölçü ve çizimi RDWorks içinde doğrulamalıdır.
+
+Başarısız importta otomatik oluşturulan DXF **kaybolmaz**: API `filePath`, `manualImportRequired` ve açıklayıcı hata verir. Kullanıcı yedek olarak RDWorks içinden **File → Import** ile açabilir. Sistem lazer kesimi başlatmaz.
+
+**Sürüm yönetimi:** Web üzerinden indirilen `Serula-Kur.cmd` sürüm 1.4'ü doğrulanmış GitHub revizyonundan kurar. PC uygulaması için Bridge 1.4, PC sürüm 0.1.4 paketinde yer alır; **eski PC 0.1.3 kurulumunda yer alan köprü otomatik olarak güncellenmiş sayılmaz**. Yeni PC kurulum paketi gerçekten yayınlandıktan sonra PC sürümünü güncelleyin.
+
+### RDWorks — v1.4
 
 Köprü şu yolu dener:
 
@@ -106,7 +123,7 @@ URLACL izni yoksa Windows HTTP dinleyicisi başlatılamaz. Yetkiyi yalnızca ger
 ### Failed to fetch / Köprü bağlantısı yok
 
 - Aynı Windows bilgisayarında **/health** yanıtı geliyor mu?
-- Yanıttaki sürüm **1.3** mü?
+- Yanıttaki sürüm **1.4** mü?
 - Eski bir köprü aynı 43842 portunda çalışıyor olabilir mi?
 - Chrome'da Serula için **yerel ağ erişimi** izni açık mı?
 - Serula resmî HTTPS origin üzerinden mi açık?
@@ -119,11 +136,11 @@ URLACL izni yoksa Windows HTTP dinleyicisi başlatılamaz. Yetkiyi yalnızca ger
 - Windows ekran kilitli mi; uzak masaüstü oturumu etkisiz mi?
 - RDWorks dosya filtresi ya da DXF uyarı ekranı var mı?
 - Bir çizim açılmış fakat ekranda zoom dışında kalmış olabilir mi?
-- Köprü sağlığı **1.3** değilse yeniden indirilmiş kurucuyla güncelleyin.
+- Köprü sağlığı **1.4** değilse yeniden indirilmiş kurucuyla güncelleyin.
 
 ### Import penceresi algılanmadı
 
-v1.3, pencerenin süreç/sahiplik ilişkisini ve otomasyon alanlarını denetler. Sorun sürerse Windows ve RDWorks sürümüyle birlikte hata metnini raporlayın. Gerçek program üzerinde sürüme özel uyarlama gerekebilir.
+v1.4, pencerenin süreç/sahiplik ilişkisini ve otomasyon alanlarını denetler. Sorun sürerse Windows ve RDWorks sürümüyle birlikte hata metnini raporlayın. Gerçek program üzerinde sürüme özel uyarlama gerekebilir.
 
 ### CorelDRAW COM bulunamadı
 
@@ -131,7 +148,7 @@ CorelDRAW'ın kurulu ve ilgili Windows oturumunda erişilebilir olduğunu kontro
 
 ### Türkçe karakterler bozuk
 
-v1.3 PowerShell betiği **UTF-8 BOM** içerir. Sadece dosyayı güncellemek yeterli değildir; eski köprü bellekte çalışıyorsa kurucuyla yeniden başlatın.
+v1.4 PowerShell betiği **UTF-8 BOM** içerir. Sadece dosyayı güncellemek yeterli değildir; eski köprü bellekte çalışıyorsa kurucuyla yeniden başlatın.
 
 ## Üretim öncesi kritik kontrol
 
