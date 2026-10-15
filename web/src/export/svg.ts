@@ -7,6 +7,14 @@ import {pathData} from '../geometry/path';
 import {colors} from '../colors';
 const xmlText=(text:string)=>text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
 export type ExportBundle = { svg: string; dxf:string; world: WorldPart[] };
+/** DXF-only path for the download button. No redundant SVG creation or XML round-trip. */
+export function exportDXFOnly(doc:Document,result?:Result):ExportBundle {
+  if(result&&result.validation.status!=='passed')throw Error('Only a checked result can be exported.');
+  const placements=result?.placements??documentPlacements(doc);
+  const world=worldParts(doc,{placements});
+  if(world.some(part=>[part.outer,...part.holes].some(ring=>ring.some(point=>point.some(value=>!Number.isFinite(value))))))throw Error('Canvas contains invalid coordinates.');
+  return {world,dxf:exportDXF(doc,world,placements,true),svg:''};
+}
 export function exportSVG(doc: Document,result?: Result): ExportBundle {
   if(result&&result.validation.status!=='passed') throw Error('Only a checked result can be exported.');
   // JS's shortest round-trip decimal preserves each f64 exactly. Both formats
