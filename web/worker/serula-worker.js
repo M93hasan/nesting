@@ -576,6 +576,25 @@ async function handleApi(request,env){
     await audit(env,'export_saved',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:fileName});
     return json({ok:true,exportId,user:publicUser(fresh)});
   }
+  // Delete only this user's historical exports; preserve current project,
+  // offline quotas and credit balances. Use the authenticated user id from the session.
+  if(path==='/api/exports'&&request.method==='DELETE'){
+    const user=await sessionUser(request,env);
+    if(!user)return json({error:'Geçmişi silmek için giriş yapmalısınız.'},401);
+    const existing=await env.DB.prepare('SELECT COUNT(*) AS total FROM export_files WHERE user_id=?').bind(user.id).first();
+    try{
+      await env.DB.batch([
+        env.DB.prepare('DELETE FROM export_file_chunks WHERE export_id IN (SELECT id FROM export_files WHERE user_id=?)').bind(user.id),
+        env.DB.prepare('DELETE FROM export_files WHERE user_id=?').bind(user.id),
+        env.DB.prepare('DELETE FROM nesting_history WHERE user_id=?').bind(user.id)
+      ]);
+    }catch(error){
+      await audit(env,'export_history_clear_failed',{actorType:'user',actorUserId:user.id,targetUserId:user.id,success:false});
+      return json({error:'Geçmiş temizlenemedi.'},500);
+    }
+    await audit(env,'export_history_cleared',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:'Tüm geçmiş'});
+    return json({ok:true,deleted:Number(existing?.total||0)});
+  }
   if(path==='/api/exports'&&request.method==='GET'){
     const user=await sessionUser(request,env);if(!user)return json({error:'Geçmişi görmek için giriş yapmalısınız.'},401);
     const rows=await env.DB.prepare(`SELECT id,project_name,source_file_name,file_name,byte_size,created_at

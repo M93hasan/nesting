@@ -161,6 +161,14 @@ export default function Workspace({ document: doc, result, live, selected, selec
           strokeWidth={Math.max(1,strokeWidth*.75)} vectorEffect="non-scaling-stroke" />)}
         {drawing.markPaths.map((markPath,markIndex)=><path key={`mark-${markIndex}`} d={markPath} fill="none" pointerEvents="none" stroke={stroke}
           strokeWidth={Math.max(1,strokeWidth*.75)} vectorEffect="non-scaling-stroke" />)}
+        {doc.parts[index]?.name&& <text
+          x={(x0+x1)/2} y={-(y0+y1)/2} transform="scale(1 -1)"
+          textAnchor="middle" dominantBaseline="middle" pointerEvents="none"
+          fontFamily="system-ui, sans-serif" fontWeight={600}
+          fontSize={Math.max(.5,Math.min(14*unit,(x1-x0)/(Math.max(doc.parts[index].name.length,1)*.62),(y1-y0)*.38))}
+          fill="var(--ink)" opacity={0.4} aria-hidden="true">
+          {doc.parts[index].name}
+        </text>}
         {active && <rect x={x0} y={y0} width={x1 - x0} height={y1 - y0} fill="none" stroke="var(--accent)"
           strokeDasharray="4 3" vectorEffect="non-scaling-stroke" pointerEvents="none" />}
         <title>{doc.parts[index]?.name} · kopya {drawing.copyIndex + 1}{active ? ' · seçili' : ''}</title>

@@ -112,9 +112,22 @@ export default function ExportHistory({onClose,onOpen}:{onClose:()=>void;onOpen:
     finally{setBusy('')}
   }
 
+  async function deleteAll(){
+    if(!items.length||busy)return;
+    if(!window.confirm(`Bu hesaba ait tüm DXF geçmişini kalıcı olarak silmek istiyor musunuz? Ekranda ${items.length} kayıt görünüyor. Diğer eski kayıtlar da silinir. Bu işlem geri alınamaz. Açık proje ve otomatik kurtarma kaydı korunur.`))return;
+    setBusy('delete-all');setError('');
+    try{
+      const response=await fetch('/api/exports',{method:'DELETE',credentials:'same-origin'});
+      if(response.status===401){window.dispatchEvent(new Event('serula-login-required'));throw Error('Oturum süresi doldu. Yeniden giriş yapın.')}
+      if(!response.ok)throw Error(await responseError(response,'Tüm geçmiş silinemedi.'));
+      setItems([]);
+    }catch(e){setError(e instanceof Error?e.message:String(e))}
+    finally{setBusy('')}
+  }
+
   return <Modal title="Geçmiş" onClose={onClose} locked={!!busy}>
     <div className="export-history">
-      <div className="export-history-head"><div><strong>Bulut kayıtları</strong><small>Çalışma değiştikçe son temiz proje durumu otomatik kaydedilir; DXF dışa aktarımları ayrıca geçmişte tutulur.</small></div><button disabled={loading||!!busy} onClick={()=>void load()}>Yenile</button></div>
+      <div className="export-history-head"><div><strong>Bulut kayıtları</strong><small>Çalışma değiştikçe son temiz proje durumu otomatik kaydedilir; DXF dışa aktarımları ayrıca geçmişte tutulur.</small></div><div className="export-history-head-actions"><button disabled={loading||!!busy} onClick={()=>void load()}>Yenile</button><button type="button" className="danger-button" disabled={loading||!!busy||!items.length} onClick={()=>void deleteAll()}>Tüm Geçmişi Sil</button></div></div>
       {error&&<p role="alert" className="field-error">{error}</p>}
       {loading?<p className="muted">Geçmiş yükleniyor…</p>:<>
         {cloud&&<article className="export-history-item export-history-latest">
