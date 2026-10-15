@@ -1,6 +1,7 @@
 import { DEFAULT_SETTINGS, newPart, type Document, type Part, type Ring } from '../model';
 import { bounds, normalizeDocument, normalizeRing } from '../geometry/normalize';
 import { collisionRing } from '../geometry/validate';
+import {documentPlacements,placementKey} from '../geometry/placements';
 
 export type ImportReview = { document: Document; warnings: string[]; replace: boolean; issues?:string[]; layers?:string[]; result?:import('../model').Result };
 export function record(value: unknown): Record<string,unknown> {
@@ -103,14 +104,16 @@ function rotatedWidth(ring:Ring,angleDeg:number):number {
 }
 export function preflightSolverFit(doc:Document):void {
   const width=doc.settings.materialWidthMm,tolerance=1e-7;
-  for(const part of doc.parts){
-    if(part.quantity<=0||part.rotations.kind==='continuous')continue;
+  const parts=new Map(doc.parts.map(part=>[part.id,part]));
+  for(const copy of documentPlacements(doc)){
+    const part=parts.get(copy.partId)!;
+    const angles=copy.fixedAngleDeg!==undefined?[copy.fixedAngleDeg]:
+      part.rotations.kind==='continuous'?undefined:part.rotations.degrees;
+    if(!angles)continue;
     const ring=collisionRing(part);
-    const fits=part.rotations.degrees.some(angle=>rotatedWidth(ring,angle)<=width+tolerance);
-    if(!fits){
-      const angles=part.rotations.degrees.map(angle=>`${angle}°`).join(', ');
-      throw Error(`${part.name} seçilen dönüş kuralıyla ${width} mm malzeme genişliğine sığmıyor. İzin verilen açılar: ${angles}.`);
-    }
+    if(angles.some(angle=>rotatedWidth(ring,angle)<=width+tolerance))continue;
+    const descriptions=angles.map(angle=>`${angle}°`).join(', ');
+    throw Error(`${part.name} seçilen dönüş kuralıyla ${width} mm malzeme genişliğine sığmıyor. İzin verilen açılar: ${descriptions}.`);
   }
 }
 export function friendlyInitialPlacementError(doc:Document,message:string):string {
@@ -127,15 +130,17 @@ export function solverInput(doc: Document): string {
   if(!copies.length)throw Error('Add at least one copy before nesting.');
   preflightSolverFit(doc);
   const parts=new Map(doc.parts.map(part=>[part.id,part]));
+  const placements=new Map(documentPlacements(doc).map(copy=>[placementKey(copy),copy]));
   const edgePadding=solverEdgePadding(doc.settings.clearanceMm);
   return JSON.stringify({name:doc.name,strip_height:doc.settings.materialWidthMm+2*edgePadding,min_item_separation:doc.settings.clearanceMm,items:copies.map(copy=>{
     const p=parts.get(copy.partId)!;
+    const fixedAngle=placements.get(placementKey(copy))?.fixedAngleDeg;
     return {
       // Keep each physical copy as its own Sparrow item. Demand=1 preserves
       // stable physical copy identity for footwear DXF parts.
       id:copy.itemId,demand:1,
-      orientation:{rotation:p.rotations.kind==='continuous'
-        ?{mode:'continuous'}
+      orientation:{rotation:fixedAngle!==undefined?{mode:'discrete',angles:[-fixedAngle]}:
+        p.rotations.kind==='continuous'?{mode:'continuous'}
         :{mode:'discrete',angles:p.rotations.degrees.map(angle=>-angle)}},
       shape:{type:'simple_polygon',data:collisionRing(p).map(([x,y])=>[y,x])},
     };
