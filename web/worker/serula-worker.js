@@ -269,7 +269,7 @@ function cleanSettings(value,defaults=DEFAULT_ADMIN_SETTINGS){
     materialType:['roll','sheet'].includes(input.materialType)?input.materialType:defaults.materialType,
     solverPreset:['standard','fast'].includes(input.solverPreset)?input.solverPreset:defaults.solverPreset,
     corelTransferEnabled:typeof input.corelTransferEnabled==='boolean'?input.corelTransferEnabled:defaults.corelTransferEnabled,
-    rdworksTransferEnabled:typeof input.rdworksTransferEnabled==='boolean'?input.rdworksTransferEnabled:defaults.rdworksTransferEnabled
+    rdworksTransferEnabled:false
   };
 }
 async function audit(env,action,{actorType='system',actorUserId=null,targetUserId=null,detail='',success=true}={}){
@@ -334,13 +334,13 @@ async function handleApi(request,env){
     const user=await sessionUser(request,env);
     if(!user||licenseExpired(user))return json({corel:false,rdworks:false});
     const settings=await effectiveTransferSettings(env,user.id);
-    return json({corel:settings.corelTransferEnabled===true,rdworks:settings.rdworksTransferEnabled===true});
+    return json({corel:settings.corelTransferEnabled===true,rdworks:false});
   }
   if(path==='/api/transfer/ticket'&&request.method==='POST'){
     const user=await sessionUser(request,env);
     if(!user||licenseExpired(user))return json({error:'Giriş ve geçerli lisans gerekli.'},403);
     const data=await body(request),target=data.target;
-    if(target!=='corel'&&target!=='rdworks')return json({error:'Geçersiz aktarım hedefi.'},400);
+    if(target!=='corel')return json({error:'RDWorks otomatik aktarımı desteklenmiyor.'},403);
     const settings=await effectiveTransferSettings(env,user.id);
     if(!settings[target==='corel'?'corelTransferEnabled':'rdworksTransferEnabled'])return json({error:'Bu aktarım yetkisi yönetici tarafından kapatılmış.'},403);
     const ticket=randomToken(),expiresAt=new Date(Date.now()+120000).toISOString();
@@ -350,7 +350,7 @@ async function handleApi(request,env){
   }
   if(path==='/api/transfer/redeem'&&request.method==='POST'){
     const data=await body(request),ticket=String(data.ticket||''),target=data.target;
-    if(!/^[a-f0-9]{64}$/.test(ticket)||!['corel','rdworks'].includes(target))return json({ok:false},403);
+    if(!/^[a-f0-9]{64}$/.test(ticket)||target!=='corel')return json({ok:false},403);
     const found=await env.DB.prepare('SELECT user_id,target,redeemed_at,expires_at FROM transfer_tickets WHERE token_hash=?').bind(await sha256(ticket)).first();
     if(!found||found.target!==target||found.redeemed_at||Date.parse(String(found.expires_at))<=Date.now())return json({ok:false},403);
     const user=await env.DB.prepare('SELECT u.id,u.role,l.expires_at license_expires_at FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.id=?').bind(found.user_id).first();
@@ -367,35 +367,11 @@ async function handleApi(request,env){
     const allowed=await testDxfAllowed(user.id,env);
     return allowed?json({allowed:true,files:TEST_DXF_FILES}):json({allowed:false},403);
   }
-    if(path==='/api/rdworks/access'&&request.method==='GET'){
-      const user=await sessionUser(request,env);
-      if(!user)return json({enabled:false});
-      return json({enabled:!licenseExpired(user)&&await rdworksEnabled(user.id,env)});
-    }
-    if(path==='/api/rdworks/ticket'&&request.method==='POST'){
-      const user=await sessionUser(request,env);
-      if(!user)return json({error:'Giriş gerekli.'},401);
-      if(licenseExpired(user)||!await rdworksEnabled(user.id,env))return json({error:'RDWorks aktarım yetkiniz yok.'},403);
-      await env.DB.prepare("DELETE FROM rdworks_tickets WHERE datetime(expires_at)<datetime('now','-1 day')").run();
-      const ticket=randomToken(),expiresAt=new Date(Date.now()+120000).toISOString();
-      await env.DB.prepare('INSERT INTO rdworks_tickets(token_hash,user_id,expires_at) VALUES(?,?,?)').bind(await sha256(ticket),user.id,expiresAt).run();
-      return json({ticket,expiresAt});
-    }
-    if(path==='/api/rdworks/redeem'&&request.method==='POST'){
-      const data=await body(request),ticket=String(data.ticket||'');
-      if(!/^[a-f0-9]{64}$/.test(ticket))return json({ok:false},403);
-      const digest=await sha256(ticket);
-      const found=await env.DB.prepare(`SELECT t.user_id,t.redeemed_at,t.expires_at,l.expires_at license_expires_at,a.enabled
-        FROM rdworks_tickets t
-        LEFT JOIN user_licenses l ON l.user_id=t.user_id
-        LEFT JOIN user_rdworks_access a ON a.user_id=t.user_id
-        WHERE t.token_hash=?`).bind(digest).first();
-      if(!found||found.redeemed_at||!found.enabled||licenseExpired(found)||Date.parse(String(found.expires_at))<=Date.now())return json({ok:false},403);
-      const used=await env.DB.prepare("UPDATE rdworks_tickets SET redeemed_at=CURRENT_TIMESTAMP WHERE token_hash=? AND redeemed_at IS NULL AND datetime(expires_at)>datetime('now')").bind(digest).run();
-      if(!used.meta.changes)return json({ok:false},403);
-      await audit(env,'rdworks_staged',{actorType:'user',actorUserId:found.user_id,targetUserId:found.user_id});
-      return json({ok:true});
-    }
+    // RDWorks has no validated one-click import for supported installations.
+    // Deny legacy endpoints as well; CorelDRAW transfer remains unchanged.
+    if(path==='/api/rdworks/access'&&request.method==='GET')return json({enabled:false});
+    if((path==='/api/rdworks/ticket'||path==='/api/rdworks/redeem')&&request.method==='POST')
+      return json({error:'RDWorks otomatik aktarımı kapalı.',ok:false},403);
     if(path==='/api/auth/me'&&request.method==='GET'){
     const user=await sessionUser(request,env);
     if(!user)return json({user:null},401);
@@ -850,7 +826,7 @@ async function handleApi(request,env){
   if(transferToggleMatch&&request.method==='POST'){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
     const id=Number(transferToggleMatch[1]),data=await body(request),target=data.target;
-    if(!['corel','rdworks'].includes(target)||typeof data.enabled!=='boolean')
+    if(target!=='corel'||typeof data.enabled!=='boolean')
       return json({error:'Geçersiz aktarım hedefi veya durum.'},400);
     const exists=await env.DB.prepare('SELECT id FROM users WHERE id=?').bind(id).first();
     if(!exists)return json({error:'Kullanıcı bulunamadı.'},404);
