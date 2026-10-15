@@ -37,7 +37,7 @@ jobs:
             }
           }
           $bridge = Get-Content $files[0] -Raw
-          if ($bridge -notmatch "version='1.4'" -or $bridge -notmatch "Open-RDWorksImportPicker" -or $bridge -notmatch "Try-RDWorksClassicPicker") {
+          if ($bridge -notmatch "version='1.5'" -or $bridge -notmatch "Open-RDWorksImportPicker" -or $bridge -notmatch "Try-RDWorksClassicPicker" -or $bridge -notmatch "Wait-RDWorksPasteAndImport") {
             throw "RDWorks compatibility fallback or bridge version missing"
           }
       - name: Verify download and source installer are identical
