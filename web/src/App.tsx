@@ -792,7 +792,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
             <div className="about-download-card">
               <div className="about-card-title"><span className="about-download-icon" aria-hidden="true">▣</span><div><strong>Serula Nesting Pro PC</strong><small>Windows x64 · Masaüstü uygulaması</small></div></div>
               <p>Serula'yı Windows'ta çalıştırın. CorelDRAW ve RDWorks aktarım köprüsü kurulum paketine dahildir.</p>
-              <a className="button about-download-button about-pc-button" href="https://github.com/M93hasan/serula-nesting-pro-pc/releases/latest/download/Serula-Nesting-Pro-PC-Setup.exe" target="_blank" rel="noreferrer"><span aria-hidden="true">↓</span> PC Sürümünü İndir (.exe)</a>
+              <a className="button about-download-button about-pc-button" href="https://github.com/M93hasan/serula-nesting-pro-pc/releases/download/pc-v0.1.11/Serula-Nesting-Pro-PC-Setup.exe" target="_blank" rel="noreferrer"><span aria-hidden="true">↓</span> PC Sürümünü İndir (.exe)</a>
             </div>
             <div className="about-download-card">
               <div className="about-card-title"><span className="about-download-icon" aria-hidden="true">⇄</span><div><strong>Otomatik Aktarım Köprüsü</strong><small>Windows · Tarayıcı kullanımı</small></div></div>
