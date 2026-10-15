@@ -105,12 +105,14 @@ function rotatedWidth(ring:Ring,angleDeg:number):number {
 export function preflightSolverFit(doc:Document):void {
   const width=doc.settings.materialWidthMm,tolerance=1e-7;
   const parts=new Map(doc.parts.map(part=>[part.id,part]));
+  const rings=new Map<string,Ring>();
   for(const copy of documentPlacements(doc)){
     const part=parts.get(copy.partId)!;
     const angles=copy.fixedAngleDeg!==undefined?[copy.fixedAngleDeg]:
       part.rotations.kind==='continuous'?undefined:part.rotations.degrees;
     if(!angles)continue;
-    const ring=collisionRing(part);
+    let ring=rings.get(part.id);
+    if(!ring){ring=collisionRing(part);rings.set(part.id,ring);}
     if(angles.some(angle=>rotatedWidth(ring,angle)<=width+tolerance))continue;
     const descriptions=angles.map(angle=>`${angle}°`).join(', ');
     throw Error(`${part.name} seçilen dönüş kuralıyla ${width} mm malzeme genişliğine sığmıyor. İzin verilen açılar: ${descriptions}.`);
