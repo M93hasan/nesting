@@ -423,6 +423,258 @@ function Import-DxfRDWorks($rd,[IntPtr]$dialog,[string]$path) {
   }
 }
 
+# Safely launch RDWorks using its Desktop RDWorksV8 shortcut, not an arbitrary .lnk.
+function Get-RDWorksProcess {
+  Get-Process -ErrorAction SilentlyContinue |
+    Where-Object { $_.ProcessName -match '^(RDWorks.*|RDLaser.*)
+$folder=Join-Path $env:LOCALAPPDATA 'SerulaBridge\Transfers'
+[System.IO.Directory]::CreateDirectory($folder) | Out-Null
+# Remove previous temporary drawings older than seven days.
+Get-ChildItem -LiteralPath $folder -Filter '*.dxf' -File -ErrorAction SilentlyContinue | Where-Object {$_.LastWriteTime -lt (Get-Date).AddDays(-7)} | Remove-Item -Force -ErrorAction SilentlyContinue
+$listener=New-Object System.Net.HttpListener
+$listener.Prefixes.Add("http://127.0.0.1:$Port/")
+try {$listener.Start()}catch {
+  Write-Host "Bridge dinleyemiyor. Portu kontrol edin veya URL ACL için yönetici yetkisi tanımlayın: netsh http add urlacl url=http://127.0.0.1:$Port/ user=$env:USERDOMAIN\$env:USERNAME"
+  throw
+}
+function Reply($context,[int]$status,$payload){
+  $response=$context.Response
+  $response.StatusCode=$status
+  $response.ContentType='application/json; charset=utf-8'
+  $response.Headers.Add('Access-Control-Allow-Origin',$origin)
+  $response.Headers.Add('Access-Control-Allow-Methods','GET, POST, OPTIONS')
+  $response.Headers.Add('Access-Control-Allow-Headers','content-type')
+  $response.Headers.Add('Access-Control-Allow-Private-Network','true')
+  $response.Headers.Add('Vary','Origin')
+  $data=[Text.Encoding]::UTF8.GetBytes(($payload | ConvertTo-Json -Compress -Depth 8))
+  $response.ContentLength64=$data.Length
+  $response.OutputStream.Write($data,0,$data.Length)
+  $response.OutputStream.Close()
+}
+Write-Host "Serula Bridge hazır: http://127.0.0.1:$Port/health"
+try {
+ while($listener.IsListening){
+  $ctx=$listener.GetContext()
+  try{
+    $tempPath=$null
+    $req=$ctx.Request
+    $reqOrigin=$req.Headers['Origin']
+    if($req.HttpMethod -eq 'GET' -and $req.Url.AbsolutePath -eq '/health'){
+      Reply $ctx 200 @{ok=$true;service='serula-bridge';version='1.5';rdworksStrategies=@('shortcut','native-menu','uia-menu','uia-picker','classic-picker','clipboard-paste')}
+      continue
+    }
+    if($reqOrigin -ne $origin){Reply $ctx 403 @{ok=$false;error='Origin izinli değil.'};continue}
+    if($req.HttpMethod -eq 'OPTIONS'){Reply $ctx 200 @{ok=$true};continue}
+    if($req.HttpMethod -ne 'POST' -or $req.Url.AbsolutePath -ne '/transfer'){Reply $ctx 404 @{ok=$false;error='Bilinmeyen istek.'};continue}
+    if($req.ContentLength64 -gt 15000000){Reply $ctx 413 @{ok=$false;error='DXF aktarımı 15 MB sınırını aşıyor.'};continue}
+    $reader=New-Object System.IO.StreamReader($req.InputStream,[Text.Encoding]::UTF8)
+    $raw=$reader.ReadToEnd();$reader.Close()
+    if($raw.Length -gt 15000000){Reply $ctx 413 @{ok=$false;error='Çok büyük istek.'};continue}
+    $data=$raw | ConvertFrom-Json
+    $target=[string]$data.target
+    $mode=[string]$data.mode
+    $ticket=[string]$data.ticket
+    $dxf=[string]$data.dxf
+    if($target -notin @('corel','rdworks') -or $ticket -notmatch '^[a-f0-9]{64}$' -or $dxf.Length -lt 20 -or $dxf -notmatch '(?m)^EOF\s*$'){
+      Reply $ctx 400 @{ok=$false;error='Geçersiz aktarım verisi.'};continue
+    }
+    # A browser UI toggle alone is not permission. Verify the one-time ticket
+    # against Cloudflare, so disabled users cannot submit payloads to this bridge.
+    try{
+      $permission=Invoke-RestMethod -Uri "$origin/api/transfer/redeem" -Method POST -ContentType 'application/json' -Body (@{ticket=$ticket;target=$target} | ConvertTo-Json -Compress) -TimeoutSec 15
+      if($permission.ok -ne $true){throw 'Yetki reddedildi.'}
+    }catch{Reply $ctx 403 @{ok=$false;error='Aktarım izni doğrulanamadı.'};continue}
+    $tempPath=Join-Path $folder (([guid]::NewGuid().ToString('N'))+'.dxf')
+    [System.IO.File]::WriteAllText($tempPath,$dxf,(New-Object System.Text.UTF8Encoding($false)))
+    if($target -eq 'corel'){
+      $app=$null
+      foreach($progId in @('CorelDRAW.Application','CorelDRAW.Application.27','CorelDRAW.Application.26','CorelDRAW.Application.25','CorelDRAW.Application.24')){
+        try {$app=New-Object -ComObject $progId;break}catch{}
+      }
+      if($null -eq $app){throw 'CorelDRAW COM otomasyonu bulunamadı. Program kurulu mu?'}
+      $app.Visible=$true
+      $null=$app.OpenDocument($tempPath)
+      Reply $ctx 200 @{ok=$true;message="DXF, CorelDRAW'da açıldı. Kalıcı dosya kaydı yapılmadı."}
+    }else{
+      # RDWorks does not provide a reliable public automation API. Request its
+      # Import dialog via UI. User should verify the file in RDWorks afterward.
+      $rd=Find-OrStart-RDWorks
+      if(!(Activate-RDWorks $rd)){
+        # Windows sometimes refuses keyboard focus regardless of Win32 calls.
+        # Avoid typing into the wrong window. Leave the prepared, authorized
+        # DXF in the temporary folder and put its path on the clipboard instead.
+        try{
+          [System.Windows.Forms.Clipboard]::SetText($tempPath)
+          throw 'RDWorks Windows tarafindan one getirilemedi. DXF dosya yolu panoya kopyalandi. RDWorks penceresine tiklayin, Ctrl+I ve Ctrl+V ardindan Enter basin. Yeniden DXF kaydetmenize gerek yok. RDWorks yonetici olarak aciksa normal yetkiyle yeniden baslatin.'
+        }catch{
+          if($_.Exception.Message -like 'RDWorks Windows tarafindan*'){throw}
+          throw ('RDWorks penceresi etkinlestirilemedi. Gecici DXF: '+$tempPath+' ; RDWorks uzerinden Ctrl+I ile bu yolu acin.')
+        }
+      }
+      $dialog=Open-RDWorksImportPicker $rd
+      if($dialog -eq [IntPtr]::Zero){
+        throw 'RDWorks Import penceresi açılamadı. Ctrl+I, File > Import ve arayüz menüsü denendi. Geçici DXF kaydedildi.'
+      }
+      if($mode -eq 'clipboard-paste'){
+        Wait-RDWorksPasteAndImport $rd $dialog $tempPath
+        Reply $ctx 200 @{ok=$true;status='submitted_unverified';message='DXF yolu RDWorks Import penceresine yapistirildi ve dosya acma onaylandi. RDWorks icinde cizim ve olculeri kontrol edin.'}
+      }else{
+        Import-DxfRDWorks $rd $dialog $tempPath
+        Reply $ctx 200 @{ok=$true;status='submitted_unverified';message='DXF, RDWorks Import penceresinde seçildi. Çizimin yüklendiğini, ölçüleri ve katmanları RDWorks içinde doğrulayın.'}
+      }
+    }
+  }catch{
+    $message=$_.Exception.Message
+    $path=if($tempPath -and (Test-Path -LiteralPath $tempPath -PathType Leaf)){$tempPath}else{$null}
+    try{Reply $ctx 500 @{ok=$false;code='rdworks_import_failed';error=$message;filePath=$path;manualImportRequired=[bool]$path}}catch{}
+  }
+ }
+}finally{$listener.Stop();$listener.Close()}
+ -and $_.MainWindowHandle -ne 0 } |
+    Select-Object -First 1
+}
+function Find-OrStart-RDWorks {
+  $rd=Get-RDWorksProcess
+  if($rd){return $rd}
+  $candidates=@(
+    (Join-Path ([Environment]::GetFolderPath('Desktop')) 'RDWorksV8.lnk'),
+    (Join-Path $env:USERPROFILE 'Desktop\RDWorksV8.lnk'),
+    'C:\Users\lamasat\Desktop\RDWorksV8.lnk',
+    (Join-Path $env:PUBLIC 'Desktop\RDWorksV8.lnk')
+  ) | Select-Object -Unique
+  $shell=New-Object -ComObject WScript.Shell
+  $started=$false
+  foreach($shortcutPath in $candidates){
+    if(!(Test-Path -LiteralPath $shortcutPath -PathType Leaf)){continue}
+    try{
+      $shortcut=$shell.CreateShortcut($shortcutPath)
+      $target=[string]$shortcut.TargetPath
+      if([IO.Path]::GetFileName($target) -notmatch '^(RDWorks.*|RDLaser.*)\.exe
+$folder=Join-Path $env:LOCALAPPDATA 'SerulaBridge\Transfers'
+[System.IO.Directory]::CreateDirectory($folder) | Out-Null
+# Remove previous temporary drawings older than seven days.
+Get-ChildItem -LiteralPath $folder -Filter '*.dxf' -File -ErrorAction SilentlyContinue | Where-Object {$_.LastWriteTime -lt (Get-Date).AddDays(-7)} | Remove-Item -Force -ErrorAction SilentlyContinue
+$listener=New-Object System.Net.HttpListener
+$listener.Prefixes.Add("http://127.0.0.1:$Port/")
+try {$listener.Start()}catch {
+  Write-Host "Bridge dinleyemiyor. Portu kontrol edin veya URL ACL için yönetici yetkisi tanımlayın: netsh http add urlacl url=http://127.0.0.1:$Port/ user=$env:USERDOMAIN\$env:USERNAME"
+  throw
+}
+function Reply($context,[int]$status,$payload){
+  $response=$context.Response
+  $response.StatusCode=$status
+  $response.ContentType='application/json; charset=utf-8'
+  $response.Headers.Add('Access-Control-Allow-Origin',$origin)
+  $response.Headers.Add('Access-Control-Allow-Methods','GET, POST, OPTIONS')
+  $response.Headers.Add('Access-Control-Allow-Headers','content-type')
+  $response.Headers.Add('Access-Control-Allow-Private-Network','true')
+  $response.Headers.Add('Vary','Origin')
+  $data=[Text.Encoding]::UTF8.GetBytes(($payload | ConvertTo-Json -Compress -Depth 8))
+  $response.ContentLength64=$data.Length
+  $response.OutputStream.Write($data,0,$data.Length)
+  $response.OutputStream.Close()
+}
+Write-Host "Serula Bridge hazır: http://127.0.0.1:$Port/health"
+try {
+ while($listener.IsListening){
+  $ctx=$listener.GetContext()
+  try{
+    $tempPath=$null
+    $req=$ctx.Request
+    $reqOrigin=$req.Headers['Origin']
+    if($req.HttpMethod -eq 'GET' -and $req.Url.AbsolutePath -eq '/health'){
+      Reply $ctx 200 @{ok=$true;service='serula-bridge';version='1.5';rdworksStrategies=@('shortcut','native-menu','uia-menu','uia-picker','classic-picker','clipboard-paste')}
+      continue
+    }
+    if($reqOrigin -ne $origin){Reply $ctx 403 @{ok=$false;error='Origin izinli değil.'};continue}
+    if($req.HttpMethod -eq 'OPTIONS'){Reply $ctx 200 @{ok=$true};continue}
+    if($req.HttpMethod -ne 'POST' -or $req.Url.AbsolutePath -ne '/transfer'){Reply $ctx 404 @{ok=$false;error='Bilinmeyen istek.'};continue}
+    if($req.ContentLength64 -gt 15000000){Reply $ctx 413 @{ok=$false;error='DXF aktarımı 15 MB sınırını aşıyor.'};continue}
+    $reader=New-Object System.IO.StreamReader($req.InputStream,[Text.Encoding]::UTF8)
+    $raw=$reader.ReadToEnd();$reader.Close()
+    if($raw.Length -gt 15000000){Reply $ctx 413 @{ok=$false;error='Çok büyük istek.'};continue}
+    $data=$raw | ConvertFrom-Json
+    $target=[string]$data.target
+    $mode=[string]$data.mode
+    $ticket=[string]$data.ticket
+    $dxf=[string]$data.dxf
+    if($target -notin @('corel','rdworks') -or $ticket -notmatch '^[a-f0-9]{64}$' -or $dxf.Length -lt 20 -or $dxf -notmatch '(?m)^EOF\s*$'){
+      Reply $ctx 400 @{ok=$false;error='Geçersiz aktarım verisi.'};continue
+    }
+    # A browser UI toggle alone is not permission. Verify the one-time ticket
+    # against Cloudflare, so disabled users cannot submit payloads to this bridge.
+    try{
+      $permission=Invoke-RestMethod -Uri "$origin/api/transfer/redeem" -Method POST -ContentType 'application/json' -Body (@{ticket=$ticket;target=$target} | ConvertTo-Json -Compress) -TimeoutSec 15
+      if($permission.ok -ne $true){throw 'Yetki reddedildi.'}
+    }catch{Reply $ctx 403 @{ok=$false;error='Aktarım izni doğrulanamadı.'};continue}
+    $tempPath=Join-Path $folder (([guid]::NewGuid().ToString('N'))+'.dxf')
+    [System.IO.File]::WriteAllText($tempPath,$dxf,(New-Object System.Text.UTF8Encoding($false)))
+    if($target -eq 'corel'){
+      $app=$null
+      foreach($progId in @('CorelDRAW.Application','CorelDRAW.Application.27','CorelDRAW.Application.26','CorelDRAW.Application.25','CorelDRAW.Application.24')){
+        try {$app=New-Object -ComObject $progId;break}catch{}
+      }
+      if($null -eq $app){throw 'CorelDRAW COM otomasyonu bulunamadı. Program kurulu mu?'}
+      $app.Visible=$true
+      $null=$app.OpenDocument($tempPath)
+      Reply $ctx 200 @{ok=$true;message="DXF, CorelDRAW'da açıldı. Kalıcı dosya kaydı yapılmadı."}
+    }else{
+      # RDWorks does not provide a reliable public automation API. Request its
+      # Import dialog via UI. User should verify the file in RDWorks afterward.
+      $rd=Get-Process -ErrorAction SilentlyContinue | Where-Object {$_.ProcessName -match '^(RDWorks.*|RDLaser.*)$' -and $_.MainWindowHandle -ne 0} | Select-Object -First 1
+      if(!$rd){throw 'RDWorks açık değil. RDWorks penceresini başlatın.'}
+      if(!(Activate-RDWorks $rd)){
+        # Windows sometimes refuses keyboard focus regardless of Win32 calls.
+        # Avoid typing into the wrong window. Leave the prepared, authorized
+        # DXF in the temporary folder and put its path on the clipboard instead.
+        try{
+          [System.Windows.Forms.Clipboard]::SetText($tempPath)
+          throw 'RDWorks Windows tarafindan one getirilemedi. DXF dosya yolu panoya kopyalandi. RDWorks penceresine tiklayin, Ctrl+I ve Ctrl+V ardindan Enter basin. Yeniden DXF kaydetmenize gerek yok. RDWorks yonetici olarak aciksa normal yetkiyle yeniden baslatin.'
+        }catch{
+          if($_.Exception.Message -like 'RDWorks Windows tarafindan*'){throw}
+          throw ('RDWorks penceresi etkinlestirilemedi. Gecici DXF: '+$tempPath+' ; RDWorks uzerinden Ctrl+I ile bu yolu acin.')
+        }
+      }
+      $dialog=Open-RDWorksImportPicker $rd
+      if($dialog -eq [IntPtr]::Zero){
+        throw 'RDWorks Import penceresi açılamadı. Ctrl+I, File > Import ve arayüz menüsü denendi. Geçici DXF kaydedildi.'
+      }
+      if($mode -eq 'clipboard-paste'){
+        Wait-RDWorksPasteAndImport $rd $dialog $tempPath
+        Reply $ctx 200 @{ok=$true;status='submitted_unverified';message='DXF yolu RDWorks Import penceresine yapistirildi ve dosya acma onaylandi. RDWorks icinde cizim ve olculeri kontrol edin.'}
+      }else{
+        Import-DxfRDWorks $rd $dialog $tempPath
+        Reply $ctx 200 @{ok=$true;status='submitted_unverified';message='DXF, RDWorks Import penceresinde seçildi. Çizimin yüklendiğini, ölçüleri ve katmanları RDWorks içinde doğrulayın.'}
+      }
+    }
+  }catch{
+    $message=$_.Exception.Message
+    $path=if($tempPath -and (Test-Path -LiteralPath $tempPath -PathType Leaf)){$tempPath}else{$null}
+    try{Reply $ctx 500 @{ok=$false;code='rdworks_import_failed';error=$message;filePath=$path;manualImportRequired=[bool]$path}}catch{}
+  }
+ }
+}finally{$listener.Stop();$listener.Close()}
+ -or !(Test-Path -LiteralPath $target -PathType Leaf)){continue}
+      $workingDirectory=Split-Path -LiteralPath $target -Parent
+      $args=[string]$shortcut.Arguments
+      if([string]::IsNullOrWhiteSpace($args)){
+        $null=Start-Process -FilePath $target -WorkingDirectory $workingDirectory -PassThru
+      }else{
+        $null=Start-Process -FilePath $target -WorkingDirectory $workingDirectory -ArgumentList $args -PassThru
+      }
+      $started=$true
+      break
+    }catch{continue}
+  }
+  if(!$started){throw 'RDWorks acik degil ve masaustu RDWorksV8 kisayolu bulunamadi veya hedefi gecersiz.'}
+  for($i=0;$i -lt 80;$i++){
+    Start-Sleep -Milliseconds 250
+    $rd=Get-RDWorksProcess
+    if($rd){return $rd}
+  }
+  throw 'RDWorks baslatildi ancak 20 saniye icinde cizim penceresi hazir olmadi.'
+}
+
 $origin='https://serula.site'
 $folder=Join-Path $env:LOCALAPPDATA 'SerulaBridge\Transfers'
 [System.IO.Directory]::CreateDirectory($folder) | Out-Null
