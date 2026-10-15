@@ -2,9 +2,9 @@
 # Bridge source is pinned to a specific GitHub commit. Run as the current user.
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
-$commit = 'a66023e0f7b79642d281e5715d11dff86aa95029'
+$commit = 'd46d735c941827c7d44937ef7644d2663639794a'
 $url = "https://raw.githubusercontent.com/M93hasan/nesting/$commit/integrations/windows/SerulaTransferBridge.ps1"
-$blobSha = 'de60a18d82883009afe12a2857dc7b36f7bbbab8'
+$blobSha = '95a644f6be27fdcda808fdebe73166bf043438ec'
 $bridgeVersion = '1.5'
 $prefix = 'http://127.0.0.1:43842/'
 $folder = Join-Path $env:LOCALAPPDATA 'SerulaBridge'
