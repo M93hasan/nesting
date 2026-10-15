@@ -24,6 +24,7 @@ function finitePlacement(value: unknown): value is Placement {
     && Number.isFinite(p.xMm) && Math.abs(p.xMm) <= LIMITS.extent
     && Number.isFinite(p.yMm) && Math.abs(p.yMm) <= LIMITS.extent
     && Number.isFinite(p.angleDeg)
+    && (p.fixedAngleDeg === undefined || Number.isFinite(p.fixedAngleDeg))
     && (p.mirrorX === undefined || typeof p.mirrorX === 'boolean')
     && (p.mirrorY === undefined || typeof p.mirrorY === 'boolean');
 }
@@ -103,7 +104,7 @@ export function rotatePlacements(document: Document, refs: CopyRef[], degrees: n
     if (!wanted.has(placementKey(placement))) return placement;
     const dx = placement.xMm - center[0], dy = placement.yMm - center[1];
     return { ...placement, xMm: center[0] + dx * c - dy * s, yMm: center[1] + dx * s + dy * c,
-      angleDeg: placement.angleDeg + degrees };
+      angleDeg: placement.angleDeg + degrees, fixedAngleDeg:normalizedAngle(placement.angleDeg + degrees) };
   }));
 }
 
@@ -128,7 +129,7 @@ export function setPlacementAngles(document:Document,refs:CopyRef[],degrees:numb
   const wanted=new Set(refs.map(placementKey)),parts=new Map(document.parts.map(part=>[part.id,part]));
   return updatePlacements(document,documentPlacements(document).filter(copy=>wanted.has(placementKey(copy))).map(copy=>{
     const part=parts.get(copy.partId)!;
-    return keepCopyCenter(part,copy,{...copy,angleDeg:normalizedAngle(degrees)});
+    return keepCopyCenter(part,copy,{...copy,angleDeg:normalizedAngle(degrees),fixedAngleDeg:normalizedAngle(degrees)});
   }));
 }
 
@@ -187,6 +188,7 @@ export function applySeriesMultiplier(document:Document,next:number):Document {
 export function samePlacement(a: Placement | undefined, b: Placement | undefined): boolean {
   return !!a && !!b && a.partId === b.partId && a.copyIndex === b.copyIndex
     && a.xMm === b.xMm && a.yMm === b.yMm && a.angleDeg === b.angleDeg
+    && a.fixedAngleDeg === b.fixedAngleDeg
     && !!a.mirrorX === !!b.mirrorX && !!a.mirrorY === !!b.mirrorY;
 }
 
@@ -225,7 +227,7 @@ export function rotateToNextOrientation(document: Document, refs: CopyRef[]): Do
     if(Math.abs(next-current)<1e-7)return copy;
     const b=bounds(part.outer),x=(b[0]+b[2])/2,y=(b[1]+b[3])/2;
     const before=copy.angleDeg*Math.PI/180,after=next*Math.PI/180;
-    return {...copy,angleDeg:next,xMm:copy.xMm+x*(Math.cos(before)-Math.cos(after))-y*(Math.sin(before)-Math.sin(after)),
+    return {...copy,angleDeg:next,fixedAngleDeg:normalizedAngle(next),xMm:copy.xMm+x*(Math.cos(before)-Math.cos(after))-y*(Math.sin(before)-Math.sin(after)),
       yMm:copy.yMm+x*(Math.sin(before)-Math.sin(after))+y*(Math.cos(before)-Math.cos(after))};
   }));
 }
