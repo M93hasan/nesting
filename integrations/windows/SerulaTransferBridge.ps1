@@ -349,6 +349,53 @@ function Open-RDWorksImportPicker($rd) {
   }
   return [IntPtr]::Zero
 }
+# RDWorks pastes its own objects with Ctrl+V; for DXF, focus the real
+# Import filename field, then let one Ctrl+V insert the saved DXF path.
+# The bridge detects the pasted path and invokes the real Import Open button.
+function Wait-RDWorksPasteAndImport($rd,[IntPtr]$dialog,[string]$path) {
+  if(!(IsRDWorksFilePicker $dialog $rd ([IntPtr]$rd.MainWindowHandle))){throw 'RDWorks Import dosya penceresi dogrulanamadi.'}
+  Add-Type -AssemblyName UIAutomationClient
+  Add-Type -AssemblyName UIAutomationTypes
+  $root=[System.Windows.Automation.AutomationElement]::FromHandle($dialog)
+  if($null -eq $root){throw 'RDWorks Import dosya adi kutusuna erisilemiyor.'}
+  $nodes=$root.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition)
+  $fields=@()
+  foreach($element in $nodes){
+    try{
+      if(!$element.Current.IsEnabled -or $element.Current.ControlType -ne [System.Windows.Automation.ControlType]::Edit){continue}
+      $id=[string]$element.Current.AutomationId
+      $name=[string]$element.Current.Name
+      $score=if($id -eq '1148'){100} elseif($name -match '(?i)file\s*name|dosya\s*ad[iı]|dateiname|nom du fichier|nombre de archivo|文件名'){90}
+        elseif($name -match '(?i)search|ara|suchen'){0}else{10}
+      if($score -le 0){continue}
+      $pattern=$null
+      if($element.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern,[ref]$pattern)){
+        $fields+=@{element=$element;score=$score;value=[System.Windows.Automation.ValuePattern]$pattern}
+      }
+    }catch{}
+  }
+  $matches=@($fields | Sort-Object -Property score -Descending | Select-Object -First 1)
+  if($matches.Count -ne 1){throw 'RDWorks dosya adi alani bulunamadi; DXF kaydi korunuyor.'}
+  $field=$matches[0]
+  [System.Windows.Forms.Clipboard]::SetText($path)
+  $null=[SerulaWindowApi]::SetForegroundWindow($dialog)
+  Start-Sleep -Milliseconds 120
+  if([SerulaWindowApi]::GetForegroundWindow() -ne $dialog){throw 'RDWorks Import penceresi odaklanamadi; DXF yolu panoda.'}
+  $field.element.SetFocus()
+  # Select the previous filename before the user pastes the new one.
+  (New-Object -ComObject WScript.Shell).SendKeys('^a')
+  for($i=0;$i -lt 150;$i++){
+    if(!(IsRDWorksFilePicker $dialog $rd ([IntPtr]$rd.MainWindowHandle))){throw 'RDWorks Import penceresi kapatildi; DXF yolu panoda.'}
+    $pasted=$false
+    try{$pasted=([string]$field.value.Current.Value -eq $path)}catch{}
+    if($pasted){
+      Import-DxfThroughDialog $dialog $path
+      return
+    }
+    Start-Sleep -Milliseconds 150
+  }
+  throw 'Ctrl+V algilanmadi. DXF yolu panoda: RDWorks Import dosya adi alaninda Ctrl+V, ardindan Enter yapin.'
+}
 function Try-RDWorksClassicPicker([IntPtr]$dialog,[string]$path) {
   if(!(Test-Path -LiteralPath $path -PathType Leaf)){return $false}
   $field=[SerulaImportApi]::GetDlgItem($dialog,1148)
@@ -410,7 +457,7 @@ try {
     $req=$ctx.Request
     $reqOrigin=$req.Headers['Origin']
     if($req.HttpMethod -eq 'GET' -and $req.Url.AbsolutePath -eq '/health'){
-      Reply $ctx 200 @{ok=$true;service='serula-bridge';version='1.4';rdworksStrategies=@('shortcut','native-menu','uia-menu','uia-picker','classic-picker')}
+      Reply $ctx 200 @{ok=$true;service='serula-bridge';version='1.5';rdworksStrategies=@('shortcut','native-menu','uia-menu','uia-picker','classic-picker','clipboard-paste')}
       continue
     }
     if($reqOrigin -ne $origin){Reply $ctx 403 @{ok=$false;error='Origin izinli değil.'};continue}
@@ -422,6 +469,7 @@ try {
     if($raw.Length -gt 15000000){Reply $ctx 413 @{ok=$false;error='Çok büyük istek.'};continue}
     $data=$raw | ConvertFrom-Json
     $target=[string]$data.target
+    $mode=[string]$data.mode
     $ticket=[string]$data.ticket
     $dxf=[string]$data.dxf
     if($target -notin @('corel','rdworks') -or $ticket -notmatch '^[a-f0-9]{64}$' -or $dxf.Length -lt 20 -or $dxf -notmatch '(?m)^EOF\s*$'){
@@ -465,8 +513,13 @@ try {
       if($dialog -eq [IntPtr]::Zero){
         throw 'RDWorks Import penceresi açılamadı. Ctrl+I, File > Import ve arayüz menüsü denendi. Geçici DXF kaydedildi.'
       }
-      Import-DxfRDWorks $rd $dialog $tempPath
-      Reply $ctx 200 @{ok=$true;status='submitted_unverified';message='DXF, RDWorks Import penceresinde seçildi. Çizimin yüklendiğini, ölçüleri ve katmanları RDWorks içinde doğrulayın.'}
+      if($mode -eq 'clipboard-paste'){
+        Wait-RDWorksPasteAndImport $rd $dialog $tempPath
+        Reply $ctx 200 @{ok=$true;status='submitted_unverified';message='DXF yolu RDWorks Import penceresine yapistirildi ve dosya acma onaylandi. RDWorks icinde cizim ve olculeri kontrol edin.'}
+      }else{
+        Import-DxfRDWorks $rd $dialog $tempPath
+        Reply $ctx 200 @{ok=$true;status='submitted_unverified';message='DXF, RDWorks Import penceresinde seçildi. Çizimin yüklendiğini, ölçüleri ve katmanları RDWorks içinde doğrulayın.'}
+      }
     }
   }catch{
     $message=$_.Exception.Message
