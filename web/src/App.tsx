@@ -191,6 +191,20 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     catch(error){setError(error instanceof Error?error.message:String(error))}
   };
   const canvasDocument=useMemo(()=>visibleResult?{...doc,placements:visibleResult.placements}:doc,[doc,visibleResult]);
+  const exportCache=useRef<{document:Document;result?:Result;revision:number;dxf:string}|undefined>(undefined);
+  const exportInFlight=useRef<Promise<string>|undefined>(undefined);
+  async function currentExportDxf() {
+    const cached=exportCache.current;
+    if(cached?.document===canvasDocument&&cached.result===result&&cached.revision===revision)return cached.dxf;
+    if(exportInFlight.current)return exportInFlight.current;
+    const work=geometryTask({type:'export',runId:++operation.current,documentRevision:revision,document:canvasDocument,result}).then(reply=>{
+      if(reply.type!=='export-result')throw Error('Güncel yerleşimin DXF verisi hazırlanamadı.');
+      exportCache.current={document:canvasDocument,result,revision,dxf:reply.bundle.dxf};
+      return reply.bundle.dxf;
+    });
+    exportInFlight.current=work;
+    try{return await work;}finally{if(exportInFlight.current===work)exportInFlight.current=undefined;}
+  }
   const chosen=doc.parts.find(p=>p.id===selected[0]);
   const mixedRotations=chosen&&doc.parts.some(part=>selected.includes(part.id)&&rotationValue(part.rotations)!==rotationValue(chosen.rotations));
   const selectedBox=useMemo(()=>selectionBounds(canvasDocument,selected,selectedCopies),[canvasDocument,selected,selectedCopies]);
@@ -203,6 +217,11 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     return {angle:angles.length===1?angles[0]:undefined,mirrorX:xs.length===1?xs[0]:undefined,mirrorY:ys.length===1?ys[0]:undefined};
   },[canvasDocument,selectedRefs]);
   const invalidSettings=!sizeValid||!Number.isFinite(doc.settings.materialWidthMm)||doc.settings.materialWidthMm<=0||doc.settings.materialWidthMm>100_000||((doc.settings.materialType??'roll')==='sheet'&&(!Number.isFinite(doc.settings.materialLengthMm)||doc.settings.materialLengthMm!<=0||doc.settings.materialLengthMm!>100_000))||!Number.isFinite(doc.settings.clearanceMm)||doc.settings.clearanceMm<0||doc.settings.clearanceMm>=doc.settings.materialWidthMm||doc.parts.some(p=>!validQuantity(p.quantity)||(p.quantity>0&&!validRotationRule(p.rotations)))||doc.parts.reduce((n,p)=>n+p.quantity,0)>500;
+  useEffect(()=>{
+    if(running||!result||invalidSettings||!!polygon?.length)return;
+    const timer=window.setTimeout(()=>{void currentExportDxf().catch(()=>{});},300);
+    return()=>window.clearTimeout(timer);
+  },[canvasDocument,result,running,invalidSettings,polygon,revision]);
   const recoveryResult=running?undefined:result;
   const browserSavePending=browserSaved?.document!==doc||browserSaved?.result!==recoveryResult||browserSaved?.revision!==revision;
   const browserSaveState=recoveryError?'error':!recoveryReady||loadingExample?'loading':invalidSettings||!!polygon?.length?'unsaved':browserSavePending?'saving':'saved';
@@ -581,9 +600,8 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     if(busy||invalidSettings||showingLive||(running&&!result))return false;
     setBusy(true);setError('');setDownloadPhase('preparing');
     try {
-      const reply=await geometryTask({type:'export',runId:++operation.current,documentRevision:revision,document:canvasDocument,result});
-      if(reply.type==='export-result'){
-        const content=reply.bundle.dxf;
+      {
+        const content=await currentExportDxf();
         const fileName=`${exportAd}.dxf`;
         const sourceFileName=doc.parts.find(part=>part.source.format==='dxf'||part.source.format==='plt')?.source.fileName??doc.name;
         const projectJson=JSON.stringify({...doc,...(result?{placements:result.placements,result}:{}),schemaVersion:1,revision,serulaCloud:{label:CLOUD_SAVE_NAME,ui:{theme,unit}}});
@@ -592,7 +610,6 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         download(fileName,content,'application/dxf');
         setDownloadedResult(true);setExported({document:doc,result});return true;
       }
-      return false;
     }catch(e){setError(String(e));return false;}finally{setDownloadPhase('idle');setBusy(false);}
   }
   async function transferLayout(target:'corel'|'rdworks') {
@@ -613,15 +630,14 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         throw Error(`RDWorks için doğrudan aktarım destekli Bridge 1.5 gerekli (yüklü sürüm: ${health.version||'bilinmiyor'}). Hakkında > Otomatik Aktarım Köprüsü kurulumunu tekrar çalıştırın.`);
       // Prepare DXF before obtaining a short-lived one-use ticket. Large DXF
       // exports can otherwise cause the ticket to expire before redemption.
-      const reply=await geometryTask({type:'export',runId:++operation.current,documentRevision:revision,document:canvasDocument,result});
-      if(reply.type!=='export-result')throw Error('Güncel yerleşimin DXF verisi hazırlanamadı.');
+      const dxf=await currentExportDxf();
       const auth=await fetch('/api/transfer/ticket',{method:'POST',credentials:'same-origin',
         headers:{'content-type':'application/json'},body:JSON.stringify({target})});
       const permit=await auth.json() as {ticket?:string;error?:string};
       if(!auth.ok||!permit.ticket)throw Error(permit.error||'Aktarım izni alınamadı.');
       const bridge=await fetch('http://127.0.0.1:43842/transfer',{method:'POST',
         headers:{'content-type':'application/json'},
-        body:JSON.stringify({target,ticket:permit.ticket,dxf:reply.bundle.dxf,fileName:exportAd+'.dxf'})});
+        body:JSON.stringify({target,ticket:permit.ticket,dxf,fileName:exportAd+'.dxf'})});
       const response=await bridge.json() as {ok?:boolean;status?:string;message?:string;error?:string;filePath?:string;manualImportRequired?:boolean};
       if(!bridge.ok||response.ok!==true){
         const backup=response.manualImportRequired&&response.filePath
