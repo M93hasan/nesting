@@ -608,9 +608,9 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         throw Error('Windows aktarım köprüsü çalışmıyor. Hakkında > Otomatik Aktarım Köprüsü bölümünden kurulum yapın.');
       const bridgeVersion=/^(\d+)\.(\d+)/.exec(health.version||'');
       const supportsRdworks=!!bridgeVersion&&(Number(bridgeVersion[1])>1||
-        Number(bridgeVersion[1])===1&&Number(bridgeVersion[2])>=4);
+        Number(bridgeVersion[1])===1&&Number(bridgeVersion[2])>=5);
       if(target==='rdworks'&&!supportsRdworks)
-        throw Error(`RDWorks aktarım köprüsü eski sürüm (${health.version||'bilinmiyor'}). Hakkında > Otomatik Aktarım Köprüsü bölümünden güncel kurucuyu yeniden indirin.`);
+        throw Error(`RDWorks için Ctrl+V destekli Bridge 1.5 gerekli (yüklü sürüm: ${health.version||'bilinmiyor'}). Hakkında > Otomatik Aktarım Köprüsü kurulumunu tekrar çalıştırın.`);
       // Prepare DXF before obtaining a short-lived one-use ticket. Large DXF
       // exports can otherwise cause the ticket to expire before redemption.
       const reply=await geometryTask({type:'export',runId:++operation.current,documentRevision:revision,document:canvasDocument,result});
@@ -619,9 +619,10 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         headers:{'content-type':'application/json'},body:JSON.stringify({target})});
       const permit=await auth.json() as {ticket?:string;error?:string};
       if(!auth.ok||!permit.ticket)throw Error(permit.error||'Aktarım izni alınamadı.');
+      if(target==='rdworks')setError('RDWorks penceresindeki Dosya adı kutusuna bir kez Ctrl+V yapın. Serula dosya açma onayını otomatik tamamlayacak.');
       const bridge=await fetch('http://127.0.0.1:43842/transfer',{method:'POST',
         headers:{'content-type':'application/json'},
-        body:JSON.stringify({target,ticket:permit.ticket,dxf:reply.bundle.dxf,fileName:exportAd+'.dxf'})});
+        body:JSON.stringify({target,ticket:permit.ticket,dxf:reply.bundle.dxf,fileName:exportAd+'.dxf',...(target==='rdworks'?{mode:'clipboard-paste'}:{})})});
       const response=await bridge.json() as {ok?:boolean;status?:string;message?:string;error?:string;filePath?:string;manualImportRequired?:boolean};
       if(!bridge.ok||response.ok!==true){
         const backup=response.manualImportRequired&&response.filePath
@@ -732,7 +733,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
       <div className="metrics"><span>{doc.settings.materialType==='sheet'?'Kullanılan plaka':showingLive?'En iyi geçerli uzunluk':'Kullanılan uzunluk'} <strong>{result?(doc.settings.materialType==='sheet'?String(result.sheetCount??1):`${length(result.usedLengthMm)} ${unit}`):'—'}</strong></span><span>Malzeme verimliliği <strong>{result?`${utilization.toFixed(2)}%`:'—'}</strong></span><span>Fire <strong>{result?`${waste.toFixed(2)}%`:'—'}</strong></span>{improvement&&doc.settings.materialType!=='sheet'&&<span title="Keşif: ilk geçerli uzunluktan azalma. Sıkıştırma: en iyi keşif uzunluğundan ek azalma.">İyileştirme keşfet / sıkıştır <strong>{improvement.explore.toFixed(1)}% / {improvement.compress.toFixed(1)}%</strong></span>}</div>
       <div className="export-actions">
         {transferAccess.corel&&<button type="button" disabled={!!exportBlockedReason} className="download-button corel-transfer-button" title="CorelDRAW'a dosya indirmeden aktar; Windows Serula Bridge gerekir" onClick={()=>void transferLayout('corel')}>CorelDRAW'a Aktar</button>}
-        {transferAccess.rdworks&&<button type="button" disabled={!!exportBlockedReason} className="download-button rdworks-transfer-button" title="RDWorks'e dosya indirmeden aktar; Windows Serula Bridge gerekir" onClick={()=>void transferLayout('rdworks')}>RDWorks'e Aktar</button>}
+        {transferAccess.rdworks&&<button type="button" disabled={!!exportBlockedReason} className="download-button rdworks-transfer-button" title="RDWorks Içe Aktar penceresi açılır; Dosya adı alanında yalnızca Ctrl+V yapın. Bridge 1.5 gerekir." onClick={()=>void transferLayout('rdworks')}>RDWorks'e Aktar</button>}
         <span className="download-control" tabIndex={exportBlockedReason?0:undefined} aria-describedby={exportBlockedReason?'download-tooltip':undefined}><button disabled={!!exportBlockedReason} className="download-button" onClick={()=>void exportLayout()}><svg className="download-button__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg><span>{downloadPhase==='preparing'?'DXF hazırlanıyor…':downloadPhase==='authorizing'?'Buluta kaydediliyor…':'DXF İndir'}</span></button>{exportBlockedReason&&<span id="download-tooltip" role="tooltip" className="compression-tooltip">{exportBlockedReason}</span>}</span></div>
 
     </footer>
