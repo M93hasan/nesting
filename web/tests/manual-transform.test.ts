@@ -4,6 +4,7 @@ import {newPart,type Document} from '../src/model';
 import {documentPlacements,mirrorPlacements,setPlacementAngles} from '../src/geometry/placements';
 import {worldParts} from '../src/geometry/validate';
 import {exportDXF} from '../src/export/dxf';
+import {exportDXFOnly,exportSVG} from '../src/export/svg';
 
 function fixture(){
   const part={...newPart([[0,0],[10,0],[10,4],[0,4]],'manual'),id:'manual',quantity:2,
@@ -44,4 +45,14 @@ it('exports mirrored native DXF geometry without polygonizing or adding vertices
   expect(parsed.entities[0].vertices).toHaveLength(4);
   expect(parsed.entities[1].vertices).toHaveLength(4);
   expect(parsed.entities[0].vertices?.[0].bulge??0).toBeLessThan(0);
+});
+
+it('generates exactly the same native DXF without building a redundant SVG',()=>{
+  const {doc,part}=fixture();
+  const rotated=setPlacementAngles(doc,[{partId:part.id,copyIndex:0}],90);
+  const fast=exportDXFOnly(rotated);
+  const original=exportSVG(rotated);
+  expect(fast.dxf).toBe(original.dxf);
+  expect(fast.world).toEqual(original.world);
+  expect(fast.svg).toBe('');
 });

@@ -85,8 +85,8 @@ export function validate(doc: Document, result: Result, serialized?: WorldPart[]
     for(const p of result.placements) {
       const part=parts.get(p.partId);
       if(!part || !Number.isInteger(p.copyIndex) || p.copyIndex<0 || p.copyIndex>=part.quantity) throw Error('Unknown part or copy index.');
-      if(Object.keys(p).some(k=>!['partId','copyIndex','xMm','yMm','angleDeg','mirrorX','mirrorY','sheetIndex'].includes(k))) throw Error('Placement contains an unsupported transform.');
-      if(![p.xMm,p.yMm,p.angleDeg].every(Number.isFinite)||(p.mirrorX!==undefined&&typeof p.mirrorX!=='boolean')||(p.mirrorY!==undefined&&typeof p.mirrorY!=='boolean')) throw Error('Placement contains an invalid transform.');
+      if(Object.keys(p).some(k=>!['partId','copyIndex','xMm','yMm','angleDeg','fixedAngleDeg','mirrorX','mirrorY','sheetIndex'].includes(k))) throw Error('Placement contains an unsupported transform.');
+      if(![p.xMm,p.yMm,p.angleDeg].every(Number.isFinite)||(p.fixedAngleDeg!==undefined&&!Number.isFinite(p.fixedAngleDeg))||(p.mirrorX!==undefined&&typeof p.mirrorX!=='boolean')||(p.mirrorY!==undefined&&typeof p.mirrorY!=='boolean')) throw Error('Placement contains an invalid transform.');
       if(doc.settings.materialType==='sheet') {
         const sheetCount=result.sheetCount??1;
         const sheetIndex=p.sheetIndex??0;
@@ -95,7 +95,9 @@ export function validate(doc: Document, result: Result, serialized?: WorldPart[]
       const key=JSON.stringify([p.partId,p.copyIndex]);
       if(seen.has(key)) throw Error('Duplicate part copy.');
       seen.add(key);
-      if(part.rotations.kind==='discrete' && !part.rotations.degrees.some(a=>Math.abs(((p.angleDeg-a)%360+540)%360-180)<=POLICY.angleDeg)) throw Error(`Disallowed rotation for ${part.name}.`);
+      if(p.fixedAngleDeg!==undefined){
+        if(Math.abs(((p.angleDeg-p.fixedAngleDeg)%360+540)%360-180)>POLICY.angleDeg)throw Error(`Manuel açı korunamadı: ${part.name}.`);
+      }else if(part.rotations.kind==='discrete' && !part.rotations.degrees.some(a=>Math.abs(((p.angleDeg-a)%360+540)%360-180)<=POLICY.angleDeg)) throw Error(`Disallowed rotation for ${part.name}.`);
     }
     const expected=worldParts(doc,result),world=serialized ?? expected,collision=collisionWorldRings(doc,result);
     if(world.length!==result.placements.length) throw Error('Serialized contour count differs from the layout.');

@@ -48,6 +48,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const [resultMode,setResultMode]=useState<'live'|'checked'>('live');
   const [threads,setThreads]=useState(0);
   const [sizeValid,setSizeValid]=useState(true),[downloadedResult,setDownloadedResult]=useState(false),[seriesDraft,setSeriesDraft]=useState<string>();
+  const [downloadPhase,setDownloadPhase]=useState<'idle'|'preparing'|'authorizing'>('idle');
   const [theme,setTheme]=useState<'system'|'light'|'dark'>(()=>{try{const saved=localStorage.getItem('serula-theme');return saved==='light'||saved==='dark'||saved==='system'?saved:'light';}catch{return 'system';}});
   useEffect(()=>{document.documentElement.dataset.theme=theme;try{localStorage.setItem('serula-theme',theme);}catch{/* The theme still works when storage is unavailable. */}},[theme]);
   const [unit,setUnit]=useState<DisplayUnit>(()=>{try{return localStorage.getItem('serula-units')==='in'?'in':'mm';}catch{return 'mm';}});
@@ -517,7 +518,19 @@ export default function App({initialDocument=emptyProject(),initialError='',load
       else{await addParts(review.document.parts,review.warnings,true);setFiles(undefined);setReview(undefined);setFitRequest(n=>n+1);}
     }catch(e){setError(String(e));}finally{setBusy(false);}
   }
-  function editPart(change:Partial<Part>,geometry=true,field?:string) {if(chosen)commit({...doc,parts:doc.parts.map(p=>selected.includes(p.id)?{...p,...change}:p)},geometry,field);}
+  function editPart(change:Partial<Part>,geometry=true,field?:string) {
+    if(!chosen)return;
+    const next={...doc,parts:doc.parts.map(p=>selected.includes(p.id)?{...p,...change}:p)};
+    if(change.rotations!==undefined){
+      // Explicitly changing permitted rotations releases prior manual copy locks.
+      const placements=documentPlacements(next).map(copy=>{
+        if(!selected.includes(copy.partId))return copy;
+        const {fixedAngleDeg:_released,...unlocked}=copy;
+        return unlocked;
+      });
+      commit(withDocumentPlacements(next,placements),geometry,field);
+    }else commit(next,geometry,field);
+  }
   function positionSelection(axis:0|1,value:number) {
     if(!selectedBox||locked)return;
     const delta=value-selectedBox[axis];
@@ -566,7 +579,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const exportBlockedReason=busy?'Mevcut işlemin bitmesini bekleyin.':invalidSettings?'İndirmeden önce geçersiz ayarları düzeltin.':showingLive?'İndirmek için en iyi geçerli çözüm görünümüne geçin.':running&&!result?'İndirmeden önce en iyi geçerli çözümün oluşmasını bekleyin.':undefined;
   async function exportLayout() {
     if(busy||invalidSettings||showingLive||(running&&!result))return false;
-    setBusy(true);setError('');
+    setBusy(true);setError('');setDownloadPhase('preparing');
     try {
       const reply=await geometryTask({type:'export',runId:++operation.current,documentRevision:revision,document:canvasDocument,result});
       if(reply.type==='export-result'){
@@ -574,12 +587,13 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         const fileName=`${exportAd}.dxf`;
         const sourceFileName=doc.parts.find(part=>part.source.format==='dxf'||part.source.format==='plt')?.source.fileName??doc.name;
         const projectJson=JSON.stringify({...doc,...(result?{placements:result.placements,result}:{}),schemaVersion:1,revision,serulaCloud:{label:CLOUD_SAVE_NAME,ui:{theme,unit}}});
+        setDownloadPhase('authorizing');
         await authorizeExport(doc.name,sourceFileName,fileName,content,projectJson);
         download(fileName,content,'application/dxf');
         setDownloadedResult(true);setExported({document:doc,result});return true;
       }
       return false;
-    }catch(e){setError(String(e));return false;}finally{setBusy(false);}
+    }catch(e){setError(String(e));return false;}finally{setDownloadPhase('idle');setBusy(false);}
   }
   async function transferLayout(target:'corel'|'rdworks') {
     if(exportBlockedReason||!doc.parts.some(part=>part.quantity>0))return;
@@ -719,7 +733,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
       <div className="export-actions">
         {transferAccess.corel&&<button type="button" disabled={!!exportBlockedReason} className="download-button corel-transfer-button" title="CorelDRAW'a dosya indirmeden aktar; Windows Serula Bridge gerekir" onClick={()=>void transferLayout('corel')}>CorelDRAW'a Aktar</button>}
         {transferAccess.rdworks&&<button type="button" disabled={!!exportBlockedReason} className="download-button rdworks-transfer-button" title="RDWorks'e dosya indirmeden aktar; Windows Serula Bridge gerekir" onClick={()=>void transferLayout('rdworks')}>RDWorks'e Aktar</button>}
-        <span className="download-control" tabIndex={exportBlockedReason?0:undefined} aria-describedby={exportBlockedReason?'download-tooltip':undefined}><button disabled={!!exportBlockedReason} className="download-button" onClick={()=>void exportLayout()}><svg className="download-button__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg><span>DXF İndir</span></button>{exportBlockedReason&&<span id="download-tooltip" role="tooltip" className="compression-tooltip">{exportBlockedReason}</span>}</span></div>
+        <span className="download-control" tabIndex={exportBlockedReason?0:undefined} aria-describedby={exportBlockedReason?'download-tooltip':undefined}><button disabled={!!exportBlockedReason} className="download-button" onClick={()=>void exportLayout()}><svg className="download-button__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg><span>{downloadPhase==='preparing'?'DXF hazırlanıyor…':downloadPhase==='authorizing'?'Buluta kaydediliyor…':'DXF İndir'}</span></button>{exportBlockedReason&&<span id="download-tooltip" role="tooltip" className="compression-tooltip">{exportBlockedReason}</span>}</span></div>
 
     </footer>
     

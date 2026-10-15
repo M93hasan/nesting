@@ -91,6 +91,7 @@ export function normalizeDocument(doc: Document, allowEmpty=false): Document {
         || !Number.isFinite(placement.xMm) || !Number.isFinite(placement.yMm)
         || Math.abs(placement.xMm) > LIMITS.extent || Math.abs(placement.yMm) > LIMITS.extent
         || !Number.isFinite(placement.angleDeg)
+        || (placement.fixedAngleDeg !== undefined && !Number.isFinite(placement.fixedAngleDeg))
         || (placement.mirrorX !== undefined && typeof placement.mirrorX !== 'boolean')
         || (placement.mirrorY !== undefined && typeof placement.mirrorY !== 'boolean')) throw Error('Invalid copy placement.');
       const part = parts.find(p=>p.id===placement.partId)!;
