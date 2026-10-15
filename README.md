@@ -44,10 +44,10 @@
 
 | Bileşen | Kaynak | 14.10.2026 itibarıyla |
 |---|---|---|
-| Web uygulaması | [web/package.json](web/package.json) | **0.1.12** |
+| Web uygulaması | [web/package.json](web/package.json) | **0.1.13** |
 | Canlı adres | [serula.site](https://serula.site) | Cloudflare Git entegrasyonu |
-| Windows PC sürümü | [ayrı PC deposu](https://github.com/M93hasan/serula-nesting-pro-pc) | **0.1.12** |
-| Windows aktarım köprüsü | [SerulaTransferBridge.ps1](integrations/windows/SerulaTransferBridge.ps1) | **1.4** |
+| Windows PC sürümü | [ayrı PC deposu](https://github.com/M93hasan/serula-nesting-pro-pc) | **0.1.13** |
+| Windows aktarım köprüsü | [SerulaTransferBridge.ps1](integrations/windows/SerulaTransferBridge.ps1) | **1.5** |
 | Nesting motoru | [Sparrow](https://github.com/JeroenGar/sparrow) + Jagua | Rust / WebAssembly |
 | Veri ve API | [Cloudflare Worker](web/worker/serula-worker.js) | Cloudflare D1 |
 
@@ -71,7 +71,7 @@ Sürüm bilgisini her zaman ilgili **package.json**, **GitHub Release** ve çal�
 5. **Rulo** veya **Plaka** seçip malzeme ölçülerini ve **parça aralığı** değerini girin.
 6. İhtiyaç varsa başlangıç köşesini ve durdurma koşulunu seçin.
 7. **Yerleştir** işlemini çalıştırın; geçerli yerleşimi kontrol edin.
-8. **DXF İndir** ile kaydedin ya da yetkiniz ve Windows köprüsü varsa **CorelDRAW'a Aktar** / **RDWorks'e Aktar** seçin.
+8. **DXF İndir** ile kaydedin ya da yetkiniz ve Windows köprüsü varsa **CorelDRAW'a Aktar** seçin.
 9. Hesabınıza bağlı proje/çıktıları **Geçmiş** bölümünden tekrar açın.
 
 **Örnek çalışma:** 1400 mm genişliğinde rulo, 0 mm parça boşluğu, 0°/180° dönüş. Bu yalnızca bir başlangıç senaryosudur; malzemenin ve makinenin gerektirdiği toleranslar operatör tarafından girilmelidir.
@@ -95,7 +95,7 @@ Sürüm bilgisini her zaman ilgili **package.json**, **GitHub Release** ve çal�
 | Destek | Kalıcı mesajlaşma, onaylı uzaktan destek akışı |
 | Dil | Türkçe, English, العربية, فارسی (İran) ve RTL destek |
 | Tema/birim | Açık, koyu, sistem teması; mm/inç görüntüleme |
-| Windows | CorelDRAW ve RDWorks'e izinli yerel DXF aktarımı |
+| Windows | CorelDRAW'a izinli tek tık DXF aktarımı |
 
 Bazı özellikler hesap veya yönetici yetkisi gerektirir. Bir özelliğin arayüzde görünmesi, her Windows/RDWorks sürümünde sorunsuz çalışacağını garanti etmez.
 
@@ -212,7 +212,7 @@ Konum, dönüş, ayna ve çoklu plaka X-ofseti bu nesnelere uygulanır. İç del
 
 Kaynak eğrilerin varlık tipinin veya SPLINE kontrol noktası sayısının beklenmedik değişmesi gibi durumlar için kontrol kodları bulunur. Dışa aktarımdan sonra **CorelDRAW veya RDWorks içinde parça adedini, ölçüleri, katmanları ve kontur sürekliliğini mutlaka kontrol edin.**
 
-## 7. CorelDRAW / RDWorks köprüsü
+## 7. CorelDRAW köprüsü
 
 ### İndirme seçenekleri
 
@@ -240,7 +240,7 @@ Kurucunun güvenlik özelliği: içeriği GitHub'da belirli commit/blob kimliği
 
 ### Aktarım nasıl çalışır?
 
-1. Yönetici ilgili kullanıcı için **CorelDRAW** veya **RDWorks** aktarım iznini açar.
+1. Yönetici ilgili kullanıcı için **CorelDRAW** aktarım iznini açar.
 2. Kullanıcı geçerli nesting çıktısı için ilgili aktarım düğmesine basar.
 3. Web, sunucudan **tek kullanımlık ve kısa süreli** yetki bileti alır.
 4. Yerel köprü sunucuya bilet doğrulaması yapar.
@@ -248,7 +248,7 @@ Kurucunun güvenlik özelliği: içeriği GitHub'da belirli commit/blob kimliği
 
 **CorelDRAW:** Desteklenen CorelDRAW COM otomasyonu ile DXF açılmaya çalışılır.
 
-**RDWorks:** Önceden açık RDWorks penceresine odaklanma, **Ctrl+I Import**, Windows dosya seçme penceresinin tespiti ve UI Automation ile dosya alanını doldurup **Aç** komutunu çalıştırma denenir.
+**RDWorks:** Güvenilir tek tık aktarım doğrulanamadığından kullanıcı/admin butonları ve RDWorks yetki bileti API'si devre dışıdır. Elle Ctrl+I yapmanız istenmez.
 
 **Önemli sınırlama:** RDWorks'ün yaygın ve güvenilir bir resmî otomasyon API'si bulunmadığından bu akış Windows/RDWorks sürümüne bağlıdır. Köprünün başarılı yanıt vermesi, çizimin gerçekten doğru koordinatlarla RDWorks çalışma alanına yüklendiğini **garanti etmez**. Windows pencere odağını engellerse otomatik işlem tamamlanmayabilir. Herhangi bir kesimi köprü otomatik başlatmaz.
 
@@ -290,7 +290,7 @@ Serula Nesting En Temiz Hali
 
 Panelin kapsamı: kullanıcılar, kota/nesting hakkı, lisans süreleri, hesap silme, kullanıcı ve sistem varsayılanları, canlı mesajlar, okunmamış mesajlar, çevrim içi kullanıcı durumu, loglar ve izin verilen uzaktan destek akışları.
 
-Kullanıcı satırlarında **CorelDRAW Aç/Kapat** ve **RDWorks Aç/Kapat** işlemleri bağımsız yönetilir. Sunucuya bağlı yetkiler kullanıcı arayüzü gizlemesinden ayrıdır: sunucu izin vermediği bir aktarım için geçerli bilet üretmemelidir.
+Kullanıcı satırlarında **CorelDRAW Aç/Kapat** yönetilir. RDWorks aktarımı kapalıdır. Sunucuya bağlı yetkiler kullanıcı arayüzü gizlemesinden ayrıdır: sunucu izin vermediği bir aktarım için geçerli bilet üretmemelidir.
 
 **Yönetici kimlik bilgilerini, e-posta parola sıfırlama anahtarlarını veya canlı veritabanı kopyalarını GitHub'a commit etmeyin.**
 
