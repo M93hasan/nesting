@@ -3,6 +3,8 @@ import {candidateResult} from '../src/workers/useSolver';
 import {friendlyInitialPlacementError,preflightSolverFit,solverCopies,solverEdgePadding,solverInput} from '../src/import/sparrow';
 import {newPart,type Document} from '../src/model';
 import type {Candidate} from '../src/workers/protocol';
+import {setPlacementAngles} from '../src/geometry/placements';
+import {validate} from '../src/geometry/validate';
 
 test('multiple copies are sent as independent demand-one items and decode to stable copy indices',()=>{
   const part={...newPart([[0,0],[10,0],[10,10],[0,10]],'curve'),id:'curve',quantity:3};
@@ -61,4 +63,26 @@ test('initial placement errors identify the real part copy instead of raw solver
   const doc:Document={name:'names',parts:[a,b],settings:{materialWidthMm:100,clearanceMm:0,timeLimitSeconds:30}};
   expect(friendlyInitialPlacementError(doc,'No valid initial placement could be constructed for item 3. Review the part size.'))
     .toContain('B — Kopya 2');
+});
+
+test('manual 90-degree orientation is honored for only the edited copy during nesting',()=>{
+  const part={...newPart([[0,0],[30,0],[30,10],[0,10]],'Upper'),id:'upper',quantity:2,
+    rotations:{kind:'discrete' as const,degrees:[0,180]}};
+  const doc:Document={name:'manual-fixed-angle',parts:[part],settings:{materialWidthMm:200,clearanceMm:0,timeLimitSeconds:30},
+    placements:[{partId:'upper',copyIndex:0,xMm:10,yMm:10,angleDeg:0},
+      {partId:'upper',copyIndex:1,xMm:60,yMm:10,angleDeg:0}]};
+  const rotated=setPlacementAngles(doc,[{partId:'upper',copyIndex:0}],90);
+  const input=JSON.parse(solverInput(rotated)) as {items:{orientation:{rotation:{mode:string;angles:number[]}}}[]};
+  expect(input.items[0].orientation.rotation).toEqual({mode:'discrete',angles:[-90]});
+  expect(input.items[1].orientation.rotation).toEqual({mode:'discrete',angles:[0,-180]});
+  const candidate:Candidate={type:'candidate',runId:1,documentRevision:1,sequence:1,report:'ExplFeas',elapsedMs:10,
+    solution:{strip_width:100,layout:{placed_items:[
+      {item_id:0,transformation:{rotation:-90,translation:[10,20]}},
+      {item_id:1,transformation:{rotation:0,translation:[10,80]}}
+    ]}}};
+  const output=candidateResult(rotated,candidate,'1');
+  expect(output.placements[0].angleDeg).toBe(90);
+  expect(output.placements[0].fixedAngleDeg).toBe(90);
+  expect(output.placements[1].fixedAngleDeg).toBeUndefined();
+  expect(validate(rotated,output).status).toBe('passed');
 });
