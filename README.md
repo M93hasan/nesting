@@ -44,9 +44,9 @@
 
 | Bileşen | Kaynak | 14.10.2026 itibarıyla |
 |---|---|---|
-| Web uygulaması | [web/package.json](web/package.json) | **0.1.11** |
+| Web uygulaması | [web/package.json](web/package.json) | **0.1.12** |
 | Canlı adres | [serula.site](https://serula.site) | Cloudflare Git entegrasyonu |
-| Windows PC sürümü | [ayrı PC deposu](https://github.com/M93hasan/serula-nesting-pro-pc) | **0.1.11** |
+| Windows PC sürümü | [ayrı PC deposu](https://github.com/M93hasan/serula-nesting-pro-pc) | **0.1.12** |
 | Windows aktarım köprüsü | [SerulaTransferBridge.ps1](integrations/windows/SerulaTransferBridge.ps1) | **1.4** |
 | Nesting motoru | [Sparrow](https://github.com/JeroenGar/sparrow) + Jagua | Rust / WebAssembly |
 | Veri ve API | [Cloudflare Worker](web/worker/serula-worker.js) | Cloudflare D1 |
