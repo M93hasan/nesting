@@ -5,6 +5,7 @@ import type { Candidate, GeometryReply, SolverMessage } from './protocol';
 import type {LiveGeometry} from '../geometry/live';
 import {packResultIntoSheets} from '../geometry/multiSheet';
 import {solverCopies} from '../import/sparrow';
+import {documentPlacements,placementKey} from '../geometry/placements';
 import {validate} from '../geometry/validate';
 
 export type RunState='Ready'|'Initializing'|'Running'|'Complete'|'Stopped'|'Error';
@@ -21,6 +22,7 @@ type Run={id:number;revision:number;doc:Document;seed:string;requestedAt:number;
   diagnostics:Diagnostics};
 export function candidateResult(doc:Document,candidate:Candidate,seed:string):Result {
   const copies=solverCopies(doc);
+  const fixedAngles=new Map(documentPlacements(doc).filter(p=>p.fixedAngleDeg!==undefined).map(p=>[placementKey(p),p.fixedAngleDeg!]));
   return {documentRevision:candidate.documentRevision,solverRevision:SOLVER_REVISION,seed,
     elapsedSeconds:candidate.elapsedMs/1000,usedLengthMm:candidate.solution.strip_width,
     placements:candidate.solution.layout.placed_items.map(p=>{
@@ -33,7 +35,8 @@ export function candidateResult(doc:Document,candidate:Candidate,seed:string):Re
       const sheetIndex=doc.settings.materialType==='sheet'&&candidate.report==='SheetFeas'&&sheetLength
         ? Math.max(0,Math.floor((rawY+1e-7)/sheetLength)) : undefined;
       const yMm=sheetIndex===undefined?rawY:rawY-sheetIndex*sheetLength!;
-      return {partId,copyIndex,xMm:p.transformation.translation[1],yMm,angleDeg:-p.transformation.rotation,...(sheetIndex===undefined?{}:{sheetIndex})};
+      const fixedAngleDeg=fixedAngles.get(placementKey({partId,copyIndex}));
+      return {partId,copyIndex,xMm:p.transformation.translation[1],yMm,angleDeg:-p.transformation.rotation,...(fixedAngleDeg===undefined?{}:{fixedAngleDeg}),...(sheetIndex===undefined?{}:{sheetIndex})};
     }), validation:{status:'pending',overlapAreaMm2:0,maxBoundaryViolationMm:0,minClearanceMm:null,errors:[]}};
 }
 export function phaseImprovements(history:Timing[],lengthMm:number) {
