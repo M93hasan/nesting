@@ -698,3 +698,46 @@ dialog.modal.modal-about{
   #root button.danger-button.clear-all-parts{min-height:44px}
   .material-settings label.measurement-field{gap:7px 10px}
 }
+
+
+/* Selected controls — restore state contrast over the global blue button theme.
+   Applies to live web and desktop's bundled copy. No button sizes or logic change. */
+#root .rotation-choice .row-actions button[aria-pressed="false"]:enabled,
+#root .mirror-control .row-actions button[aria-pressed="false"]:enabled,
+#root .result-mode button[aria-pressed="false"]:enabled {
+  background:light-dark(#e7eef5,#2a3441)!important;
+  color:light-dark(#284359,#d6e7f4)!important;
+  border:1px solid light-dark(#aabfd1,#4d6275)!important;
+  box-shadow:none!important;
+  text-shadow:none!important;
+}
+
+/* 0°, 0°/180°, Her yöne, mirror, canvas display and other chosen options. */
+#root .rotation-choice .row-actions button[aria-pressed="true"],
+#root .mirror-control .row-actions button[aria-pressed="true"],
+#root .result-mode button[aria-pressed="true"],
+#root .canvas-tools button[aria-pressed="true"],
+#root button.part-select[aria-pressed="true"],
+#root .auth-tabs button.active,
+#root .admin-sidebar nav button.active,
+#root button[role="tab"][aria-selected="true"] {
+  background:linear-gradient(180deg,#43bdff,#147fd4)!important;
+  color:#fff!important;
+  border:2px solid #075da7!important;
+  box-shadow:0 0 0 3px rgba(49,164,255,.3),0 5px 15px rgba(9,93,174,.24)!important;
+  text-shadow:none!important;
+  font-weight:700;
+}
+#root .rotation-choice .row-actions button[aria-pressed="true"]:hover:enabled,
+#root .mirror-control .row-actions button[aria-pressed="true"]:hover:enabled,
+#root .result-mode button[aria-pressed="true"]:hover:enabled,
+#root .canvas-tools button[aria-pressed="true"]:hover:enabled,
+#root button.part-select[aria-pressed="true"]:hover:enabled,
+#root .auth-tabs button.active:hover:enabled,
+#root .admin-sidebar nav button.active:hover:enabled,
+#root button[role="tab"][aria-selected="true"]:hover:enabled {
+  background:linear-gradient(180deg,#5dc9ff,#168fe3)!important;
+  color:#fff!important;
+  border-color:#075da7!important;
+  box-shadow:0 0 0 3px rgba(49,164,255,.3),0 5px 15px rgba(9,93,174,.24)!important;
+}
