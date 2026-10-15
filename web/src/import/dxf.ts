@@ -511,6 +511,7 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
     groups.push(component);
   }
   const keptContours=valid;
+  let ambiguousHoleContours=0;
   const imported=groups.map(group=>{
     const ranked=[...group].sort((a,b)=>Math.abs(area(b.ring))-Math.abs(area(a.ring)));
     const outer=ranked[0],holes:Contour[]=[],details:Contour[]=[];
@@ -528,20 +529,43 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
         .sort((a,b)=>Math.abs(area(a.ring))-Math.abs(area(b.ring)));
       if(containers[0]===outer)holes.push(contour);else details.push(contour);
     }
+    // Multiple CAD detail/cut contours may each be inside the outer boundary
+    // while intersecting or touching each other. They are NOT valid independent
+    // polygon holes. Keep all their original native DXF entities as rigidly
+    // attached details rather than rejecting the entire manufacturing drawing.
+    // Conservative nesting then uses the outer contour; no source entity is lost.
+    const holeBounds=holes.map(hole=>bounds(hole.ring));
+    const conflicting=new Set<number>();
+    for(let i=0;i<holes.length;i++)for(let j=0;j<i;j++){
+      const a=holeBounds[i],b=holeBounds[j];
+      if(a[0]>b[2]||b[0]>a[2]||a[1]>b[3]||b[1]>a[3])continue;
+      if(ringCrosses(holes[i].ring,holes[j].ring)
+        ||inside(holes[i].ring[0],holes[j].ring)
+        ||inside(holes[j].ring[0],holes[i].ring)){
+        conflicting.add(i);conflicting.add(j);
+      }
+    }
+    const trueHoles=holes.filter((hole,index)=>{
+      if(!conflicting.has(index))return true;
+      details.push(hole);
+      return false;
+    });
+    ambiguousHoleContours+=conflicting.size;
     const dxfDetails:DxfDetailContour[]=details.map(detail=>({ring:detail.ring,layer:detail.layer,...(detail.dxfColorNumber!==undefined?{colorNumber:detail.dxfColorNumber}:{})}));
     const sourceBounds=bounds(outer.ring);
     const sourceIds=group.flatMap(contour=>contour.entityId.split(' + '));
     const nativeEntities=sourceIds.map(id=>sourceEntities.get(id));
     const allNative=nativeEntities.length===group.reduce((count,contour)=>count+contour.sourceEntityCount,0)&&nativeEntities.every((entity):entity is DxfSourceEntity=>!!entity);
-    const part=localize({...newPart(outer.ring,outer.entityId),holes:holes.map(h=>h.ring),
+    const part=localize({...newPart(outer.ring,outer.entityId),holes:trueHoles.map(h=>h.ring),
       source:{format:'dxf' as const,fileName,entityId:outer.entityId,
         ...(outer.dxfColorNumber!==undefined?{dxfColorNumber:outer.dxfColorNumber}:{}),
-        ...(holes.some(h=>h.dxfColorNumber!==undefined)?{dxfHoleColorNumbers:holes.map(h=>h.dxfColorNumber??256)}:{}),
+        ...(trueHoles.some(h=>h.dxfColorNumber!==undefined)?{dxfHoleColorNumbers:trueHoles.map(h=>h.dxfColorNumber??256)}:{}),
         ...(dxfDetails.length?{dxfDetails}:{}),...(allNative?{dxfEntities:nativeEntities}:{}),dxfSourceEntityCount:group.reduce((count,contour)=>count+contour.sourceEntityCount,0)},
       approximationToleranceMm:group.some(contour=>contour.curved)?options.tolerance+joined.adjustment:0});
     return {...part,preparationPosition:[sourceBounds[0],sourceBounds[1]] as Point};
   });
   if(groups.some(group=>group.length>1))warnings.push('İç içe konturlar ve farklı renkte üst üste gelen detaylar ana parçaya kilitlendi; aynı renkteki temas eden parçalar ayrı parça olarak korundu.');
+  if(ambiguousHoleContours)warnings.push(`${ambiguousHoleContours} kesişen veya temas eden iç DXF konturu delik yerine üretim detayı olarak korundu; orijinal kesim çizgileri değiştirilmedi.`);
   let attachedOpenMarks=0;
   // Preserve simple open LINE/ARC/POLYLINE/SPLINE chains as non-nesting marks when
   // they are fully contained by one imported part. They stay rigidly attached to

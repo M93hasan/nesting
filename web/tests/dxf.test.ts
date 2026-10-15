@@ -46,6 +46,43 @@ it('keeps contours nested inside holes as attached DXF details instead of overla
   expect(parsed.entities).toHaveLength(3);
 });
 
+it('imports overlapping inner cut contours without rejecting the DXF or losing native entities',()=>{
+  const outer=poly([[0,0],[100,0],[100,100],[0,100]],'OUTER');
+  const a=poly([[10,10],[45,10],[45,45],[10,45]],'INNER_A');
+  const b=poly([[35,30],[65,30],[65,55],[35,55]],'INNER_B');
+  const independent=poly([[72,72],[85,72],[85,85],[72,85]],'VALID_HOLE');
+  const original=dxf(outer+a+b+independent);
+  const review=importDXF(original,'overlapping-inner.dxf',options);
+  expect(review.issues).toEqual([]);
+  expect(review.document.parts).toHaveLength(1);
+  const part=review.document.parts[0];
+  expect(part.holes).toHaveLength(1);
+  expect(part.source.dxfDetails).toHaveLength(2);
+  expect(part.source.dxfDetails?.map(detail=>detail.layer).sort()).toEqual(['INNER_A','INNER_B']);
+  expect(part.source.dxfEntities).toHaveLength(4);
+  expect(review.warnings.join(' ')).toContain('2 kesişen veya temas eden iç DXF konturu');
+  const placements=review.document.placements??[];
+  const exported=exportDXF(review.document,worldParts(review.document,{placements}),placements,true);
+  const parsed=parseString(exported) as {entities:{type:string;layer:string;vertices?:unknown[]}[]};
+  expect(parsed.entities.map(entity=>entity.layer)).toEqual(['OUTER','INNER_A','INNER_B','VALID_HOLE']);
+  expect(parsed.entities.every(entity=>entity.type==='LWPOLYLINE'&&entity.vertices?.length===4)).toBe(true);
+  const roundTrip=importDXF(exported,'overlapping-roundtrip.dxf',options);
+  expect(roundTrip.document.parts[0].source.dxfEntities).toHaveLength(4);
+});
+
+it('keeps touching inner contours as attached details and distinct holes as holes',()=>{
+  const outer=poly([[0,0],[100,0],[100,100],[0,100]],'OUTER');
+  const a=poly([[10,10],[30,10],[30,30],[10,30]],'A');
+  const touching=poly([[30,20],[50,20],[50,40],[30,40]],'B');
+  const separate=poly([[70,70],[80,70],[80,80],[70,80]],'C');
+  const review=importDXF(dxf(outer+a+touching+separate),'touching-inner.dxf',options);
+  expect(review.issues).toEqual([]);
+  expect(review.document.parts).toHaveLength(1);
+  expect(review.document.parts[0].holes).toHaveLength(1);
+  expect(review.document.parts[0].source.dxfDetails?.map(detail=>detail.layer).sort()).toEqual(['A','B']);
+  expect(review.document.parts[0].source.dxfEntities).toHaveLength(4);
+});
+
 it('joins only unambiguous endpoints and reports adjustments and blocked contours',()=>{
   const edges=line(0,0,10,0)+line(10.006,0,10,10)+line(10,10,0,10)+line(0,10,0,0);
   const joined=importDXF(dxf(edges),'gap.dxf',options);
