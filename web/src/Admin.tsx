@@ -417,12 +417,6 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
                   onClick={()=>void setTransferPermission(user,'corel',!user.corelTransferEnabled)}>
                   CorelDRAW {user.corelTransferEnabled?'Kapat':'Aç'}
                 </button>
-                <button type="button" className={user.rdworksTransferEnabled?'primary admin-transfer-toggle rdworks-transfer-toggle':'admin-transfer-toggle rdworks-transfer-toggle'}
-                  aria-pressed={!!user.rdworksTransferEnabled} aria-label={user.email+' RDWorks aktarımını '+(user.rdworksTransferEnabled?'kapat':'aç')}
-                  title="Bu kullanıcı için RDWorks aktarım yetkisi" disabled={savingUserId===user.id}
-                  onClick={()=>void setTransferPermission(user,'rdworks',!user.rdworksTransferEnabled)}>
-                  RDWorks {user.rdworksTransferEnabled?'Kapat':'Aç'}
-                </button>
                 <button className={user.testDxfEnabled?'primary':''} onClick={()=>void setTestDxf(user,!user.testDxfEnabled)} disabled={savingUserId===user.id}>{user.testDxfEnabled?'Test DXF Kapat':'Test DXF Aç'}</button><button onClick={()=>{setSection('user-settings');void loadUserSettings(user.id)}}>Ayarlar</button><button onClick={()=>{setSection('messages');void loadChat(user.id)}}>Mesajlar</button><button className="screen-support-button" onClick={()=>{setSection('user-settings');void loadUserSettings(user.id).then(()=>requestSupport('screen',user.id))}}>Ekrana bağlan</button><button onClick={()=>void sendPasswordReset(user)} disabled={resettingUserId===user.id}>{resettingUserId===user.id?'Gönderiliyor…':'Şifre sıfırla'}</button><button className="danger-button" onClick={()=>void deleteUser(user)} disabled={savingUserId===user.id}>{savingUserId===user.id?'Siliniyor…':'Kullanıcıyı sil'}</button></span>
             </div>):<Empty title="Kullanıcı bulunamadı">Filtreye uyan kullanıcı yok.</Empty>}
           </div>
@@ -475,7 +469,6 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
             <label>Malzeme tipi<select value={userSettings.materialType} onChange={e=>setUserSettings({...userSettings,materialType:e.target.value as AdminSettings['materialType']})}><option value="roll">Rulo</option><option value="sheet">Plaka</option></select></label>
             <label>Solver profili<select value={userSettings.solverPreset} onChange={e=>setUserSettings({...userSettings,solverPreset:e.target.value as AdminSettings['solverPreset']})}><option value="standard">Standart</option><option value="fast">Hızlı</option></select></label>
             <label className="checkbox"><input type="checkbox" checked={!!userSettings.corelTransferEnabled} onChange={e=>setUserSettings({...userSettings,corelTransferEnabled:e.target.checked})}/> CorelDRAW aktarımına izin ver</label>
-            <label className="checkbox"><input type="checkbox" checked={!!userSettings.rdworksTransferEnabled} onChange={e=>setUserSettings({...userSettings,rdworksTransferEnabled:e.target.checked})}/> RDWorks aktarımına izin ver</label>
           </div><div className="admin-save-row"><button onClick={()=>void resetUserSettings()} disabled={adminBusy==='user-settings'}>Sistem varsayılanlarına dön</button><button className="primary" onClick={()=>void saveUserSettings()} disabled={adminBusy==='user-settings'}>{adminBusy==='user-settings'?'Kaydediliyor…':'Kullanıcı ayarlarını kaydet'}</button></div></>:<Empty title="Kullanıcı seçin">Yukarıdaki listeden bir kullanıcı seçerek ona özel varsayılanları düzenleyebilirsiniz.</Empty>}
         </section>}
 
@@ -489,7 +482,6 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
             <label>Varsayılan malzeme<select value={systemSettings.materialType} onChange={e=>setSystemSettings({...systemSettings,materialType:e.target.value as AdminSettings['materialType']})}><option value="roll">Rulo</option><option value="sheet">Plaka</option></select></label>
             <label>Solver profili<select value={systemSettings.solverPreset} onChange={e=>setSystemSettings({...systemSettings,solverPreset:e.target.value as AdminSettings['solverPreset']})}><option value="standard">Standart</option><option value="fast">Hızlı</option></select></label>
             <label className="checkbox"><input type="checkbox" checked={!!systemSettings.corelTransferEnabled} onChange={e=>setSystemSettings({...systemSettings,corelTransferEnabled:e.target.checked})}/> CorelDRAW aktarımını aç</label>
-            <label className="checkbox"><input type="checkbox" checked={!!systemSettings.rdworksTransferEnabled} onChange={e=>setSystemSettings({...systemSettings,rdworksTransferEnabled:e.target.checked})}/> RDWorks aktarımını aç</label>
           </div>
           <div className="admin-save-row"><small>Kullanıcıya özel ayar yoksa bu değerler kullanılır.</small><button className="primary" onClick={()=>void saveSystemSettings()} disabled={adminBusy==='system-settings'}>{adminBusy==='system-settings'?'Kaydediliyor…':'Kaydet'}</button></div>
         </section>}
