@@ -435,7 +435,6 @@ function Find-OrStart-RDWorks {
   $candidates=@(
     (Join-Path ([Environment]::GetFolderPath('Desktop')) 'RDWorksV8.lnk'),
     (Join-Path $env:USERPROFILE 'Desktop\RDWorksV8.lnk'),
-    'C:\Users\lamasat\Desktop\RDWorksV8.lnk',
     (Join-Path $env:PUBLIC 'Desktop\RDWorksV8.lnk')
   ) | Select-Object -Unique
   $shell=New-Object -ComObject WScript.Shell
