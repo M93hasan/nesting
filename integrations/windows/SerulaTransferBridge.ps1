@@ -520,7 +520,10 @@ try {
     # A browser UI toggle alone is not permission. Verify the one-time ticket
     # against Cloudflare, so disabled users cannot submit payloads to this bridge.
     try{
-      $permission=Invoke-RestMethod -Uri "$origin/api/transfer/redeem" -Method POST -ContentType 'application/json' -Body (@{ticket=$ticket;target=$target} | ConvertTo-Json -Compress) -TimeoutSec 15
+      # Some production edge configurations reject a server-to-server POST
+      # without a browser origin. Sending the same site origin keeps the
+      # redeem request compatible with both the current and older worker.
+      $permission=Invoke-RestMethod -Uri "$origin/api/transfer/redeem" -Method POST -Headers @{Origin=$origin;Referer="$origin/";Accept='application/json'} -ContentType 'application/json' -Body (@{ticket=$ticket;target=$target} | ConvertTo-Json -Compress) -TimeoutSec 15
       if($permission.ok -ne $true){throw 'Yetki reddedildi.'}
     }catch{Reply $ctx 403 @{ok=$false;error='Aktarım izni doğrulanamadı.'};continue}
     $tempPath=Join-Path $folder (([guid]::NewGuid().ToString('N'))+'.dxf')
