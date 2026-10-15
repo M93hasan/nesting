@@ -1,6 +1,20 @@
 import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {displayLength,unitScale,type DisplayUnit} from '../units';
 
+// Yalnızca ikon görseli; mevcut aynalama işleyişi korunur.
+function MirrorIcon({axis}:{axis:'horizontal'|'vertical'}) {
+  const isHorizontal=axis==='horizontal';
+  return <svg aria-hidden="true" focusable="false" width="20" height="20" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+      style={{verticalAlign:'middle',marginRight:6,flexShrink:0}}>
+    {isHorizontal? <>
+      <path d="m3 7 5 5-5 5V7Z"/><path d="m21 7-5 5 5 5V7Z"/><path d="M12 2v20"/>
+    </>:<>
+      <path d="m7 21 5-5 5 5H7Z"/><path d="m7 3 5 5 5-5H7Z"/><path d="M2 12h20"/>
+    </>}
+  </svg>;
+}
+
 export default function SelectionControls({
   box,disabled,sizeLocked=false,angle,mirroredX,mirroredY,onPosition,onSize,onSetAngle,onRotate,onMirror,onValidity,unit='mm'
 }:{
@@ -39,6 +53,6 @@ export default function SelectionControls({
       <div className="row-actions"><button type="button" disabled={disabled||!stepValid} onClick={()=>onRotate(stepValue)}>Sola ↺</button><button type="button" disabled={disabled||!stepValid} onClick={()=>onRotate(-stepValue)}>Sağa ↻</button></div>
       <small>Tuvaldeki döndürme kolunu fareyle sürükleyerek de çevirebilirsiniz.</small>
     </div>
-    <div className="mirror-control"><div className="row-actions"><button type="button" aria-pressed={mirroredX===true} disabled={disabled} onClick={()=>onMirror('x')}>Yatay aynala</button><button type="button" aria-pressed={mirroredY===true} disabled={disabled} onClick={()=>onMirror('y')}>Dikey aynala</button></div></div>
+    <div className="mirror-control"><div className="row-actions"><button type="button" aria-pressed={mirroredX===true} disabled={disabled} onClick={()=>onMirror('x')}><MirrorIcon axis="horizontal"/>Yatay aynala</button><button type="button" aria-pressed={mirroredY===true} disabled={disabled} onClick={()=>onMirror('y')}><MirrorIcon axis="vertical"/>Dikey aynala</button></div></div>
   </>;
 }
