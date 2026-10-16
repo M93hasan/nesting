@@ -49,7 +49,6 @@ export default function Workspace({ document: doc, result, live, selected, selec
   const selection = useMemo(()=>selectionBounds(doc, selected, selectedCopies),[doc,selected,selectedCopies]), unit = Math.max(camera.w / size.width, camera.h / size.height);
   const coordinates = coordinateGrid(camera, size.width, size.height, unitScale(displayUnit));
   const validMaterialWidth = Number.isFinite(doc.settings.materialWidthMm) && doc.settings.materialWidthMm > 0;
-  const dualHead=doc.settings.headMode==='dual';
   const actualWidth=physicalMaterialWidthMm(doc.settings);
   const materialType = doc.settings.materialType??'roll';
   const showGenişlik = validMaterialWidth && (materialType==='roll' || materialWidthFocused);
@@ -294,19 +293,6 @@ export default function Workspace({ document: doc, result, live, selected, selec
       {world && (doc.settings.materialType==='sheet'&&doc.settings.materialLengthMm
         ? Array.from({length:result!.sheetCount??1},(_,sheet)=><g key={sheet} transform={`translate(0 ${-sheet*(doc.settings.materialLengthMm!+20)})`}><rect x="0" y={-doc.settings.materialLengthMm!} width={doc.settings.materialWidthMm} height={doc.settings.materialLengthMm!} fill={outlines ? 'none' : 'var(--material-fill)'} stroke="var(--secondary)" vectorEffect="non-scaling-stroke" /><text x="2" y={-2} fontSize={camera.w/70} fill="var(--muted)">Plaka {sheet+1} · {displayLength(doc.settings.materialWidthMm, displayUnit)} × {displayLength(doc.settings.materialLengthMm!, displayUnit)} {displayUnit}</text></g>)
         : <><rect x="0" y={-result!.usedLengthMm} width={doc.settings.materialWidthMm} height={result!.usedLengthMm} fill={outlines ? 'none' : 'var(--material-fill)'} stroke="var(--secondary)" vectorEffect="non-scaling-stroke" /><text x="0" y={-result!.usedLengthMm - 2} fontSize={camera.w / 70} fill="var(--muted)">Rulo {displayLength(doc.settings.materialWidthMm, displayUnit)} {displayUnit} · kullanılan {(result!.usedLengthMm / unitScale(displayUnit)).toFixed(2)} {displayUnit}</text></>)}
-      {world&&dualHead&&<g className="second-head-preview" pointerEvents="none" aria-label="İkinci kafa bölgesi (referans)">
-        <rect x={doc.settings.materialWidthMm} y={doc.settings.materialType==='sheet'&&doc.settings.materialLengthMm
-          ? -(result!.sheetCount??1)*doc.settings.materialLengthMm
-          : -result!.usedLengthMm} width={doc.settings.materialWidthMm}
-          height={doc.settings.materialType==='sheet'&&doc.settings.materialLengthMm
-            ? (result!.sheetCount??1)*doc.settings.materialLengthMm
-            : result!.usedLengthMm}
-          fill="none" stroke="var(--secondary)" strokeDasharray="5 5" vectorEffect="non-scaling-stroke"/>
-        <text x={doc.settings.materialWidthMm+3} y={-Math.max(4,6*unit)}
-          fontSize={Math.max(12*unit,camera.w/70)} fill="var(--muted)">Kafa 2 · eş zamanlı tekrar · DXF'de kopya yok</text>
-        <path d={`M${doc.settings.materialWidthMm},0V${-result!.usedLengthMm}`}
-          stroke="var(--accent)" strokeDasharray="6 4" vectorEffect="non-scaling-stroke"/>
-      </g>}
       {showGenişlik && <g className="material-width-band" data-material-width-band={actualWidth} pointerEvents="none" aria-hidden="true"><rect x="0" y={coordinates.top} width={actualWidth} height={size.height * unit} /><path d={`M0,${coordinates.top}v${size.height * unit}M${actualWidth},${coordinates.top}v${size.height * unit}`} vectorEffect="non-scaling-stroke" /></g>}
       <g className="coordinate-grid" aria-hidden="true" pointerEvents="none" data-grid-step={coordinates.major}>{(['minor', 'major', 'origin'] as const).map(kind => <path key={kind} className={kind} fill="none" vectorEffect="non-scaling-stroke" d={[...coordinates.x.filter(t => (t.value === 0 ? 'origin' : t.major ? 'major' : 'minor') === kind).map(t => `M${t.mm},${coordinates.top}v${size.height * unit}`), ...coordinates.y.filter(t => (t.value === 0 ? 'origin' : t.major ? 'major' : 'minor') === kind).map(t => `M${coordinates.left},${-t.mm}h${size.width * unit}`)].join(' ')} />)}</g>
       {shapes}

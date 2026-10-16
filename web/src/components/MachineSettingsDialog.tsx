@@ -17,7 +17,6 @@ export default function MachineSettingsDialog({profile,onSave,onClose,required=f
     setError('');
     void onSave(draft);
   };
-  const half=draft.physicalWidthMm/(draft.headMode==='dual'?2:1);
   return <Modal title={required?'İlk kurulum · Makinenizi tanıyalım':'Ayarlarım · Makine ve kesim alanı'}
     onClose={onClose} locked={required||busy} className="machine-settings-dialog">
     <form onSubmit={save} className="machine-settings-form">
@@ -44,8 +43,8 @@ export default function MachineSettingsDialog({profile,onSave,onClose,required=f
           value={draft.materialLengthMm??1000}
           onChange={e=>setDraft(p=>({...p,materialLengthMm:e.target.valueAsNumber}))}/>
       </label>}
-      <p className="muted">Nesting için kullanılan en: <strong>{Number.isFinite(half)?half.toLocaleString('tr-TR'):'—'} mm</strong>
-        {draft.headMode==='dual'&&<> · Gerçek kesim eni iki eşit çalışma bölgesine ayrılır. DXF'ye ikinci kopya eklenmez; ikinci kafa X ofsetini makinede doğrulayın.</>}
+      <p className="muted">Yerleşim genişliği: <strong>{Number.isFinite(draft.physicalWidthMm)?draft.physicalWidthMm.toLocaleString('tr-TR'):'—'} mm</strong>.
+        Tek veya çift kafa seçiminde malzeme eni otomatik bölünmez. Kafa ofseti ve eş zamanlı çalışma ayarları makinede yapılır.
       </p>
       {(error||serverError)&&<p role="alert" className="field-error">{error||serverError}</p>}
       <div className="modal-actions">
