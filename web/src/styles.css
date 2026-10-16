@@ -836,21 +836,30 @@ dialog.modal.modal-about{
   .material-group{padding:14px;}
 }
 
-/* Malzeme ölçüleri ve Yerleşim kuralları aynı kartı paylaşır. */
-.material-panel .material-group-stack{
-  min-width:0;
-  overflow:hidden;
-  border:1px solid var(--border);
-  border-radius:12px;
-  background:var(--page);
+/* One actual material settings card, with two field groups and no nested cards. */
+.material-panel .material-group--combined{
+  display:block;
 }
-.material-panel .material-group-stack > .material-group{
-  border:0;
-  border-radius:0;
-  background:transparent;
-}
-.material-panel .material-group-stack > .material-group + .material-group{
+.material-panel .material-group--combined .material-group__subsection{
+  margin-top:16px;
+  padding-top:15px;
   border-top:1px solid var(--border);
+}
+.material-panel .material-group--combined .material-group__subsection h4{
+  margin:0;
+  font-size:13px;
+  font-weight:700;
+  line-height:1.3;
+  color:var(--ink);
+}
+.material-panel .material-group--combined .material-group__subsection > p{
+  margin:3px 0 12px;
+  color:var(--muted);
+  font-size:10.5px;
+  line-height:1.4;
+}
+.material-panel .material-group--combined .material-group__subsection > .material-group__body{
+  min-width:0;
 }
 
 /* Seçili Parça dönüşü butonu farenin konumundan bağımsız olarak sabit gri.
@@ -867,4 +876,314 @@ dialog.modal.modal-about{
   opacity:1!important;
   filter:none!important;
   transition:none!important;
+}
+
+/* Requested pill style: DXF İndir only; CorelDRAW transfer keeps its existing style. */
+#root .statusbar .export-actions .download-control > button.download-button.cssbuttons-io-button {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-family:inherit;
+  cursor:pointer;
+  font-weight:500;
+  font-size:17px;
+  padding:0.8em 1.5em 0.8em 1.2em;
+  height:auto;
+  min-height:42px;
+  gap:0;
+  color:#fff!important;
+  background:linear-gradient(
+    0deg,
+    rgba(77, 54, 208, 1) 0%,
+    rgba(132, 116, 254, 1) 100%
+  )!important;
+  border:none!important;
+  box-shadow:0 0.7em 1.5em -0.5em #4d36d0be!important;
+  letter-spacing:0.05em;
+  border-radius:20em;
+  text-shadow:none!important;
+  transform:none;
+}
+#root .statusbar .export-actions .download-control > button.cssbuttons-io-button svg {
+  margin-right:8px;
+}
+#root .statusbar .export-actions .download-control > button.cssbuttons-io-button:hover:enabled {
+  background:linear-gradient(0deg,rgba(77,54,208,1) 0%,rgba(132,116,254,1) 100%)!important;
+  box-shadow:0 0.5em 1.5em -0.5em #4d36d0be!important;
+  transform:none;
+}
+#root .statusbar .export-actions .download-control > button.cssbuttons-io-button:active:enabled {
+  box-shadow:0 0.3em 1em -0.5em #4d36d0be!important;
+}
+#root .statusbar .export-actions .download-control > button.cssbuttons-io-button:disabled {
+  cursor:not-allowed;
+  opacity:.45;
+  box-shadow:none!important;
+}
+
+
+/* Pending visual refresh: embossed controls, mint ticks, and slate text fields. */
+/* Applies to user and admin interfaces.
+   Keep hidden native admin switches intact; all other checkboxes use mint ticks. */
+#root :is(.app,.admin-page,.auth-screen) button:not(.cssbuttons-io-button) {
+  font:inherit;
+  background:#f0f0f0!important;
+  background-image:none!important;
+  border:0!important;
+  color:#242424!important;
+  border-radius:.5em!important;
+  font-size:clamp(12px, 1vw, 21.6px);
+  padding:.375em 1em;
+  font-weight:600;
+  text-shadow:0 .0625em 0 #fff!important;
+  box-shadow:inset 0 .0625em 0 0 #f4f4f4,
+    0 .0625em 0 0 #efefef,0 .125em 0 0 #ececec,
+    0 .25em 0 0 #e0e0e0,0 .3125em 0 0 #dedede,
+    0 .375em 0 0 #dcdcdc,0 .425em 0 0 #cacaca,
+    0 .425em .5em 0 #cecece!important;
+  transition:translate .15s ease,box-shadow .15s ease!important;
+  cursor:pointer;
+  translate:0 0;
+}
+#root :is(.app,.admin-page,.auth-screen) button:not(.cssbuttons-io-button):hover:enabled {
+  background:#f0f0f0!important;
+  background-image:none!important;
+  color:#242424!important;
+  transform:none!important;
+  text-shadow:0 .0625em 0 #fff!important;
+}
+#root :is(.app,.admin-page,.auth-screen) button:not(.cssbuttons-io-button):active:enabled {
+  translate:0 .225em;
+  transform:none!important;
+  box-shadow:inset 0 .03em 0 0 #f4f4f4,
+    0 .03em 0 0 #efefef,0 .0625em 0 0 #ececec,
+    0 .125em 0 0 #e0e0e0,0 .125em 0 0 #dedede,
+    0 .2em 0 0 #dcdcdc,0 .225em 0 0 #cacaca,
+    0 .225em .375em 0 #cecece!important;
+}
+#root :is(.app,.admin-page,.auth-screen) button:not(.cssbuttons-io-button):disabled {
+  cursor:not-allowed;
+  opacity:.5;
+}
+/* Preserve meaningful selected and destructive state contrast. */
+#root :is(.app,.admin-page,.auth-screen) .material-panel .rotation-choice button[aria-pressed="true"],
+#root :is(.app,.admin-page,.auth-screen) .material-panel .rotation-choice button[aria-pressed="true"]:is(:hover,:active,:focus,:disabled) {
+  background:#66717f!important;
+  color:#fff!important;
+  border:2px solid #505b69!important;
+  box-shadow:0 0 0 2px rgba(102,113,127,.18)!important;
+  text-shadow:none!important;
+  translate:0 0;
+}
+#root :is(.app,.admin-page,.auth-screen) button.danger-button {
+  color:#aa2437!important;
+}
+/* Numeric and text entries use the supplied dark, rounded input visual.
+   No global label/svg rules: DXF canvas and coordinate overlays must be untouched. */
+#root :is(.app,.admin-page,.auth-screen) {
+  --serula-field-bg:#283542;
+  --serula-field-focus:#1b9bee;
+  --serula-field-ink:#fff;
+  --serula-field-placeholder:#949faa;
+}
+#root :is(.app,.admin-page,.auth-screen) input:is([type="number"],[type="text"],[type="search"],[type="email"],[type="password"],[type="tel"],[type="url"]),
+#root :is(.app,.admin-page,.auth-screen) input:not([type]),
+#root :is(.app,.admin-page,.auth-screen) textarea {
+  color:var(--serula-field-ink)!important;
+  background:var(--serula-field-bg)!important;
+  border:1px solid transparent!important;
+  border-radius:30px!important;
+  box-shadow:0 1px 4px rgba(0,0,0,.16)!important;
+  font-size:.9rem;
+  padding:.65em 1.2em;
+  min-width:0;
+  min-height:40px;
+  outline-offset:2px;
+}
+#root :is(.app,.admin-page,.auth-screen) textarea {border-radius:16px!important;resize:vertical;}
+#root :is(.app,.admin-page,.auth-screen) input:is([type="number"],[type="text"],[type="search"],[type="email"],[type="password"],[type="tel"],[type="url"]):focus,
+#root :is(.app,.admin-page,.auth-screen) input:not([type]):focus,
+#root :is(.app,.admin-page,.auth-screen) textarea:focus {
+  background:#283542!important;
+  border-color:var(--serula-field-focus)!important;
+  color:#fff!important;
+  outline:2px solid rgba(27,155,238,.22);
+  box-shadow:0 1px 4px rgba(0,0,0,.16)!important;
+}
+#root :is(.app,.admin-page,.auth-screen) input::placeholder,
+#root :is(.app,.admin-page,.auth-screen) textarea::placeholder {color:var(--serula-field-placeholder)!important;}
+#root :is(.app,.admin-page,.auth-screen) input:disabled,#root :is(.app,.admin-page,.auth-screen) textarea:disabled {opacity:.55;cursor:not-allowed;}
+/* Uniform green checkboxes without hiding native keyboard interaction. */
+#root :is(.app,.admin-page,.auth-screen) input[type="checkbox"]:not(.switch input) {
+  appearance:none;
+  -webkit-appearance:none;
+  display:inline-grid;
+  place-content:center;
+  flex:0 0 27px;
+  width:27px;
+  height:27px;
+  min-width:27px;
+  min-height:27px;
+  margin:0;
+  vertical-align:middle;
+  cursor:pointer;
+  border:3px solid #beddd0!important;
+  border-radius:10px;
+  background:#e8f3ee!important;
+  box-shadow:0 0 1px #cef1e4,inset 0 -2.5px 3px #cbeadd,
+    inset 0 3px 3px rgba(0,0,0,.12)!important;
+  position:relative;
+  transition:background-color .3s ease,box-shadow .3s ease;
+}
+#root :is(.app,.admin-page,.auth-screen) input[type="checkbox"]:not(.switch input)::after {
+  content:"";
+  width:5px;
+  height:10px;
+  border:solid #fff;
+  border-width:0 2px 2px 0;
+  transform:rotate(45deg) translate(-1px,-1px) scale(.6);
+  opacity:0;
+  filter:drop-shadow(0 2px 1px rgba(0,0,0,.25));
+  transition:opacity .3s ease,transform .3s ease;
+}
+#root :is(.app,.admin-page,.auth-screen) input[type="checkbox"]:not(.switch input):checked {
+  background:#2dc38c!important;
+  border-color:#beddd0!important;
+  box-shadow:0 0 1px #cef1e4,inset 0 -2.5px 3px #62eab8,
+    inset 0 3px 3px rgba(0,0,0,.34)!important;
+}
+#root :is(.app,.admin-page,.auth-screen) input[type="checkbox"]:not(.switch input):checked::after {
+  opacity:1;
+  transform:rotate(45deg) translate(-1px,-1px) scale(1);
+}
+#root :is(.app,.admin-page,.auth-screen) input[type="checkbox"]:not(.switch input):focus-visible {
+  outline:2px solid #1b9bee;
+  outline-offset:3px;
+}
+#root :is(.app,.admin-page,.auth-screen) input[type="checkbox"]:not(.switch input):disabled {opacity:.5;cursor:not-allowed;}
+@media (prefers-reduced-motion:reduce) {
+  #root :is(.app,.admin-page,.auth-screen) button,#root :is(.app,.admin-page,.auth-screen) input[type="checkbox"]:not(.switch input)::after {transition:none!important;}
+}
+
+/* Flowing purple loading pegs: shown only while work is in progress. */
+#root :is(.app,.admin-page,.auth-screen) .serula-flow-loader {
+  --fill-color:#5c3d99;
+  --shine-color:#5c3d9933;
+  width:32px;
+  height:32px;
+  position:relative;
+  display:block;
+  flex:none;
+  filter:drop-shadow(0 0 6px var(--shine-color));
+  overflow:hidden;
+}
+#root :is(.app,.admin-page,.auth-screen) .serula-flow-loader .serula-peg {
+  position:absolute;
+  top:5px;
+  left:5px;
+  width:22px;
+  height:22px;
+  transform-origin:50% 50%;
+  pointer-events:none;
+  will-change:transform,opacity;
+}
+#root :is(.app,.admin-page,.auth-screen) .serula-flow-loader svg g path:first-child {fill:var(--fill-color);}
+#root :is(.app,.admin-page,.auth-screen) .serula-flow-loader .serula-peg--one {animation:flowe-one 1s linear infinite;}
+#root :is(.app,.admin-page,.auth-screen) .serula-flow-loader .serula-peg--two {
+  opacity:0;animation:flowe-two 1s linear infinite;animation-delay:.3s;
+}
+#root :is(.app,.admin-page,.auth-screen) .serula-flow-loader .serula-peg--three {
+  opacity:0;animation:flowe-three 1s linear infinite;animation-delay:.6s;
+}
+@keyframes flowe-one {
+  0%{transform:scale(.5) translateY(-28px);opacity:0}
+  25%{transform:scale(.75) translateY(-14px);opacity:1}
+  50%{transform:scale(1) translateY(0);opacity:1}
+  75%{transform:scale(.5) translateY(8px);opacity:1}
+  100%{transform:scale(0) translateY(18px);opacity:0}
+}
+@keyframes flowe-two {
+  0%{transform:scale(.5) rotate(-10deg) translate(-18px,-28px);opacity:0}
+  25%{transform:scale(1) rotate(-5deg) translate(-8px,-14px);opacity:1}
+  50%{transform:scale(1) rotate(0) translate(-3px,0);opacity:1}
+  75%{transform:scale(.5) rotate(5deg) translate(0,8px);opacity:1}
+  100%{transform:scale(0) rotate(10deg) translate(6px,18px);opacity:0}
+}
+@keyframes flowe-three {
+  0%{transform:scale(.5) rotate(10deg) translate(18px,-28px);opacity:0}
+  25%{transform:scale(1) rotate(5deg) translate(8px,-14px);opacity:1}
+  50%{transform:scale(1) rotate(0) translate(3px,0);opacity:1}
+  75%{transform:scale(.5) rotate(-5deg) translate(0,8px);opacity:1}
+  100%{transform:scale(0) rotate(-10deg) translate(-6px,18px);opacity:0}
+}
+@media(prefers-reduced-motion:reduce) {
+  #root :is(.app,.admin-page,.auth-screen) .serula-flow-loader .serula-peg{animation:none;opacity:0;}
+  #root :is(.app,.admin-page,.auth-screen) .serula-flow-loader .serula-peg--one{opacity:1;transform:none;}
+}
+
+/* Loading state in the admin sign-in form and session check. */
+#root .auth-screen .auth-loading-row,
+#root .auth-screen button:has(> .serula-flow-loader){
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+}
+#root .auth-screen .auth-loading-row p{margin:0;}
+#root .auth-screen button .serula-flow-loader{width:23px;height:23px;}
+#root .auth-screen button .serula-flow-loader .serula-peg{top:1px;left:1px;}
+
+/* Prevent the new form styles from spilling into admin toggle switches. */
+#root .admin-page .switch input[type="checkbox"]{appearance:auto;-webkit-appearance:auto;}
+
+/* Selected user/admin action states remain visually distinguishable. */
+#root .app button[aria-pressed="true"]:not(.cssbuttons-io-button):not(.danger-button):not(.part-select):not(.corel-transfer-button),
+#root .admin-page button[aria-pressed="true"]:not(.danger-button),
+#root .auth-screen button.active{
+  background:#9ca8b3!important;
+  color:#18212a!important;
+  text-shadow:none!important;
+  box-shadow:inset 0 2px 3px rgba(0,0,0,.17)!important;
+}
+
+/* Admin: maintain a visible selected state and protect destructive actions. */
+#root .admin-page .admin-sidebar nav button.active,
+#root .admin-page .admin-conversation-list > button.active {
+  background:#a6afb9!important;
+  color:#222b34!important;
+  text-shadow:none!important;
+  box-shadow:inset 0 2px 3px rgba(0,0,0,.14)!important;
+}
+#root .admin-page button.danger-button {
+  color:#a92135!important;
+  border:1px solid #e8b6bf!important;
+  background:#ffeded!important;
+  text-shadow:none!important;
+}
+#root .admin-page button:focus-visible,
+#root .admin-page input:focus-visible,
+#root .admin-page textarea:focus-visible {
+  outline:2px solid #1b9bee;
+  outline-offset:2px;
+}
+/* Admin native switch stays visually distinct and keyboard accessible. */
+#root .admin-page .switch input[type="checkbox"] {
+  appearance:auto;
+  -webkit-appearance:auto;
+}
+#root .admin-page .admin-heading .serula-flow-loader {
+  width:26px;
+  height:26px;
+  flex:none;
+}
+
+#root .admin-page .admin-connection {display:inline-flex;align-items:center;gap:8px;}
+
+#root .app .material-panel .rotation-choice button[aria-pressed="true"],
+#root .app .material-panel .rotation-choice button[aria-pressed="true"]:is(:hover,:focus,:active,:disabled){
+  background:#66717f!important;
+  color:#fff!important;
+  text-shadow:none!important;
+  border:2px solid #505b69!important;
+  box-shadow:0 0 0 2px rgba(102,113,127,.18)!important;
+  translate:0 0;
 }

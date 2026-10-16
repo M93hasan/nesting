@@ -1,4 +1,5 @@
 import RotationControl from './components/RotationControl';
+import FlowLoader from './components/FlowLoader';
 import packageInfo from '../package.json';
 import {readRecovery,saveRecovery} from './storage/recovery';
 import {useDismissibleMenu} from './components/useDismissibleMenu';
@@ -785,8 +786,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         </div>
             </div>
           </section>
-          <div className="material-group-stack">
-          <section className="material-group" aria-labelledby="material-group-2">
+          <section className="material-group material-group--combined" aria-labelledby="material-group-2">
             <div className="material-group__heading">
               <span className="material-group__index" aria-hidden="true">02</span>
               <div className="material-group__heading-copy"><h3 id="material-group-2">Malzeme ölçüleri</h3><p>Malzeme tipi ve genişlik</p></div>
@@ -797,23 +797,20 @@ export default function App({initialDocument=emptyProject(),initialError='',load
           {(!Number.isFinite(doc.settings.materialWidthMm)||doc.settings.materialWidthMm<=0||doc.settings.materialWidthMm>100_000)&&<small role="alert" className="field-error">Geçerli bir malzeme genişliği girin.</small>}
           {(doc.settings.materialType??'roll')==='sheet'&&<><label className="measurement-field"><span className="measurement-field__name">Plaka uzunluğu</span><span className="measurement-field__unit">{unit}</span><input data-undo-field type="number" min={0.001/factor} max={100000/factor} step="any" value={inputLength(doc.settings.materialLengthMm??0)} disabled={locked} onChange={e=>commit({...doc,settings:{...doc.settings,materialLengthMm:e.target.valueAsNumber*factor}},true,'material-length')}/></label>{(!Number.isFinite(doc.settings.materialLengthMm)||doc.settings.materialLengthMm!<=0)&&<small role="alert" className="field-error">Geçerli bir plaka uzunluğu girin.</small>}</>}
             </div>
-          </section>
-          <section className="material-group" aria-labelledby="material-group-3">
-            <div className="material-group__heading">
-              <span className="material-group__index" aria-hidden="true">03</span>
-              <div className="material-group__heading-copy"><h3 id="material-group-3">Yerleşim kuralları</h3><p>Parça aralığı ve başlangıç noktası</p></div>
-            </div>
-            <div className="material-group__body">
+            <div className="material-group__subsection" role="group" aria-labelledby="material-group-2-layout">
+              <h4 id="material-group-2-layout">Yerleşim kuralları</h4>
+              <p>Parça aralığı ve başlangıç noktası</p>
+              <div className="material-group__body">
           <label className="measurement-field"><span className="measurement-field__name">Parça aralığı</span><span className="measurement-field__unit">{unit}</span><input data-undo-field type="number" min="0" step="any" value={inputLength(doc.settings.clearanceMm)} disabled={locked} onChange={e=>commit({...doc,settings:{...doc.settings,clearanceMm:e.target.valueAsNumber*factor}},true,'clearance')}/></label><label>Başlangıç yönü<select value={doc.settings.startCorner??'right-bottom'} disabled={locked} onChange={e=>commit({...doc,settings:{...doc.settings,startCorner:e.target.value as 'right-top'|'right-bottom'}},false)}><option value="right-bottom">Sağ alt ↘</option><option value="right-top">Sağ üst ↗</option></select></label>
           {doc.settings.clearanceMm>0&&<small>Parça aralığı yalnızca parçalar arasında uygulanır; malzeme kenarında ek pay oluşturmaz. Bu kesim kerfi değildir.</small>}
           {(!Number.isFinite(doc.settings.clearanceMm)||doc.settings.clearanceMm<0||doc.settings.clearanceMm>=doc.settings.materialWidthMm)&&<small role="alert" className="field-error">Sıfır veya malzeme genişliğinden küçük pozitif bir parça aralığı girin.</small>}
+              </div>
             </div>
           </section>
-          </div>
-          <section className="material-group" aria-labelledby="material-group-4">
+                    <section className="material-group" aria-labelledby="material-group-3">
             <div className="material-group__heading">
-              <span className="material-group__index" aria-hidden="true">04</span>
-              <div className="material-group__heading-copy"><h3 id="material-group-4">Optimizasyon</h3><p>Arama süresi ve hesaplama seçenekleri</p></div>
+              <span className="material-group__index" aria-hidden="true">03</span>
+              <div className="material-group__heading-copy"><h3 id="material-group-3">Optimizasyon</h3><p>Arama süresi ve hesaplama seçenekleri</p></div>
             </div>
             <div className="material-group__body">
           <label>Durdurma koşulu<select value={doc.settings.timeLimitSeconds??'auto'} disabled={locked} onChange={e=>commit({...doc,settings:{...doc.settings,timeLimitSeconds:e.target.value==='auto'?null:Number(e.target.value) as 10|30|60|120|300|600}},false)}><option value="auto">Otomatik · en fazla 59 sn</option>{[10,30,60,120,300,600].map(s=><option value={s} key={s}>{s<60?`En fazla ${s} saniye`:`En fazla ${s/60} dakika`}</option>)}</select></label>
@@ -826,7 +823,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
 
     </main>
     <footer className="statusbar"><div className="run-controls"><span id="compression-tooltip" role="tooltip" className="compression-tooltip"><strong>Sıkıştırmaya geç</strong>Keşfi bitir ve en iyi yerleşimi sıkıştır.</span>{running?<><button className="run-button" onClick={solver.stop}>Durdur</button>{solver.canSkip&&(solver.state==='Initializing'||solver.state==='Running'&&solver.phase==='Exploration')&&<button className="run-button skip-compression" aria-label="Sıkıştırmaya geç" disabled={solver.state!=='Running'||solver.skipping||!solver.result} aria-describedby="compression-tooltip" onClick={solver.skipToCompression}><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3 5v14l9-7zM12 5v14l9-7z"/></svg></button>}</>:<button className="run-button" disabled={locked||invalidSettings||!doc.parts.some(part=>part.quantity>0)||!!polygon} onClick={()=>void run()}>{result?'Yeniden yerleştir':'Parçaları yerleştir'}</button>}</div>
-      <div className="run-status" data-visual-state={running||busy?'working':error?'error':'ready'}><span className="status-symbol" aria-hidden="true"><i className={running||busy?'active':undefined}/></span><span role="status" className="run-state"><span>{busy?'Girdiler kontrol ediliyor':loadingExample?'Örnek yükleniyor…':solver.state==='Running'&&solver.phase?(solver.skipping?'Geçiliyor…':solver.phase):solver.state}</span>{(running||solver.state==='Complete'||solver.state==='Stopped')&&<span className="run-elapsed">{solver.elapsed.toFixed(1)} s</span>}</span>{solver.workers&&<small className="worker-status" title={solver.workers.reason} data-worker-count={solver.workers.actual}>{`${solver.workers.actual} çözücü işçisi`}{solver.workers.requested?` / ${solver.workers.requested} istendi`:' · otomatik'}{solver.workers.reason&&' · yedek'}</small>}</div>
+      <div className="run-status" data-visual-state={running||busy?'working':error?'error':'ready'}><span className="status-symbol" aria-hidden="true">{running||busy||loadingExample?<FlowLoader/>:<i/>}</span><span role="status" className="run-state"><span>{busy?'Girdiler kontrol ediliyor':loadingExample?'Örnek yükleniyor…':solver.state==='Running'&&solver.phase?(solver.skipping?'Geçiliyor…':solver.phase):solver.state}</span>{(running||solver.state==='Complete'||solver.state==='Stopped')&&<span className="run-elapsed">{solver.elapsed.toFixed(1)} s</span>}</span>{solver.workers&&<small className="worker-status" title={solver.workers.reason} data-worker-count={solver.workers.actual}>{`${solver.workers.actual} çözücü işçisi`}{solver.workers.requested?` / ${solver.workers.requested} istendi`:' · otomatik'}{solver.workers.reason&&' · yedek'}</small>}</div>
       <div className="metrics"><span>{doc.settings.materialType==='sheet'?'Kullanılan plaka':showingLive?'En iyi geçerli uzunluk':'Kullanılan uzunluk'} <strong>{result?(doc.settings.materialType==='sheet'?String(result.sheetCount??1):`${length(result.usedLengthMm)} ${unit}`):'—'}</strong></span><span>Malzeme verimliliği <strong>{result?`${utilization.toFixed(2)}%`:'—'}</strong></span><span>Fire <strong>{result?`${waste.toFixed(2)}%`:'—'}</strong></span>{improvement&&doc.settings.materialType!=='sheet'&&<span title="Keşif: ilk geçerli uzunluktan azalma. Sıkıştırma: en iyi keşif uzunluğundan ek azalma.">İyileştirme keşfet / sıkıştır <strong>{improvement.explore.toFixed(1)}% / {improvement.compress.toFixed(1)}%</strong></span>}</div>
       <div className="export-actions">
         {transferAccess.corel&&<div className="corel-transfer-control">
@@ -844,7 +841,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
             </div>
           </div>}
         </div>}
-        <span className="download-control" tabIndex={exportBlockedReason?0:undefined} aria-describedby={exportBlockedReason?'download-tooltip':undefined}><button disabled={!!exportBlockedReason} className="download-button" onClick={()=>void exportLayout()}><svg className="download-button__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg><span>{downloadPhase==='preparing'?'DXF hazırlanıyor…':downloadPhase==='authorizing'?'Buluta kaydediliyor…':'DXF İndir'}</span></button>{exportBlockedReason&&<span id="download-tooltip" role="tooltip" className="compression-tooltip">{exportBlockedReason}</span>}</span></div>
+        <span className="download-control" tabIndex={exportBlockedReason?0:undefined} aria-describedby={exportBlockedReason?'download-tooltip':undefined}><button disabled={!!exportBlockedReason} className="download-button cssbuttons-io-button" onClick={()=>void exportLayout()}><svg className="download-button__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg><span>{downloadPhase==='preparing'?'DXF hazırlanıyor…':downloadPhase==='authorizing'?'Buluta kaydediliyor…':'DXF İndir'}</span></button>{exportBlockedReason&&<span id="download-tooltip" role="tooltip" className="compression-tooltip">{exportBlockedReason}</span>}</span></div>
 
     </footer>
     
