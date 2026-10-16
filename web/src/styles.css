@@ -1153,7 +1153,7 @@ dialog.modal.modal-about{
   font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
   font-optical-sizing:auto;
 }
-#root :is(.app,.admin-page,.auth-screen) :is(
+#root :is(.app,.admin-page,.auth-screen) :where(
   button,
   input[type="button"],
   input[type="submit"],
@@ -1195,7 +1195,7 @@ dialog.modal.modal-about{
   transform:none!important;
   text-decoration:none;
 }
-#root :is(.app,.admin-page,.auth-screen) :is(
+#root :is(.app,.admin-page,.auth-screen) :where(
   button,
   input[type="button"],input[type="submit"],input[type="reset"],
   a.button,a.admin-workspace-link,a.nav-action,
@@ -1210,7 +1210,7 @@ dialog.modal.modal-about{
   transform:none!important;
   text-shadow:0 .0625em 0 #fff!important;
 }
-#root :is(.app,.admin-page,.auth-screen) :is(
+#root :is(.app,.admin-page,.auth-screen) :where(
   button,
   input[type="button"],input[type="submit"],input[type="reset"],
   a.button,a.admin-workspace-link,a.nav-action,
@@ -1326,6 +1326,18 @@ dialog.modal.modal-about{
     0 .375em 0 0 #dcdcdc,0 .425em 0 0 #cacaca,
     0 .425em .5em 0 #cecece!important;
 }
+/* All branded transfer actions also get the prescribed press-in shadow. */
+#root .app .export-actions button.download-button.corel-transfer-button:active:enabled,
+#root .app .export-actions button.download-button.rdworks-transfer-button:active:enabled,
+#root .admin-page .admin-user-actions button.corel-transfer-toggle:active:enabled,
+#root .admin-page .admin-user-actions button.rdworks-transfer-toggle:active:enabled {
+  translate:0 .225em!important;
+  box-shadow:inset 0 .03em 0 0 #f4f4f4,
+    0 .03em 0 0 #efefef,0 .0625em 0 0 #ececec,
+    0 .125em 0 0 #e0e0e0,0 .125em 0 0 #dedede,
+    0 .2em 0 0 #dcdcdc,0 .225em 0 0 #cacaca,
+    0 .225em .375em 0 #cecece!important;
+}
 /* Override only the active admin transfer toggle after generic brand styling. */
 #root .admin-page .admin-user-actions button.admin-transfer-toggle[aria-pressed="true"],
 #root .admin-page .admin-user-actions button.admin-transfer-toggle[aria-pressed="true"]:hover:enabled {
@@ -1337,7 +1349,7 @@ dialog.modal.modal-about{
   box-shadow:inset 0 2px 3px rgba(0,0,0,.16),0 0 0 1px rgba(69,81,95,.38)!important;
 }
 @media(max-width:699px) {
-  #root :is(.app,.admin-page,.auth-screen) :is(
+  #root :is(.app,.admin-page,.auth-screen) :where(
     button,input[type="button"],input[type="submit"],input[type="reset"],
     a.button,a.admin-workspace-link,a.nav-action,
   a.github-link,
@@ -1354,7 +1366,7 @@ dialog.modal.modal-about{
   }
 }
 @media(prefers-reduced-motion:reduce) {
-  #root :is(.app,.admin-page,.auth-screen) :is(button,a.button,a.nav-action,
+  #root :is(.app,.admin-page,.auth-screen) :where(button,a.button,a.nav-action,
   a.github-link,
   .header nav a:not(.brand),
   details > summary,
