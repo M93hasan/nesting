@@ -81,7 +81,7 @@ export function normalizeDocument(doc: Document, allowEmpty=false): Document {
   const parts = doc.parts.map(normalizePart);
   if(seriesMultiplier>1&&parts.some(part=>part.quantity%seriesMultiplier!==0))throw Error('Series multiplier does not match the current part quantities.');
   if (new Set(parts.map(p=>p.id)).size !== parts.length) throw Error('Part IDs must be unique.');
-  if (parts.reduce((n,p)=>n+p.quantity,0) > LIMITS.copies || parts.reduce((n,p)=>n+p.quantity*(p.outer.length+p.holes.reduce((m,h)=>m+h.length,0)),0) > LIMITS.verticesTotal) throw Error('Project exceeds 500 copies or 100,000 demanded vertices.');
+  if (parts.reduce((n,p)=>n+p.quantity,0) > LIMITS.copies || parts.reduce((n,p)=>n+p.quantity*(p.outer.length+p.holes.reduce((m,h)=>m+h.length,0)),0) > LIMITS.verticesTotal) throw Error(`Project exceeds 500 copies or ${LIMITS.verticesTotal.toLocaleString('en-US')} demanded vertices.`);
   if (doc.placements !== undefined) {
     if (!Array.isArray(doc.placements)) throw Error('Placements must be an array.');
     const ids = new Set(parts.map(p=>p.id)), seen = new Set<string>();

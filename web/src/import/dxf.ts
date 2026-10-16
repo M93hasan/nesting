@@ -1,7 +1,7 @@
 import parseString from 'dxf/lib/parseString';
 import bSpline from 'dxf/lib/util/bSpline';
 import {pointSegmentDistance} from '../geometry/validate';
-import {DEFAULT_SETTINGS,newPart,type DxfAuxEntity,type DxfDetailContour,type DxfSourceEntity,type DxfSpline,type Point,type Ring} from '../model';
+import {DEFAULT_SETTINGS,LIMITS,newPart,type DxfAuxEntity,type DxfDetailContour,type DxfSourceEntity,type DxfSpline,type Point,type Ring} from '../model';
 import {apply,multiply,append,ellipse,type Matrix} from '../geometry/flatten';
 import {area,bounds,inside,normalizeDocument,normalizeRing,ringCrosses} from '../geometry/normalize';
 import {localize,type ImportReview} from './sparrow';
@@ -447,9 +447,9 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
       if(native)sourceEntities.set(r.id,native);
       ring=ring.map(p=>apply(matrix,p));
       if(ring.some(p=>!p.every(v=>Number.isFinite(v)&&Math.abs(v)<=100_000)))throw Error('Coordinates exceed the 100,000 mm limit.');
-      totalVertices+=ring.length;if(totalVertices>100_000)throw Error('DXF exceeds 100,000 vertices.');
+      totalVertices+=ring.length;if(totalVertices>LIMITS.verticesTotal)throw Error(`DXF exceeds ${LIMITS.verticesTotal.toLocaleString('en-US')} vertices.`);
       if(closed)contours.push({ring,entityId:r.id,curved,layer,dxfColorNumber,sourceEntityCount:1});else chains.push({points:ring,id:r.id,curved,layer,dxfColorNumber});
-    }catch(error){if(expanded>10_000||totalVertices>100_000)throw error;issues.push(`${r.id} on ${layer}: ${error instanceof Error?error.message:String(error)}`);}
+    }catch(error){if(expanded>10_000||totalVertices>LIMITS.verticesTotal)throw error;issues.push(`${r.id} on ${layer}: ${error instanceof Error?error.message:String(error)}`);}
   };
   for(const entity of parsed.entities)visit(entity,[scale,0,0,scale,0,0],'0',[]);
   layers.sort();
