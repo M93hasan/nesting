@@ -1064,3 +1064,59 @@ dialog.modal.modal-about{
 @media (prefers-reduced-motion:reduce) {
   #root .app button,#root .app input[type="checkbox"]::after {transition:none!important;}
 }
+
+/* Flowing purple loading pegs: shown only while work is in progress. */
+#root .app .serula-flow-loader {
+  --fill-color:#5c3d99;
+  --shine-color:#5c3d9933;
+  width:32px;
+  height:32px;
+  position:relative;
+  display:block;
+  flex:none;
+  filter:drop-shadow(0 0 6px var(--shine-color));
+  overflow:hidden;
+}
+#root .app .serula-flow-loader .serula-peg {
+  position:absolute;
+  top:5px;
+  left:5px;
+  width:22px;
+  height:22px;
+  transform-origin:50% 50%;
+  pointer-events:none;
+  will-change:transform,opacity;
+}
+#root .app .serula-flow-loader svg g path:first-child {fill:var(--fill-color);}
+#root .app .serula-flow-loader .serula-peg--one {animation:flowe-one 1s linear infinite;}
+#root .app .serula-flow-loader .serula-peg--two {
+  opacity:0;animation:flowe-two 1s linear infinite;animation-delay:.3s;
+}
+#root .app .serula-flow-loader .serula-peg--three {
+  opacity:0;animation:flowe-three 1s linear infinite;animation-delay:.6s;
+}
+@keyframes flowe-one {
+  0%{transform:scale(.5) translateY(-28px);opacity:0}
+  25%{transform:scale(.75) translateY(-14px);opacity:1}
+  50%{transform:scale(1) translateY(0);opacity:1}
+  75%{transform:scale(.5) translateY(8px);opacity:1}
+  100%{transform:scale(0) translateY(18px);opacity:0}
+}
+@keyframes flowe-two {
+  0%{transform:scale(.5) rotate(-10deg) translate(-18px,-28px);opacity:0}
+  25%{transform:scale(1) rotate(-5deg) translate(-8px,-14px);opacity:1}
+  50%{transform:scale(1) rotate(0) translate(-3px,0);opacity:1}
+  75%{transform:scale(.5) rotate(5deg) translate(0,8px);opacity:1}
+  100%{transform:scale(0) rotate(10deg) translate(6px,18px);opacity:0}
+}
+@keyframes flowe-three {
+  0%{transform:scale(.5) rotate(10deg) translate(18px,-28px);opacity:0}
+  25%{transform:scale(1) rotate(5deg) translate(8px,-14px);opacity:1}
+  50%{transform:scale(1) rotate(0) translate(3px,0);opacity:1}
+  75%{transform:scale(.5) rotate(-5deg) translate(0,8px);opacity:1}
+  100%{transform:scale(0) rotate(-10deg) translate(-6px,18px);opacity:0}
+}
+@media(prefers-reduced-motion:reduce) {
+  #root .app .serula-flow-loader .serula-peg{animation:none;opacity:0;}
+  #root .app .serula-flow-loader .serula-peg--one{opacity:1;transform:none;}
+}
