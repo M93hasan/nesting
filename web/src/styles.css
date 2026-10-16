@@ -925,7 +925,7 @@ dialog.modal.modal-about{
 /* Pending visual refresh: embossed controls, mint ticks, and slate text fields. */
 /* Applies to user and admin interfaces.
    Keep hidden native admin switches intact; all other checkboxes use mint ticks. */
-#root :is(.app,.admin-page) button:not(.cssbuttons-io-button) {
+#root :is(.app,.admin-page,.auth-screen) button:not(.cssbuttons-io-button) {
   font:inherit;
   background:#f0f0f0!important;
   background-image:none!important;
@@ -945,14 +945,14 @@ dialog.modal.modal-about{
   cursor:pointer;
   translate:0 0;
 }
-#root :is(.app,.admin-page) button:not(.cssbuttons-io-button):hover:enabled {
+#root :is(.app,.admin-page,.auth-screen) button:not(.cssbuttons-io-button):hover:enabled {
   background:#f0f0f0!important;
   background-image:none!important;
   color:#242424!important;
   transform:none!important;
   text-shadow:0 .0625em 0 #fff!important;
 }
-#root :is(.app,.admin-page) button:not(.cssbuttons-io-button):active:enabled {
+#root :is(.app,.admin-page,.auth-screen) button:not(.cssbuttons-io-button):active:enabled {
   translate:0 .225em;
   transform:none!important;
   box-shadow:inset 0 .03em 0 0 #f4f4f4,
@@ -961,13 +961,13 @@ dialog.modal.modal-about{
     0 .2em 0 0 #dcdcdc,0 .225em 0 0 #cacaca,
     0 .225em .375em 0 #cecece!important;
 }
-#root :is(.app,.admin-page) button:not(.cssbuttons-io-button):disabled {
+#root :is(.app,.admin-page,.auth-screen) button:not(.cssbuttons-io-button):disabled {
   cursor:not-allowed;
   opacity:.5;
 }
 /* Preserve meaningful selected and destructive state contrast. */
-#root :is(.app,.admin-page) .material-panel .rotation-choice button[aria-pressed="true"],
-#root :is(.app,.admin-page) .material-panel .rotation-choice button[aria-pressed="true"]:is(:hover,:active,:focus,:disabled) {
+#root :is(.app,.admin-page,.auth-screen) .material-panel .rotation-choice button[aria-pressed="true"],
+#root :is(.app,.admin-page,.auth-screen) .material-panel .rotation-choice button[aria-pressed="true"]:is(:hover,:active,:focus,:disabled) {
   background:#66717f!important;
   color:#fff!important;
   border:2px solid #505b69!important;
@@ -975,20 +975,20 @@ dialog.modal.modal-about{
   text-shadow:none!important;
   translate:0 0;
 }
-#root :is(.app,.admin-page) button.danger-button {
+#root :is(.app,.admin-page,.auth-screen) button.danger-button {
   color:#aa2437!important;
 }
 /* Numeric and text entries use the supplied dark, rounded input visual.
    No global label/svg rules: DXF canvas and coordinate overlays must be untouched. */
-#root :is(.app,.admin-page) {
+#root :is(.app,.admin-page,.auth-screen) {
   --serula-field-bg:#283542;
   --serula-field-focus:#1b9bee;
   --serula-field-ink:#fff;
   --serula-field-placeholder:#949faa;
 }
-#root :is(.app,.admin-page) input:is([type="number"],[type="text"],[type="search"],[type="email"],[type="password"],[type="tel"],[type="url"]),
-#root :is(.app,.admin-page) input:not([type]),
-#root :is(.app,.admin-page) textarea {
+#root :is(.app,.admin-page,.auth-screen) input:is([type="number"],[type="text"],[type="search"],[type="email"],[type="password"],[type="tel"],[type="url"]),
+#root :is(.app,.admin-page,.auth-screen) input:not([type]),
+#root :is(.app,.admin-page,.auth-screen) textarea {
   color:var(--serula-field-ink)!important;
   background:var(--serula-field-bg)!important;
   border:1px solid transparent!important;
@@ -1000,21 +1000,21 @@ dialog.modal.modal-about{
   min-height:40px;
   outline-offset:2px;
 }
-#root :is(.app,.admin-page) textarea {border-radius:16px!important;resize:vertical;}
-#root :is(.app,.admin-page) input:is([type="number"],[type="text"],[type="search"],[type="email"],[type="password"],[type="tel"],[type="url"]):focus,
-#root :is(.app,.admin-page) input:not([type]):focus,
-#root :is(.app,.admin-page) textarea:focus {
+#root :is(.app,.admin-page,.auth-screen) textarea {border-radius:16px!important;resize:vertical;}
+#root :is(.app,.admin-page,.auth-screen) input:is([type="number"],[type="text"],[type="search"],[type="email"],[type="password"],[type="tel"],[type="url"]):focus,
+#root :is(.app,.admin-page,.auth-screen) input:not([type]):focus,
+#root :is(.app,.admin-page,.auth-screen) textarea:focus {
   background:#283542!important;
   border-color:var(--serula-field-focus)!important;
   color:#fff!important;
   outline:2px solid rgba(27,155,238,.22);
   box-shadow:0 1px 4px rgba(0,0,0,.16)!important;
 }
-#root :is(.app,.admin-page) input::placeholder,
-#root :is(.app,.admin-page) textarea::placeholder {color:var(--serula-field-placeholder)!important;}
-#root :is(.app,.admin-page) input:disabled,#root :is(.app,.admin-page) textarea:disabled {opacity:.55;cursor:not-allowed;}
+#root :is(.app,.admin-page,.auth-screen) input::placeholder,
+#root :is(.app,.admin-page,.auth-screen) textarea::placeholder {color:var(--serula-field-placeholder)!important;}
+#root :is(.app,.admin-page,.auth-screen) input:disabled,#root :is(.app,.admin-page,.auth-screen) textarea:disabled {opacity:.55;cursor:not-allowed;}
 /* Uniform green checkboxes without hiding native keyboard interaction. */
-#root :is(.app,.admin-page) input[type="checkbox"]:not(.switch input) {
+#root :is(.app,.admin-page,.auth-screen) input[type="checkbox"]:not(.switch input) {
   appearance:none;
   -webkit-appearance:none;
   display:inline-grid;
@@ -1035,7 +1035,7 @@ dialog.modal.modal-about{
   position:relative;
   transition:background-color .3s ease,box-shadow .3s ease;
 }
-#root :is(.app,.admin-page) input[type="checkbox"]:not(.switch input)::after {
+#root :is(.app,.admin-page,.auth-screen) input[type="checkbox"]:not(.switch input)::after {
   content:"";
   width:5px;
   height:10px;
@@ -1046,27 +1046,27 @@ dialog.modal.modal-about{
   filter:drop-shadow(0 2px 1px rgba(0,0,0,.25));
   transition:opacity .3s ease,transform .3s ease;
 }
-#root :is(.app,.admin-page) input[type="checkbox"]:not(.switch input):checked {
+#root :is(.app,.admin-page,.auth-screen) input[type="checkbox"]:not(.switch input):checked {
   background:#2dc38c!important;
   border-color:#beddd0!important;
   box-shadow:0 0 1px #cef1e4,inset 0 -2.5px 3px #62eab8,
     inset 0 3px 3px rgba(0,0,0,.34)!important;
 }
-#root :is(.app,.admin-page) input[type="checkbox"]:not(.switch input):checked::after {
+#root :is(.app,.admin-page,.auth-screen) input[type="checkbox"]:not(.switch input):checked::after {
   opacity:1;
   transform:rotate(45deg) translate(-1px,-1px) scale(1);
 }
-#root :is(.app,.admin-page) input[type="checkbox"]:not(.switch input):focus-visible {
+#root :is(.app,.admin-page,.auth-screen) input[type="checkbox"]:not(.switch input):focus-visible {
   outline:2px solid #1b9bee;
   outline-offset:3px;
 }
-#root :is(.app,.admin-page) input[type="checkbox"]:not(.switch input):disabled {opacity:.5;cursor:not-allowed;}
+#root :is(.app,.admin-page,.auth-screen) input[type="checkbox"]:not(.switch input):disabled {opacity:.5;cursor:not-allowed;}
 @media (prefers-reduced-motion:reduce) {
-  #root :is(.app,.admin-page) button,#root :is(.app,.admin-page) input[type="checkbox"]:not(.switch input)::after {transition:none!important;}
+  #root :is(.app,.admin-page,.auth-screen) button,#root :is(.app,.admin-page,.auth-screen) input[type="checkbox"]:not(.switch input)::after {transition:none!important;}
 }
 
 /* Flowing purple loading pegs: shown only while work is in progress. */
-#root .app .serula-flow-loader {
+#root :is(.app,.admin-page,.auth-screen) .serula-flow-loader {
   --fill-color:#5c3d99;
   --shine-color:#5c3d9933;
   width:32px;
@@ -1077,7 +1077,7 @@ dialog.modal.modal-about{
   filter:drop-shadow(0 0 6px var(--shine-color));
   overflow:hidden;
 }
-#root .app .serula-flow-loader .serula-peg {
+#root :is(.app,.admin-page,.auth-screen) .serula-flow-loader .serula-peg {
   position:absolute;
   top:5px;
   left:5px;
@@ -1087,12 +1087,12 @@ dialog.modal.modal-about{
   pointer-events:none;
   will-change:transform,opacity;
 }
-#root .app .serula-flow-loader svg g path:first-child {fill:var(--fill-color);}
-#root .app .serula-flow-loader .serula-peg--one {animation:flowe-one 1s linear infinite;}
-#root .app .serula-flow-loader .serula-peg--two {
+#root :is(.app,.admin-page,.auth-screen) .serula-flow-loader svg g path:first-child {fill:var(--fill-color);}
+#root :is(.app,.admin-page,.auth-screen) .serula-flow-loader .serula-peg--one {animation:flowe-one 1s linear infinite;}
+#root :is(.app,.admin-page,.auth-screen) .serula-flow-loader .serula-peg--two {
   opacity:0;animation:flowe-two 1s linear infinite;animation-delay:.3s;
 }
-#root .app .serula-flow-loader .serula-peg--three {
+#root :is(.app,.admin-page,.auth-screen) .serula-flow-loader .serula-peg--three {
   opacity:0;animation:flowe-three 1s linear infinite;animation-delay:.6s;
 }
 @keyframes flowe-one {
@@ -1117,8 +1117,8 @@ dialog.modal.modal-about{
   100%{transform:scale(0) rotate(-10deg) translate(-6px,18px);opacity:0}
 }
 @media(prefers-reduced-motion:reduce) {
-  #root .app .serula-flow-loader .serula-peg{animation:none;opacity:0;}
-  #root .app .serula-flow-loader .serula-peg--one{opacity:1;transform:none;}
+  #root :is(.app,.admin-page,.auth-screen) .serula-flow-loader .serula-peg{animation:none;opacity:0;}
+  #root :is(.app,.admin-page,.auth-screen) .serula-flow-loader .serula-peg--one{opacity:1;transform:none;}
 }
 
 /* Admin: maintain a visible selected state and protect destructive actions. */
@@ -1151,3 +1151,5 @@ dialog.modal.modal-about{
   height:26px;
   flex:none;
 }
+
+#root .admin-page .admin-connection {display:inline-flex;align-items:center;gap:8px;}
