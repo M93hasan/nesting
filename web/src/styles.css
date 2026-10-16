@@ -853,18 +853,18 @@ dialog.modal.modal-about{
   border-top:1px solid var(--border);
 }
 
-/* Yalnızca Parça dönüşü seçili butonları gri; diğer seçim durumları değişmez. */
-#root .material-panel .rotation-choice .row-actions button[aria-pressed="true"]{
+/* Seçili Parça dönüşü butonu farenin konumundan bağımsız olarak sabit gri.
+   aria-pressed, seçilen açının React durumuyla eşleşir. */
+#root .material-panel .rotation-choice .row-actions button[aria-pressed="true"],
+#root .material-panel .rotation-choice .row-actions button[aria-pressed="true"]:is(:hover,:focus,:active,:disabled){
   background:#66717f!important;
+  background-image:none!important;
   color:#fff!important;
   border:2px solid #505b69!important;
   box-shadow:0 0 0 2px rgba(102,113,127,.18)!important;
   text-shadow:none!important;
   font-weight:700;
-}
-#root .material-panel .rotation-choice .row-actions button[aria-pressed="true"]:hover:enabled{
-  background:#556171!important;
-  color:#fff!important;
-  border-color:#414c5b!important;
-  box-shadow:0 0 0 2px rgba(102,113,127,.22)!important;
+  opacity:1!important;
+  filter:none!important;
+  transition:none!important;
 }
