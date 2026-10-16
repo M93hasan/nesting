@@ -6,7 +6,7 @@ import {validate} from '../src/geometry/validate';
 const sample=():{doc:Document;result:Result}=>{
   const part=newPart([[0,0],[20,0],[20,10],[0,10]],'heel');
   part.quantity=3;
-  const doc:Document={name:'Gap fill',parts:[part],settings:{materialWidthMm:45,clearanceMm:0,timeLimitSeconds:null,materialType:'roll'}};
+  const doc:Document={name:'Gap fill',parts:[part],settings:{materialWidthMm:65,clearanceMm:0,timeLimitSeconds:null,materialType:'roll'}};
   const placements=[
     {partId:part.id,copyIndex:0,xMm:0,yMm:0,angleDeg:0},
     {partId:part.id,copyIndex:1,xMm:20,yMm:0,angleDeg:0},
