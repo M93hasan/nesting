@@ -1133,244 +1133,179 @@ dialog.modal.modal-about{
   translate:0 0;
 }
 
-/* Unified Inter + three-dimensional button specification.
-   Applies to every real button and button-styled link on user, admin, and login
-   pages. Size corrections intentionally supersede earlier incompatible rules. */
-@font-face {
+/* Serula flat-blue buttons — one authoritative visual rule.
+   User, admin, account/login screens and button-like links; Inter 12–13px.
+   All shadows and 3D/press movements removed, without changing handlers. */
+@font-face{
   font-family:"Inter";
   src:url("/fonts/InterVariable.woff2") format("woff2");
   font-weight:100 900;
   font-style:normal;
   font-display:swap;
 }
-:root,html,body,#root {
-  font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
-  font-optical-sizing:auto;
-  font-style:normal;
-}
-#root :is(.app,.admin-page,.auth-screen),
-#root :is(.app,.admin-page,.auth-screen) :is(button,input,select,textarea) {
+:root,html,body,#root{
   font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
   font-optical-sizing:auto;
 }
-#root :is(.app,.admin-page,.auth-screen) :where(
+#root :is(.app,.admin-page,.auth-screen){
+  font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  font-optical-sizing:auto;
+}
+/* The default (blue) control, including special DXF, Corel and RDWorks actions. */
+#root :is(.app,.admin-page,.auth-screen) :is(
   button,
-  input[type="button"],
-  input[type="submit"],
-  input[type="reset"],
-  a.button,
-  a.admin-workspace-link,
-  a.nav-action,
-  a.github-link,
-  .header nav a:not(.brand),
-  details > summary,
-  [role="button"]
-) {
+  input[type="button"],input[type="submit"],input[type="reset"],
+  a.button,a.admin-workspace-link,a.nav-action,a.github-link,
+  .header nav a:not(.brand),details>summary,[role="button"]
+){
   font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
-  font-style:normal;
   font-optical-sizing:auto;
+  font-style:normal;
   font-size:13px!important;
-  line-height:1.35!important;
   font-weight:600!important;
-  letter-spacing:normal!important;
-  padding:.375em 1em!important;
+  line-height:1.35!important;
+  letter-spacing:0!important;
   min-height:34px!important;
+  padding:5px 10px!important;
   border:0!important;
-  color:#242424!important;
-  background:#f0f0f0!important;
+  border-radius:7px!important;
+  background:#2d80d2!important;
   background-image:none!important;
-  border-radius:.5em!important;
-  text-shadow:0 .0625em 0 #fff!important;
-  box-shadow:inset 0 .0625em 0 0 #f4f4f4,
-    0 .0625em 0 0 #efefef,
-    0 .125em 0 0 #ececec,
-    0 .25em 0 0 #e0e0e0,
-    0 .3125em 0 0 #dedede,
-    0 .375em 0 0 #dcdcdc,
-    0 .425em 0 0 #cacaca,
-    0 .425em .5em 0 #cecece!important;
-  transition:translate .15s ease,box-shadow .15s ease!important;
-  cursor:pointer;
-  translate:0 0;
+  color:#fff!important;
+  text-shadow:none!important;
+  box-shadow:none!important;
+  filter:none!important;
   transform:none!important;
+  translate:0 0!important;
   text-decoration:none;
+  transition:background-color .12s ease!important;
+  cursor:pointer;
 }
-#root :is(.app,.admin-page,.auth-screen) :where(
+#root :is(.app,.admin-page,.auth-screen) :is(
   button,
   input[type="button"],input[type="submit"],input[type="reset"],
-  a.button,a.admin-workspace-link,a.nav-action,
-  a.github-link,
-  .header nav a:not(.brand),
-  details > summary,
-  [role="button"]
-):hover:not(:disabled) {
-  background:#f0f0f0!important;
+  a.button,a.admin-workspace-link,a.nav-action,a.github-link,
+  .header nav a:not(.brand),details>summary,[role="button"]
+):hover:not(:disabled){
+  background:#2672bd!important;
   background-image:none!important;
-  color:#242424!important;
+  color:#fff!important;
+  text-shadow:none!important;
+  box-shadow:none!important;
+  filter:none!important;
   transform:none!important;
-  text-shadow:0 .0625em 0 #fff!important;
-}
-#root :is(.app,.admin-page,.auth-screen) :where(
-  button,
-  input[type="button"],input[type="submit"],input[type="reset"],
-  a.button,a.admin-workspace-link,a.nav-action,
-  a.github-link,
-  .header nav a:not(.brand),
-  details > summary,
-  [role="button"]
-):active:not(:disabled) {
-  translate:0 .225em!important;
-  transform:none!important;
-  color:#242424!important;
-  box-shadow:inset 0 .03em 0 0 #f4f4f4,
-    0 .03em 0 0 #efefef,
-    0 .0625em 0 0 #ececec,
-    0 .125em 0 0 #e0e0e0,
-    0 .125em 0 0 #dedede,
-    0 .2em 0 0 #dcdcdc,
-    0 .225em 0 0 #cacaca,
-    0 .225em .375em 0 #cecece!important;
-}
-#root :is(.app,.admin-page,.auth-screen) button:disabled,
-#root :is(.app,.admin-page,.auth-screen) input:is([type="button"],[type="submit"],[type="reset"]):disabled {
-  opacity:.5!important;
-  cursor:not-allowed!important;
   translate:0 0!important;
 }
-/* Do not let nested text reset a button to the oversized old sizes.
-   Icon and avatar elements keep their own dimensions and flex layout. */
-#root :is(.app,.admin-page,.auth-screen) button :is(span,strong,small):not(.auth-avatar):not(.admin-presence-tick) {
+#root :is(.app,.admin-page,.auth-screen) :is(
+  button,
+  input[type="button"],input[type="submit"],input[type="reset"],
+  a.button,a.admin-workspace-link,a.nav-action,a.github-link,
+  .header nav a:not(.brand),details>summary,[role="button"]
+):active:not(:disabled){
+  background:#1c5e9e!important;
+  color:#fff!important;
+  box-shadow:none!important;
+  text-shadow:none!important;
+  transform:none!important;
+  translate:0 0!important;
+}
+#root :is(.app,.admin-page,.auth-screen) :is(
+  button,input[type="button"],input[type="submit"],input[type="reset"]
+):disabled{
+  opacity:.5!important;
+  cursor:not-allowed;
+  box-shadow:none!important;
+  text-shadow:none!important;
+}
+#root :is(.app,.admin-page,.auth-screen) button :is(span,strong,small):not(.auth-avatar):not(.admin-presence-tick){
   font-family:inherit!important;
   font-size:inherit!important;
-}
-/* Keep toolbar controls compact and the DXF button a separate purple capsule. */
-#root .app .statusbar :is(.run-controls,.export-actions) button {
-  height:36px!important;
-  min-height:36px!important;
-}
-#root .app .statusbar .export-actions .download-control > button.download-button.cssbuttons-io-button {
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  gap:0;
-  height:36px!important;
-  min-height:36px!important;
-  font:600 13px/1.35 "Inter",sans-serif!important;
-  padding:.375em 1em!important;
-  border:0!important;
-  border-radius:20em!important;
-  color:#fff!important;
-  background:linear-gradient(0deg,rgba(77,54,208,1) 0%,rgba(132,116,254,1) 100%)!important;
-  background-image:linear-gradient(0deg,#4d36d0 0%,#8474fe 100%)!important;
-  text-shadow:none!important;
-  box-shadow:0 .7em 1.5em -.5em #4d36d0be!important;
-  letter-spacing:.025em!important;
-  transform:none!important;
-  translate:0 0;
-}
-#root .app .statusbar .export-actions .download-control > button.download-button.cssbuttons-io-button:hover:enabled {
-  color:#fff!important;
-  background:linear-gradient(0deg,#4d36d0 0%,#8474fe 100%)!important;
-  box-shadow:0 .5em 1.5em -.5em #4d36d0be!important;
-}
-#root .app .statusbar .export-actions .download-control > button.download-button.cssbuttons-io-button:active:enabled {
-  translate:0 0!important;
-  color:#fff!important;
-  background:linear-gradient(0deg,#4d36d0 0%,#8474fe 100%)!important;
-  box-shadow:0 .3em 1em -.5em #4d36d0be!important;
-}
-/* Grey selection remains fixed even when the cursor leaves or enters. */
-#root .app button[aria-pressed="true"],
-#root .app button[aria-pressed="true"]:is(:hover,:active,:focus,:disabled),
-#root .app button[aria-selected="true"],
-#root .app button[role="tab"][aria-selected="true"],
-#root .app button.part-select[aria-pressed="true"],
-#root .admin-page button[aria-pressed="true"],
-#root .admin-page button[aria-pressed="true"]:is(:hover,:active,:focus,:disabled),
-#root .admin-page .admin-sidebar nav button.active,
-#root .admin-page .admin-conversation-list > button.active,
-#root .auth-screen button.active,
-#root .app button.active {
-  background:#66717f!important;
-  background-image:none!important;
-  border:0!important;
-  color:#fff!important;
-  text-shadow:none!important;
-  box-shadow:inset 0 2px 3px rgba(0,0,0,.16),0 0 0 1px rgba(69,81,95,.38)!important;
-  translate:0 0!important;
-}
-#root .app button[aria-pressed="true"]:hover:enabled,
-#root .admin-page button[aria-pressed="true"]:hover:enabled,
-#root .admin-page .admin-sidebar nav button.active:hover:enabled,
-#root .admin-page .admin-conversation-list > button.active:hover:enabled,
-#root .auth-screen button.active:hover:enabled {
-  background:#66717f!important;
-  color:#fff!important;
   text-shadow:none!important;
 }
-/* Those prior brand-specific CSS rules must not override the user's all-grey
-   button request. These are still real Corel/RDWorks actions, unchanged. */
+/* Remove drop-shadow from text, inline icons and pseudoelements within buttons. */
+#root :is(.app,.admin-page,.auth-screen) button :is(svg,img,span,strong,small,i),
+#root :is(.app,.admin-page,.auth-screen) button :is(svg,img,span,strong,small,i)::before,
+#root :is(.app,.admin-page,.auth-screen) button :is(svg,img,span,strong,small,i)::after{
+  filter:none!important;
+  text-shadow:none!important;
+  box-shadow:none!important;
+}
+/* Override legacy strongly-specific brand and transfer-action button themes. */
+#root .app .statusbar .export-actions .download-control > button.download-button.cssbuttons-io-button,
 #root .app .export-actions button.download-button.corel-transfer-button,
 #root .app .export-actions button.download-button.rdworks-transfer-button,
 #root .admin-page .admin-user-actions button.corel-transfer-toggle,
 #root .admin-page .admin-user-actions button.rdworks-transfer-toggle,
-#root .admin-page .admin-user-actions button.admin-transfer-toggle[aria-pressed="false"] {
-  background:#f0f0f0!important;
+#root .admin-page .admin-user-actions button.admin-transfer-toggle{
+  font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  font-size:13px!important;
+  font-weight:600!important;
+  letter-spacing:0!important;
+  line-height:1.35!important;
+  min-height:34px!important;
+  height:36px!important;
+  padding:5px 10px!important;
+  background:#2d80d2!important;
   background-image:none!important;
-  color:#242424!important;
   border:0!important;
-  text-shadow:0 .0625em 0 #fff!important;
-  box-shadow:inset 0 .0625em 0 0 #f4f4f4,
-    0 .0625em 0 0 #efefef,0 .125em 0 0 #ececec,
-    0 .25em 0 0 #e0e0e0,0 .3125em 0 0 #dedede,
-    0 .375em 0 0 #dcdcdc,0 .425em 0 0 #cacaca,
-    0 .425em .5em 0 #cecece!important;
+  border-radius:7px!important;
+  color:#fff!important;
+  box-shadow:none!important;
+  text-shadow:none!important;
+  filter:none!important;
+  transform:none!important;
+  translate:0 0!important;
 }
-/* All branded transfer actions also get the prescribed press-in shadow. */
-#root .app .export-actions button.download-button.corel-transfer-button:active:enabled,
-#root .app .export-actions button.download-button.rdworks-transfer-button:active:enabled,
-#root .admin-page .admin-user-actions button.corel-transfer-toggle:active:enabled,
-#root .admin-page .admin-user-actions button.rdworks-transfer-toggle:active:enabled {
-  translate:0 .225em!important;
-  box-shadow:inset 0 .03em 0 0 #f4f4f4,
-    0 .03em 0 0 #efefef,0 .0625em 0 0 #ececec,
-    0 .125em 0 0 #e0e0e0,0 .125em 0 0 #dedede,
-    0 .2em 0 0 #dcdcdc,0 .225em 0 0 #cacaca,
-    0 .225em .375em 0 #cecece!important;
+#root .app .statusbar .export-actions .download-control > button.download-button.cssbuttons-io-button:is(:hover,:active),
+#root .app .export-actions button.download-button.corel-transfer-button:is(:hover,:active),
+#root .app .export-actions button.download-button.rdworks-transfer-button:is(:hover,:active),
+#root .admin-page .admin-user-actions button.corel-transfer-toggle:is(:hover,:active),
+#root .admin-page .admin-user-actions button.rdworks-transfer-toggle:is(:hover,:active){
+  background:#2672bd!important;
+  background-image:none!important;
+  box-shadow:none!important;
+  text-shadow:none!important;
+  transform:none!important;
+  translate:0 0!important;
 }
-/* Override only the active admin transfer toggle after generic brand styling. */
-#root .admin-page .admin-user-actions button.admin-transfer-toggle[aria-pressed="true"],
-#root .admin-page .admin-user-actions button.admin-transfer-toggle[aria-pressed="true"]:hover:enabled {
-  background:#66717f!important;
+/* Selected options are darker BLUE, never hover-dependent. */
+#root .app button[aria-pressed="true"],
+#root .app button[aria-pressed="true"]:is(:hover,:focus,:active,:disabled),
+#root .app button[aria-selected="true"],
+#root .app button.active,
+#root .admin-page button[aria-pressed="true"],
+#root .admin-page button[aria-pressed="true"]:is(:hover,:focus,:active,:disabled),
+#root .admin-page .admin-sidebar nav button.active,
+#root .admin-page .admin-conversation-list>button.active,
+#root .auth-screen button.active,
+#root .app .material-panel .rotation-choice button[aria-pressed="true"],
+#root .app .material-panel .rotation-choice button[aria-pressed="true"]:is(:hover,:focus,:active,:disabled),
+#root .admin-page .admin-user-actions button.admin-transfer-toggle[aria-pressed="true"]{
+  background:#185892!important;
   background-image:none!important;
   color:#fff!important;
   border:0!important;
   text-shadow:none!important;
-  box-shadow:inset 0 2px 3px rgba(0,0,0,.16),0 0 0 1px rgba(69,81,95,.38)!important;
+  box-shadow:none!important;
+  filter:none!important;
+  transform:none!important;
+  translate:0 0!important;
 }
-@media(max-width:699px) {
-  #root :is(.app,.admin-page,.auth-screen) :where(
+#root .app .statusbar :is(.run-controls,.export-actions) button{
+  height:36px!important;
+  min-height:36px!important;
+}
+@media(max-width:699px){
+  #root :is(.app,.admin-page,.auth-screen) :is(
     button,input[type="button"],input[type="submit"],input[type="reset"],
-    a.button,a.admin-workspace-link,a.nav-action,
-  a.github-link,
-  .header nav a:not(.brand),
-  details > summary,
-  [role="button"]
-  ) {
-    font-size:12px!important;
-    padding:.375em .75em!important;
-    min-height:36px!important;
-  }
-  #root .app .statusbar :is(.run-controls,.export-actions) button {
-    height:36px!important;
-  }
+    a.button,a.admin-workspace-link,a.nav-action,a.github-link,
+    .header nav a:not(.brand),details>summary,[role="button"]
+  ){font-size:12px!important;min-height:36px!important;padding:5px 9px!important;}
 }
-@media(prefers-reduced-motion:reduce) {
-  #root :is(.app,.admin-page,.auth-screen) :where(button,a.button,a.nav-action,
-  a.github-link,
-  .header nav a:not(.brand),
-  details > summary,
-  [role="button"],a.admin-workspace-link) {
-    transition:none!important;
-  }
+@media(prefers-reduced-motion:reduce){
+  #root :is(.app,.admin-page,.auth-screen) :is(
+    button,input[type="button"],input[type="submit"],input[type="reset"],
+    a.button,a.admin-workspace-link,a.nav-action,a.github-link,
+    .header nav a:not(.brand),details>summary,[role="button"]
+  ){transition:none!important;}
 }
