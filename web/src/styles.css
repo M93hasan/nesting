@@ -1465,3 +1465,109 @@ dialog.modal.modal-about{
   cursor:pointer;
 }
 #root .app .material-group details.solver-options[open]{padding-bottom:8px!important;}
+
+/* Compact Malzeme ve Yerleşim spacing — CSS-only layout adjustment. */
+/* Keep all sections, settings, units, and validation visible. Only reduce whitespace. */
+#root .app .material-panel .material-panel__title{
+  padding:9px 11px 5px;
+}
+#root .app .material-panel__title>div{gap:2px;}
+#root .app .material-panel__title h2{font-size:14px;line-height:1.25;}
+#root .app .material-panel__title p{font-size:10px;line-height:1.3;}
+#root .app .material-panel .settings.material-settings{
+  padding:4px 8px 10px;
+  gap:7px;
+}
+#root .app .material-panel .material-group{
+  padding:9px 9px 10px;
+  border-radius:10px;
+}
+#root .app .material-panel .material-group__heading{
+  gap:7px;
+  padding-bottom:6px;
+  align-items:center;
+}
+#root .app .material-panel .material-group__index{
+  flex-basis:23px;
+  height:23px;
+  border-radius:6px;
+  font-size:10px;
+}
+#root .app .material-panel .material-group__heading-copy{gap:1px;}
+#root .app .material-panel .material-group__heading h3{font-size:12px;}
+#root .app .material-panel .material-group__heading p{font-size:10px;line-height:1.3;}
+#root .app .material-panel .material-group__body{
+  gap:6px;
+}
+#root .app .material-panel .material-group__body>label{
+  gap:3px;
+  font-size:11px;
+  line-height:1.3;
+}
+#root .app .material-panel .material-group__body>label>select,
+#root .app .material-panel .material-group__body>label>input,
+#root .app .material-panel .material-group__body .measurement-field>input{
+  min-height:35px!important;
+  height:35px;
+  padding:6px 10px!important;
+  font-size:12px!important;
+}
+#root .app .material-panel .material-settings label.measurement-field{
+  gap:3px 8px;
+}
+#root .app .material-panel .material-group__body>small,
+#root .app .material-panel .material-rotation small{
+  line-height:1.3;
+  font-size:10px;
+}
+#root .app .material-panel .material-group .material-rotation{
+  gap:4px;
+  padding-bottom:0;
+}
+#root .app .material-panel .rotation-choice{
+  gap:4px;
+}
+#root .app .material-panel .rotation-choice .row-actions{
+  gap:5px;
+}
+#root .app .material-panel .rotation-choice .row-actions button{
+  padding:5px 6px!important;
+  min-height:34px!important;
+  height:34px;
+  font-size:11px!important;
+}
+#root .app .material-panel .material-group--combined .material-group__subsection{
+  margin-top:9px;
+  padding-top:9px;
+}
+#root .app .material-panel .material-group--combined .material-group__subsection h4{
+  font-size:12px;
+  line-height:1.3;
+  margin-bottom:5px;
+}
+#root .app .material-panel .material-group--combined .material-group__subsection > .material-group__body{
+  gap:6px;
+}
+#root .app .material-panel .material-group details.solver-options > summary{
+  padding:4px 0!important;
+}
+#root .app .material-panel .material-group details.solver-options[open]{
+  padding-bottom:4px!important;
+}
+#root .app .material-panel .material-group .solver-options label{
+  gap:3px;
+  margin:5px 0;
+}
+#root .app .material-panel .material-group .solver-options small{
+  font-size:10px;
+  line-height:1.3;
+}
+@media(max-width:699px){
+  #root .app .material-panel .settings.material-settings{
+    padding:5px 10px 12px;
+    gap:8px;
+  }
+  #root .app .material-panel .material-group{
+    padding:10px;
+  }
+}
