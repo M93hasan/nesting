@@ -120,6 +120,40 @@ function compactIndividualPlates(doc:Document,result:Result,
       const metric=footprint(placed);
       if(metric<winnerMetric-0.01){winner=placed;winnerMetric=metric;}
     }
+    // Shelf layouts use the very same parts and rigid translations, but
+    // try several target row widths. The greedy free-point strategy can put
+    // five long pieces in a 4+1 row even when a 3+2 arrangement is tighter.
+    // Repeating this for EACH physical plate avoids the sparse last plate.
+    for(const sorter of sorters){
+      if(!allowed())break;
+      const order=[...original].sort(sorter);
+      for(const targetRatio of [0.5,0.6,0.67,0.75,0.85,1]){
+        if(!allowed())break;
+        const maxPartWidth=Math.max(...order.map(p=>p.box[2]-p.box[0]));
+        const rowLimit=Math.max(maxPartWidth,width*targetRatio);
+        let rowX=0,rowY=0,rowHeight=0;
+        const placed:Positioned[]=[];
+        let failed=false;
+        for(const item of order){
+          const w=item.box[2]-item.box[0],h=item.box[3]-item.box[1];
+          if(rowX>EPS && rowX+gap+w>rowLimit+EPS){
+            rowY+=rowHeight+gap;rowX=0;rowHeight=0;
+          }
+          if(++checks>48_000||rowY+h>length+EPS){failed=true;break;}
+          const x=rowX,y=rowY;
+          const box:Box=[x,y,x+w,y+h];
+          placed.push({box,placement:{...item.placement,
+            xMm:item.placement.xMm+x-item.box[0],
+            yMm:item.placement.yMm+y-item.box[1],
+            sheetIndex}});
+          rowX+=w+gap;
+          rowHeight=Math.max(rowHeight,h);
+        }
+        if(failed||placed.length!==original.length)continue;
+        const metric=footprint(placed);
+        if(metric<winnerMetric-0.01){winner=placed;winnerMetric=metric;}
+      }
+    }
     if(winner!==original){adjusted[sheetIndex]=winner;changed=true;}
   }
   if(!changed)return result;
