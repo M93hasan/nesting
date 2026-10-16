@@ -252,7 +252,12 @@ export default function Workspace({ document: doc, result, live, selected, selec
           const x0=Math.min(marquee.start[0],marquee.end[0]),x1=Math.max(marquee.start[0],marquee.end[0]);
           const y0=-Math.max(marquee.start[1],marquee.end[1]),y1=-Math.min(marquee.start[1],marquee.end[1]);
           if(Math.hypot(event.clientX-marquee.screen[0],event.clientY-marquee.screen[1])<3){if(marquee.ref)onSelect(marquee.ref,true);}
-          else onSelectCopies([...selectedCopies,...drawings.filter(copy=>{const b=placementBounds(doc.parts[copy.index],copy);return !selectedSet.has(placementKey(copy))&&b[0]>=x0&&b[1]>=y0&&b[2]<=x1&&b[3]<=y1;}).map(({partId,copyIndex})=>({partId,copyIndex}))]);
+          else onSelectCopies([...selectedCopies,...drawings.filter(copy=>{
+             // Compare with the position actually drawn: later sheets have a Y offset.
+             // Without this, a marquee on one sheet can select copies on another.
+             const [left,bottom,right,top]=placementBounds(doc.parts[copy.index],copy);
+             return !selectedSet.has(placementKey(copy))&&left>=x0&&bottom+copy.sheetOffset>=y0&&right<=x1&&top+copy.sheetOffset<=y1;
+           }).map(({partId,copyIndex})=>({partId,copyIndex}))]);
           setMarquee(undefined);event.currentTarget.releasePointerCapture(event.pointerId);return;
         }
         touches.current.delete(event.pointerId);
