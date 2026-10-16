@@ -23,6 +23,8 @@ import {isEditableTarget,preparationShortcut} from './geometry/gestures';
 import {applySeriesMultiplier,copyRefsFor,documentPlacements,duplicateCopies,maxSeriesMultiplier,mirrorPlacements,removeCopies,rotatePlacements,rotateToNextOrientation,setPlacementAngles,movePlacements,placementLayoutsEqual,syncQuantity,updatePlacements,withDocumentPlacements,type CopyRef} from './geometry/placements';
 import {LanguageSelect} from './i18n';
 import {captureClipboard,pasteClipboard,type ClipboardItem} from './geometry/clipboard';
+import {createDxfExportCache} from './export/dxfCache';
+import {createSerialQueue} from './storage/serialQueue';
 
 const emptyProject=(name='Adsız proje'):Document=>({name,parts:[],settings:{...DEFAULT_SETTINGS}});
 const CLOUD_SAVE_NAME='Serula Nesting En Temiz Hali';
@@ -110,6 +112,8 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const [browserSaved,setBrowserSaved]=useState<{document:Document;result?:Result;revision:number}>();
   const [recoveryReady,setRecoveryReady]=useState(false),[recoveryError,setRecoveryError]=useState('');
   const [cloudSaveState,setCloudSaveState]=useState<'idle'|'saving'|'saved'|'signed-out'|'error'>('idle'),[cloudSaveTick,setCloudSaveTick]=useState(0);
+  // Never let an older autosave overtake newer hand-adjusted coordinates.
+  const cloudSaveQueue=useRef(createSerialQueue());
   const [transferAccess,setTransferAccess]=useState({corel:false,rdworks:false});
   const [bridgeInstallPrompt,setBridgeInstallPrompt]=useState(false);
   useEffect(()=>{const changed=()=>setCloudSaveTick(value=>value+1);window.addEventListener('serula-auth-updated',changed);return()=>window.removeEventListener('serula-auth-updated',changed)},[]);
@@ -192,20 +196,14 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     catch(error){setError(error instanceof Error?error.message:String(error))}
   };
   const canvasDocument=useMemo(()=>visibleResult?{...doc,placements:visibleResult.placements}:doc,[doc,visibleResult]);
-  const exportCache=useRef<{document:Document;result?:Result;revision:number;dxf:string}|undefined>(undefined);
-  const exportInFlight=useRef<Promise<string>|undefined>(undefined);
-  async function currentExportDxf() {
-    const cached=exportCache.current;
-    if(cached?.document===canvasDocument&&cached.result===result&&cached.revision===revision)return cached.dxf;
-    if(exportInFlight.current)return exportInFlight.current;
-    const work=geometryTask({type:'export',runId:++operation.current,documentRevision:revision,document:canvasDocument,result}).then(reply=>{
-      if(reply.type!=='export-result')throw Error('Güncel yerleşimin DXF verisi hazırlanamadı.');
-      exportCache.current={document:canvasDocument,result,revision,dxf:reply.bundle.dxf};
-      return reply.bundle.dxf;
-    });
-    exportInFlight.current=work;
-    try{return await work;}finally{if(exportInFlight.current===work)exportInFlight.current=undefined;}
-  }
+  const exportCache=useRef(createDxfExportCache(async ({document:exportDocument,result:exportResult,revision:exportRevision})=>{
+    const reply=await geometryTask({type:'export',runId:++operation.current,documentRevision:exportRevision,document:exportDocument,result:exportResult});
+    if(reply.type!=='export-result')throw Error('Güncel yerleşimin DXF verisi hazırlanamadı.');
+    return reply.bundle.dxf;
+  }));
+  // The cache key includes the exact layout snapshot: a pending export from
+  // before a manual drag must NEVER be reused for the updated coordinates.
+  const currentExportDxf=()=>exportCache.current.get({document:canvasDocument,result,revision});
   const chosen=doc.parts.find(p=>p.id===selected[0]);
   const mixedRotations=chosen&&doc.parts.some(part=>selected.includes(part.id)&&rotationValue(part.rotations)!==rotationValue(chosen.rotations));
   const selectedBox=useMemo(()=>selectionBounds(canvasDocument,selected,selectedCopies),[canvasDocument,selected,selectedCopies]);
@@ -248,7 +246,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     const write=async()=>{
       if(written)return;written=true;
       try{
-        const response=await fetch('/api/project/autosave',{method:'PUT',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({projectName:doc.name,projectJson:JSON.stringify(project)})});
+        const response=await cloudSaveQueue.current(()=>fetch('/api/project/autosave',{method:'PUT',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({projectName:doc.name,projectJson:JSON.stringify(project)})}));
         if(!active)return;
         if(response.status===401){setCloudSaveState('signed-out');return;}
         setCloudSaveState(response.ok?'saved':'error');
