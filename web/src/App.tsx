@@ -24,6 +24,8 @@ import {applySeriesMultiplier,copyRefsFor,documentPlacements,duplicateCopies,max
 import {LanguageSelect} from './i18n';
 import {captureClipboard,pasteClipboard,type ClipboardItem} from './geometry/clipboard';
 import {automaticSolverThreads} from './workers/autoThreads';
+import MachineSettingsDialog from './components/MachineSettingsDialog';
+import {applyMachineProfile,machineProfileFromSettings,physicalMaterialWidthMm,setHeadMode,setPhysicalMaterialWidth,type MachineProfile} from './geometry/headMode';
 import {createDxfExportCache} from './export/dxfCache';
 import {createSerialQueue} from './storage/serialQueue';
 
@@ -58,6 +60,10 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const factor=unitScale(unit),length=(mm:number)=>(mm/factor).toLocaleString(undefined,{maximumFractionDigits:unit==='mm'?2:4});
   const inputLength=(mm:number)=>Number.isFinite(mm)?displayLength(mm,unit):'';
   const [panel,setPanel]=useState(true),[info,setInfo]=useState<'admin'|'about'|'contact'|'help'>(),[historyOpen,setHistoryOpen]=useState(false);
+  const [machineProfile,setMachineProfile]=useState<MachineProfile>(()=>machineProfileFromSettings(initialDocument.settings));
+  const [machineSettingsOpen,setMachineSettingsOpen]=useState(false),[machineOnboarding,setMachineOnboarding]=useState(false);
+  const [machineSaving,setMachineSaving]=useState(false),[machineError,setMachineError]=useState('');
+  const [machineSignedIn,setMachineSignedIn]=useState(false);
   const [testDxfOpen,setTestDxfOpen]=useState(false),[testDxfBusy,setTestDxfBusy]=useState(''),[testDxfFiles,setTestDxfFiles]=useState<string[]>([]);
   const [testDxfAllowed,setTestDxfAllowed]=useState(false);
   useEffect(()=>{
@@ -114,7 +120,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const [cloudSaveState,setCloudSaveState]=useState<'idle'|'saving'|'saved'|'signed-out'|'error'>('idle'),[cloudSaveTick,setCloudSaveTick]=useState(0);
   // Never let an older autosave overtake newer hand-adjusted coordinates.
   const cloudSaveQueue=useRef(createSerialQueue());
-  const [transferAccess,setTransferAccess]=useState({corel:false,rdworks:false});
+  const [transferAccess,setTransferAccess]=useState({corel:false});
   const [bridgeInstallPrompt,setBridgeInstallPrompt]=useState(false);
   useEffect(()=>{const changed=()=>setCloudSaveTick(value=>value+1);window.addEventListener('serula-auth-updated',changed);return()=>window.removeEventListener('serula-auth-updated',changed)},[]);
   useEffect(()=>{
@@ -122,14 +128,43 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     const refresh=async()=>{
       try{
         const response=await fetch('/api/transfer/access',{credentials:'same-origin',cache:'no-store'});
-        const data=await response.json() as {corel?:boolean;rdworks?:boolean};
-        if(active)setTransferAccess(response.ok?{corel:data.corel===true,rdworks:data.rdworks===true}:{corel:false,rdworks:false});
-      }catch{if(active)setTransferAccess({corel:false,rdworks:false});}
+        const data=await response.json() as {corel?:boolean};
+        if(active)setTransferAccess({corel:response.ok&&data.corel===true});
+      }catch{if(active)setTransferAccess({corel:false});}
     };
     void refresh();
     const timer=window.setInterval(()=>void refresh(),15000);
     window.addEventListener('serula-auth-updated',refresh);
     return()=>{active=false;window.clearInterval(timer);window.removeEventListener('serula-auth-updated',refresh)};
+  },[]);
+  // Account-scoped onboarding. Existing accounts without a machine row are
+  // never forced through setup; only freshly registered accounts get one.
+  useEffect(()=>{
+    let alive=true;
+    async function refresh(){
+      try{
+        const auth=await fetch('/api/auth/me',{credentials:'same-origin',cache:'no-store'});
+        if(!auth.ok){if(alive){setMachineSignedIn(false);setMachineOnboarding(false);setMachineSettingsOpen(false);}return;}
+        const user=await auth.json() as {user?:{id:number}|null};
+        if(!user.user)return;
+        const result=await fetch('/api/machine-profile',{credentials:'same-origin',cache:'no-store'});
+        if(!alive)return;
+        setMachineSignedIn(result.ok);
+        if(!result.ok)return;
+        const payload=await result.json() as {profile?:MachineProfile|null;configured?:boolean;onboardingRequired?:boolean};
+        if(!alive)return;
+        if(payload.configured&&payload.profile){
+          setMachineProfile(payload.profile);
+          // Never overwrite a restored, populated project or saved DXF layout.
+          setDoc(previous=>previous.parts.length===0?applyMachineProfile(previous,payload.profile!):previous);
+        }else if(payload.onboardingRequired){
+          setMachineOnboarding(true);setMachineSettingsOpen(true);
+        }
+      }catch{/* Offline desktop still uses local project save and settings. */}
+    }
+    void refresh();
+    window.addEventListener('serula-auth-updated',refresh);
+    return()=>{alive=false;window.removeEventListener('serula-auth-updated',refresh);};
   },[]);
   useEffect(()=>{
     if(loadingExample)return;
@@ -611,7 +646,23 @@ export default function App({initialDocument=emptyProject(),initialError='',load
       }
     }catch(e){setError(String(e));return false;}finally{setDownloadPhase('idle');setBusy(false);}
   }
-  async function transferLayout(target:'corel'|'rdworks') {
+  async function saveMachineProfile(profile:MachineProfile) {
+    if(locked)return;
+    setMachineSaving(true);setMachineError('');
+    try {
+      if(machineSignedIn){
+        const res=await fetch('/api/machine-profile',{method:'POST',credentials:'same-origin',
+          headers:{'content-type':'application/json'},body:JSON.stringify(profile)});
+        const data=await res.json() as {error?:string};
+        if(!res.ok)throw Error(data.error||'Makine ayarları hesabınıza kaydedilemedi.');
+      }
+      commit(applyMachineProfile(doc,profile));
+      setMachineProfile(profile);
+      setMachineOnboarding(false);setMachineSettingsOpen(false);
+    }catch(e){setMachineError(e instanceof Error?e.message:String(e));}
+    finally{setMachineSaving(false);}
+  }
+  async function transferLayout(target:'corel') {
     if(exportBlockedReason||!doc.parts.some(part=>part.quantity>0))return;
     setBusy(true);setError('');setBridgeInstallPrompt(false);
     let bridgePreflight=true;
@@ -624,11 +675,6 @@ export default function App({initialDocument=emptyProject(),initialError='',load
       if(!ready.ok||health.ok!==true||health.service!=='serula-bridge')
         throw Error('Windows aktarım köprüsü çalışmıyor. Hakkında > Otomatik Aktarım Köprüsü bölümünden kurulum yapın.');
       bridgePreflight=false;
-      const bridgeVersion=/^(\d+)\.(\d+)/.exec(health.version||'');
-      const supportsRdworks=!!bridgeVersion&&(Number(bridgeVersion[1])>1||
-        Number(bridgeVersion[1])===1&&Number(bridgeVersion[2])>=5);
-      if(target==='rdworks'&&!supportsRdworks)
-        throw Error(`RDWorks için doğrudan aktarım destekli Bridge 1.5 gerekli (yüklü sürüm: ${health.version||'bilinmiyor'}). Hakkında > Otomatik Aktarım Köprüsü kurulumunu tekrar çalıştırın.`);
       // Prepare DXF before obtaining a short-lived one-use ticket. Large DXF
       // exports can otherwise cause the ticket to expire before redemption.
       const dxf=await currentExportDxf();
@@ -641,11 +687,9 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         body:JSON.stringify({target,ticket:permit.ticket,dxf,fileName:exportAd+'.dxf'})});
       const response=await bridge.json() as {ok?:boolean;status?:string;message?:string;error?:string;filePath?:string;manualImportRequired?:boolean};
       if(!bridge.ok||response.ok!==true){
-        const backup=response.manualImportRequired&&response.filePath
-          ?` DXF kaybolmadı, dosya hazır: ${response.filePath}. RDWorks > File > Import ile açabilirsiniz.`:'';
-        throw Error((response.error||response.message||'Yerel aktarım başarısız.')+backup);
+        throw Error(response.error||response.message||'CorelDRAW aktarımı başarısız.');
       }
-      setError(response.message||'DXF hedef programa gönderildi. RDWorks çalışma alanında dosyayı kontrol edin.');
+      setError(response.message||'DXF CorelDRAW uygulamasına aktarıldı.');
     }catch(e){
       if(bridgePreflight)setBridgeInstallPrompt(true);
       const message=e instanceof TypeError
@@ -671,10 +715,13 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         
         <button disabled={locked} onClick={()=>{projectMenu.current!.open=false;setProjectAd(doc.name);setNameDialog('rename');}}>Projeyi yeniden adlandır</button>
       </div></details><small className="project-status" data-save-state={browserSaveState} aria-live="polite" title={recoveryError||(invalidSettings?'Değişiklikleri kaydetmek için geçersiz değerleri düzeltin.':polygon?.length?'Değişiklikleri kaydetmek için çokgeni tamamlayın veya iptal edin.':cloudSaveState==='saved'?CLOUD_SAVE_NAME+' buluta kaydedildi.':'Bu tarayıcıda otomatik kaydedilir; giriş yapılmışsa buluta da senkronlanır.')}><span aria-hidden="true">{browserSaveState==='saved'&&cloudSaveState!=='error'?'✓':browserSaveState==='error'||browserSaveState==='unsaved'||cloudSaveState==='error'?'!':'◷'}</span>{cloudSaveState==='saved'?'Buluta kaydedildi':cloudSaveState==='saving'?'Buluta kaydediliyor…':browserSaveLabel}</small></div>
-      <nav>{testDxfAllowed&&<button className="test-dxf-tab" disabled={locked} onClick={()=>setTestDxfOpen(true)}>Test DXF</button>}<button className="history-tab nav-action" disabled={locked} onClick={()=>setHistoryOpen(true)}><span aria-hidden="true">◷</span>Geçmiş</button><button className="mobile-settings" aria-expanded={panel} aria-controls="parts-settings" onClick={()=>setPanel(!panel)}>Parçalar &amp; ayarlar</button><button className="theme-toggle" title="Açık/koyu görünümü değiştir" aria-label="Açık/koyu görünümü değiştir" onClick={()=>setTheme(theme==='dark'||theme==='system'&&matchMedia('(prefers-color-scheme: dark)').matches?'light':'dark')}><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16Z" fill="currentColor" stroke="none"/></svg></button><button className="nav-action" aria-label="Serula Nesting Hakkında" onClick={()=>setInfo('about')}><span aria-hidden="true">ⓘ</span>Hakkında</button><button className="hello-button nav-action" aria-label="İletişim" onClick={()=>setInfo('contact')}><span className={downloadedResult?'hello-wave':undefined} aria-hidden="true">☎</span>İletişim</button><div id="serula-account-slot" className="account-slot"/></nav>
+      <nav><button className="nav-action" onClick={()=>{setMachineError('');setMachineSettingsOpen(true);}}>⚙ Ayarlarım</button>{testDxfAllowed&&<button className="test-dxf-tab" disabled={locked} onClick={()=>setTestDxfOpen(true)}>Test DXF</button>}<button className="history-tab nav-action" disabled={locked} onClick={()=>setHistoryOpen(true)}><span aria-hidden="true">◷</span>Geçmiş</button><button className="mobile-settings" aria-expanded={panel} aria-controls="parts-settings" onClick={()=>setPanel(!panel)}>Parçalar &amp; ayarlar</button><button className="theme-toggle" title="Açık/koyu görünümü değiştir" aria-label="Açık/koyu görünümü değiştir" onClick={()=>setTheme(theme==='dark'||theme==='system'&&matchMedia('(prefers-color-scheme: dark)').matches?'light':'dark')}><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16Z" fill="currentColor" stroke="none"/></svg></button><button className="nav-action" aria-label="Serula Nesting Hakkında" onClick={()=>setInfo('about')}><span aria-hidden="true">ⓘ</span>Hakkında</button><button className="hello-button nav-action" aria-label="İletişim" onClick={()=>setInfo('contact')}><span className={downloadedResult?'hello-wave':undefined} aria-hidden="true">☎</span>İletişim</button><div id="serula-account-slot" className="account-slot"/></nav>
       <input ref={input} hidden type="file" multiple accept=".json,.svg,.dxf,.plt,.hpgl,.hpg,.hgl" onChange={e=>{if(e.target.files)void openFiles(e.target.files,'shapes');e.target.value='';}}/>
       <input ref={projectInput} hidden type="file" accept=".zip,.sparrow-project.json,.json" onChange={e=>{if(e.target.files)void openFiles(e.target.files,'project');e.target.value='';}}/>
     </header>
+    {machineSettingsOpen&&<MachineSettingsDialog profile={machineProfile} required={machineOnboarding}
+      busy={machineSaving} serverError={machineError} onSave={saveMachineProfile}
+      onClose={()=>{if(!machineOnboarding&&!machineSaving)setMachineSettingsOpen(false);}}/>}
     {(error||solver.error)&&<div className="error-banner" role="alert">{error||solver.error}</div>}
     {recoveryError&&<div className="error-banner" role="alert">{recoveryError}</div>}
     <main className="main-workspace">
@@ -729,8 +776,11 @@ export default function App({initialDocument=emptyProject(),initialError='',load
           {!chosen&&<small className="muted">Dönüş ayarını değiştirmek için bir parça seçin.</small>}
         </div>
           <label>Malzeme tipi<select value={doc.settings.materialType??'roll'} disabled={locked} onChange={e=>{const materialType=e.target.value as 'roll'|'sheet';const settings=materialType==='roll'?{...doc.settings,materialType,materialLengthMm:undefined}:{...doc.settings,materialType,materialLengthMm:doc.settings.materialLengthMm??1000};commit({...doc,settings},false)}}><option value="roll">Rulo</option><option value="sheet">Plaka</option></select></label>
-          <label className="measurement-field"><span className="measurement-field__name">Malzeme genişliği</span><span className="measurement-field__unit">{unit}</span><input data-undo-field type="number" min={0.001/factor} max={100000/factor} step="any" value={inputLength(doc.settings.materialWidthMm)} onFocus={()=>setMaterialWidthFocused(true)} onBlur={()=>setMaterialWidthFocused(false)} disabled={locked} onChange={e=>commit({...doc,settings:{...doc.settings,materialWidthMm:e.target.valueAsNumber*factor}},true,'material-width')}/></label>
+          <label>Makine kafa sayısı<select value={doc.settings.headMode??'single'} disabled={locked} onChange={e=>commit({...doc,settings:setHeadMode(doc.settings,e.target.value as MachineProfile['headMode'])})}><option value="single">Tek kafa</option><option value="dual">Çift kafa</option></select></label>
+          {doc.settings.headMode==='dual'&&<small>Çift kafa: Girilen gerçek malzeme eni ikiye bölünerek bir kafa için nesting yapılır. İkinci kafa aynı hareketi kendi X ofsetinde tekrarlar; DXF'ye ikinci kesim kopyası eklenmez.</small>}
+          <label className="measurement-field"><span className="measurement-field__name">Gerçek malzeme / kesim eni</span><span className="measurement-field__unit">{unit}</span><input data-undo-field type="number" min={0.001/factor} max={100000/factor} step="any" value={inputLength(physicalMaterialWidthMm(doc.settings))} onFocus={()=>setMaterialWidthFocused(true)} onBlur={()=>setMaterialWidthFocused(false)} disabled={locked} onChange={e=>commit({...doc,settings:setPhysicalMaterialWidth(doc.settings,e.target.valueAsNumber*factor)},true,'material-width')}/></label>
           {(!Number.isFinite(doc.settings.materialWidthMm)||doc.settings.materialWidthMm<=0||doc.settings.materialWidthMm>100_000)&&<small role="alert" className="field-error">Geçerli bir malzeme genişliği girin.</small>}
+          {doc.settings.headMode==='dual'&&<small>Yerleştirme alanı: {length(doc.settings.materialWidthMm)} {unit} (gerçek en ÷ 2).</small>}
           {(doc.settings.materialType??'roll')==='sheet'&&<><label className="measurement-field"><span className="measurement-field__name">Plaka uzunluğu</span><span className="measurement-field__unit">{unit}</span><input data-undo-field type="number" min={0.001/factor} max={100000/factor} step="any" value={inputLength(doc.settings.materialLengthMm??0)} disabled={locked} onChange={e=>commit({...doc,settings:{...doc.settings,materialLengthMm:e.target.valueAsNumber*factor}},true,'material-length')}/></label>{(!Number.isFinite(doc.settings.materialLengthMm)||doc.settings.materialLengthMm!<=0)&&<small role="alert" className="field-error">Geçerli bir plaka uzunluğu girin.</small>}</>}
           <label className="measurement-field"><span className="measurement-field__name">Parça aralığı</span><span className="measurement-field__unit">{unit}</span><input data-undo-field type="number" min="0" step="any" value={inputLength(doc.settings.clearanceMm)} disabled={locked} onChange={e=>commit({...doc,settings:{...doc.settings,clearanceMm:e.target.valueAsNumber*factor}},true,'clearance')}/></label><label>Başlangıç yönü<select value={doc.settings.startCorner??'right-bottom'} disabled={locked} onChange={e=>commit({...doc,settings:{...doc.settings,startCorner:e.target.value as 'right-top'|'right-bottom'}},false)}><option value="right-bottom">Sağ alt ↘</option><option value="right-top">Sağ üst ↗</option></select></label>
           {doc.settings.clearanceMm>0&&<small>Parça aralığı yalnızca parçalar arasında uygulanır; malzeme kenarında ek pay oluşturmaz. Bu kesim kerfi değildir.</small>}
@@ -788,7 +838,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         {!testDxfFiles.length&&<p className="muted">Test DXF klasöründe dosya bulunamadı.</p>}
       </div>
     </Modal>}
-    {nameDialog&&<Modal title={nameDialog==='new'?'Yeni proje':'Projeyi yeniden adlandır'} onClose={()=>setNameDialog(undefined)}><form onSubmit={e=>{e.preventDefault();const name=projectName.trim();if(!name)return;if(nameDialog==='new')requestProject({document:emptyProject(name),saved:true});else if(name!==doc.name)commit({...doc,name},false);setNameDialog(undefined);}}><label>Proje adı<input autoFocus onFocus={e=>e.currentTarget.select()} required maxLength={200} value={projectName} onChange={e=>setProjectAd(e.target.value)}/></label><div className="modal-actions"><button type="button" onClick={()=>setNameDialog(undefined)}>İptal</button><button className="primary" disabled={!projectName.trim()}>{nameDialog==='new'?'Proje oluştur':'Yeniden adlandır'}</button></div></form></Modal>}
+    {nameDialog&&<Modal title={nameDialog==='new'?'Yeni proje':'Projeyi yeniden adlandır'} onClose={()=>setNameDialog(undefined)}><form onSubmit={e=>{e.preventDefault();const name=projectName.trim();if(!name)return;if(nameDialog==='new')requestProject({document:applyMachineProfile(emptyProject(name),machineProfile),saved:true});else if(name!==doc.name)commit({...doc,name},false);setNameDialog(undefined);}}><label>Proje adı<input autoFocus onFocus={e=>e.currentTarget.select()} required maxLength={200} value={projectName} onChange={e=>setProjectAd(e.target.value)}/></label><div className="modal-actions"><button type="button" onClick={()=>setNameDialog(undefined)}>İptal</button><button className="primary" disabled={!projectName.trim()}>{nameDialog==='new'?'Proje oluştur':'Yeniden adlandır'}</button></div></form></Modal>}
     {pendingProject&&<Modal title="Projeyi değiştir" locked={busy} onClose={()=>setPendingProject(undefined)}><p><strong>{pendingProject.document.name}</strong> açıldığında mevcut <strong>{doc.name}</strong> projesi değiştirilecek.</p><p className="muted">İsterseniz mevcut yerleşimi önce DXF olarak indirin.</p>{polygon&&<p>DXF indirmeden önce çizimi tamamlayın veya iptal edin.</p>}{error&&<p role="alert" className="field-error">{error}</p>}<div className="project-switch-actions"><button className="primary" disabled={busy||invalidSettings||!!polygon} onClick={async()=>{if(await exportLayout())switchProject(pendingProject);}}>DXF indir ve geç</button><button className="discard-project" disabled={busy} onClick={()=>switchProject(pendingProject)}>İndirmeden geç</button><button className="text-button" disabled={busy} onClick={()=>setPendingProject(undefined)}>İptal</button></div></Modal>}
     {info&&<Modal title={info==='admin'?'Yönetim Paneli':info==='about'?'Serula Nesting Hakkında':info==='contact'?'İletişim':'Kısayollar ve formatlar'} onClose={()=>setInfo(undefined)} className={info==='about'?'modal-about':''}>
       {info==='admin'?<><p>Serula Nesting yönetim alanı.</p><div className="admin-panel"><h2>Sistem durumu</h2><p><strong>Proje:</strong> {doc.name}</p><p><strong>Parça türü:</strong> {doc.parts.length}</p><p><strong>Toplam parça:</strong> {displayedPieceCount(doc.parts)}</p><p><strong>Malzeme:</strong> {(doc.settings.materialType??'roll')==='sheet'?'Plaka':'Rulo'}</p><h2>Etkin yerleşim ayarları</h2><p><strong>Genişlik:</strong> {length(doc.settings.materialWidthMm)} {unit}</p>{(doc.settings.materialType??'roll')==='sheet'&&<p><strong>Plaka uzunluğu:</strong> {length(doc.settings.materialLengthMm??0)} {unit}</p>}<p><strong>Parça aralığı:</strong> {length(doc.settings.clearanceMm)} {unit}</p><p className="muted">Kullanıcı/rol yetkilendirmesi için sunucu tarafı kimlik doğrulama ve kalıcı kullanıcı veritabanı gerekir. Bu statik istemcide güvenli kullanıcı yetkisi taklit edilmez.</p></div></>:info==='about'?<div className="about-layout">
@@ -796,19 +846,19 @@ export default function App({initialDocument=emptyProject(),initialError='',load
           <span className="about-eyebrow">SERULA NESTING PRO</span>
           <h2>Akıllı DXF yerleştirme</h2>
           <p>Ayakkabı, tekstil, suni deri ve CNC/lazer üretimi için geliştirilmiş 2B nesting aracı. Rulo veya plakada malzeme kullanımını iyileştirir; parça ölçülerini ve kesim konturlarını korur.</p>
-          <div className="about-feature-tags"><span>DXF / SVG / PLT</span><span>Rulo & Plaka</span><span>CorelDRAW / RDWorks</span></div>
+          <div className="about-feature-tags"><span>DXF / SVG / PLT</span><span>Rulo & Plaka</span><span>CorelDRAW</span></div>
         </section>
         <section className="about-section">
           <div className="about-section-heading"><h3>Windows uygulaması ve aktarım</h3><span>2 seçenek</span></div>
           <div className="about-download-grid">
             <div className="about-download-card">
               <div className="about-card-title"><span className="about-download-icon" aria-hidden="true">▣</span><div><strong>Serula Nesting Pro PC</strong><small>Windows x64 · Masaüstü uygulaması</small></div></div>
-              <p>Serula'yı Windows'ta çalıştırın. CorelDRAW ve RDWorks aktarım köprüsü kurulum paketine dahildir.</p>
+              <p>Serula'yı Windows'ta çalıştırın. CorelDRAW aktarım köprüsü kurulum paketine dahildir.</p>
               <a className="button about-download-button about-pc-button" href="https://github.com/M93hasan/serula-nesting-pro-pc/releases/latest/download/Serula-Nesting-Pro-PC-Setup.exe" target="_blank" rel="noreferrer"><span aria-hidden="true">↓</span> PC Sürümünü İndir (.exe)</a>
             </div>
             <div className="about-download-card">
               <div className="about-card-title"><span className="about-download-icon" aria-hidden="true">⇄</span><div><strong>Otomatik Aktarım Köprüsü</strong><small>Windows · Tarayıcı kullanımı</small></div></div>
-              <p>Web sürümünden CorelDRAW veya RDWorks'e yerleştirilmiş DXF aktarmak için köprüyü kurun.</p>
+              <p>Web sürümünden CorelDRAW'a yerleştirilmiş DXF aktarmak için köprüyü kurun.</p>
               <a className="button about-download-button about-bridge-button" href={`${import.meta.env.BASE_URL}downloads/Serula-Kur.cmd`} download="Serula-Kur.cmd"><span aria-hidden="true">↓</span> Otomatik Kurulumu İndir (.cmd)</a>
             </div>
           </div>
