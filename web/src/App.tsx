@@ -42,7 +42,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const [doc,setDoc]=useState<Document>(()=>withDocumentPlacements(initialDocument)),[revision,setRevision]=useState(1),[selectedCopies,setSelectedCopies]=useState<CopyRef[]>([]);
   const [unusedSelection,setUnusedSelection]=useState<string[]>([]);
   // Safari clears the focus selection on mouse-up; preserve it for the first click only.
-  const partAnchor=useRef(0),focusClick=useRef<HTMLInputElement|null>(null);
+  const focusClick=useRef<HTMLInputElement|null>(null);
   const [busy,setBusy]=useState(false),[error,setError]=useState(initialError);
   const [fitRequest,setFitRequest]=useState(0);
   const [resultMode,setResultMode]=useState<'live'|'checked'>('live');
@@ -512,7 +512,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     const normalizedDocument={...next.document,parts:next.document.parts.map(part=>({...part,rotations:normalizedRotationRule(part.rotations)}))};
     const document=withDocumentPlacements(normalizedDocument,checked?.placements ?? next.document.placements);
     ++operation.current;solver.invalidate();setRevision(nextRevision);setDoc(document);
-    history.current=[];future.current=[];fieldEdit.current=undefined;partAnchor.current=0;setUnusedSelection([]);setSelectedCopies([]);setPolygon(undefined);setFiles(undefined);setReview(undefined);setPendingProject(undefined);setError('');setImportWarnings(next.warnings??[]);setFitRequest(n=>n+1);setResultMode(checked?'checked':'live');
+    history.current=[];future.current=[];fieldEdit.current=undefined;setUnusedSelection([]);setSelectedCopies([]);setPolygon(undefined);setFiles(undefined);setReview(undefined);setPendingProject(undefined);setError('');setImportWarnings(next.warnings??[]);setFitRequest(n=>n+1);setResultMode(checked?'checked':'live');
     if(checked)solver.load(checked);
     setExported({document:next.saved?document:withDocumentPlacements(emptyProject()),result:next.saved?checked:undefined});
     if(next.nest)void run(document,nextRevision);
@@ -680,15 +680,12 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         <div className="panel-title"><h2>Parçalar <span>{displayedPieceCount(doc.parts)}</span></h2><div className="panel-title-actions"><div className="series-multiplier" title="Bütün proje için seri adedi"><span aria-hidden="true">×</span><input aria-label="Proje seri adedi" inputMode="numeric" type="text" pattern="[0-9]*" value={seriesDraft??String(seriesMultiplier)} disabled={locked||!doc.parts.length} onFocus={e=>{setSeriesDraft(String(seriesMultiplier));e.currentTarget.select();}} onChange={e=>{if(/^\d*$/.test(e.target.value))setSeriesDraft(e.target.value)}} onBlur={finishSeriesEdit} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();e.currentTarget.blur()}}}/></div><button onClick={()=>setInfo('help')}>Yardım</button></div></div>
         <div className="parts-list">{doc.parts.map((p,i)=>{const b=bounds(p.outer);return <div key={p.id} className={`part-row ${selected.includes(p.id)?'selected':''}`}>
           <button className="part-select" aria-pressed={selected.includes(p.id)} onClick={e=>{
-            const additive=e.metaKey||e.ctrlKey;
-            let next:string[];
-            if(e.shiftKey){
-              const range=doc.parts.slice(Math.min(partAnchor.current,i),Math.max(partAnchor.current,i)+1).map(part=>part.id);
-              next=additive?[...new Set([...selected,...range])]:range;
-            }else{
-              partAnchor.current=i;
-              next=additive?(selected.includes(p.id)?selected.filter(id=>id!==p.id):[...selected,p.id]):[p.id];
-            }
+            // Select exactly the clicked part; modifier clicks toggle only that part.
+            // Shift must not silently select every row between the last two clicks.
+            const additive=e.shiftKey||e.metaKey||e.ctrlKey;
+            const next=additive
+              ? (selected.includes(p.id)?selected.filter(id=>id!==p.id):[...selected,p.id])
+              : [p.id];
             setSelectedCopies(copyRefsFor(doc,next));
             setUnusedSelection(next.filter(id=>doc.parts.some(part=>part.id===id&&part.quantity===0)));
           }}>
