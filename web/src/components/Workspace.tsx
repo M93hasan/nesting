@@ -266,10 +266,16 @@ export default function Workspace({ document: doc, result, live, selected, selec
         if (!drag || event.pointerId !== drag.pointer) return;
         const edit = drag.transform?.edit;
         if (drag.backgroundStart && Math.hypot(event.clientX - drag.backgroundStart[0], event.clientY - drag.backgroundStart[1]) < 3) onSelect();
-        const transformed = edit && (edit.kind === 'scale' ? edit.factor !== 1 : edit.degrees !== 0), translated = drag.copies.length && drag.delta.some(value => value !== 0);
+        // Pointer-up may arrive before React commits the final pointer-move state.
+        // Finalize from the actual release coordinates or the saved position can
+        // lag behind the location where the operator dropped the part.
+        const release = point(event.clientX, event.clientY);
+        const delta = drag.copies.length ? moveDelta([drag.start[0], -drag.start[1]], [release[0], -release[1]], drag.anchor, snapping && !event.altKey ? grid : 0) : drag.delta;
+        const finalDrag = {...drag,delta};
+        const transformed = edit && (edit.kind === 'scale' ? edit.factor !== 1 : edit.degrees !== 0), translated = drag.copies.length && delta.some(value => value !== 0);
         if (transformed || translated) {
-          setPending(drag);
-          const positions = drag.copies.map(copy => ({ ...copy.ref, position: [copy.position[0] + drag.delta[0], copy.position[1] + drag.delta[1]] as Point }));
+          setPending(finalDrag);
+          const positions = drag.copies.map(copy => ({ ...copy.ref, position: [copy.position[0] + delta[0], copy.position[1] + delta[1]] as Point }));
           void Promise.resolve(transformed ? onTransform(edit!, selectedCopies) : onMove(positions)).finally(() => setPending(undefined));
         }
         setDrag(undefined); if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
