@@ -82,15 +82,99 @@ function better(a:Score,b:Score){
   if(Math.abs(a.yFrontier-b.yFrontier)>0.01)return a.yFrontier<b.yFrontier;
   return a.xFrontier<b.xFrontier-0.01;
 }
+// Large or densely sampled CAD parts can exceed the polygon-refinement budget.
+// Instead of silently skipping plate compaction, use a conservative bounding-box
+// first-fit pass. Separating bounding boxes guarantees that the *actual* cutting
+// outlines cannot collide. The final layout is still checked by validate().
+function fillComplexSheetGaps(doc:Document,result:Result,ms:number):Result {
+  const width=doc.settings.materialWidthMm,length=doc.settings.materialLengthMm??0;
+  const gap=Math.max(0,doc.settings.clearanceMm);
+  if(!(width>0&&length>0)||ms<30||result.placements.length<2)return result;
+  const parts=new Map(doc.parts.map(part=>[part.id,part]));
+  const rings=new Map([...parts].map(([id,part])=>[id,collisionRing(part)]));
+  const items:Item[]=[];
+  for(const placement of result.placements){
+    const ring=rings.get(placement.partId);
+    if(!ring)return result;
+    const moved=transform(ring,placement);
+    items.push({placement:{...placement},ring:[],box:bounds(moved) as Box,sheet:placement.sheetIndex??0});
+  }
+  const original=score(items,length,width,doc.settings.startCorner==='right-top');
+  const started=performance.now(),top=doc.settings.startCorner==='right-top';
+  let checks=0,moves=0;
+  const expired=()=>checks>=12000||performance.now()-started>=ms;
+  const fits=(box:Box,sheet:number,skip:number)=>{
+    for(let j=0;j<items.length;j++)if(j!==skip&&items[j].sheet===sheet){
+      const b=items[j].box;
+      // Conservative axis separation: includes the actual requested clearance.
+      if(!(box[2]+gap<=b[0]+EPS||b[2]+gap<=box[0]+EPS
+        ||box[3]+gap<=b[1]+EPS||b[3]+gap<=box[1]+EPS))return false;
+    }
+    return true;
+  };
+  // Later sheets are only drained toward earlier sheets, never made worse.
+  for(let pass=0;pass<2&&!expired();pass++){
+    const order=items.map((_,i)=>i).sort((a,b)=>items[b].sheet-items[a].sheet
+      ||(items[b].box[2]-items[b].box[0])*(items[b].box[3]-items[b].box[1])
+       -(items[a].box[2]-items[a].box[0])*(items[a].box[3]-items[a].box[1]));
+    for(const index of order){
+      if(expired())break;
+      const item=items[index],from=item.sheet;
+      if(!from)continue;
+      const w=item.box[2]-item.box[0],h=item.box[3]-item.box[1];
+      if(w>width+EPS||h>length+EPS)continue;
+      let moved=false;
+      for(let target=0;target<from&&!moved&&!expired();target++){
+        const xs=new Set<number>([0,width-w]),ys=new Set<number>([0,length-h]);
+        for(const other of items)if(other.sheet===target){
+          xs.add(other.box[0]-w-gap);xs.add(other.box[2]+gap);
+          ys.add(other.box[1]-h-gap);ys.add(other.box[3]+gap);
+        }
+        const xCandidates=[...xs].filter(x=>x>=-EPS&&x+w<=width+EPS).sort((a,b)=>b-a).slice(0,96);
+        const yCandidates=[...ys].filter(y=>y>=-EPS&&y+h<=length+EPS)
+          .sort((a,b)=>top?b-a:a-b).slice(0,96);
+        for(const y of yCandidates){
+          if(moved||expired())break;
+          for(const x of xCandidates){
+            if(expired())break;
+            checks++;
+            const box:Box=[x,y,x+w,y+h];
+            if(!fits(box,target,index))continue;
+            const dx=x-item.box[0],dy=y-item.box[1];
+            item.box=box;item.sheet=target;
+            item.placement={...item.placement,sheetIndex:target,
+              xMm:item.placement.xMm+dx,yMm:item.placement.yMm+dy};
+            moves++;moved=true;break;
+          }
+        }
+      }
+    }
+  }
+  if(!moves)return result;
+  const nextScore=score(items,length,width,top);
+  if(!better(nextScore,original))return result;
+  const used=[...new Set(items.map(item=>item.sheet))].sort((a,b)=>a-b);
+  const indices=new Map(used.map((sheet,i)=>[sheet,i]));
+  const placements=items.map(item=>({...item.placement,sheetIndex:indices.get(item.sheet)!}));
+  const candidate:Result={...result,placements,sheetCount:used.length,
+    usedLengthMm:used.length*length,validation:{status:'pending',
+      overlapAreaMm2:null,maxBoundaryViolationMm:null,minClearanceMm:null,errors:[]}};
+  const verified=validate(doc,candidate);
+  return verified.status==='passed'
+    ? {...candidate,validation:{...verified,source:'local'}}:result;
+}
+
 export function fillSheetGaps(doc:Document,result:Result,ms=MAX_MS):Result {
   if(doc.settings.materialType!=='sheet'||result.validation.status!=='passed')return result;
   const width=doc.settings.materialWidthMm,length=doc.settings.materialLengthMm??0;
   const gap=doc.settings.clearanceMm,top=doc.settings.startCorner==='right-top';
-  if(length<=0||result.placements.length<2||result.placements.length>MAX_COPIES)return result;
+  if(length<=0||result.placements.length<2)return result;
   const parts=new Map<string,Part>(doc.parts.map(p=>[p.id,p]));
   const rings=new Map([...parts].map(([id,p])=>[id,collisionRing(p)]));
-  if([...rings.values()].some(r=>r.length>MAX_PER_RING)
-    ||result.placements.reduce((n,p)=>n+(rings.get(p.partId)?.length??0),0)>MAX_VERTICES)return result;
+  if(result.placements.length>MAX_COPIES
+    ||[...rings.values()].some(r=>r.length>MAX_PER_RING)
+    ||result.placements.reduce((n,p)=>n+(rings.get(p.partId)?.length??0),0)>MAX_VERTICES)
+    return fillComplexSheetGaps(doc,result,ms);
   const items:Item[]=result.placements.map(placement=>{
     const ring=rings.get(placement.partId);
     if(!ring)throw Error('Unknown part in plate refinement.');
@@ -160,9 +244,9 @@ export function fillSheetGaps(doc:Document,result:Result,ms=MAX_MS):Result {
       }
     }
   }
-  if(!moves)return result;
+  if(!moves)return fillComplexSheetGaps(doc,result,Math.max(0,ms-(performance.now()-start)));
   const newScore=score(items,length,width,top);
-  if(!better(newScore,oldScore))return result;
+  if(!better(newScore,oldScore))return fillComplexSheetGaps(doc,result,Math.max(0,ms-(performance.now()-start)));
   // Reindex physical plates after an emptied plate disappears.
   const occupied=[...new Set(items.map(i=>i.sheet))].sort((a,b)=>a-b);
   const sheetMap=new Map(occupied.map((value,index)=>[value,index]));
