@@ -49,6 +49,30 @@
   --snow-peach:#43372e;
   --snow-shadow:0 8px 22px rgba(0,0,0,.14);
 }
+@media (prefers-color-scheme:dark){
+:root[data-theme=system] .app.snowui-workspace{
+  --page:#15181e;
+  --panel:#1b2029;
+  --ink:#f2f3f6;
+  --muted:#a9afbe;
+  --border:#343a46;
+  --accent:#91b5ff;
+  --accent-hover:#b6ceff;
+  --hover:#282e39;
+  --hover-border:#58667d;
+  --selected:#303e58;
+  --secondary:#9da8ba;
+  --error:#ffaaa2;
+  --error-bg:#472c32;
+  --snow-surface:#222833;
+  --snow-lilac:#343650;
+  --snow-blue:#283b55;
+  --snow-mint:#254139;
+  --snow-peach:#43372e;
+  --snow-shadow:0 8px 22px rgba(0,0,0,.14);
+}
+}
+
 .app.snowui-workspace .header{
   min-height:68px;
   gap:18px;
@@ -185,3 +209,14 @@
   .app.snowui-workspace .material-panel .settings.material-settings{padding:9px 12px 18px;}
 }
 @media(prefers-reduced-motion:reduce){.app.snowui-workspace .part-row{transition:none;}}
+
+/* Keep the empty project action clear of the new overview on small screens. */
+@media(max-width:699px){
+  .app.snowui-workspace .empty-project{
+    top:auto;
+    bottom:16px;
+    transform:translateX(-50%);
+    max-height:220px;
+    overflow-y:auto;
+  }
+}
