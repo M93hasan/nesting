@@ -292,3 +292,135 @@
     padding:5px 9px!important;
   }
 }
+
+/* Compact account dropdown: one tidy identity area and a single status row.
+   Styling only; existing logout, language and account actions stay unchanged. */
+#root #serula-account-slot .auth-account-dropdown {
+  box-sizing:border-box;
+  width:min(308px,calc(100vw - 24px));
+  max-width:calc(100vw - 24px);
+  padding:13px;
+  gap:9px;
+  border:1px solid var(--border);
+  border-radius:12px;
+  box-shadow:none;
+  overflow-x:hidden;
+}
+#root #serula-account-slot .auth-account-dropdown > strong {
+  display:block;
+  min-width:0;
+  margin:0;
+  font-family:"Inter",sans-serif;
+  font-size:13px;
+  font-weight:700;
+  line-height:1.35;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+#root #serula-account-slot .auth-account-dropdown > small {
+  display:block;
+  min-width:0;
+  margin-top:-5px;
+  color:var(--muted);
+  font-size:11px;
+  line-height:1.4;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+#root #serula-account-slot .auth-account-meta {
+  box-sizing:border-box;
+  display:flex;
+  flex-flow:row wrap;
+  align-items:center;
+  justify-content:flex-start;
+  gap:6px;
+  min-width:0;
+  width:100%;
+  margin:1px 0 0;
+  padding:7px;
+  border:1px solid var(--border);
+  border-radius:9px;
+  background:light-dark(#f3f8fc,#1c2c36);
+  font-size:11px;
+  font-weight:550;
+  line-height:1.3;
+}
+#root #serula-account-slot .auth-account-meta > span {
+  box-sizing:border-box;
+  display:inline-flex;
+  align-items:center;
+  justify-content:flex-start;
+  flex:0 0 auto;
+  width:auto;
+  min-width:0;
+  max-width:100%;
+  margin:0;
+  padding:4px 7px;
+  border-radius:6px;
+  color:var(--ink);
+  background:light-dark(#e5edf5,#253945);
+  font-size:11px;
+  line-height:1.3;
+  font-weight:550;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+#root #serula-account-slot .auth-account-dropdown > .language-select {
+  display:grid;
+  grid-template-columns:24px minmax(0,1fr);
+  align-items:center;
+  gap:8px;
+  width:100%;
+  min-width:0;
+  max-width:100%;
+  margin:0;
+  color:var(--muted);
+}
+#root #serula-account-slot .auth-account-dropdown > .language-select > span {
+  font-family:"Inter",sans-serif;
+  font-size:12px;
+  white-space:nowrap;
+}
+#root #serula-account-slot .auth-account-dropdown > .language-select > select {
+  box-sizing:border-box;
+  display:block;
+  width:100%;
+  min-width:0;
+  max-width:100%;
+  min-height:34px;
+  height:34px;
+  margin:0;
+  padding:4px 28px 4px 10px;
+  border-radius:8px;
+  font-family:"Inter",sans-serif;
+  font-size:12px;
+}
+#root #serula-account-slot .auth-account-dropdown > button {
+  box-sizing:border-box;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:100%;
+  min-height:34px!important;
+  height:34px;
+  margin:0;
+  padding:6px 12px!important;
+  border-radius:8px!important;
+  font-family:"Inter",sans-serif!important;
+  font-size:12px!important;
+  font-weight:600!important;
+  box-shadow:none!important;
+  text-shadow:none!important;
+}
+@media(max-width:760px) {
+  #root #serula-account-slot .auth-account-dropdown {
+    position:fixed;
+    right:12px;
+    top:64px;
+    width:min(308px,calc(100vw - 24px));
+    padding:12px;
+  }
+}
