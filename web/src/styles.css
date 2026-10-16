@@ -1156,7 +1156,7 @@ dialog.modal.modal-about{
   button,
   input[type="button"],input[type="submit"],input[type="reset"],
   a.button,a.admin-workspace-link,a.nav-action,a.github-link,
-  .header nav a:not(.brand),details>summary,[role="button"]
+  .header nav a:not(.brand),[role="button"]
 ){
   font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
   font-optical-sizing:auto;
@@ -1185,7 +1185,7 @@ dialog.modal.modal-about{
   button,
   input[type="button"],input[type="submit"],input[type="reset"],
   a.button,a.admin-workspace-link,a.nav-action,a.github-link,
-  .header nav a:not(.brand),details>summary,[role="button"]
+  .header nav a:not(.brand),[role="button"]
 ):hover:not(:disabled){
   background:#2672bd!important;
   background-image:none!important;
@@ -1200,7 +1200,7 @@ dialog.modal.modal-about{
   button,
   input[type="button"],input[type="submit"],input[type="reset"],
   a.button,a.admin-workspace-link,a.nav-action,a.github-link,
-  .header nav a:not(.brand),details>summary,[role="button"]
+  .header nav a:not(.brand),[role="button"]
 ):active:not(:disabled){
   background:#1c5e9e!important;
   color:#fff!important;
@@ -1299,13 +1299,169 @@ dialog.modal.modal-about{
   #root :is(.app,.admin-page,.auth-screen) :is(
     button,input[type="button"],input[type="submit"],input[type="reset"],
     a.button,a.admin-workspace-link,a.nav-action,a.github-link,
-    .header nav a:not(.brand),details>summary,[role="button"]
+    .header nav a:not(.brand),[role="button"]
   ){font-size:12px!important;min-height:36px!important;padding:5px 9px!important;}
 }
 @media(prefers-reduced-motion:reduce){
   #root :is(.app,.admin-page,.auth-screen) :is(
     button,input[type="button"],input[type="submit"],input[type="reset"],
     a.button,a.admin-workspace-link,a.nav-action,a.github-link,
-    .header nav a:not(.brand),details>summary,[role="button"]
+    .header nav a:not(.brand),[role="button"]
   ){transition:none!important;}
 }
+
+/* Compact Serula part rows: preserve full names in the title while showing
+   one-line ellipsis, and keep count / delete actions at production-tool size. */
+#root .app .sidebar .parts-list .part-row {
+  gap:5px;
+  padding:3px 7px;
+  min-width:0;
+}
+#root .app .sidebar .parts-list .part-row > button.part-select {
+  flex:1 1 0;
+  min-width:0;
+  min-height:42px!important;
+  width:0;
+  padding:3px 5px!important;
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+  gap:6px;
+  text-align:left;
+  white-space:normal;
+  line-height:1.2!important;
+  font-size:11px!important;
+  border-radius:7px!important;
+}
+#root .app .sidebar .parts-list .part-row > button.part-select svg{
+  flex:0 0 26px;
+  width:26px;
+  height:28px;
+}
+#root .app .sidebar .parts-list .part-label{
+  display:block;
+  min-width:0;
+  flex:1;
+  overflow:hidden;
+  overflow-wrap:normal;
+  word-break:normal;
+}
+#root .app .sidebar .parts-list .part-label__name,
+#root .app .sidebar .parts-list .part-label small{
+  display:block;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  max-width:100%;
+  line-height:1.25;
+}
+#root .app .sidebar .parts-list .part-label__name{
+  font-size:11px!important;
+  font-weight:650;
+}
+#root .app .sidebar .parts-list .part-label small{
+  font-size:10px!important;
+  font-weight:400!important;
+  color:inherit;
+}
+#root .app .sidebar .parts-list .part-row > input[type="text"]{
+  flex:0 0 38px;
+  width:38px!important;
+  max-width:38px;
+  height:30px!important;
+  min-height:30px!important;
+  padding:3px 4px!important;
+  font-size:12px!important;
+  text-align:center;
+  border-radius:7px!important;
+}
+#root .app .sidebar .parts-list .part-row > button.remove-part {
+  flex:0 0 29px;
+  width:29px;
+  min-width:29px!important;
+  height:30px!important;
+  min-height:30px!important;
+  padding:4px!important;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+#root .app .sidebar .parts-list .part-row > button.remove-part svg{
+  width:15px;
+  height:15px;
+}
+/* History delete actions: destructive red with a trash icon, no shadows. */
+#root .export-history button.danger-button,
+#root .export-history button.danger-button:focus,
+#root .export-history button.danger-button:disabled{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:5px;
+  background:#c92f43!important;
+  background-image:none!important;
+  border:0!important;
+  color:#fff!important;
+  box-shadow:none!important;
+  text-shadow:none!important;
+}
+#root .export-history button.danger-button:is(:hover,:active):enabled{
+  background:#a81f34!important;
+  color:#fff!important;
+  box-shadow:none!important;
+  text-shadow:none!important;
+}
+#root .export-history button.danger-button svg{
+  flex:0 0 14px;
+  width:14px;
+  height:14px;
+  stroke:currentColor;
+}
+/* CorelDRAW controls are green; other normal buttons remain blue. */
+#root .app .export-actions button.download-button.corel-transfer-button,
+#root .admin-page .admin-user-actions button.corel-transfer-toggle{
+  background:#208b53!important;
+  background-image:none!important;
+  border:0!important;
+  color:#fff!important;
+  box-shadow:none!important;
+  text-shadow:none!important;
+}
+#root .app .export-actions button.download-button.corel-transfer-button:is(:hover,:active):enabled,
+#root .admin-page .admin-user-actions button.corel-transfer-toggle:is(:hover,:active):enabled,
+#root .admin-page .admin-user-actions button.corel-transfer-toggle[aria-pressed="true"]{
+  background:#176a40!important;
+  background-image:none!important;
+  color:#fff!important;
+  box-shadow:none!important;
+  text-shadow:none!important;
+}
+/* The optimization disclosure is a real summary, not a blue action button. */
+#root .app .material-group details.solver-options{
+  border:0!important;
+  border-radius:0!important;
+  padding:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+}
+#root .app .material-group details.solver-options > summary,
+#root .app .material-group details.solver-options > summary:is(:hover,:focus,:active){
+  display:list-item;
+  color:var(--ink)!important;
+  background:transparent!important;
+  background-image:none!important;
+  border:0!important;
+  box-shadow:none!important;
+  text-shadow:none!important;
+  filter:none!important;
+  border-radius:0!important;
+  padding:7px 0!important;
+  font-family:"Inter",sans-serif!important;
+  font-weight:650!important;
+  font-size:12px!important;
+  line-height:1.4!important;
+  transform:none!important;
+  translate:0 0!important;
+  cursor:pointer;
+}
+#root .app .material-group details.solver-options[open]{padding-bottom:8px!important;}
