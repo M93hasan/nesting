@@ -1,4 +1,5 @@
 import RotationControl from './components/RotationControl';
+import './snowui-workspace.css';
 import packageInfo from '../package.json';
 import {readRecovery,saveRecovery} from './storage/recovery';
 import {useDismissibleMenu} from './components/useDismissibleMenu';
@@ -707,7 +708,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const utilization=result&&materialArea>0?totalArea/materialArea*100:0;
   const waste=result?Math.max(0,100-utilization):0;
   const improvement=result&&phaseImprovements(solver.diagnostics.current?.history??[],result.usedLengthMm);
-  return <div className="app" onBlurCapture={()=>{fieldEdit.current=undefined;}} onKeyDown={e=>{if(e.key==='Enter'&&e.target instanceof HTMLInputElement&&e.target.hasAttribute('data-undo-field')){e.preventDefault();e.target.blur();}}} onMouseDownCapture={e=>{const target=e.target;focusClick.current=target instanceof HTMLInputElement&&['text','number'].includes(target.type)&&document.activeElement!==target?target:null;}} onMouseUpCapture={e=>{if(focusClick.current===e.target){e.preventDefault();focusClick.current.select();}focusClick.current=null;}} onFocusCapture={e=>{const input=e.target;if(input instanceof HTMLInputElement&&['text','number'].includes(input.type))input.select();}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(!document.querySelector('dialog[open]'))void openFiles(e.dataTransfer.files);}}>
+  return <div className="app snowui-workspace" onBlurCapture={()=>{fieldEdit.current=undefined;}} onKeyDown={e=>{if(e.key==='Enter'&&e.target instanceof HTMLInputElement&&e.target.hasAttribute('data-undo-field')){e.preventDefault();e.target.blur();}}} onMouseDownCapture={e=>{const target=e.target;focusClick.current=target instanceof HTMLInputElement&&['text','number'].includes(target.type)&&document.activeElement!==target?target:null;}} onMouseUpCapture={e=>{if(focusClick.current===e.target){e.preventDefault();focusClick.current.select();}focusClick.current=null;}} onFocusCapture={e=>{const input=e.target;if(input instanceof HTMLInputElement&&['text','number'].includes(input.type))input.select();}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(!document.querySelector('dialog[open]'))void openFiles(e.dataTransfer.files);}}>
     <header className="header"><div className="brand-block"><a className="brand serula-brand" aria-label="Serula Nesting Studio" href={import.meta.env.BASE_URL}><img src={`${import.meta.env.BASE_URL}serula-logo.svg`} alt="" /><strong>Serula Nesting</strong><span>/studio · Sürüm {packageInfo.version}</span></a><p className="tagline">Akıllı DXF yerleştirme ve malzeme optimizasyonu</p></div>
       <div className="header-primary project-bar"><details className="project-menu" ref={projectMenu} hidden><summary aria-label={`Proje: ${doc.name}`}>{doc.name}<span aria-hidden="true"> ▾</span></summary><div>
         <button disabled={locked} onClick={()=>{projectMenu.current!.open=false;setProjectAd('Adsız proje');setNameDialog('new');}}>Yeni proje</button>
@@ -758,6 +759,15 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         </div></section>}
       </aside>
       <section className="drawing-panel">
+        <section className="snowui-overview" aria-label="Proje özeti">
+          <div className="snowui-overview-heading"><h2>Genel bakış</h2><span title={doc.name}>{doc.name}</span></div>
+          <div className="snowui-overview-cards">
+            <div className="snowui-card"><span className="snowui-card-label">Toplam parça</span><strong className="snowui-card-value">{displayedPieceCount(doc.parts)}</strong></div>
+            <div className="snowui-card"><span className="snowui-card-label">Parça çeşidi</span><strong className="snowui-card-value">{doc.parts.length}</strong></div>
+            <div className="snowui-card"><span className="snowui-card-label">Gerçek malzeme eni</span><strong className="snowui-card-value is-long">{length(physicalMaterialWidthMm(doc.settings))} {unit}</strong></div>
+            <div className="snowui-card"><span className="snowui-card-label">Malzeme verimliliği</span><strong className="snowui-card-value">{result ? utilization.toFixed(1) + '%' : '—'}</strong></div>
+          </div>
+        </section>
         <Workspace optimizing={running} onSelectCopies={kopya=>{setUnusedSelection([]);setSelectedCopies(kopya);}} materialWidthFocused={materialWidthFocused} unit={unit} fitRequest={fitRequest} document={canvasDocument} result={visibleResult} live={showingLive?live:undefined} selected={selected} selectedCopies={selectedCopies} disabled={locked} onTransform={transformSelection}
           polygon={polygon} onDraw={point=>{if(!locked)setPolygon(p=>[...(p??[]),point]);}}
           onSelect={(copy,toggle)=>{setUnusedSelection([]);if(!copy){setSelectedCopies([]);return;}const key=`${copy.partId}:${copy.copyIndex}`,already=selectedCopies.some(p=>`${p.partId}:${p.copyIndex}`===key);const nextCopies=toggle?(already?selectedCopies.filter(p=>`${p.partId}:${p.copyIndex}`!==key):[...selectedCopies,copy]):already?selectedCopies:[copy];setSelectedCopies(nextCopies);}}
