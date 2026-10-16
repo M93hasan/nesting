@@ -13,6 +13,8 @@ import {arrangePreparation,labelPoints} from '../geometry/preparation';
 import { exportDXFOnly } from '../export/svg';
 import { exportProjectArchive } from '../export/zip';
 import {fillSheetGaps} from '../geometry/sheetGapFill';
+import {compactRollLayoutIntoPlates} from '../geometry/sheetFirstFit';
+import {packResultIntoSheets} from '../geometry/multiSheet';
 import {validate} from '../geometry/validate';
 import type { GeometryReply, GeometryRequest } from './protocol';
 
@@ -68,7 +70,24 @@ self.onmessage=async({data}: MessageEvent<GeometryRequest>)=>{
       case 'archive': reply={...ids,type:'archive-result',archive:exportProjectArchive(data.document,data.documentRevision,data.result)};break;
       case 'live-preview':reply={...ids,type:'live-frame',sequence:data.sequence,geometry:liveGeometry(data.document,data.result)};break;
       case 'sheet-gap-fill':reply={...ids,type:'sheet-gap-result',result:fillSheetGaps(data.document,data.result,data.budgetMs)};break;
-      case 'sheet-validate':reply={...ids,type:'sheet-validated',sequence:data.sequence,validation:validate(data.document,data.result)};break;
+      case 'sheet-validate':{
+        const baseCheck=validate(data.document,data.result);
+        let accepted=data.result,verification=baseCheck;
+        if(baseCheck.status==='passed'){
+          const compacted=compactRollLayoutIntoPlates(data.document,
+            {...data.result,validation:{...baseCheck,source:'local'}});
+          if(compacted!==data.result){
+            const oriented=packResultIntoSheets(data.document,compacted);
+            const checked=validate(data.document,oriented);
+            if(checked.status==='passed'){
+              accepted=oriented;verification=checked;
+            }
+          }
+        }
+        reply={...ids,type:'sheet-validated',sequence:data.sequence,
+          validation:verification,result:accepted};
+        break;
+      }
     }
     if(reply.type==='archive-result') self.postMessage(reply,[reply.archive.buffer as ArrayBuffer]);
     else self.postMessage(reply);
