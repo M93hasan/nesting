@@ -73,7 +73,12 @@ export function useSolver() {
   function scheduleDeadline(r:Run) {
     if(r.ended)return;
     if(r.deadline)clearTimeout(r.deadline);
-    const remaining=Math.max(0,(r.deadlineAtEpochMs??Date.now())-Date.now());
+    // Reserve a small portion of the SAME hard wall-clock budget for a fully
+    // verified plate gap-fill pass; otherwise the deadline can terminate the
+    // solver at 0 ms remaining and silently skip this step for heavy DXF files.
+    // Roll mode keeps its original stopping behavior.
+    const reserve=r.doc.settings.materialType==='sheet'?1650:0;
+    const remaining=Math.max(0,(r.deadlineAtEpochMs??Date.now())-Date.now()-reserve);
     if(remaining<=0){end('Complete');return;}
     r.deadline=setTimeout(()=>end('Complete'),remaining);
   }
