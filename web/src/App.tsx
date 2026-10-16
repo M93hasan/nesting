@@ -111,6 +111,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const [recoveryReady,setRecoveryReady]=useState(false),[recoveryError,setRecoveryError]=useState('');
   const [cloudSaveState,setCloudSaveState]=useState<'idle'|'saving'|'saved'|'signed-out'|'error'>('idle'),[cloudSaveTick,setCloudSaveTick]=useState(0);
   const [transferAccess,setTransferAccess]=useState({corel:false,rdworks:false});
+  const [bridgeInstallPrompt,setBridgeInstallPrompt]=useState(false);
   useEffect(()=>{const changed=()=>setCloudSaveTick(value=>value+1);window.addEventListener('serula-auth-updated',changed);return()=>window.removeEventListener('serula-auth-updated',changed)},[]);
   useEffect(()=>{
     let active=true;
@@ -614,7 +615,8 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   }
   async function transferLayout(target:'corel'|'rdworks') {
     if(exportBlockedReason||!doc.parts.some(part=>part.quantity>0))return;
-    setBusy(true);setError('');
+    setBusy(true);setError('');setBridgeInstallPrompt(false);
+    let bridgePreflight=true;
     try{
       // Preflight first: a stale or unavailable local bridge must never consume
       // a one-use server ticket. The Windows installer is always accessible
@@ -623,6 +625,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
       const health=await ready.json() as {ok?:boolean;service?:string;version?:string};
       if(!ready.ok||health.ok!==true||health.service!=='serula-bridge')
         throw Error('Windows aktarım köprüsü çalışmıyor. Hakkında > Otomatik Aktarım Köprüsü bölümünden kurulum yapın.');
+      bridgePreflight=false;
       const bridgeVersion=/^(\d+)\.(\d+)/.exec(health.version||'');
       const supportsRdworks=!!bridgeVersion&&(Number(bridgeVersion[1])>1||
         Number(bridgeVersion[1])===1&&Number(bridgeVersion[2])>=5);
@@ -646,6 +649,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
       }
       setError(response.message||'DXF hedef programa gönderildi. RDWorks çalışma alanında dosyayı kontrol edin.');
     }catch(e){
+      if(bridgePreflight)setBridgeInstallPrompt(true);
       const message=e instanceof TypeError
         ?'Yerel Serula Bridge bulunamadı veya tarayıcı yerel ağ bağlantısını engelledi. Windows aktarım köprüsünü başlatın ve serula.site için yerel ağ erişimine izin verin.'
         :e instanceof Error?e.message:String(e);
@@ -744,7 +748,21 @@ export default function App({initialDocument=emptyProject(),initialError='',load
       <div className="run-status" data-visual-state={running||busy?'working':error?'error':'ready'}><span className="status-symbol" aria-hidden="true"><i className={running||busy?'active':undefined}/></span><span role="status" className="run-state"><span>{busy?'Girdiler kontrol ediliyor':loadingExample?'Örnek yükleniyor…':solver.state==='Running'&&solver.phase?(solver.skipping?'Geçiliyor…':solver.phase):solver.state}</span>{(running||solver.state==='Complete'||solver.state==='Stopped')&&<span className="run-elapsed">{solver.elapsed.toFixed(1)} s</span>}</span>{solver.workers&&<small className="worker-status" title={solver.workers.reason} data-worker-count={solver.workers.actual}>{`${solver.workers.actual} çözücü işçisi`}{solver.workers.requested?` / ${solver.workers.requested} istendi`:' · otomatik'}{solver.workers.reason&&' · yedek'}</small>}</div>
       <div className="metrics"><span>{doc.settings.materialType==='sheet'?'Kullanılan plaka':showingLive?'En iyi geçerli uzunluk':'Kullanılan uzunluk'} <strong>{result?(doc.settings.materialType==='sheet'?String(result.sheetCount??1):`${length(result.usedLengthMm)} ${unit}`):'—'}</strong></span><span>Malzeme verimliliği <strong>{result?`${utilization.toFixed(2)}%`:'—'}</strong></span><span>Fire <strong>{result?`${waste.toFixed(2)}%`:'—'}</strong></span>{improvement&&doc.settings.materialType!=='sheet'&&<span title="Keşif: ilk geçerli uzunluktan azalma. Sıkıştırma: en iyi keşif uzunluğundan ek azalma.">İyileştirme keşfet / sıkıştır <strong>{improvement.explore.toFixed(1)}% / {improvement.compress.toFixed(1)}%</strong></span>}</div>
       <div className="export-actions">
-        {transferAccess.corel&&<button type="button" disabled={!!exportBlockedReason} className="download-button corel-transfer-button" title="CorelDRAW'a dosya indirmeden aktar; Windows Serula Bridge gerekir" onClick={()=>void transferLayout('corel')}>CorelDRAW'a Aktar</button>}
+        {transferAccess.corel&&<div className="corel-transfer-control">
+          <button type="button" disabled={!!exportBlockedReason} className="download-button corel-transfer-button" title="CorelDRAW'a dosya indirmeden aktar; Windows Serula Bridge gerekir" onClick={()=>void transferLayout('corel')}>
+            <img className="corel-transfer-logo" src={`${import.meta.env.BASE_URL}corel-button-logo.svg`} width="24" height="24" alt="" aria-hidden="true"/>
+            <span>CorelDRAW'a Aktar</span>
+          </button>
+          {bridgeInstallPrompt&&<div className="corel-bridge-prompt" role="alert">
+            <strong>Serula Bridge bağlantısı kurulamadı</strong>
+            <p>Köprü eksik veya çalışmıyor olabilir. Kurulumu çalıştırın, ardından CorelDRAW'a Aktar düğmesine yeniden basın. Köprü çalışıyorsa Chrome'un yerel ağ erişim iznini kontrol edin.</p>
+            <div className="corel-bridge-prompt-actions">
+              <a className="button" download="Serula-Kur.cmd" href={`${import.meta.env.BASE_URL}downloads/Serula-Kur.cmd`}>Köprüyü Kur / Onar (.cmd)</a>
+              <a href="http://127.0.0.1:43842/health" target="_blank" rel="noopener noreferrer">Bağlantıyı kontrol et</a>
+              <button type="button" onClick={()=>setBridgeInstallPrompt(false)}>Kapat</button>
+            </div>
+          </div>}
+        </div>}
         <span className="download-control" tabIndex={exportBlockedReason?0:undefined} aria-describedby={exportBlockedReason?'download-tooltip':undefined}><button disabled={!!exportBlockedReason} className="download-button" onClick={()=>void exportLayout()}><svg className="download-button__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg><span>{downloadPhase==='preparing'?'DXF hazırlanıyor…':downloadPhase==='authorizing'?'Buluta kaydediliyor…':'DXF İndir'}</span></button>{exportBlockedReason&&<span id="download-tooltip" role="tooltip" className="compression-tooltip">{exportBlockedReason}</span>}</span></div>
 
     </footer>
