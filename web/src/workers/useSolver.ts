@@ -7,6 +7,7 @@ import {packResultIntoSheets} from '../geometry/multiSheet';
 import {solverCopies} from '../import/sparrow';
 import {documentPlacements,placementKey} from '../geometry/placements';
 import {validate} from '../geometry/validate';
+import {geometryTask} from './geometryTask';
 
 export type RunState='Ready'|'Initializing'|'Running'|'Complete'|'Stopped'|'Error';
 export type Timing={phase?:string;sequence:number;elapsedMs:number;lengthMm:number;validation?:string;validationMs?:number;errors?:string[]};
@@ -104,6 +105,28 @@ export function useSolver() {
     if(message) setError(message);
     setElapsed((performance.now()-r.requestedAt)/1000);
     setResult(r.best);setState(reason);
+    // Plaka: the continuous-strip result may leave usable interior voids.
+    // Reserve part of the EXISTING time limit for a separate verified gap pass.
+    if(reason==='Complete'&&r.best&&r.doc.settings.materialType==='sheet'){
+      const base=r.best;
+      const budget=Math.min(1500,Math.max(0,(r.deadlineAtEpochMs??Date.now())-Date.now()-120));
+      if(budget>=100){
+        setPhase('Plaka boşlukları kontrol ediliyor');
+        setState('Running'); // Keep export disabled until the final verified layout.
+        void geometryTask({type:'sheet-gap-fill',runId:r.id,documentRevision:r.revision,
+          document:r.doc,result:base,budgetMs:budget})
+          .then(reply=>{
+            if(run.current!==r||reply.type!=='sheet-gap-result')return;
+            if(reply.result!==base&&reply.result.validation.status==='passed'){
+              r.best=reply.result;
+              r.diagnostics.history.push({phase:'PlateGapFill',sequence:r.diagnostics.history.length+1,
+                elapsedMs:performance.now()-r.requestedAt,lengthMm:reply.result.usedLengthMm,validation:'passed'});
+              setResult(reply.result);
+            }
+          }).catch(()=>{/* A rejected local pass never replaces the valid Sparrow result. */})
+          .finally(()=>{if(run.current===r){setPhase(undefined);setState('Complete');}});
+      }
+    }
     if(!r.best&&reason==='Complete'){
       const lastFailure=[...r.diagnostics.history].reverse().find(entry=>entry.validation==='failed'&&entry.errors?.length);
       setState('Error');
@@ -209,7 +232,7 @@ export function useSolver() {
     };
     solver.onerror=e=>{if(run.current===r && r.solver) end('Error',e.message||'Arka plan işçisi yüklenemedi. Sayfayı yenileyip tekrar deneyin.');};
     solver.postMessage({type:'start',runId:id,documentRevision:revision,document:doc,seed,threads,
-      hardLimitMs:Math.max(0,(r.deadlineAtEpochMs??Date.now())-Date.now())});
+      hardLimitMs:Math.max(0,(r.deadlineAtEpochMs??Date.now())-Date.now()-(doc.settings.materialType==='sheet'?1850:0))});
   }
   function invalidate() {clear();setWorkers(undefined);setResult(undefined);setLive(undefined);setLiveError('');setState('Ready');setError('');}
   function load(checked:Result) {
