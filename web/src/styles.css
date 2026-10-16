@@ -836,21 +836,30 @@ dialog.modal.modal-about{
   .material-group{padding:14px;}
 }
 
-/* Malzeme ölçüleri ve Yerleşim kuralları aynı kartı paylaşır. */
-.material-panel .material-group-stack{
-  min-width:0;
-  overflow:hidden;
-  border:1px solid var(--border);
-  border-radius:12px;
-  background:var(--page);
+/* One actual material settings card, with two field groups and no nested cards. */
+.material-panel .material-group--combined{
+  display:block;
 }
-.material-panel .material-group-stack > .material-group{
-  border:0;
-  border-radius:0;
-  background:transparent;
-}
-.material-panel .material-group-stack > .material-group + .material-group{
+.material-panel .material-group--combined .material-group__subsection{
+  margin-top:16px;
+  padding-top:15px;
   border-top:1px solid var(--border);
+}
+.material-panel .material-group--combined .material-group__subsection h4{
+  margin:0;
+  font-size:13px;
+  font-weight:700;
+  line-height:1.3;
+  color:var(--ink);
+}
+.material-panel .material-group--combined .material-group__subsection > p{
+  margin:3px 0 12px;
+  color:var(--muted);
+  font-size:10.5px;
+  line-height:1.4;
+}
+.material-panel .material-group--combined .material-group__subsection > .material-group__body{
+  min-width:0;
 }
 
 /* Seçili Parça dönüşü butonu farenin konumundan bağımsız olarak sabit gri.
