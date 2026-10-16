@@ -7,6 +7,7 @@ import {packResultIntoSheets} from '../geometry/multiSheet';
 import {solverCopies} from '../import/sparrow';
 import {documentPlacements,placementKey} from '../geometry/placements';
 import {validate} from '../geometry/validate';
+import {geometryTask} from './geometryTask';
 
 export type RunState='Ready'|'Initializing'|'Running'|'Complete'|'Stopped'|'Error';
 export type Timing={phase?:string;sequence:number;elapsedMs:number;lengthMm:number;validation?:string;validationMs?:number;errors?:string[]};
@@ -104,6 +105,18 @@ export function useSolver() {
     if(message) setError(message);
     setElapsed((performance.now()-r.requestedAt)/1000);
     setResult(r.best);setState(reason);
+    if(reason==='Complete'&&r.best&&r.doc.settings.materialType!=='sheet'){
+      const original=r.best;
+      void geometryTask({type:'gap-fill',runId:r.id,documentRevision:r.revision,document:r.doc,result:original})
+        .then(reply=>{
+          if(run.current!==r||reply.type!=='gap-fill-result'||!r.best)return;
+          if(reply.result.usedLengthMm<r.best.usedLengthMm-0.01){
+            r.best=reply.result;
+            r.diagnostics.history.push({phase:'GapFill',sequence:r.diagnostics.history.length+1,elapsedMs:performance.now()-r.requestedAt,lengthMm:r.best.usedLengthMm,validation:'passed'});
+            setResult(reply.result);
+          }
+        }).catch(()=>{/* Keep the original validated solver placement. */});
+    }
     if(!r.best&&reason==='Complete'){
       const lastFailure=[...r.diagnostics.history].reverse().find(entry=>entry.validation==='failed'&&entry.errors?.length);
       setState('Error');
