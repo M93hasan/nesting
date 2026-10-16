@@ -1,3 +1,3 @@
 Serula Nesting production refresh
-source_commit: f3000c36c44078457c45e8f4b5f3b20d4ef2c94f
-release: sheet-first-fit-roll-engine-plate-conversion
+source_commit: 6bd09f5eaabee44f313cc5b8f9941ac49858e027
+release: compact-every-plate-multi-width-shelf-packing
