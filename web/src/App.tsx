@@ -23,6 +23,7 @@ import {isEditableTarget,preparationShortcut} from './geometry/gestures';
 import {applySeriesMultiplier,copyRefsFor,documentPlacements,duplicateCopies,maxSeriesMultiplier,mirrorPlacements,removeCopies,rotatePlacements,rotateToNextOrientation,setPlacementAngles,movePlacements,placementLayoutsEqual,syncQuantity,updatePlacements,withDocumentPlacements,type CopyRef} from './geometry/placements';
 import {LanguageSelect} from './i18n';
 import {captureClipboard,pasteClipboard,type ClipboardItem} from './geometry/clipboard';
+import {automaticSolverThreads} from './workers/autoThreads';
 import {createDxfExportCache} from './export/dxfCache';
 import {createSerialQueue} from './storage/serialQueue';
 
@@ -48,7 +49,6 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const [busy,setBusy]=useState(false),[error,setError]=useState(initialError);
   const [fitRequest,setFitRequest]=useState(0);
   const [resultMode,setResultMode]=useState<'live'|'checked'>('live');
-  const [threads,setThreads]=useState(0);
   const [sizeValid,setSizeValid]=useState(true),[downloadedResult,setDownloadedResult]=useState(false),[seriesDraft,setSeriesDraft]=useState<string>();
   const [downloadPhase,setDownloadPhase]=useState<'idle'|'preparing'|'authorizing'>('idle');
   const [theme,setTheme]=useState<'system'|'light'|'dark'>(()=>{try{const saved=localStorage.getItem('serula-theme');return saved==='light'||saved==='dark'||saved==='system'?saved:'light';}catch{return 'system';}});
@@ -446,7 +446,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     try {
       const reply=await geometryTask({type:'normalize',runId:id,documentRevision:rev,document});
       if(id!==operation.current || reply.type!=='normalized') return;
-      solver.start(reply.document,rev,threads||undefined,requestedAt);
+      solver.start(reply.document,rev,automaticSolverThreads(),requestedAt);
     } catch(e) {setError(String(e));} finally {if(id===operation.current)setBusy(false);}
   }
   async function openFiles(list:FileList|File[],intent:'project'|'shapes'|'auto'='auto') {
@@ -736,7 +736,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
           {doc.settings.clearanceMm>0&&<small>Parça aralığı yalnızca parçalar arasında uygulanır; malzeme kenarında ek pay oluşturmaz. Bu kesim kerfi değildir.</small>}
           {(!Number.isFinite(doc.settings.clearanceMm)||doc.settings.clearanceMm<0||doc.settings.clearanceMm>=doc.settings.materialWidthMm)&&<small role="alert" className="field-error">Sıfır veya malzeme genişliğinden küçük pozitif bir parça aralığı girin.</small>}
           <label>Durdurma koşulu<select value={doc.settings.timeLimitSeconds??'auto'} disabled={locked} onChange={e=>commit({...doc,settings:{...doc.settings,timeLimitSeconds:e.target.value==='auto'?null:Number(e.target.value) as 10|30|60|120|300|600}},false)}><option value="auto">Otomatik · en fazla 59 sn</option>{[10,30,60,120,300,600].map(s=><option value={s} key={s}>{s<60?`En fazla ${s} saniye`:`En fazla ${s/60} dakika`}</option>)}</select></label>
-          <details className="solver-options"><summary>Yerleştirme seçenekleri</summary><label>Arama modu<select disabled={locked} value={doc.settings.solverPreset??'standard'} aria-describedby="preset-description" onChange={e=>commit({...doc,settings:{...doc.settings,solverPreset:e.target.value as 'standard'|'fast'}},false)}><option value="standard">Standart</option><option value="fast">Hızlı</option></select></label><small id="preset-description">{doc.settings.solverPreset==='fast'?'İyi yerleşimleri daha hızlı bulur; en iyi nihai yerleşimi kaçırabilir.':'En iyi nihai yerleşim için daha kapsamlı arama yapar.'}</small><label>İşlemci iş parçacıkları<select disabled={locked} value={threads} onChange={e=>setThreads(Number(e.target.value))}><option value={0}>Otomatik</option>{[1,2,3].map(n=><option key={n} value={n}>{n}</option>)}</select></label>{solver.workers&&<small>Son başlatılan çalışma: {solver.workers.actual} çözücü işçisi{solver.workers.actual===1?'':'s'}.{solver.workers.reason&&` ${solver.workers.reason}`}</small>}<small>{crossOriginIsolated?'Otomatik mod kararlı başlatma için 1 iş parçacığı kullanır. İstersen 2 veya 3 seçebilirsin.':'Bu tarayıcı oturumu tek iş parçacığı kullanır.'}</small></details>
+          <details className="solver-options"><summary>Yerleştirme seçenekleri</summary><label>Arama modu<select disabled={locked} value={doc.settings.solverPreset??'standard'} aria-describedby="preset-description" onChange={e=>commit({...doc,settings:{...doc.settings,solverPreset:e.target.value as 'standard'|'fast'}},false)}><option value="standard">Standart</option><option value="fast">Hızlı</option></select></label><small id="preset-description">{doc.settings.solverPreset==='fast'?'İyi yerleşimleri daha hızlı bulur; en iyi nihai yerleşimi kaçırabilir.':'En iyi nihai yerleşim için daha kapsamlı arama yapar.'}</small><label>İşlemci iş parçacıkları<select value="auto" disabled aria-label="İşlemci iş parçacıkları otomatik seçilir"><option value="auto">Otomatik</option></select></label><small>Bilgisayar ve tarayıcı desteğine göre {automaticSolverThreads()} iş parçacığı seçildi (en fazla 3).{solver.workers?.reason?` ${solver.workers.reason}`:''}</small>{solver.workers&&<small>Son çalışmada kullanılan: {solver.workers.actual} iş parçacığı.</small>}</details>
           <small>Arama ilerlemediğinde otomatik durur. İstediğiniz zaman durdurabilirsiniz.</small>
         </section>
       </aside>
