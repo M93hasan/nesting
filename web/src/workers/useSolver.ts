@@ -8,6 +8,7 @@ import {solverCopies} from '../import/sparrow';
 import {documentPlacements,placementKey} from '../geometry/placements';
 import {validate} from '../geometry/validate';
 import {geometryTask} from './geometryTask';
+import {isBetterSheetResult} from '../geometry/sheetScore';
 
 export type RunState='Ready'|'Initializing'|'Running'|'Complete'|'Stopped'|'Error';
 export type Timing={phase?:string;sequence:number;elapsedMs:number;lengthMm:number;validation?:string;validationMs?:number;errors?:string[]};
@@ -215,10 +216,8 @@ export function useSolver() {
               r.diagnostics.history.at(-1)!.errors=checked.errors;
               break;
             }
-            const sheetCount=packed.sheetCount??1,bestSheetCount=r.best?.sheetCount??Infinity;
-            const better=!r.best
-              || sheetCount<bestSheetCount
-              || (sheetCount===bestSheetCount&&(r.bestSheetSolverLength===undefined||data.solution.strip_width<r.bestSheetSolverLength));
+            const better=isBetterSheetResult(doc,packed,r.best,
+              data.solution.strip_width,r.bestSheetSolverLength);
             if(better){
               startup.firstValidMs??=performance.now()-requestedAt;
               r.best={...packed,validation:{...checked,source:'local'}};
