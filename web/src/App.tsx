@@ -785,8 +785,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         </div>
             </div>
           </section>
-          <div className="material-group-stack">
-          <section className="material-group" aria-labelledby="material-group-2">
+          <section className="material-group material-group--combined" aria-labelledby="material-group-2">
             <div className="material-group__heading">
               <span className="material-group__index" aria-hidden="true">02</span>
               <div className="material-group__heading-copy"><h3 id="material-group-2">Malzeme ölçüleri</h3><p>Malzeme tipi ve genişlik</p></div>
@@ -797,23 +796,20 @@ export default function App({initialDocument=emptyProject(),initialError='',load
           {(!Number.isFinite(doc.settings.materialWidthMm)||doc.settings.materialWidthMm<=0||doc.settings.materialWidthMm>100_000)&&<small role="alert" className="field-error">Geçerli bir malzeme genişliği girin.</small>}
           {(doc.settings.materialType??'roll')==='sheet'&&<><label className="measurement-field"><span className="measurement-field__name">Plaka uzunluğu</span><span className="measurement-field__unit">{unit}</span><input data-undo-field type="number" min={0.001/factor} max={100000/factor} step="any" value={inputLength(doc.settings.materialLengthMm??0)} disabled={locked} onChange={e=>commit({...doc,settings:{...doc.settings,materialLengthMm:e.target.valueAsNumber*factor}},true,'material-length')}/></label>{(!Number.isFinite(doc.settings.materialLengthMm)||doc.settings.materialLengthMm!<=0)&&<small role="alert" className="field-error">Geçerli bir plaka uzunluğu girin.</small>}</>}
             </div>
-          </section>
-          <section className="material-group" aria-labelledby="material-group-3">
-            <div className="material-group__heading">
-              <span className="material-group__index" aria-hidden="true">03</span>
-              <div className="material-group__heading-copy"><h3 id="material-group-3">Yerleşim kuralları</h3><p>Parça aralığı ve başlangıç noktası</p></div>
-            </div>
-            <div className="material-group__body">
+            <div className="material-group__subsection" role="group" aria-labelledby="material-group-2-layout">
+              <h4 id="material-group-2-layout">Yerleşim kuralları</h4>
+              <p>Parça aralığı ve başlangıç noktası</p>
+              <div className="material-group__body">
           <label className="measurement-field"><span className="measurement-field__name">Parça aralığı</span><span className="measurement-field__unit">{unit}</span><input data-undo-field type="number" min="0" step="any" value={inputLength(doc.settings.clearanceMm)} disabled={locked} onChange={e=>commit({...doc,settings:{...doc.settings,clearanceMm:e.target.valueAsNumber*factor}},true,'clearance')}/></label><label>Başlangıç yönü<select value={doc.settings.startCorner??'right-bottom'} disabled={locked} onChange={e=>commit({...doc,settings:{...doc.settings,startCorner:e.target.value as 'right-top'|'right-bottom'}},false)}><option value="right-bottom">Sağ alt ↘</option><option value="right-top">Sağ üst ↗</option></select></label>
           {doc.settings.clearanceMm>0&&<small>Parça aralığı yalnızca parçalar arasında uygulanır; malzeme kenarında ek pay oluşturmaz. Bu kesim kerfi değildir.</small>}
           {(!Number.isFinite(doc.settings.clearanceMm)||doc.settings.clearanceMm<0||doc.settings.clearanceMm>=doc.settings.materialWidthMm)&&<small role="alert" className="field-error">Sıfır veya malzeme genişliğinden küçük pozitif bir parça aralığı girin.</small>}
+              </div>
             </div>
           </section>
-          </div>
-          <section className="material-group" aria-labelledby="material-group-4">
+                    <section className="material-group" aria-labelledby="material-group-3">
             <div className="material-group__heading">
-              <span className="material-group__index" aria-hidden="true">04</span>
-              <div className="material-group__heading-copy"><h3 id="material-group-4">Optimizasyon</h3><p>Arama süresi ve hesaplama seçenekleri</p></div>
+              <span className="material-group__index" aria-hidden="true">03</span>
+              <div className="material-group__heading-copy"><h3 id="material-group-3">Optimizasyon</h3><p>Arama süresi ve hesaplama seçenekleri</p></div>
             </div>
             <div className="material-group__body">
           <label>Durdurma koşulu<select value={doc.settings.timeLimitSeconds??'auto'} disabled={locked} onChange={e=>commit({...doc,settings:{...doc.settings,timeLimitSeconds:e.target.value==='auto'?null:Number(e.target.value) as 10|30|60|120|300|600}},false)}><option value="auto">Otomatik · en fazla 59 sn</option>{[10,30,60,120,300,600].map(s=><option value={s} key={s}>{s<60?`En fazla ${s} saniye`:`En fazla ${s/60} dakika`}</option>)}</select></label>
