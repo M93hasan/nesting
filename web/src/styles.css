@@ -835,3 +835,36 @@ dialog.modal.modal-about{
   .material-panel .settings.material-settings{grid-template-columns:minmax(0,1fr);padding:8px 16px 16px;}
   .material-group{padding:14px;}
 }
+
+/* Malzeme ölçüleri ve Yerleşim kuralları aynı kartı paylaşır. */
+.material-panel .material-group-stack{
+  min-width:0;
+  overflow:hidden;
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:var(--page);
+}
+.material-panel .material-group-stack > .material-group{
+  border:0;
+  border-radius:0;
+  background:transparent;
+}
+.material-panel .material-group-stack > .material-group + .material-group{
+  border-top:1px solid var(--border);
+}
+
+/* Yalnızca Parça dönüşü seçili butonları gri; diğer seçim durumları değişmez. */
+#root .material-panel .rotation-choice .row-actions button[aria-pressed="true"]{
+  background:#66717f!important;
+  color:#fff!important;
+  border:2px solid #505b69!important;
+  box-shadow:0 0 0 2px rgba(102,113,127,.18)!important;
+  text-shadow:none!important;
+  font-weight:700;
+}
+#root .material-panel .rotation-choice .row-actions button[aria-pressed="true"]:hover:enabled{
+  background:#556171!important;
+  color:#fff!important;
+  border-color:#414c5b!important;
+  box-shadow:0 0 0 2px rgba(102,113,127,.22)!important;
+}
