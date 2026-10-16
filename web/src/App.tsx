@@ -846,7 +846,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
           <span className="about-eyebrow">SERULA NESTING PRO</span>
           <h2>Akıllı DXF yerleştirme</h2>
           <p>Ayakkabı, tekstil, suni deri ve CNC/lazer üretimi için geliştirilmiş 2B nesting aracı. Rulo veya plakada malzeme kullanımını iyileştirir; parça ölçülerini ve kesim konturlarını korur.</p>
-          <div className="about-feature-tags"><span>DXF / SVG / PLT</span><span>Rulo & Plaka</span><span>CorelDRAW</span></div>
+          <div className="about-feature-tags"><span>DXF / SVG / PLT</span><span>Rulo & Plaka</span><span>Tek / Çift kafa</span><span>CorelDRAW</span></div>
         </section>
         <section className="about-section">
           <div className="about-section-heading"><h3>Windows uygulaması ve aktarım</h3><span>2 seçenek</span></div>
