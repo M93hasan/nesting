@@ -1,3 +1,3 @@
 Serula Nesting production refresh
-source_commit: 47dacb814539678ceab3c698300fc4b00d0ad4c9
-release: safe-sheet-packing-and-natural-order
+source_commit: d053cc857df9b879a7455eed1adfc5bacdf84dab
+release: sheet-roll-motor-time-parity-background-validation
