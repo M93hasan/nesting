@@ -5,6 +5,11 @@ type Entry={tr:string;en:string;ar:string;fa:string};
 const E=(tr:string,en:string,ar:string,fa:string):Entry=>({tr,en,ar,fa});
 
 const catalog:Entry[]=[
+E('Genel bakış','Overview','نظرة عامة','نمای کلی'),
+E('Toplam parça','Total pieces','إجمالي القطع','مجموع قطعات'),
+E('Parça çeşidi','Part types','أنواع القطع','انواع قطعات'),
+E('Gerçek malzeme eni','Actual material width','العرض الفعلي للمادة','عرض واقعی مواد'),
+E('Proje özeti','Project overview','ملخص المشروع','خلاصه پروژه'),
 E('Akıllı DXF yerleştirme ve malzeme optimizasyonu','Smart DXF nesting and material optimization','ترتيب DXF ذكي وتحسين استخدام المواد','چیدمان هوشمند DXF و بهینه‌سازی مصرف مواد'),
 E('Yeni proje','New project','مشروع جديد','پروژه جدید'),
 E('Proje aç','Open project','فتح مشروع','باز کردن پروژه'),
