@@ -499,7 +499,7 @@ try {
     $req=$ctx.Request
     $reqOrigin=$req.Headers['Origin']
     if($req.HttpMethod -eq 'GET' -and $req.Url.AbsolutePath -eq '/health'){
-      Reply $ctx 200 @{ok=$true;service='serula-bridge';version='1.5';rdworksStrategies=@('shortcut','native-menu','uia-menu','uia-picker','classic-picker','clipboard-paste')}
+      Reply $ctx 200 @{ok=$true;service='serula-bridge';version='1.6';supportedTargets=@('corel')}
       continue
     }
     if($reqOrigin -ne $origin){Reply $ctx 403 @{ok=$false;error='Origin izinli değil.'};continue}
@@ -514,7 +514,7 @@ try {
     $mode=[string]$data.mode
     $ticket=[string]$data.ticket
     $dxf=[string]$data.dxf
-    if($target -notin @('corel','rdworks') -or $ticket -notmatch '^[a-f0-9]{64}$' -or $dxf.Length -lt 20 -or $dxf -notmatch '(?m)^EOF\s*$'){
+    if($target -ne 'corel' -or $ticket -notmatch '^[a-f0-9]{64}$' -or $dxf.Length -lt 20 -or $dxf -notmatch '(?m)^EOF\s*$'){
       Reply $ctx 400 @{ok=$false;error='Geçersiz aktarım verisi.'};continue
     }
     # A browser UI toggle alone is not permission. Verify the one-time ticket
