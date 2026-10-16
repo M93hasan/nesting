@@ -768,13 +768,16 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         {solver.liveError&&<p className="field-error">Canlı önizleme kullanılamıyor: {solver.liveError}</p>}
       </section>
       <aside className="material-panel" aria-label="Malzeme ve Yerleşim">
-        <div className="panel-title"><h2>Malzeme ve Yerleşim</h2></div>
-        <section className="settings material-settings">
-          <div className="material-rotation">
-          <RotationControl key={JSON.stringify([selected,mixedRotations,chosen?.rotations])} rule={chosen?normalizedRotationRule(chosen.rotations):DEFAULT_ROTATIONS} mixed={!!chosen&&!!mixedRotations} disabled={locked||!chosen} required onChange={rotations=>{if(chosen)editPart({rotations})}}/>
-          {chosen&&!validRotationRule(chosen.rotations)&&<small role="alert" className="field-error">İzin verilen dönüşler zorunludur.</small>}
-          {!chosen&&<small className="muted">Dönüş ayarını değiştirmek için bir parça seçin.</small>}
+        <div className="panel-title material-panel__title">
+          <div><h2>Malzeme ve Yerleşim</h2><p>Üretim ayarlarını tek yerden yönetin</p></div>
         </div>
+        <div className="settings material-settings">
+          <section className="material-group" aria-labelledby="material-group-1">
+            <div className="material-group__heading">
+              <span className="material-group__index" aria-hidden="true">01</span>
+              <div className="material-group__heading-copy"><h3 id="material-group-1">Makine ve malzeme</h3><p>Kafa sayısı ve gerçek kesim ölçüleri</p></div>
+            </div>
+            <div className="material-group__body">
           <label>Malzeme tipi<select value={doc.settings.materialType??'roll'} disabled={locked} onChange={e=>{const materialType=e.target.value as 'roll'|'sheet';const settings=materialType==='roll'?{...doc.settings,materialType,materialLengthMm:undefined}:{...doc.settings,materialType,materialLengthMm:doc.settings.materialLengthMm??1000};commit({...doc,settings},false)}}><option value="roll">Rulo</option><option value="sheet">Plaka</option></select></label>
           <label>Makine kafa sayısı<select value={doc.settings.headMode??'single'} disabled={locked} onChange={e=>commit({...doc,settings:setHeadMode(doc.settings,e.target.value as MachineProfile['headMode'])})}><option value="single">Tek kafa</option><option value="dual">Çift kafa</option></select></label>
           {doc.settings.headMode==='dual'&&<small>Çift kafa: Girilen gerçek malzeme eni ikiye bölünerek bir kafa için nesting yapılır. İkinci kafa aynı hareketi kendi X ofsetinde tekrarlar; DXF'ye ikinci kesim kopyası eklenmez.</small>}
@@ -782,13 +785,44 @@ export default function App({initialDocument=emptyProject(),initialError='',load
           {(!Number.isFinite(doc.settings.materialWidthMm)||doc.settings.materialWidthMm<=0||doc.settings.materialWidthMm>100_000)&&<small role="alert" className="field-error">Geçerli bir malzeme genişliği girin.</small>}
           {doc.settings.headMode==='dual'&&<small>Yerleştirme alanı: {length(doc.settings.materialWidthMm)} {unit} (gerçek en ÷ 2).</small>}
           {(doc.settings.materialType??'roll')==='sheet'&&<><label className="measurement-field"><span className="measurement-field__name">Plaka uzunluğu</span><span className="measurement-field__unit">{unit}</span><input data-undo-field type="number" min={0.001/factor} max={100000/factor} step="any" value={inputLength(doc.settings.materialLengthMm??0)} disabled={locked} onChange={e=>commit({...doc,settings:{...doc.settings,materialLengthMm:e.target.valueAsNumber*factor}},true,'material-length')}/></label>{(!Number.isFinite(doc.settings.materialLengthMm)||doc.settings.materialLengthMm!<=0)&&<small role="alert" className="field-error">Geçerli bir plaka uzunluğu girin.</small>}</>}
+            </div>
+          </section>
+          <section className="material-group" aria-labelledby="material-group-2">
+            <div className="material-group__heading">
+              <span className="material-group__index" aria-hidden="true">02</span>
+              <div className="material-group__heading-copy"><h3 id="material-group-2">Yerleşim kuralları</h3><p>Parça aralığı ve başlangıç noktası</p></div>
+            </div>
+            <div className="material-group__body">
           <label className="measurement-field"><span className="measurement-field__name">Parça aralığı</span><span className="measurement-field__unit">{unit}</span><input data-undo-field type="number" min="0" step="any" value={inputLength(doc.settings.clearanceMm)} disabled={locked} onChange={e=>commit({...doc,settings:{...doc.settings,clearanceMm:e.target.valueAsNumber*factor}},true,'clearance')}/></label><label>Başlangıç yönü<select value={doc.settings.startCorner??'right-bottom'} disabled={locked} onChange={e=>commit({...doc,settings:{...doc.settings,startCorner:e.target.value as 'right-top'|'right-bottom'}},false)}><option value="right-bottom">Sağ alt ↘</option><option value="right-top">Sağ üst ↗</option></select></label>
           {doc.settings.clearanceMm>0&&<small>Parça aralığı yalnızca parçalar arasında uygulanır; malzeme kenarında ek pay oluşturmaz. Bu kesim kerfi değildir.</small>}
           {(!Number.isFinite(doc.settings.clearanceMm)||doc.settings.clearanceMm<0||doc.settings.clearanceMm>=doc.settings.materialWidthMm)&&<small role="alert" className="field-error">Sıfır veya malzeme genişliğinden küçük pozitif bir parça aralığı girin.</small>}
+            </div>
+          </section>
+          <section className="material-group" aria-labelledby="material-group-3">
+            <div className="material-group__heading">
+              <span className="material-group__index" aria-hidden="true">03</span>
+              <div className="material-group__heading-copy"><h3 id="material-group-3">Parça dönüşü</h3><p>Seçili parçanın izin verilen açıları</p></div>
+            </div>
+            <div className="material-group__body">
+          <div className="material-rotation">
+          <RotationControl key={JSON.stringify([selected,mixedRotations,chosen?.rotations])} rule={chosen?normalizedRotationRule(chosen.rotations):DEFAULT_ROTATIONS} mixed={!!chosen&&!!mixedRotations} disabled={locked||!chosen} required onChange={rotations=>{if(chosen)editPart({rotations})}}/>
+          {chosen&&!validRotationRule(chosen.rotations)&&<small role="alert" className="field-error">İzin verilen dönüşler zorunludur.</small>}
+          {!chosen&&<small className="muted">Dönüş ayarını değiştirmek için bir parça seçin.</small>}
+        </div>
+            </div>
+          </section>
+          <section className="material-group" aria-labelledby="material-group-4">
+            <div className="material-group__heading">
+              <span className="material-group__index" aria-hidden="true">04</span>
+              <div className="material-group__heading-copy"><h3 id="material-group-4">Optimizasyon</h3><p>Arama süresi ve hesaplama seçenekleri</p></div>
+            </div>
+            <div className="material-group__body">
           <label>Durdurma koşulu<select value={doc.settings.timeLimitSeconds??'auto'} disabled={locked} onChange={e=>commit({...doc,settings:{...doc.settings,timeLimitSeconds:e.target.value==='auto'?null:Number(e.target.value) as 10|30|60|120|300|600}},false)}><option value="auto">Otomatik · en fazla 59 sn</option>{[10,30,60,120,300,600].map(s=><option value={s} key={s}>{s<60?`En fazla ${s} saniye`:`En fazla ${s/60} dakika`}</option>)}</select></label>
           <details className="solver-options"><summary>Yerleştirme seçenekleri</summary><label>Arama modu<select disabled={locked} value={doc.settings.solverPreset??'standard'} aria-describedby="preset-description" onChange={e=>commit({...doc,settings:{...doc.settings,solverPreset:e.target.value as 'standard'|'fast'}},false)}><option value="standard">Standart</option><option value="fast">Hızlı</option></select></label><small id="preset-description">{doc.settings.solverPreset==='fast'?'İyi yerleşimleri daha hızlı bulur; en iyi nihai yerleşimi kaçırabilir.':'En iyi nihai yerleşim için daha kapsamlı arama yapar.'}</small><label>İşlemci iş parçacıkları<select value="auto" disabled aria-label="İşlemci iş parçacıkları otomatik seçilir"><option value="auto">Otomatik</option></select></label><small>Bilgisayar ve tarayıcı desteğine göre {automaticSolverThreads()} iş parçacığı seçildi (en fazla 3).{solver.workers?.reason?` ${solver.workers.reason}`:''}</small>{solver.workers&&<small>Son çalışmada kullanılan: {solver.workers.actual} iş parçacığı.</small>}</details>
           <small>Arama ilerlemediğinde otomatik durur. İstediğiniz zaman durdurabilirsiniz.</small>
-        </section>
+            </div>
+          </section>
+        </div>
       </aside>
 
     </main>
