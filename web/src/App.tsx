@@ -785,6 +785,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         </div>
             </div>
           </section>
+          <div className="material-group-stack">
           <section className="material-group" aria-labelledby="material-group-2">
             <div className="material-group__heading">
               <span className="material-group__index" aria-hidden="true">02</span>
@@ -808,6 +809,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
           {(!Number.isFinite(doc.settings.clearanceMm)||doc.settings.clearanceMm<0||doc.settings.clearanceMm>=doc.settings.materialWidthMm)&&<small role="alert" className="field-error">Sıfır veya malzeme genişliğinden küçük pozitif bir parça aralığı girin.</small>}
             </div>
           </section>
+          </div>
           <section className="material-group" aria-labelledby="material-group-4">
             <div className="material-group__heading">
               <span className="material-group__index" aria-hidden="true">04</span>
