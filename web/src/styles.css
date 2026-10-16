@@ -923,9 +923,9 @@ dialog.modal.modal-about{
 
 
 /* Pending visual refresh: embossed controls, mint ticks, and slate text fields. */
-/* Scoped to Serula user workspace, never the admin interface.
-   Preserve button sizes where compact production toolbars require them. */
-#root .app button:not(.cssbuttons-io-button) {
+/* Applies to user and admin interfaces.
+   Keep hidden native admin switches intact; all other checkboxes use mint ticks. */
+#root :is(.app,.admin-page) button:not(.cssbuttons-io-button) {
   font:inherit;
   background:#f0f0f0!important;
   background-image:none!important;
@@ -945,14 +945,14 @@ dialog.modal.modal-about{
   cursor:pointer;
   translate:0 0;
 }
-#root .app button:not(.cssbuttons-io-button):hover:enabled {
+#root :is(.app,.admin-page) button:not(.cssbuttons-io-button):hover:enabled {
   background:#f0f0f0!important;
   background-image:none!important;
   color:#242424!important;
   transform:none!important;
   text-shadow:0 .0625em 0 #fff!important;
 }
-#root .app button:not(.cssbuttons-io-button):active:enabled {
+#root :is(.app,.admin-page) button:not(.cssbuttons-io-button):active:enabled {
   translate:0 .225em;
   transform:none!important;
   box-shadow:inset 0 .03em 0 0 #f4f4f4,
@@ -961,13 +961,13 @@ dialog.modal.modal-about{
     0 .2em 0 0 #dcdcdc,0 .225em 0 0 #cacaca,
     0 .225em .375em 0 #cecece!important;
 }
-#root .app button:not(.cssbuttons-io-button):disabled {
+#root :is(.app,.admin-page) button:not(.cssbuttons-io-button):disabled {
   cursor:not-allowed;
   opacity:.5;
 }
 /* Preserve meaningful selected and destructive state contrast. */
-#root .app .material-panel .rotation-choice button[aria-pressed="true"],
-#root .app .material-panel .rotation-choice button[aria-pressed="true"]:is(:hover,:active,:focus,:disabled) {
+#root :is(.app,.admin-page) .material-panel .rotation-choice button[aria-pressed="true"],
+#root :is(.app,.admin-page) .material-panel .rotation-choice button[aria-pressed="true"]:is(:hover,:active,:focus,:disabled) {
   background:#66717f!important;
   color:#fff!important;
   border:2px solid #505b69!important;
@@ -975,20 +975,20 @@ dialog.modal.modal-about{
   text-shadow:none!important;
   translate:0 0;
 }
-#root .app button.danger-button {
+#root :is(.app,.admin-page) button.danger-button {
   color:#aa2437!important;
 }
 /* Numeric and text entries use the supplied dark, rounded input visual.
    No global label/svg rules: DXF canvas and coordinate overlays must be untouched. */
-#root .app {
+#root :is(.app,.admin-page) {
   --serula-field-bg:#283542;
   --serula-field-focus:#1b9bee;
   --serula-field-ink:#fff;
   --serula-field-placeholder:#949faa;
 }
-#root .app input:is([type="number"],[type="text"],[type="search"],[type="email"],[type="password"],[type="tel"],[type="url"]),
-#root .app input:not([type]),
-#root .app textarea {
+#root :is(.app,.admin-page) input:is([type="number"],[type="text"],[type="search"],[type="email"],[type="password"],[type="tel"],[type="url"]),
+#root :is(.app,.admin-page) input:not([type]),
+#root :is(.app,.admin-page) textarea {
   color:var(--serula-field-ink)!important;
   background:var(--serula-field-bg)!important;
   border:1px solid transparent!important;
@@ -1000,21 +1000,21 @@ dialog.modal.modal-about{
   min-height:40px;
   outline-offset:2px;
 }
-#root .app textarea {border-radius:16px!important;resize:vertical;}
-#root .app input:is([type="number"],[type="text"],[type="search"],[type="email"],[type="password"],[type="tel"],[type="url"]):focus,
-#root .app input:not([type]):focus,
-#root .app textarea:focus {
+#root :is(.app,.admin-page) textarea {border-radius:16px!important;resize:vertical;}
+#root :is(.app,.admin-page) input:is([type="number"],[type="text"],[type="search"],[type="email"],[type="password"],[type="tel"],[type="url"]):focus,
+#root :is(.app,.admin-page) input:not([type]):focus,
+#root :is(.app,.admin-page) textarea:focus {
   background:#283542!important;
   border-color:var(--serula-field-focus)!important;
   color:#fff!important;
   outline:2px solid rgba(27,155,238,.22);
   box-shadow:0 1px 4px rgba(0,0,0,.16)!important;
 }
-#root .app input::placeholder,
-#root .app textarea::placeholder {color:var(--serula-field-placeholder)!important;}
-#root .app input:disabled,#root .app textarea:disabled {opacity:.55;cursor:not-allowed;}
+#root :is(.app,.admin-page) input::placeholder,
+#root :is(.app,.admin-page) textarea::placeholder {color:var(--serula-field-placeholder)!important;}
+#root :is(.app,.admin-page) input:disabled,#root :is(.app,.admin-page) textarea:disabled {opacity:.55;cursor:not-allowed;}
 /* Uniform green checkboxes without hiding native keyboard interaction. */
-#root .app input[type="checkbox"] {
+#root :is(.app,.admin-page) input[type="checkbox"]:not(.switch input) {
   appearance:none;
   -webkit-appearance:none;
   display:inline-grid;
@@ -1035,7 +1035,7 @@ dialog.modal.modal-about{
   position:relative;
   transition:background-color .3s ease,box-shadow .3s ease;
 }
-#root .app input[type="checkbox"]::after {
+#root :is(.app,.admin-page) input[type="checkbox"]:not(.switch input)::after {
   content:"";
   width:5px;
   height:10px;
@@ -1046,23 +1046,23 @@ dialog.modal.modal-about{
   filter:drop-shadow(0 2px 1px rgba(0,0,0,.25));
   transition:opacity .3s ease,transform .3s ease;
 }
-#root .app input[type="checkbox"]:checked {
+#root :is(.app,.admin-page) input[type="checkbox"]:not(.switch input):checked {
   background:#2dc38c!important;
   border-color:#beddd0!important;
   box-shadow:0 0 1px #cef1e4,inset 0 -2.5px 3px #62eab8,
     inset 0 3px 3px rgba(0,0,0,.34)!important;
 }
-#root .app input[type="checkbox"]:checked::after {
+#root :is(.app,.admin-page) input[type="checkbox"]:not(.switch input):checked::after {
   opacity:1;
   transform:rotate(45deg) translate(-1px,-1px) scale(1);
 }
-#root .app input[type="checkbox"]:focus-visible {
+#root :is(.app,.admin-page) input[type="checkbox"]:not(.switch input):focus-visible {
   outline:2px solid #1b9bee;
   outline-offset:3px;
 }
-#root .app input[type="checkbox"]:disabled {opacity:.5;cursor:not-allowed;}
+#root :is(.app,.admin-page) input[type="checkbox"]:not(.switch input):disabled {opacity:.5;cursor:not-allowed;}
 @media (prefers-reduced-motion:reduce) {
-  #root .app button,#root .app input[type="checkbox"]::after {transition:none!important;}
+  #root :is(.app,.admin-page) button,#root :is(.app,.admin-page) input[type="checkbox"]:not(.switch input)::after {transition:none!important;}
 }
 
 /* Flowing purple loading pegs: shown only while work is in progress. */
@@ -1119,4 +1119,35 @@ dialog.modal.modal-about{
 @media(prefers-reduced-motion:reduce) {
   #root .app .serula-flow-loader .serula-peg{animation:none;opacity:0;}
   #root .app .serula-flow-loader .serula-peg--one{opacity:1;transform:none;}
+}
+
+/* Admin: maintain a visible selected state and protect destructive actions. */
+#root .admin-page .admin-sidebar nav button.active,
+#root .admin-page .admin-conversation-list > button.active {
+  background:#a6afb9!important;
+  color:#222b34!important;
+  text-shadow:none!important;
+  box-shadow:inset 0 2px 3px rgba(0,0,0,.14)!important;
+}
+#root .admin-page button.danger-button {
+  color:#a92135!important;
+  border:1px solid #e8b6bf!important;
+  background:#ffeded!important;
+  text-shadow:none!important;
+}
+#root .admin-page button:focus-visible,
+#root .admin-page input:focus-visible,
+#root .admin-page textarea:focus-visible {
+  outline:2px solid #1b9bee;
+  outline-offset:2px;
+}
+/* Admin native switch stays visually distinct and keyboard accessible. */
+#root .admin-page .switch input[type="checkbox"] {
+  appearance:auto;
+  -webkit-appearance:auto;
+}
+#root .admin-page .admin-heading .serula-flow-loader {
+  width:26px;
+  height:26px;
+  flex:none;
 }
