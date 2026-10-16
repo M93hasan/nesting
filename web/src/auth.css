@@ -299,8 +299,8 @@
   box-sizing:border-box;
   width:min(308px,calc(100vw - 24px));
   max-width:calc(100vw - 24px);
-  padding:13px;
-  gap:9px;
+  padding:11px 12px;
+  gap:6px;
   border:1px solid var(--border);
   border-radius:12px;
   box-shadow:none;
@@ -321,7 +321,7 @@
 #root #serula-account-slot .auth-account-dropdown > small {
   display:block;
   min-width:0;
-  margin-top:-5px;
+  margin-top:-4px;
   color:var(--muted);
   font-size:11px;
   line-height:1.4;
@@ -335,11 +335,11 @@
   flex-flow:row wrap;
   align-items:center;
   justify-content:flex-start;
-  gap:6px;
+  gap:4px;
   min-width:0;
   width:100%;
   margin:1px 0 0;
-  padding:7px;
+  padding:6px;
   border:1px solid var(--border);
   border-radius:9px;
   background:light-dark(#f3f8fc,#1c2c36);
@@ -357,7 +357,7 @@
   min-width:0;
   max-width:100%;
   margin:0;
-  padding:4px 7px;
+  padding:3px 7px;
   border-radius:6px;
   color:var(--ink);
   background:light-dark(#e5edf5,#253945);
@@ -372,7 +372,7 @@
   display:grid;
   grid-template-columns:24px minmax(0,1fr);
   align-items:center;
-  gap:8px;
+  gap:6px;
   width:100%;
   min-width:0;
   max-width:100%;
@@ -421,6 +421,6 @@
     right:12px;
     top:64px;
     width:min(308px,calc(100vw - 24px));
-    padding:12px;
+    padding:11px 12px;
   }
 }
