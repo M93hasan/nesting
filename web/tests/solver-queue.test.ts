@@ -11,7 +11,6 @@ vi.mock('react',()=>({
 }));
 import {useSolver} from '../src/workers/useSolver';
 import {exportSVG} from '../src/export/svg';
-import {validate} from '../src/geometry/validate';
 import {exportProject} from '../src/import/project';
 
 class WorkerStub {
@@ -25,14 +24,6 @@ class WorkerStub {
   deliver(data:SolverMessage|GeometryReply){this.onmessage?.({data});}
 }
 function render(){hooks.cursor=0;const result=useSolver();for(const effect of hooks.effects.splice(0)){const cleanup=effect();if(cleanup)hooks.cleanups.push(cleanup);}return result;}
-function checkSheetCandidate(doc:Document){
-  const validator=WorkerStub.all[2];
-  const request=validator.messages.findLast(message=>message.type==='sheet-validate');
-  if(!request||request.type!=='sheet-validate')throw Error('Sheet candidate must be checked by background worker.');
-  validator.deliver({type:'sheet-validated',runId:request.runId,documentRevision:request.documentRevision,
-    sequence:request.sequence,validation:validate(doc,request.result)});
-}
-
 const doc:Document={...example(),parts:[{...newPart([[0,0],[10,0],[10,10],[0,10]]),id:'part',quantity:1}],settings:{materialWidthMm:20,clearanceMm:0,timeLimitSeconds:120}};
 function candidate(runId:number,documentRevision:number,sequence:number,length:number):SolverMessage {
   return {type:'candidate',runId,documentRevision,sequence,report:'ExplFeas',elapsedMs:sequence*100,solution:{strip_width:length,layout:{placed_items:[{item_id:0,transformation:{rotation:0,translation:[0,0]}}]}}};
@@ -62,8 +53,6 @@ test('sheet mode starts from Sparrow and keeps the result inside plate bounds',(
   expect(render().result).toBeUndefined();
   solver.deliver(candidate(1,7,1,10));
   vi.advanceTimersByTime(100);
-  expect(render().result).toBeUndefined(); // Never authorize unverified geometry.
-  checkSheetCandidate(sheetDoc);
   expect(render().result).toMatchObject({solverRevision:expect.not.stringContaining('quick-sheet'),sheetCount:1,validation:{status:'passed',source:'local'}});
 });
 
@@ -77,29 +66,8 @@ test('sheet candidates decode stacked Sparrow coordinates into Plate 1 and Plate
       {item_id:1,transformation:{rotation:0,translation:[20,0]}}
     ]}}});
   vi.advanceTimersByTime(100);
-  checkSheetCandidate(sheetDoc);
   expect(render().result?.placements.map(p=>p.sheetIndex)).toEqual([0,1]);
   expect(render().result?.sheetCount).toBe(2);
-});
-
-test('plate mode uses roll time limit and validates in the background without an extra gap-filling stage',()=>{
-  const sheetDoc:Document={...doc,settings:{...doc.settings,materialType:'sheet',materialWidthMm:20,materialLengthMm:20,timeLimitSeconds:10}};
-  render().start(sheetDoc,7);
-  const [solver,,validator]=WorkerStub.all;
-  expect(solver.messages[0]).toMatchObject({type:'start',hardLimitMs:expect.any(Number)});
-  expect((solver.messages[0] as {hardLimitMs:number}).hardLimitMs).toBeGreaterThan(9800);
-  solver.deliver({type:'phase',runId:1,documentRevision:7,phase:'Exploration',workers:1,initializationMs:0});
-  solver.deliver(candidate(1,7,1,10));
-  expect(validator.messages).toHaveLength(1);
-  expect(render().result).toBeUndefined();
-  vi.advanceTimersByTime(10000);
-  expect(render().state).toBe('Running');
-  expect(render().phase).toBe('Plaka sınırları doğrulanıyor');
-  checkSheetCandidate(sheetDoc);
-  expect(render().state).toBe('Complete');
-  expect(render().result?.validation.status).toBe('passed');
-  expect(validator.messages.every(message=>message.type==='sheet-validate')).toBe(true);
-  expect(validator.terminated).toBe(true);
 });
 
 test('live clip failures are logged without stopping the preview worker',()=>{

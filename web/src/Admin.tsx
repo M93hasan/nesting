@@ -1,7 +1,6 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
 import packageInfo from '../package.json';
 import {LanguageSelect,localeTag,useI18n} from './i18n';
-import FlowLoader from './components/FlowLoader';
 
 type Section='overview'|'users'|'messages'|'roles'|'user-settings'|'defaults'|'history'|'logs'|'system';
 
@@ -384,7 +383,7 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
       </aside>
 
       <main className="admin-main">
-        <div className="admin-heading"><div><p>Yönetim</p><h1>{title}</h1></div><span className="admin-connection">{(usersLoading||!!adminBusy||chatBusy||!health)&&<FlowLoader/>}{health?.adminApi?'Sunucu bağlı':health?'Sunucu hatası':'Kontrol ediliyor…'}</span></div>
+        <div className="admin-heading"><div><p>Yönetim</p><h1>{title}</h1></div><span className="admin-connection">{health?.adminApi?'Sunucu bağlı':health?'Sunucu hatası':'Kontrol ediliyor…'}</span></div>
 
         {section==='overview'&&<>
           <section className="admin-metrics">

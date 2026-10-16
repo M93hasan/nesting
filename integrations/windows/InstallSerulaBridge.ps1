@@ -2,10 +2,10 @@
 # Bridge source is pinned to a specific GitHub commit. Run as the current user.
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
-$commit = '4409f9cba3c0f0213c00d831848eea230d0804e0'
+$commit = 'e4a8da14450e19a9d5bb1597afcf71713be1c660'
 $url = "https://raw.githubusercontent.com/M93hasan/nesting/$commit/integrations/windows/SerulaTransferBridge.ps1"
-$blobSha = 'f3c768cad17ccbf6e97361dc7dce46d4b415d726'
-$bridgeVersion = '1.6'
+$blobSha = '795e5b4ffc93919fc78b829cdb17270dd2471f6c'
+$bridgeVersion = '1.5'
 $prefix = 'http://127.0.0.1:43842/'
 $folder = Join-Path $env:LOCALAPPDATA 'SerulaBridge'
 $file = Join-Path $folder 'SerulaTransferBridge.ps1'
@@ -107,7 +107,7 @@ $sc.TargetPath = Join-Path $PSHOME 'powershell.exe'
 $sc.Arguments = '-NoProfile -STA -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + $file + '"'
 $sc.WorkingDirectory = $folder
 $sc.WindowStyle = 7
-$sc.Description = 'Serula Nesting local CorelDRAW bridge'
+$sc.Description = 'Serula Nesting local CorelDRAW and RDWorks bridge'
 $sc.Save()
 Write-Host ''
 Write-Host 'SERULA BRIDGE INSTALLED' -ForegroundColor Green

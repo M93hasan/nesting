@@ -10,7 +10,6 @@ import { documentPlacements, placementKey, type CopyRef } from '../geometry/plac
 import { displayLength, unitScale, type DisplayUnit } from '../units';
 import './Workspace.css';
 import { coordinateGrid } from '../geometry/grid';
-import {physicalMaterialWidthMm} from '../geometry/headMode';
 
 type Gesture = {
   backgroundStart?: Point; pointer: number; start: Point;
@@ -49,7 +48,6 @@ export default function Workspace({ document: doc, result, live, selected, selec
   const selection = useMemo(()=>selectionBounds(doc, selected, selectedCopies),[doc,selected,selectedCopies]), unit = Math.max(camera.w / size.width, camera.h / size.height);
   const coordinates = coordinateGrid(camera, size.width, size.height, unitScale(displayUnit));
   const validMaterialWidth = Number.isFinite(doc.settings.materialWidthMm) && doc.settings.materialWidthMm > 0;
-  const actualWidth=physicalMaterialWidthMm(doc.settings);
   const materialType = doc.settings.materialType??'roll';
   const showGenişlik = validMaterialWidth && (materialType==='roll' || materialWidthFocused);
   const showSheetFrame = materialType==='sheet' && validMaterialWidth && Number.isFinite(doc.settings.materialLengthMm) && (doc.settings.materialLengthMm??0)>0;
@@ -70,14 +68,13 @@ export default function Workspace({ document: doc, result, live, selected, selec
     const parts = new Map(doc.parts.map((part, index) => [part.id, {part, index}]));
     return placements.slice().reverse().map(placement => {
       const {part, index} = parts.get(placement.partId)!;
-      const sheetOffset=doc.settings.materialType==='sheet'&&result
-        ? Math.max(0,(result.sheetCount??1)-1-(placement.sheetIndex??0))*((doc.settings.materialLengthMm??0)+20):0;
+      const sheetOffset=doc.settings.materialType==='sheet'?(placement.sheetIndex??0)*((doc.settings.materialLengthMm??0)+20):0;
       return {...placement, index, path:partPaths[index], outer:part.outer,
         detailPaths:(part.source.dxfDetails??[]).map(detail=>pathData([detail.ring])),
         markPaths:(part.source.dxfAux??[]).filter(mark=>mark.kind==='path').map(mark=>`M${mark.points.map(point=>point.join(',')).join('L')}`),
         box:bounds(part.outer) as [number,number,number,number], position:[placement.xMm,placement.yMm] as Point, sheetOffset};
     });
-  }, [placements, doc.parts, partPaths, doc.settings.materialType, doc.settings.materialLengthMm, result?.sheetCount]);
+  }, [placements, doc.parts, partPaths]);
 
   function fit() {
     const all: Point[] = [];
@@ -92,11 +89,11 @@ export default function Workspace({ document: doc, result, live, selected, selec
       const materialLength=doc.settings.materialType==='sheet'&&doc.settings.materialLengthMm
         ? (result!.sheetCount??1)*doc.settings.materialLengthMm+Math.max(0,(result!.sheetCount??1)-1)*20
         : result!.usedLengthMm;
-      all.push([0,0],[actualWidth,-materialLength]);
+      all.push([0,0],[doc.settings.materialWidthMm,-materialLength]);
     } else if(showSheetFrame) {
-      all.push([0,0],[actualWidth,-doc.settings.materialLengthMm!]);
+      all.push([0,0],[doc.settings.materialWidthMm,-doc.settings.materialLengthMm!]);
     } else if(validMaterialWidth) {
-      all.push([0,0],[actualWidth,0]);
+      all.push([0,0],[doc.settings.materialWidthMm,0]);
     }
     if (!all.length) return;
     const [x0, y0, x1, y1] = bounds(all), pad = Math.max(x1 - x0, y1 - y0) * .07 + 2;
@@ -104,7 +101,7 @@ export default function Workspace({ document: doc, result, live, selected, selec
   }
   // Manual moves and candidate updates preserve the camera. Sığdır is explicit,
   // and a project switch increments fitRequest even when it has the same part count.
-  useEffect(fit, [doc.parts.length, fitRequest, doc.settings.materialType, doc.settings.materialWidthMm, doc.settings.materialLengthMm, doc.settings.headMode]);
+  useEffect(fit, [doc.parts.length, fitRequest, doc.settings.materialType, doc.settings.materialWidthMm, doc.settings.materialLengthMm]);
   // Align once at solve start / first layout, and after viewport resizing.
   // Results are displayed as a vertical strip: material width on X, used length on Y.
   useEffect(() => {
@@ -255,12 +252,7 @@ export default function Workspace({ document: doc, result, live, selected, selec
           const x0=Math.min(marquee.start[0],marquee.end[0]),x1=Math.max(marquee.start[0],marquee.end[0]);
           const y0=-Math.max(marquee.start[1],marquee.end[1]),y1=-Math.min(marquee.start[1],marquee.end[1]);
           if(Math.hypot(event.clientX-marquee.screen[0],event.clientY-marquee.screen[1])<3){if(marquee.ref)onSelect(marquee.ref,true);}
-          else onSelectCopies([...selectedCopies,...drawings.filter(copy=>{
-             // Compare with the position actually drawn: later sheets have a Y offset.
-             // Without this, a marquee on one sheet can select copies on another.
-             const [left,bottom,right,top]=placementBounds(doc.parts[copy.index],copy);
-             return !selectedSet.has(placementKey(copy))&&left>=x0&&bottom+copy.sheetOffset>=y0&&right<=x1&&top+copy.sheetOffset<=y1;
-           }).map(({partId,copyIndex})=>({partId,copyIndex}))]);
+          else onSelectCopies([...selectedCopies,...drawings.filter(copy=>{const b=placementBounds(doc.parts[copy.index],copy);return !selectedSet.has(placementKey(copy))&&b[0]>=x0&&b[1]>=y0&&b[2]<=x1&&b[3]<=y1;}).map(({partId,copyIndex})=>({partId,copyIndex}))]);
           setMarquee(undefined);event.currentTarget.releasePointerCapture(event.pointerId);return;
         }
         touches.current.delete(event.pointerId);
@@ -269,16 +261,10 @@ export default function Workspace({ document: doc, result, live, selected, selec
         if (!drag || event.pointerId !== drag.pointer) return;
         const edit = drag.transform?.edit;
         if (drag.backgroundStart && Math.hypot(event.clientX - drag.backgroundStart[0], event.clientY - drag.backgroundStart[1]) < 3) onSelect();
-        // Pointer-up may arrive before React commits the final pointer-move state.
-        // Finalize from the actual release coordinates or the saved position can
-        // lag behind the location where the operator dropped the part.
-        const release = point(event.clientX, event.clientY);
-        const delta = drag.copies.length ? moveDelta([drag.start[0], -drag.start[1]], [release[0], -release[1]], drag.anchor, snapping && !event.altKey ? grid : 0) : drag.delta;
-        const finalDrag = {...drag,delta};
-        const transformed = edit && (edit.kind === 'scale' ? edit.factor !== 1 : edit.degrees !== 0), translated = drag.copies.length && delta.some(value => value !== 0);
+        const transformed = edit && (edit.kind === 'scale' ? edit.factor !== 1 : edit.degrees !== 0), translated = drag.copies.length && drag.delta.some(value => value !== 0);
         if (transformed || translated) {
-          setPending(finalDrag);
-          const positions = drag.copies.map(copy => ({ ...copy.ref, position: [copy.position[0] + delta[0], copy.position[1] + delta[1]] as Point }));
+          setPending(drag);
+          const positions = drag.copies.map(copy => ({ ...copy.ref, position: [copy.position[0] + drag.delta[0], copy.position[1] + drag.delta[1]] as Point }));
           void Promise.resolve(transformed ? onTransform(edit!, selectedCopies) : onMove(positions)).finally(() => setPending(undefined));
         }
         setDrag(undefined); if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
@@ -292,9 +278,9 @@ export default function Workspace({ document: doc, result, live, selected, selec
         </text>
       </g>}
       {world && (doc.settings.materialType==='sheet'&&doc.settings.materialLengthMm
-        ? Array.from({length:result!.sheetCount??1},(_,sheet)=><g key={sheet} transform={`translate(0 ${-((result!.sheetCount??1)-1-sheet)*(doc.settings.materialLengthMm!+20)})`}><rect x="0" y={-doc.settings.materialLengthMm!} width={doc.settings.materialWidthMm} height={doc.settings.materialLengthMm!} fill={outlines ? 'none' : 'var(--material-fill)'} stroke="var(--secondary)" vectorEffect="non-scaling-stroke" /><text x="2" y={-2} fontSize={camera.w/70} fill="var(--muted)">Plaka {sheet+1} · {displayLength(doc.settings.materialWidthMm, displayUnit)} × {displayLength(doc.settings.materialLengthMm!, displayUnit)} {displayUnit}</text></g>)
+        ? Array.from({length:result!.sheetCount??1},(_,sheet)=><g key={sheet} transform={`translate(0 ${-sheet*(doc.settings.materialLengthMm!+20)})`}><rect x="0" y={-doc.settings.materialLengthMm!} width={doc.settings.materialWidthMm} height={doc.settings.materialLengthMm!} fill={outlines ? 'none' : 'var(--material-fill)'} stroke="var(--secondary)" vectorEffect="non-scaling-stroke" /><text x="2" y={-2} fontSize={camera.w/70} fill="var(--muted)">Plaka {sheet+1} · {displayLength(doc.settings.materialWidthMm, displayUnit)} × {displayLength(doc.settings.materialLengthMm!, displayUnit)} {displayUnit}</text></g>)
         : <><rect x="0" y={-result!.usedLengthMm} width={doc.settings.materialWidthMm} height={result!.usedLengthMm} fill={outlines ? 'none' : 'var(--material-fill)'} stroke="var(--secondary)" vectorEffect="non-scaling-stroke" /><text x="0" y={-result!.usedLengthMm - 2} fontSize={camera.w / 70} fill="var(--muted)">Rulo {displayLength(doc.settings.materialWidthMm, displayUnit)} {displayUnit} · kullanılan {(result!.usedLengthMm / unitScale(displayUnit)).toFixed(2)} {displayUnit}</text></>)}
-      {showGenişlik && <g className="material-width-band" data-material-width-band={actualWidth} pointerEvents="none" aria-hidden="true"><rect x="0" y={coordinates.top} width={actualWidth} height={size.height * unit} /><path d={`M0,${coordinates.top}v${size.height * unit}M${actualWidth},${coordinates.top}v${size.height * unit}`} vectorEffect="non-scaling-stroke" /></g>}
+      {showGenişlik && <g className="material-width-band" data-material-width-band={doc.settings.materialWidthMm} pointerEvents="none" aria-hidden="true"><rect x="0" y={coordinates.top} width={doc.settings.materialWidthMm} height={size.height * unit} /><path d={`M0,${coordinates.top}v${size.height * unit}M${doc.settings.materialWidthMm},${coordinates.top}v${size.height * unit}`} vectorEffect="non-scaling-stroke" /></g>}
       <g className="coordinate-grid" aria-hidden="true" pointerEvents="none" data-grid-step={coordinates.major}>{(['minor', 'major', 'origin'] as const).map(kind => <path key={kind} className={kind} fill="none" vectorEffect="non-scaling-stroke" d={[...coordinates.x.filter(t => (t.value === 0 ? 'origin' : t.major ? 'major' : 'minor') === kind).map(t => `M${t.mm},${coordinates.top}v${size.height * unit}`), ...coordinates.y.filter(t => (t.value === 0 ? 'origin' : t.major ? 'major' : 'minor') === kind).map(t => `M${coordinates.left},${-t.mm}h${size.width * unit}`)].join(' ')} />)}</g>
       {shapes}
       {marquee&&<rect data-selection-marquee x={Math.min(marquee.start[0],marquee.end[0])} y={Math.min(marquee.start[1],marquee.end[1])} width={Math.abs(marquee.end[0]-marquee.start[0])} height={Math.abs(marquee.end[1]-marquee.start[1])} fill="var(--accent)" fillOpacity=".12" stroke="var(--accent)" strokeDasharray="4 3" vectorEffect="non-scaling-stroke" pointerEvents="none"/>}

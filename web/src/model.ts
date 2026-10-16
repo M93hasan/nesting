@@ -19,7 +19,7 @@ export type Part = {
   outer: Ring; holes: Ring[]; approximationToleranceMm: number; quantity: number;
   rotations: RotationRule; preparationPosition: Point;
 };
-export type Settings = { solverPreset?: 'standard' | 'fast'; startCorner?: 'right-top' | 'right-bottom'; materialType?: 'roll' | 'sheet'; headMode?: 'single' | 'dual'; widthMode?: 'full'; materialWidthMm: number; materialLengthMm?: number; clearanceMm: number; timeLimitSeconds: 10 | 30 | 60 | 120 | 300 | 600 | null };
+export type Settings = { solverPreset?: 'standard' | 'fast'; startCorner?: 'right-top' | 'right-bottom'; materialType?: 'roll' | 'sheet'; materialWidthMm: number; materialLengthMm?: number; clearanceMm: number; timeLimitSeconds: 10 | 30 | 60 | 120 | 300 | 600 | null };
 export type Placement = { partId: string; copyIndex: number; xMm: number; yMm: number; angleDeg: number; fixedAngleDeg?: number; mirrorX?: boolean; mirrorY?: boolean; sheetIndex?: number };
 /** A document keeps the editable position of every demanded copy. */
 export type Document = { name: string; parts: Part[]; settings: Settings; placements?: Placement[]; seriesMultiplier?: number };
@@ -30,7 +30,7 @@ export type Result = { documentRevision: number; solverRevision: string; seed: s
 export type Project = Document & { schemaVersion: 1; revision: number; result?: Result };
 export const DEFAULT_SETTINGS: Settings = { startCorner: 'right-bottom', materialType: 'roll', materialWidthMm: 1400, clearanceMm: 0, timeLimitSeconds: 30 };
 export const SOLVER_REVISION = '5901a79b6c5a74d8b9c356ee2916736567308108';
-export const LIMITS = { copies: 500, verticesPerPart: 5000, verticesTotal: 500000, extent: 100000 };
+export const LIMITS = { copies: 500, verticesPerPart: 5000, verticesTotal: 100000, extent: 100000 };
 export const POLICY = { linearMm: 1e-6, overlapMm2: 1e-8, angleDeg: 1e-4 };
 // getRandomValues also works on HTTP LAN addresses, unlike randomUUID.
 export function newPartId(): string {

@@ -1,6 +1,5 @@
 import { LIMITS, type Document, type Part, type Placement, type Point } from '../model';
 import { bounds } from './normalize';
-import {upgradeLegacyDualHeadDocument} from './headMode';
 import { preparationCopyOffset } from './gestures';
 
 export type CopyRef = { partId: string; copyIndex: number };
@@ -66,9 +65,8 @@ function mirrorPreparationPosition(parts: Part[], placements: Placement[]): Part
 
 /** Store a complete copy layout and keep the old position field as a compatibility mirror. */
 export function withDocumentPlacements(document: Document, placements?: Placement[]): Document {
-  const upgraded=upgradeLegacyDualHeadDocument(document);
-  const complete=documentPlacements({...upgraded,placements:placements ?? upgraded.placements});
-  return {...upgraded,parts:mirrorPreparationPosition(upgraded.parts,complete),placements:complete};
+  const complete=documentPlacements({...document,placements:placements ?? document.placements});
+  return {...document,parts:mirrorPreparationPosition(document.parts,complete),placements:complete};
 }
 
 export function copyRefsFor(document: Document, partIds: string[]): CopyRef[] {

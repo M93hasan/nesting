@@ -36,7 +36,6 @@ function saveBlob(name:string,blob:Blob){
   link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 
-function TrashIcon(){return <svg aria-hidden="true" focusable="false" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/></svg>}
 export default function ExportHistory({onClose,onOpen}:{onClose:()=>void;onOpen:(name:string,projectText:string)=>Promise<void>}){
   const {locale}=useI18n();const dateLocale=localeTag(locale);
   const [items,setItems]=useState<ExportItem[]>([]);
@@ -128,7 +127,7 @@ export default function ExportHistory({onClose,onOpen}:{onClose:()=>void;onOpen:
 
   return <Modal title="Geçmiş" onClose={onClose} locked={!!busy}>
     <div className="export-history">
-      <div className="export-history-head"><div><strong>Bulut kayıtları</strong><small>Çalışma değiştikçe son temiz proje durumu otomatik kaydedilir; DXF dışa aktarımları ayrıca geçmişte tutulur.</small></div><div className="export-history-head-actions"><button disabled={loading||!!busy} onClick={()=>void load()}>Yenile</button><button type="button" className="danger-button" disabled={loading||!!busy||!items.length} onClick={()=>void deleteAll()}><TrashIcon/>Tüm Geçmişi Sil</button></div></div>
+      <div className="export-history-head"><div><strong>Bulut kayıtları</strong><small>Çalışma değiştikçe son temiz proje durumu otomatik kaydedilir; DXF dışa aktarımları ayrıca geçmişte tutulur.</small></div><div className="export-history-head-actions"><button disabled={loading||!!busy} onClick={()=>void load()}>Yenile</button><button type="button" className="danger-button" disabled={loading||!!busy||!items.length} onClick={()=>void deleteAll()}>Tüm Geçmişi Sil</button></div></div>
       {error&&<p role="alert" className="field-error">{error}</p>}
       {loading?<p className="muted">Geçmiş yükleniyor…</p>:<>
         {cloud&&<article className="export-history-item export-history-latest">
@@ -137,7 +136,7 @@ export default function ExportHistory({onClose,onOpen}:{onClose:()=>void;onOpen:
         </article>}
         {!cloud&&!items.length?<div className="export-history-empty"><strong>Henüz kayıt yok</strong><span>Giriş yaptıktan sonra proje değişiklikleri otomatik olarak burada saklanır.</span></div>:<div className="export-history-list">{items.map(item=><article className="export-history-item" key={item.id}>
           <div className="export-history-file"><strong>{item.fileName}</strong><span>{item.projectName||item.sourceFileName||'Serula projesi'} · DXF dışa aktarma</span><small>{formatDate(item.createdAt,dateLocale)} · {formatBytes(item.byteSize)}</small></div>
-          <div className="export-history-actions"><button disabled={!!busy} onClick={()=>void openItem(item)}>{busy==='export-'+item.id?'Bekleyin…':'Aç'}</button><button disabled={!!busy} onClick={()=>void downloadItem(item)}>DXF indir</button><button className="danger-button" disabled={!!busy} onClick={()=>void deleteItem(item)}><TrashIcon/>Sil</button></div>
+          <div className="export-history-actions"><button disabled={!!busy} onClick={()=>void openItem(item)}>{busy==='export-'+item.id?'Bekleyin…':'Aç'}</button><button disabled={!!busy} onClick={()=>void downloadItem(item)}>DXF indir</button><button className="danger-button" disabled={!!busy} onClick={()=>void deleteItem(item)}>Sil</button></div>
         </article>)}</div>}
       </>}
       <div className="modal-actions"><button disabled={!!busy} onClick={onClose}>Kapat</button></div>

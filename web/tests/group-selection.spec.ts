@@ -107,39 +107,3 @@ test('removes a populated part with all copies and restores it with Undo',async(
   await expect(rows).toHaveCount(count);await expect(copies).toHaveCount(copyCount);
   await expect(rows.first().locator('input')).toHaveValue(quantity);
 });
-
-test('Shift-click targets only the requested part rows, not every row between them',async({page})=>{
-  await page.goto('/');await workshop(page);
-  const parts=page.locator('.part-select');
-  await expect(parts).toHaveCount(4);
-  await parts.nth(0).click();
-  await parts.nth(3).click({modifiers:['Shift']});
-  await expect(parts.nth(0)).toHaveAttribute('aria-pressed','true');
-  await expect(parts.nth(1)).toHaveAttribute('aria-pressed','false');
-  await expect(parts.nth(2)).toHaveAttribute('aria-pressed','false');
-  await expect(parts.nth(3)).toHaveAttribute('aria-pressed','true');
-  await parts.nth(3).click({modifiers:['Control']});
-  await expect(parts.nth(3)).toHaveAttribute('aria-pressed','false');
-  await expect(parts.nth(0)).toHaveAttribute('aria-pressed','true');
-});
-
-test('Shift-click on a drawing selects only the individually clicked copies',async({page})=>{
-  await page.goto('/');await workshop(page);
-  const copies=page.locator('.workspace-svg g[data-part][data-copy-index]');
-  await expect(copies).toHaveCount(12);
-  const clickPoint=async(index:number)=>{
-    const part=copies.nth(index);
-    return part.locator('path').first().evaluate(node=>{
-      const b=(node as SVGGraphicsElement).getBBox();
-      const p=new DOMPoint(b.x+b.width/2,b.y+b.height/2).matrixTransform(node.getScreenCTM()!);
-      return {x:p.x,y:p.y};
-    });
-  };
-  const first=await clickPoint(0),second=await clickPoint(8);
-  await page.mouse.click(first.x,first.y);
-  await page.keyboard.down('Shift');
-  await page.mouse.click(second.x,second.y);
-  await page.keyboard.up('Shift');
-  const selected=await copies.evaluateAll(nodes=>nodes.filter(node=>node.querySelector('title')?.textContent?.includes(' · seçili')).length);
-  expect(selected).toBe(2);
-});
