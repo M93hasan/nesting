@@ -611,3 +611,12 @@ _Rulo + plaka • Gerçek DXF geometrisi • Sparrow/Jagua • Web + PC köprüs
 **[Uygulamayı Aç](https://serula.site/)**
 
 </div>
+
+
+## Makine profili ve çift kafa (0.1.15)
+
+İlk kayıt (e-posta veya Google) sonrasında kullanıcıdan **tek kafa / çift kafa**, **rulo / plaka**, **gerçek kesim eni (mm)** ve plaka için **kesim boyu (mm)** istenir. Kullanıcıya ait bu ayarlar hesap bazında D1 veritabanına kaydedilir ve **Ayarlarım** sekmesinden yeniden düzenlenebilir. Mevcut hesaplar için geriye dönük zorunlu kayıt ekranı gösterilmez.
+
+Çift kafada gerçek kesim genişliği ikiye ayrılır: örneğin **1400 mm fiziksel en → 700 mm nesting eni**. Birinci kafanın yerleşimi DXF'ye yazılır, ikinci kafanın alanı önizleme amaçlı gösterilir. İkinci kafa makinede uygun X ofsetiyle eş zamanlı çalışmalıdır; kesime başlamadan önce üreticinin ofset/çakışma sınırlarını doğrulayın. DXF'ye gereksiz ikinci bir kesim kopyası eklenmez.
+
+RDWorks doğrudan aktarımı kaldırılmıştır; DXF dosyasını indirme ve yetkilendirilmiş CorelDRAW aktarımı korunur.

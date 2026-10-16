@@ -37,8 +37,10 @@ jobs:
             }
           }
           $bridge = Get-Content $files[0] -Raw
-          if ($bridge -notmatch "version='1.5'" -or $bridge -notmatch "Open-RDWorksImportPicker" -or $bridge -notmatch "Try-RDWorksClassicPicker" -or $bridge -notmatch "Wait-RDWorksPasteAndImport") {
-            throw "RDWorks compatibility fallback or bridge version missing"
+          if ($bridge -notmatch "version='1.6'" -or
+              $bridge -notmatch "supportedTargets=@\('corel'\)" -or
+              $bridge -notmatch '\$target -ne ''corel''') {
+            throw "Corel-only transfer bridge 1.6 safety restrictions are missing"
           }
       - name: Verify download and source installer are identical
         shell: powershell
