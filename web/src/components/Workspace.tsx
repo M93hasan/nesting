@@ -49,7 +49,7 @@ export default function Workspace({ document: doc, result, live, selected, selec
   const selection = useMemo(()=>selectionBounds(doc, selected, selectedCopies),[doc,selected,selectedCopies]), unit = Math.max(camera.w / size.width, camera.h / size.height);
   const coordinates = coordinateGrid(camera, size.width, size.height, unitScale(displayUnit));
   const validMaterialWidth = Number.isFinite(doc.settings.materialWidthMm) && doc.settings.materialWidthMm > 0;
-remove dual flag  const actualWidth=physicalMaterialWidthMm(doc.settings);
+  const actualWidth=physicalMaterialWidthMm(doc.settings);
   const materialType = doc.settings.materialType??'roll';
   const showGenişlik = validMaterialWidth && (materialType==='roll' || materialWidthFocused);
   const showSheetFrame = materialType==='sheet' && validMaterialWidth && Number.isFinite(doc.settings.materialLengthMm) && (doc.settings.materialLengthMm??0)>0;
