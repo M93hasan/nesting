@@ -48,6 +48,16 @@ it('imports sixteen separated connected-bezier contours in one DXF without chang
     expect(part.source.dxfSpline?.controlPoints).toHaveLength(16);
   }
 });
+// Real contour geometry from 105-457 daban.dxf, studio-9, translated to origin;
+// 14 clamped cubic Bezier segments with their duplicate shared endpoints retained.
+it('imports a real 56-control-point footwear CAD SPLINE from the reported DXF',()=>{
+  const coordinates:XY[]=[[241.7619,76.5283],[249.2888,74.1772],[256.7933,71.7847],[264.363,69.5717],[264.363,69.5717],[264.7877,63.5284],[265.213,57.4851],[265.6371,51.4417],[265.6371,51.4417],[256.6784,45.3615],[247.8544,39.0888],[238.9012,33.0021],[238.9012,33.0021],[221.4479,21.1367],[195.6854,5.2867],[174.477,2.1944],[174.477,2.1944],[159.4285,0],[144.6287,2.7996],[128.6805,4.1417],[128.6805,4.1417],[115.177,5.278],[101.0681,5.7111],[87.9742,4.8072],[87.9742,4.8072],[73.3301,3.796],[58.4536,2.604],[43.9309,2.1226],[43.9309,2.1226],[36.3126,1.8697],[27.2768,2.042],[20.9119,5.5927],[20.9119,5.5927],[3.5891,15.2567],[0,46.8107],[24.0332,55.5594],[24.0332,55.5594],[37.9165,60.6133],[56.7459,58.2408],[71.365,57.8558],[71.365,57.8558],[87.6976,57.4259],[113.485,55.063],[128.9176,59.06],[128.9176,59.06],[140.1311,61.9646],[150.6129,70.7952],[160.4245,76.8523],[160.4245,76.8523],[169.7351,82.6001],[176.5679,85.6944],[183.9193,86.7245],[183.9193,86.7245],[201.4952,89.1873],[224.5454,81.906],[241.7619,76.5283]];
+  const segments=Array.from({length:14},(_,i)=>coordinates.slice(i*4,i*4+4));
+  const review=importDXF(wrap(compositeSpline(segments,3,11)),'105-457-footwear-sample.dxf',options);
+  expect(review.issues).toEqual([]);
+  expect(review.document.parts).toHaveLength(1);
+  expect(review.document.parts[0].source.dxfSpline?.controlPoints).toHaveLength(56);
+});
 it('also accepts connected degree-two Bezier segments (but not detached segments)',()=>{
   const square:XY[][]=[
     [[0,0],[5,0],[10,0]],[[10,0],[10,5],[10,10]],
