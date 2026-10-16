@@ -799,7 +799,6 @@ export default function App({initialDocument=emptyProject(),initialError='',load
             </div>
             <div className="material-group__subsection" role="group" aria-labelledby="material-group-2-layout">
               <h4 id="material-group-2-layout">Yerleşim kuralları</h4>
-              <p>Parça aralığı ve başlangıç noktası</p>
               <div className="material-group__body">
           <label className="measurement-field"><span className="measurement-field__name">Parça aralığı</span><span className="measurement-field__unit">{unit}</span><input data-undo-field type="number" min="0" step="any" value={inputLength(doc.settings.clearanceMm)} disabled={locked} onChange={e=>commit({...doc,settings:{...doc.settings,clearanceMm:e.target.valueAsNumber*factor}},true,'clearance')}/></label><label>Başlangıç yönü<select value={doc.settings.startCorner??'right-bottom'} disabled={locked} onChange={e=>commit({...doc,settings:{...doc.settings,startCorner:e.target.value as 'right-top'|'right-bottom'}},false)}><option value="right-bottom">Sağ alt ↘</option><option value="right-top">Sağ üst ↗</option></select></label>
           {doc.settings.clearanceMm>0&&<small>Parça aralığı yalnızca parçalar arasında uygulanır; malzeme kenarında ek pay oluşturmaz. Bu kesim kerfi değildir.</small>}
