@@ -555,7 +555,7 @@ Veri modelindeki üst sınırlar (kaynağa göre):
 |---|---:|
 | İstenen parça kopyası | 500 |
 | Parça başına vertex | 5.000 |
-| Toplam vertex | 100.000 |
+| Toplam vertex | 500.000 |
 | Koordinat kapsamı | 100.000 mm |
 
 Bu değerler başarının garantisi değil, kabul/koruma sınırlarıdır. Karmaşık geometrilerde daha az parçayla bile yavaşlık veya geçerli çözüm bulunamaması mümkündür. İç boşluklar geometrik olarak korunurken solver başka parçayı bir boşluğun içine yerleştirmeyebilir. Dönüş hassasiyeti, temas ve gerçek makine toleransları ayrıdır.
