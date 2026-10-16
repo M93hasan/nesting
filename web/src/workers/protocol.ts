@@ -36,6 +36,7 @@ export type GeometryRequest = Identity & (
   | { type:'export'; document:Document; result?:Result }
   | { type:'archive'; document:Document; result?:Result }
   | { type:'live-preview'; sequence:number; document:Document; result:Result }
+  | { type:'gap-fill'; document:Document; result:Result }
 );
 export type GeometryReply = Identity & (
   | { type:'part'; part:Part }
@@ -45,5 +46,6 @@ export type GeometryReply = Identity & (
   | { type:'export-result'; bundle:ExportBundle }
   | { type:'archive-result'; archive:Uint8Array }
   | { type:'live-frame'; sequence:number; geometry:LiveGeometry }
+  | { type:'gap-fill-result'; result:Result }
   | { type:'error'; message:string }
 );
