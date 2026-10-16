@@ -28,6 +28,20 @@ function edgeDistance(a:Ring,b:Ring,needed:number){
   }
   return min;
 }
+function permittedAngles(part:Part,placement:Placement):number[] {
+  if(placement.fixedAngleDeg!==undefined)return [placement.angleDeg];
+  const source=part.rotations.kind==='continuous'
+    ? [placement.angleDeg,0,90,180,270,45,135,225,315]
+    : [placement.angleDeg,...part.rotations.degrees];
+  // Keep original orientation first; equivalent 360-degree angles are redundant.
+  const normalized=new Set<number>();
+  return source.filter(angle=>{
+    if(!Number.isFinite(angle))return false;
+    const key=Math.round((((angle%360)+360)%360)*1e5);
+    if(normalized.has(key))return false;
+    normalized.add(key);return true;
+  });
+}
 function positions(items:Item[],sheet:number,span:number,limit:number,axis:0|1,gap:number){
   const out=new Set<number>();
   const add=(value:number)=>{
@@ -35,6 +49,8 @@ function positions(items:Item[],sheet:number,span:number,limit:number,axis:0|1,g
       out.add(Math.max(0,Math.min(limit-span,value)));
   };
   add(0);add(limit-span);
+  // Try interiors of visually open regions, not only outline contacts.
+  for(const ratio of [0.25,0.5,0.75])add((limit-span)*ratio);
   for(const item of items)if(item.sheet===sheet){
     const lo=item.box[axis],hi=item.box[axis+2];
     for(const v of [lo,hi-span,lo-span-gap,hi+gap])add(v);
@@ -93,46 +109,52 @@ export function fillSheetGaps(doc:Document,result:Result,ms=MAX_MS):Result {
     for(const index of order){
       if(checks>MAX_CHECKS||performance.now()-start>ms)break;
       const item=items[index],from=item.sheet,old=item.box;
-      const w=old[2]-old[0],h=old[3]-old[1];
-      if(w>width+EPS||h>length+EPS)continue;
+      const part=parts.get(item.placement.partId)!;
       let placed=false;
       for(let target=0;target<=from&&!placed;target++){
-        const xs=positions(items,target,w,width,0,gap)
-          .sort((a,b)=>b-a);
-        const ys=positions(items,target,h,length,1,gap)
-          .sort((a,b)=>top?b-a:a-b);
-        for(const y of ys){
+        for(const angle of permittedAngles(part,item.placement)){
           if(placed||checks>MAX_CHECKS||performance.now()-start>ms)break;
-          for(const x of xs){
-            if(++checks>MAX_CHECKS||performance.now()-start>ms)break;
-            if(target===from){
-              const oldDepth=top?length-old[3]:old[1];
-              const newDepth=top?length-(y+h):y;
-              // On the same plate, never move away from the preferred corner.
-              if(newDepth>oldDepth+EPS
-                ||(Math.abs(newDepth-oldDepth)<EPS&&x<=old[0]+EPS))continue;
-            }
-            const dx=x-old[0],dy=y-old[1],candidateBox=offsetBox(old,dx,dy);
-            if(candidateBox[0]<-EPS||candidateBox[1]<-EPS
-              ||candidateBox[2]>width+EPS||candidateBox[3]>length+EPS)continue;
-            let candidateRing:Ring|undefined;
-            let valid=true;
-            for(let j=0;j<items.length;j++)if(index!==j&&items[j].sheet===target){
-              const other=items[j];
-              if(boxDistance(candidateBox,other.box)>gap+EPS)continue;
-              candidateRing??=offsetRing(item.ring,dx,dy);
-              if(overlaps(candidateRing,other.ring)
-                ||(gap>0&&edgeDistance(candidateRing,other.ring,gap)<gap-EPS)){
-                valid=false;break;
+          const rotated=transform(rings.get(part.id)!,{...item.placement,
+            xMm:0,yMm:0,angleDeg:angle});
+          const local= bounds(rotated) as Box;
+          const w=local[2]-local[0],h=local[3]-local[1];
+          if(w>width+EPS||h>length+EPS)continue;
+          const xs=positions(items,target,w,width,0,gap).sort((a,b)=>b-a);
+          const ys=positions(items,target,h,length,1,gap)
+            .sort((a,b)=>top?b-a:a-b);
+          for(const y of ys){
+            if(placed||checks>MAX_CHECKS||performance.now()-start>ms)break;
+            for(const x of xs){
+              if(++checks>MAX_CHECKS||performance.now()-start>ms)break;
+              if(target===from){
+                const oldDepth=top?length-old[3]:old[1];
+                const newDepth=top?length-(y+h):y;
+                // A move on the same sheet must favor the requested origin.
+                if(newDepth>oldDepth+EPS
+                  ||(Math.abs(newDepth-oldDepth)<EPS&&x<=old[0]+EPS))continue;
               }
+              const tx=x-local[0],ty=y-local[1];
+              const candidateBox:Box=[x,y,x+w,y+h];
+              if(candidateBox[0]<-EPS||candidateBox[1]<-EPS
+                ||candidateBox[2]>width+EPS||candidateBox[3]>length+EPS)continue;
+              let candidateRing:Ring|undefined,valid=true;
+              for(let j=0;j<items.length;j++)if(index!==j&&items[j].sheet===target){
+                const other=items[j];
+                if(boxDistance(candidateBox,other.box)>gap+EPS)continue;
+                candidateRing??=offsetRing(rotated,tx,ty);
+                if(overlaps(candidateRing,other.ring)
+                  ||(gap>0&&edgeDistance(candidateRing,other.ring,gap)<gap-EPS)){
+                  valid=false;break;
+                }
+              }
+              if(!valid)continue;
+              item.sheet=target;
+              item.box=candidateBox;
+              item.ring=candidateRing??offsetRing(rotated,tx,ty);
+              item.placement={...item.placement,sheetIndex:target,
+                xMm:tx,yMm:ty,angleDeg:angle};
+              moves++;placed=true;break;
             }
-            if(!valid)continue;
-            item.sheet=target;
-            item.box=candidateBox;
-            item.ring=candidateRing??offsetRing(item.ring,dx,dy);
-            item.placement={...item.placement,sheetIndex:target,
-              xMm:item.placement.xMm+dx,yMm:item.placement.yMm+dy};
-            moves++;placed=true;break;
           }
         }
       }
