@@ -10,6 +10,7 @@ import { documentPlacements, placementKey, type CopyRef } from '../geometry/plac
 import { displayLength, unitScale, type DisplayUnit } from '../units';
 import './Workspace.css';
 import { coordinateGrid } from '../geometry/grid';
+import {physicalMaterialWidthMm} from '../geometry/headMode';
 
 type Gesture = {
   backgroundStart?: Point; pointer: number; start: Point;
@@ -48,6 +49,8 @@ export default function Workspace({ document: doc, result, live, selected, selec
   const selection = useMemo(()=>selectionBounds(doc, selected, selectedCopies),[doc,selected,selectedCopies]), unit = Math.max(camera.w / size.width, camera.h / size.height);
   const coordinates = coordinateGrid(camera, size.width, size.height, unitScale(displayUnit));
   const validMaterialWidth = Number.isFinite(doc.settings.materialWidthMm) && doc.settings.materialWidthMm > 0;
+  const dualHead=doc.settings.headMode==='dual';
+  const actualWidth=physicalMaterialWidthMm(doc.settings);
   const materialType = doc.settings.materialType??'roll';
   const showGenişlik = validMaterialWidth && (materialType==='roll' || materialWidthFocused);
   const showSheetFrame = materialType==='sheet' && validMaterialWidth && Number.isFinite(doc.settings.materialLengthMm) && (doc.settings.materialLengthMm??0)>0;
@@ -89,11 +92,11 @@ export default function Workspace({ document: doc, result, live, selected, selec
       const materialLength=doc.settings.materialType==='sheet'&&doc.settings.materialLengthMm
         ? (result!.sheetCount??1)*doc.settings.materialLengthMm+Math.max(0,(result!.sheetCount??1)-1)*20
         : result!.usedLengthMm;
-      all.push([0,0],[doc.settings.materialWidthMm,-materialLength]);
+      all.push([0,0],[actualWidth,-materialLength]);
     } else if(showSheetFrame) {
-      all.push([0,0],[doc.settings.materialWidthMm,-doc.settings.materialLengthMm!]);
+      all.push([0,0],[actualWidth,-doc.settings.materialLengthMm!]);
     } else if(validMaterialWidth) {
-      all.push([0,0],[doc.settings.materialWidthMm,0]);
+      all.push([0,0],[actualWidth,0]);
     }
     if (!all.length) return;
     const [x0, y0, x1, y1] = bounds(all), pad = Math.max(x1 - x0, y1 - y0) * .07 + 2;
@@ -101,7 +104,7 @@ export default function Workspace({ document: doc, result, live, selected, selec
   }
   // Manual moves and candidate updates preserve the camera. Sığdır is explicit,
   // and a project switch increments fitRequest even when it has the same part count.
-  useEffect(fit, [doc.parts.length, fitRequest, doc.settings.materialType, doc.settings.materialWidthMm, doc.settings.materialLengthMm]);
+  useEffect(fit, [doc.parts.length, fitRequest, doc.settings.materialType, doc.settings.materialWidthMm, doc.settings.materialLengthMm, doc.settings.headMode]);
   // Align once at solve start / first layout, and after viewport resizing.
   // Results are displayed as a vertical strip: material width on X, used length on Y.
   useEffect(() => {
@@ -291,7 +294,20 @@ export default function Workspace({ document: doc, result, live, selected, selec
       {world && (doc.settings.materialType==='sheet'&&doc.settings.materialLengthMm
         ? Array.from({length:result!.sheetCount??1},(_,sheet)=><g key={sheet} transform={`translate(0 ${-sheet*(doc.settings.materialLengthMm!+20)})`}><rect x="0" y={-doc.settings.materialLengthMm!} width={doc.settings.materialWidthMm} height={doc.settings.materialLengthMm!} fill={outlines ? 'none' : 'var(--material-fill)'} stroke="var(--secondary)" vectorEffect="non-scaling-stroke" /><text x="2" y={-2} fontSize={camera.w/70} fill="var(--muted)">Plaka {sheet+1} · {displayLength(doc.settings.materialWidthMm, displayUnit)} × {displayLength(doc.settings.materialLengthMm!, displayUnit)} {displayUnit}</text></g>)
         : <><rect x="0" y={-result!.usedLengthMm} width={doc.settings.materialWidthMm} height={result!.usedLengthMm} fill={outlines ? 'none' : 'var(--material-fill)'} stroke="var(--secondary)" vectorEffect="non-scaling-stroke" /><text x="0" y={-result!.usedLengthMm - 2} fontSize={camera.w / 70} fill="var(--muted)">Rulo {displayLength(doc.settings.materialWidthMm, displayUnit)} {displayUnit} · kullanılan {(result!.usedLengthMm / unitScale(displayUnit)).toFixed(2)} {displayUnit}</text></>)}
-      {showGenişlik && <g className="material-width-band" data-material-width-band={doc.settings.materialWidthMm} pointerEvents="none" aria-hidden="true"><rect x="0" y={coordinates.top} width={doc.settings.materialWidthMm} height={size.height * unit} /><path d={`M0,${coordinates.top}v${size.height * unit}M${doc.settings.materialWidthMm},${coordinates.top}v${size.height * unit}`} vectorEffect="non-scaling-stroke" /></g>}
+      {world&&dualHead&&<g className="second-head-preview" pointerEvents="none" aria-label="İkinci kafa bölgesi (referans)">
+        <rect x={doc.settings.materialWidthMm} y={doc.settings.materialType==='sheet'&&doc.settings.materialLengthMm
+          ? -(result!.sheetCount??1)*doc.settings.materialLengthMm
+          : -result!.usedLengthMm} width={doc.settings.materialWidthMm}
+          height={doc.settings.materialType==='sheet'&&doc.settings.materialLengthMm
+            ? (result!.sheetCount??1)*doc.settings.materialLengthMm
+            : result!.usedLengthMm}
+          fill="none" stroke="var(--secondary)" strokeDasharray="5 5" vectorEffect="non-scaling-stroke"/>
+        <text x={doc.settings.materialWidthMm+3} y={-Math.max(4,6*unit)}
+          fontSize={Math.max(12*unit,camera.w/70)} fill="var(--muted)">Kafa 2 · eş zamanlı tekrar · DXF'de kopya yok</text>
+        <path d={`M${doc.settings.materialWidthMm},0V${-result!.usedLengthMm}`}
+          stroke="var(--accent)" strokeDasharray="6 4" vectorEffect="non-scaling-stroke"/>
+      </g>}
+      {showGenişlik && <g className="material-width-band" data-material-width-band={actualWidth} pointerEvents="none" aria-hidden="true"><rect x="0" y={coordinates.top} width={actualWidth} height={size.height * unit} /><path d={`M0,${coordinates.top}v${size.height * unit}M${actualWidth},${coordinates.top}v${size.height * unit}`} vectorEffect="non-scaling-stroke" /></g>}
       <g className="coordinate-grid" aria-hidden="true" pointerEvents="none" data-grid-step={coordinates.major}>{(['minor', 'major', 'origin'] as const).map(kind => <path key={kind} className={kind} fill="none" vectorEffect="non-scaling-stroke" d={[...coordinates.x.filter(t => (t.value === 0 ? 'origin' : t.major ? 'major' : 'minor') === kind).map(t => `M${t.mm},${coordinates.top}v${size.height * unit}`), ...coordinates.y.filter(t => (t.value === 0 ? 'origin' : t.major ? 'major' : 'minor') === kind).map(t => `M${coordinates.left},${-t.mm}h${size.width * unit}`)].join(' ')} />)}</g>
       {shapes}
       {marquee&&<rect data-selection-marquee x={Math.min(marquee.start[0],marquee.end[0])} y={Math.min(marquee.start[1],marquee.end[1])} width={Math.abs(marquee.end[0]-marquee.start[0])} height={Math.abs(marquee.end[1]-marquee.start[1])} fill="var(--accent)" fillOpacity=".12" stroke="var(--accent)" strokeDasharray="4 3" vectorEffect="non-scaling-stroke" pointerEvents="none"/>}
