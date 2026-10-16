@@ -30,7 +30,7 @@ export default function MachineSettingsDialog({profile,onSave,onClose,required=f
       </label>
       <label>Malzeme biçimi
         <select value={draft.materialType} disabled={busy}
-          onChange={e=>setDraft(p=>({...p,materialType:e.target.value as MachineProfile['materialType']}))}>
+          onChange={e=>setDraft(p=>({...p,materialType:e.target.value as MachineProfile['materialType'],materialLengthMm:p.materialLengthMm??1000}))}>
           <option value="sheet">Plaka</option><option value="roll">Rulo</option>
         </select>
       </label>
