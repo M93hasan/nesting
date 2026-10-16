@@ -6,7 +6,7 @@ import { LIMITS, newPart, type Document, type Ring } from '../src/model';
 const polygon = (vertices: number): Ring =>
   Array.from({ length: vertices }, (_, i) => {
     const angle = (i * 2 * Math.PI) / vertices;
-    return [200 + 100 * Math.cos(angle), 200 + 100 * Math.sin(angle)];
+    return [200 + 100 * Math.cos(angle), 200 + 100 * Math.sin(angle)] as [number, number];
   });
 
 const project = (vertices: number, copies: number): Document => ({
