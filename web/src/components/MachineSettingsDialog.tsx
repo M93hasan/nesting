@@ -17,7 +17,7 @@ export default function MachineSettingsDialog({profile,onSave,onClose,required=f
     setError('');
     void onSave(draft);
   };
-remove dialog half  return <Modal title={required?'İlk kurulum · Makinenizi tanıyalım':'Ayarlarım · Makine ve kesim alanı'}
+  return <Modal title={required?'İlk kurulum · Makinenizi tanıyalım':'Ayarlarım · Makine ve kesim alanı'}
     onClose={onClose} locked={required||busy} className="machine-settings-dialog">
     <form onSubmit={save} className="machine-settings-form">
       <p>{required?'Bu bilgiler hesabınıza kaydedilir ve her girişte otomatik uygulanır.':'Kaydettiğiniz makine ayarları kullanıcı hesabınıza özel saklanır.'}</p>
