@@ -149,7 +149,42 @@ function spline(entity:DxfEntity,tolerance:number):Ring {
   if(points.some(p=>![p.x,p.y,p.z??0].every(Number.isFinite)||(p.z??0)!==0))throw Error('Invalid or nonplanar SPLINE control points.');
   const low=knots[degree],high=knots[points.length];if(!(high>low))throw Error('Empty SPLINE parameter domain.');
   const spans=[...new Set(knots.slice(degree,points.length+1))];
-  if(spans.slice(1,-1).some(k=>knots.filter(v=>v===k).length>degree))throw Error('Discontinuous SPLINE cannot form one contour.');
+  // Some footwear CAD exporters encode one continuous contour as several Bezier
+  // segments in a *single* SPLINE, with degree+1 identical internal knots.
+  // The mathematical spline may jump there, so first verify adjacent physical
+  // endpoints. Never close a real gap or rewrite the original DXF source.
+  const splitIndices:number[]=[];
+  for(let i=degree+1;i<knots.length-degree-1;){
+    const knot=knots[i];
+    let next=i+1;
+    while(next<knots.length&&knots[next]===knot)next++;
+    if(knot>low&&knot<high){
+      const multiplicity=next-i;
+      if(multiplicity>degree+1)throw Error('Invalid SPLINE knot multiplicity.');
+      if(multiplicity===degree+1)splitIndices.push(i);
+    }
+    i=next;
+  }
+  if(splitIndices.length){
+    // The cap is deliberately much smaller than a general polygon-join
+    // tolerance: an actual gap must remain a reported import issue.
+    const joinTolerance=Math.max(1e-8,Math.min(.001,tolerance*.1));
+    const joined:Ring=[];
+    const boundaries=[0,...splitIndices,points.length];
+    for(let index=0;index<boundaries.length-1;index++){
+      const start=boundaries[index],end=boundaries[index+1];
+      if(start>0&&Math.hypot(points[start-1].x-points[start].x,points[start-1].y-points[start].y)>joinTolerance)
+        throw Error('Discontinuous SPLINE cannot form one contour.');
+      const piece=spline({...entity,
+        controlPoints:points.slice(start,end),
+        knots:knots.slice(start,end+degree+1),
+        weights:weights.slice(start,end)},tolerance);
+      if(joined.length&&Math.hypot(joined[joined.length-1][0]-piece[0][0],joined[joined.length-1][1]-piece[0][1])>joinTolerance)
+        throw Error('Discontinuous SPLINE cannot form one contour.');
+      for(let i=joined.length?1:0;i<piece.length;i++)append(joined,piece[i]);
+    }
+    return joined;
+  }
   // Evaluate each polynomial knot span in homogeneous coordinates using dxf.
   // Degrees 1–3 can all be represented exactly as cubic rational Beziers.
   const homogeneous=points.map((p,i)=>[p.x*weights[i],p.y*weights[i],weights[i]]);
