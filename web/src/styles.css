@@ -920,3 +920,147 @@ dialog.modal.modal-about{
   opacity:.45;
   box-shadow:none!important;
 }
+
+
+/* Pending visual refresh: embossed controls, mint ticks, and slate text fields. */
+/* Scoped to Serula user workspace, never the admin interface.
+   Preserve button sizes where compact production toolbars require them. */
+#root .app button:not(.cssbuttons-io-button) {
+  font:inherit;
+  background:#f0f0f0!important;
+  background-image:none!important;
+  border:0!important;
+  color:#242424!important;
+  border-radius:.5em!important;
+  font-size:clamp(12px, 1vw, 21.6px);
+  padding:.375em 1em;
+  font-weight:600;
+  text-shadow:0 .0625em 0 #fff!important;
+  box-shadow:inset 0 .0625em 0 0 #f4f4f4,
+    0 .0625em 0 0 #efefef,0 .125em 0 0 #ececec,
+    0 .25em 0 0 #e0e0e0,0 .3125em 0 0 #dedede,
+    0 .375em 0 0 #dcdcdc,0 .425em 0 0 #cacaca,
+    0 .425em .5em 0 #cecece!important;
+  transition:translate .15s ease,box-shadow .15s ease!important;
+  cursor:pointer;
+  translate:0 0;
+}
+#root .app button:not(.cssbuttons-io-button):hover:enabled {
+  background:#f0f0f0!important;
+  background-image:none!important;
+  color:#242424!important;
+  transform:none!important;
+  text-shadow:0 .0625em 0 #fff!important;
+}
+#root .app button:not(.cssbuttons-io-button):active:enabled {
+  translate:0 .225em;
+  transform:none!important;
+  box-shadow:inset 0 .03em 0 0 #f4f4f4,
+    0 .03em 0 0 #efefef,0 .0625em 0 0 #ececec,
+    0 .125em 0 0 #e0e0e0,0 .125em 0 0 #dedede,
+    0 .2em 0 0 #dcdcdc,0 .225em 0 0 #cacaca,
+    0 .225em .375em 0 #cecece!important;
+}
+#root .app button:not(.cssbuttons-io-button):disabled {
+  cursor:not-allowed;
+  opacity:.5;
+}
+/* Preserve meaningful selected and destructive state contrast. */
+#root .app .material-panel .rotation-choice button[aria-pressed="true"],
+#root .app .material-panel .rotation-choice button[aria-pressed="true"]:is(:hover,:active,:focus,:disabled) {
+  background:#66717f!important;
+  color:#fff!important;
+  border:2px solid #505b69!important;
+  box-shadow:0 0 0 2px rgba(102,113,127,.18)!important;
+  text-shadow:none!important;
+  translate:0 0;
+}
+#root .app button.danger-button {
+  color:#aa2437!important;
+}
+/* Numeric and text entries use the supplied dark, rounded input visual.
+   No global label/svg rules: DXF canvas and coordinate overlays must be untouched. */
+#root .app {
+  --serula-field-bg:#283542;
+  --serula-field-focus:#1b9bee;
+  --serula-field-ink:#fff;
+  --serula-field-placeholder:#949faa;
+}
+#root .app input:is([type="number"],[type="text"],[type="search"],[type="email"],[type="password"],[type="tel"],[type="url"]),
+#root .app input:not([type]),
+#root .app textarea {
+  color:var(--serula-field-ink)!important;
+  background:var(--serula-field-bg)!important;
+  border:1px solid transparent!important;
+  border-radius:30px!important;
+  box-shadow:0 1px 4px rgba(0,0,0,.16)!important;
+  font-size:.9rem;
+  padding:.65em 1.2em;
+  min-width:0;
+  min-height:40px;
+  outline-offset:2px;
+}
+#root .app textarea {border-radius:16px!important;resize:vertical;}
+#root .app input:is([type="number"],[type="text"],[type="search"],[type="email"],[type="password"],[type="tel"],[type="url"]):focus,
+#root .app input:not([type]):focus,
+#root .app textarea:focus {
+  background:#283542!important;
+  border-color:var(--serula-field-focus)!important;
+  color:#fff!important;
+  outline:2px solid rgba(27,155,238,.22);
+  box-shadow:0 1px 4px rgba(0,0,0,.16)!important;
+}
+#root .app input::placeholder,
+#root .app textarea::placeholder {color:var(--serula-field-placeholder)!important;}
+#root .app input:disabled,#root .app textarea:disabled {opacity:.55;cursor:not-allowed;}
+/* Uniform green checkboxes without hiding native keyboard interaction. */
+#root .app input[type="checkbox"] {
+  appearance:none;
+  -webkit-appearance:none;
+  display:inline-grid;
+  place-content:center;
+  flex:0 0 27px;
+  width:27px;
+  height:27px;
+  min-width:27px;
+  min-height:27px;
+  margin:0;
+  vertical-align:middle;
+  cursor:pointer;
+  border:3px solid #beddd0!important;
+  border-radius:10px;
+  background:#e8f3ee!important;
+  box-shadow:0 0 1px #cef1e4,inset 0 -2.5px 3px #cbeadd,
+    inset 0 3px 3px rgba(0,0,0,.12)!important;
+  position:relative;
+  transition:background-color .3s ease,box-shadow .3s ease;
+}
+#root .app input[type="checkbox"]::after {
+  content:"";
+  width:5px;
+  height:10px;
+  border:solid #fff;
+  border-width:0 2px 2px 0;
+  transform:rotate(45deg) translate(-1px,-1px) scale(.6);
+  opacity:0;
+  filter:drop-shadow(0 2px 1px rgba(0,0,0,.25));
+  transition:opacity .3s ease,transform .3s ease;
+}
+#root .app input[type="checkbox"]:checked {
+  background:#2dc38c!important;
+  border-color:#beddd0!important;
+  box-shadow:0 0 1px #cef1e4,inset 0 -2.5px 3px #62eab8,
+    inset 0 3px 3px rgba(0,0,0,.34)!important;
+}
+#root .app input[type="checkbox"]:checked::after {
+  opacity:1;
+  transform:rotate(45deg) translate(-1px,-1px) scale(1);
+}
+#root .app input[type="checkbox"]:focus-visible {
+  outline:2px solid #1b9bee;
+  outline-offset:3px;
+}
+#root .app input[type="checkbox"]:disabled {opacity:.5;cursor:not-allowed;}
+@media (prefers-reduced-motion:reduce) {
+  #root .app button,#root .app input[type="checkbox"]::after {transition:none!important;}
+}
