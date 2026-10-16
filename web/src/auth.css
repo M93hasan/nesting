@@ -232,3 +232,63 @@
 @media(prefers-reduced-motion:reduce){
   #serula-account-slot .auth-account-menu>summary{transition:none}
 }
+
+/* Unified raised-grey button finish also overrides older login-specific blue CSS. */
+#root #serula-account-slot > button.auth-login-header,
+#root #serula-account-slot > button.auth-login-header:hover:enabled,
+#root .auth-overlay > .auth-card:not(.auth-support-card) .auth-tabs button,
+#root .auth-overlay > .auth-card:not(.auth-support-card) form button,
+#root .auth-overlay > .auth-card:not(.auth-support-card) .auth-google button {
+  font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  font-size:13px!important;
+  font-weight:600!important;
+  line-height:1.35!important;
+  min-height:34px!important;
+  padding:.375em 1em!important;
+  border:0!important;
+  border-radius:.5em!important;
+  background:#f0f0f0!important;
+  background-image:none!important;
+  color:#242424!important;
+  text-shadow:0 .0625em 0 #fff!important;
+  box-shadow:inset 0 .0625em 0 0 #f4f4f4,
+    0 .0625em 0 0 #efefef,0 .125em 0 0 #ececec,
+    0 .25em 0 0 #e0e0e0,0 .3125em 0 0 #dedede,
+    0 .375em 0 0 #dcdcdc,0 .425em 0 0 #cacaca,
+    0 .425em .5em 0 #cecece!important;
+  transition:translate .15s ease,box-shadow .15s ease!important;
+  translate:0 0;
+  transform:none!important;
+}
+#root #serula-account-slot > button.auth-login-header:active:enabled,
+#root .auth-overlay > .auth-card:not(.auth-support-card) form button:active:enabled,
+#root .auth-overlay > .auth-card:not(.auth-support-card) .auth-tabs button:active:enabled {
+  translate:0 .225em!important;
+  box-shadow:inset 0 .03em 0 0 #f4f4f4,
+    0 .03em 0 0 #efefef,0 .0625em 0 0 #ececec,
+    0 .125em 0 0 #e0e0e0,0 .125em 0 0 #dedede,
+    0 .2em 0 0 #dcdcdc,0 .225em 0 0 #cacaca,
+    0 .225em .375em 0 #cecece!important;
+}
+#root .auth-overlay > .auth-card:not(.auth-support-card) .auth-tabs button.active,
+#root .auth-overlay > .auth-card:not(.auth-support-card) .auth-tabs button.active:hover:enabled {
+  background:#66717f!important;
+  background-image:none!important;
+  color:#fff!important;
+  border:0!important;
+  text-shadow:none!important;
+  box-shadow:inset 0 2px 3px rgba(0,0,0,.16),0 0 0 1px rgba(69,81,95,.38)!important;
+  translate:0 0!important;
+}
+#root #serula-account-slot > button.auth-login-header .auth-avatar {
+  background:#66717f!important;
+  color:#fff!important;
+}
+@media(max-width:699px) {
+  #root #serula-account-slot > button.auth-login-header,
+  #root .auth-overlay > .auth-card:not(.auth-support-card) :is(button,.auth-tabs button) {
+    font-size:12px!important;
+    min-height:36px!important;
+    padding:.375em .75em!important;
+  }
+}
