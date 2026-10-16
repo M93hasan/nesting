@@ -48,6 +48,6 @@ export type GeometryReply = Identity & (
   | { type:'archive-result'; archive:Uint8Array }
   | { type:'live-frame'; sequence:number; geometry:LiveGeometry }
   | { type:'sheet-gap-result'; result:Result }
-  | { type:'sheet-validated'; sequence:number; validation:Validation }
+  | { type:'sheet-validated'; sequence:number; validation:Validation; result?:Result }
   | { type:'error'; message:string }
 );

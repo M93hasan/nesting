@@ -185,14 +185,15 @@ export function useSolver() {
         if(data.type==='sheet-validated'&&data.sequence!==active.candidate.sequence)return;
         const history=r.diagnostics.history.find(entry=>entry.sequence===active.candidate.sequence);
         const checked=data.type==='sheet-validated'?data.validation:undefined;
+        const accepted=data.type==='sheet-validated'?data.result??active.packed:active.packed;
         if(history){
           history.validation=checked?.status??'failed';
           if(checked?.status!=='passed')history.errors=checked?.errors??[data.type==='error'?data.message:'Plaka doğrulaması başarısız oldu.'];
         }
-        if(checked?.status==='passed'&&isBetterSheetResult(r.doc,active.packed,r.best,
+        if(checked?.status==='passed'&&isBetterSheetResult(r.doc,accepted,r.best,
           active.candidate.solution.strip_width,r.bestSheetSolverLength)){
           r.diagnostics.startup!.firstValidMs??=performance.now()-r.requestedAt;
-          r.best={...active.packed,validation:{...checked,source:'local'}};
+          r.best={...accepted,validation:{...checked,source:'local'}};
           r.bestSheetSolverLength=active.candidate.solution.strip_width;
           setResult(r.best);
         }
