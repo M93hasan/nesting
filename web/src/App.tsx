@@ -1,5 +1,4 @@
 import RotationControl from './components/RotationControl';
-import FlowLoader from './components/FlowLoader';
 import packageInfo from '../package.json';
 import {readRecovery,saveRecovery} from './storage/recovery';
 import {useDismissibleMenu} from './components/useDismissibleMenu';
@@ -24,11 +23,6 @@ import {isEditableTarget,preparationShortcut} from './geometry/gestures';
 import {applySeriesMultiplier,copyRefsFor,documentPlacements,duplicateCopies,maxSeriesMultiplier,mirrorPlacements,removeCopies,rotatePlacements,rotateToNextOrientation,setPlacementAngles,movePlacements,placementLayoutsEqual,syncQuantity,updatePlacements,withDocumentPlacements,type CopyRef} from './geometry/placements';
 import {LanguageSelect} from './i18n';
 import {captureClipboard,pasteClipboard,type ClipboardItem} from './geometry/clipboard';
-import {automaticSolverThreads} from './workers/autoThreads';
-import MachineSettingsDialog from './components/MachineSettingsDialog';
-import {applyMachineProfile,machineProfileFromSettings,physicalMaterialWidthMm,setPhysicalMaterialWidth,type MachineProfile} from './geometry/headMode';
-import {createDxfExportCache} from './export/dxfCache';
-import {createSerialQueue} from './storage/serialQueue';
 
 const emptyProject=(name='Adsız proje'):Document=>({name,parts:[],settings:{...DEFAULT_SETTINGS}});
 const CLOUD_SAVE_NAME='Serula Nesting En Temiz Hali';
@@ -48,10 +42,11 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const [doc,setDoc]=useState<Document>(()=>withDocumentPlacements(initialDocument)),[revision,setRevision]=useState(1),[selectedCopies,setSelectedCopies]=useState<CopyRef[]>([]);
   const [unusedSelection,setUnusedSelection]=useState<string[]>([]);
   // Safari clears the focus selection on mouse-up; preserve it for the first click only.
-  const focusClick=useRef<HTMLInputElement|null>(null);
+  const partAnchor=useRef(0),focusClick=useRef<HTMLInputElement|null>(null);
   const [busy,setBusy]=useState(false),[error,setError]=useState(initialError);
   const [fitRequest,setFitRequest]=useState(0);
   const [resultMode,setResultMode]=useState<'live'|'checked'>('live');
+  const [threads,setThreads]=useState(0);
   const [sizeValid,setSizeValid]=useState(true),[downloadedResult,setDownloadedResult]=useState(false),[seriesDraft,setSeriesDraft]=useState<string>();
   const [downloadPhase,setDownloadPhase]=useState<'idle'|'preparing'|'authorizing'>('idle');
   const [theme,setTheme]=useState<'system'|'light'|'dark'>(()=>{try{const saved=localStorage.getItem('serula-theme');return saved==='light'||saved==='dark'||saved==='system'?saved:'light';}catch{return 'system';}});
@@ -61,10 +56,6 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const factor=unitScale(unit),length=(mm:number)=>(mm/factor).toLocaleString(undefined,{maximumFractionDigits:unit==='mm'?2:4});
   const inputLength=(mm:number)=>Number.isFinite(mm)?displayLength(mm,unit):'';
   const [panel,setPanel]=useState(true),[info,setInfo]=useState<'admin'|'about'|'contact'|'help'>(),[historyOpen,setHistoryOpen]=useState(false);
-  const [machineProfile,setMachineProfile]=useState<MachineProfile>(()=>machineProfileFromSettings(initialDocument.settings));
-  const [machineSettingsOpen,setMachineSettingsOpen]=useState(false),[machineOnboarding,setMachineOnboarding]=useState(false);
-  const [machineSaving,setMachineSaving]=useState(false),[machineError,setMachineError]=useState('');
-  const [machineSignedIn,setMachineSignedIn]=useState(false);
   const [testDxfOpen,setTestDxfOpen]=useState(false),[testDxfBusy,setTestDxfBusy]=useState(''),[testDxfFiles,setTestDxfFiles]=useState<string[]>([]);
   const [testDxfAllowed,setTestDxfAllowed]=useState(false);
   useEffect(()=>{
@@ -119,53 +110,21 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const [browserSaved,setBrowserSaved]=useState<{document:Document;result?:Result;revision:number}>();
   const [recoveryReady,setRecoveryReady]=useState(false),[recoveryError,setRecoveryError]=useState('');
   const [cloudSaveState,setCloudSaveState]=useState<'idle'|'saving'|'saved'|'signed-out'|'error'>('idle'),[cloudSaveTick,setCloudSaveTick]=useState(0);
-  // Never let an older autosave overtake newer hand-adjusted coordinates.
-  const cloudSaveQueue=useRef(createSerialQueue());
-  const [transferAccess,setTransferAccess]=useState({corel:false});
-  const [bridgeInstallPrompt,setBridgeInstallPrompt]=useState(false);
+  const [transferAccess,setTransferAccess]=useState({corel:false,rdworks:false});
   useEffect(()=>{const changed=()=>setCloudSaveTick(value=>value+1);window.addEventListener('serula-auth-updated',changed);return()=>window.removeEventListener('serula-auth-updated',changed)},[]);
   useEffect(()=>{
     let active=true;
     const refresh=async()=>{
       try{
         const response=await fetch('/api/transfer/access',{credentials:'same-origin',cache:'no-store'});
-        const data=await response.json() as {corel?:boolean};
-        if(active)setTransferAccess({corel:response.ok&&data.corel===true});
-      }catch{if(active)setTransferAccess({corel:false});}
+        const data=await response.json() as {corel?:boolean;rdworks?:boolean};
+        if(active)setTransferAccess(response.ok?{corel:data.corel===true,rdworks:data.rdworks===true}:{corel:false,rdworks:false});
+      }catch{if(active)setTransferAccess({corel:false,rdworks:false});}
     };
     void refresh();
     const timer=window.setInterval(()=>void refresh(),15000);
     window.addEventListener('serula-auth-updated',refresh);
     return()=>{active=false;window.clearInterval(timer);window.removeEventListener('serula-auth-updated',refresh)};
-  },[]);
-  // Account-scoped onboarding. Existing accounts without a machine row are
-  // never forced through setup; only freshly registered accounts get one.
-  useEffect(()=>{
-    let alive=true;
-    async function refresh(){
-      try{
-        const auth=await fetch('/api/auth/me',{credentials:'same-origin',cache:'no-store'});
-        if(!auth.ok){if(alive){setMachineSignedIn(false);setMachineOnboarding(false);setMachineSettingsOpen(false);}return;}
-        const user=await auth.json() as {user?:{id:number}|null};
-        if(!user.user)return;
-        const result=await fetch('/api/machine-profile',{credentials:'same-origin',cache:'no-store'});
-        if(!alive)return;
-        setMachineSignedIn(result.ok);
-        if(!result.ok)return;
-        const payload=await result.json() as {profile?:MachineProfile|null;configured?:boolean;onboardingRequired?:boolean};
-        if(!alive)return;
-        if(payload.configured&&payload.profile){
-          setMachineProfile(payload.profile);
-          // Never overwrite a restored, populated project or saved DXF layout.
-          setDoc(previous=>previous.parts.length===0?applyMachineProfile(previous,payload.profile!):previous);
-        }else if(payload.onboardingRequired){
-          setMachineOnboarding(true);setMachineSettingsOpen(true);
-        }
-      }catch{/* Offline desktop still uses local project save and settings. */}
-    }
-    void refresh();
-    window.addEventListener('serula-auth-updated',refresh);
-    return()=>{alive=false;window.removeEventListener('serula-auth-updated',refresh);};
   },[]);
   useEffect(()=>{
     if(loadingExample)return;
@@ -232,14 +191,20 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     catch(error){setError(error instanceof Error?error.message:String(error))}
   };
   const canvasDocument=useMemo(()=>visibleResult?{...doc,placements:visibleResult.placements}:doc,[doc,visibleResult]);
-  const exportCache=useRef(createDxfExportCache(async ({document:exportDocument,result:exportResult,revision:exportRevision})=>{
-    const reply=await geometryTask({type:'export',runId:++operation.current,documentRevision:exportRevision,document:exportDocument,result:exportResult});
-    if(reply.type!=='export-result')throw Error('Güncel yerleşimin DXF verisi hazırlanamadı.');
-    return reply.bundle.dxf;
-  }));
-  // The cache key includes the exact layout snapshot: a pending export from
-  // before a manual drag must NEVER be reused for the updated coordinates.
-  const currentExportDxf=()=>exportCache.current.get({document:canvasDocument,result,revision});
+  const exportCache=useRef<{document:Document;result?:Result;revision:number;dxf:string}|undefined>(undefined);
+  const exportInFlight=useRef<Promise<string>|undefined>(undefined);
+  async function currentExportDxf() {
+    const cached=exportCache.current;
+    if(cached?.document===canvasDocument&&cached.result===result&&cached.revision===revision)return cached.dxf;
+    if(exportInFlight.current)return exportInFlight.current;
+    const work=geometryTask({type:'export',runId:++operation.current,documentRevision:revision,document:canvasDocument,result}).then(reply=>{
+      if(reply.type!=='export-result')throw Error('Güncel yerleşimin DXF verisi hazırlanamadı.');
+      exportCache.current={document:canvasDocument,result,revision,dxf:reply.bundle.dxf};
+      return reply.bundle.dxf;
+    });
+    exportInFlight.current=work;
+    try{return await work;}finally{if(exportInFlight.current===work)exportInFlight.current=undefined;}
+  }
   const chosen=doc.parts.find(p=>p.id===selected[0]);
   const mixedRotations=chosen&&doc.parts.some(part=>selected.includes(part.id)&&rotationValue(part.rotations)!==rotationValue(chosen.rotations));
   const selectedBox=useMemo(()=>selectionBounds(canvasDocument,selected,selectedCopies),[canvasDocument,selected,selectedCopies]);
@@ -282,7 +247,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     const write=async()=>{
       if(written)return;written=true;
       try{
-        const response=await cloudSaveQueue.current(()=>fetch('/api/project/autosave',{method:'PUT',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({projectName:doc.name,projectJson:JSON.stringify(project)})}));
+        const response=await fetch('/api/project/autosave',{method:'PUT',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({projectName:doc.name,projectJson:JSON.stringify(project)})});
         if(!active)return;
         if(response.status===401){setCloudSaveState('signed-out');return;}
         setCloudSaveState(response.ok?'saved':'error');
@@ -482,7 +447,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     try {
       const reply=await geometryTask({type:'normalize',runId:id,documentRevision:rev,document});
       if(id!==operation.current || reply.type!=='normalized') return;
-      solver.start(reply.document,rev,automaticSolverThreads(),requestedAt);
+      solver.start(reply.document,rev,threads||undefined,requestedAt);
     } catch(e) {setError(String(e));} finally {if(id===operation.current)setBusy(false);}
   }
   async function openFiles(list:FileList|File[],intent:'project'|'shapes'|'auto'='auto') {
@@ -547,7 +512,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     const normalizedDocument={...next.document,parts:next.document.parts.map(part=>({...part,rotations:normalizedRotationRule(part.rotations)}))};
     const document=withDocumentPlacements(normalizedDocument,checked?.placements ?? next.document.placements);
     ++operation.current;solver.invalidate();setRevision(nextRevision);setDoc(document);
-    history.current=[];future.current=[];fieldEdit.current=undefined;setUnusedSelection([]);setSelectedCopies([]);setPolygon(undefined);setFiles(undefined);setReview(undefined);setPendingProject(undefined);setError('');setImportWarnings(next.warnings??[]);setFitRequest(n=>n+1);setResultMode(checked?'checked':'live');
+    history.current=[];future.current=[];fieldEdit.current=undefined;partAnchor.current=0;setUnusedSelection([]);setSelectedCopies([]);setPolygon(undefined);setFiles(undefined);setReview(undefined);setPendingProject(undefined);setError('');setImportWarnings(next.warnings??[]);setFitRequest(n=>n+1);setResultMode(checked?'checked':'live');
     if(checked)solver.load(checked);
     setExported({document:next.saved?document:withDocumentPlacements(emptyProject()),result:next.saved?checked:undefined});
     if(next.nest)void run(document,nextRevision);
@@ -647,26 +612,9 @@ export default function App({initialDocument=emptyProject(),initialError='',load
       }
     }catch(e){setError(String(e));return false;}finally{setDownloadPhase('idle');setBusy(false);}
   }
-  async function saveMachineProfile(profile:MachineProfile) {
-    if(locked)return;
-    setMachineSaving(true);setMachineError('');
-    try {
-      if(machineSignedIn){
-        const res=await fetch('/api/machine-profile',{method:'POST',credentials:'same-origin',
-          headers:{'content-type':'application/json'},body:JSON.stringify(profile)});
-        const data=await res.json() as {error?:string};
-        if(!res.ok)throw Error(data.error||'Makine ayarları hesabınıza kaydedilemedi.');
-      }
-      commit(applyMachineProfile(doc,profile));
-      setMachineProfile(profile);
-      setMachineOnboarding(false);setMachineSettingsOpen(false);
-    }catch(e){setMachineError(e instanceof Error?e.message:String(e));}
-    finally{setMachineSaving(false);}
-  }
-  async function transferLayout(target:'corel') {
+  async function transferLayout(target:'corel'|'rdworks') {
     if(exportBlockedReason||!doc.parts.some(part=>part.quantity>0))return;
-    setBusy(true);setError('');setBridgeInstallPrompt(false);
-    let bridgePreflight=true;
+    setBusy(true);setError('');
     try{
       // Preflight first: a stale or unavailable local bridge must never consume
       // a one-use server ticket. The Windows installer is always accessible
@@ -675,7 +623,11 @@ export default function App({initialDocument=emptyProject(),initialError='',load
       const health=await ready.json() as {ok?:boolean;service?:string;version?:string};
       if(!ready.ok||health.ok!==true||health.service!=='serula-bridge')
         throw Error('Windows aktarım köprüsü çalışmıyor. Hakkında > Otomatik Aktarım Köprüsü bölümünden kurulum yapın.');
-      bridgePreflight=false;
+      const bridgeVersion=/^(\d+)\.(\d+)/.exec(health.version||'');
+      const supportsRdworks=!!bridgeVersion&&(Number(bridgeVersion[1])>1||
+        Number(bridgeVersion[1])===1&&Number(bridgeVersion[2])>=5);
+      if(target==='rdworks'&&!supportsRdworks)
+        throw Error(`RDWorks için doğrudan aktarım destekli Bridge 1.5 gerekli (yüklü sürüm: ${health.version||'bilinmiyor'}). Hakkında > Otomatik Aktarım Köprüsü kurulumunu tekrar çalıştırın.`);
       // Prepare DXF before obtaining a short-lived one-use ticket. Large DXF
       // exports can otherwise cause the ticket to expire before redemption.
       const dxf=await currentExportDxf();
@@ -688,11 +640,12 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         body:JSON.stringify({target,ticket:permit.ticket,dxf,fileName:exportAd+'.dxf'})});
       const response=await bridge.json() as {ok?:boolean;status?:string;message?:string;error?:string;filePath?:string;manualImportRequired?:boolean};
       if(!bridge.ok||response.ok!==true){
-        throw Error(response.error||response.message||'CorelDRAW aktarımı başarısız.');
+        const backup=response.manualImportRequired&&response.filePath
+          ?` DXF kaybolmadı, dosya hazır: ${response.filePath}. RDWorks > File > Import ile açabilirsiniz.`:'';
+        throw Error((response.error||response.message||'Yerel aktarım başarısız.')+backup);
       }
-      setError(response.message||'DXF CorelDRAW uygulamasına aktarıldı.');
+      setError(response.message||'DXF hedef programa gönderildi. RDWorks çalışma alanında dosyayı kontrol edin.');
     }catch(e){
-      if(bridgePreflight)setBridgeInstallPrompt(true);
       const message=e instanceof TypeError
         ?'Yerel Serula Bridge bulunamadı veya tarayıcı yerel ağ bağlantısını engelledi. Windows aktarım köprüsünü başlatın ve serula.site için yerel ağ erişimine izin verin.'
         :e instanceof Error?e.message:String(e);
@@ -716,13 +669,10 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         
         <button disabled={locked} onClick={()=>{projectMenu.current!.open=false;setProjectAd(doc.name);setNameDialog('rename');}}>Projeyi yeniden adlandır</button>
       </div></details><small className="project-status" data-save-state={browserSaveState} aria-live="polite" title={recoveryError||(invalidSettings?'Değişiklikleri kaydetmek için geçersiz değerleri düzeltin.':polygon?.length?'Değişiklikleri kaydetmek için çokgeni tamamlayın veya iptal edin.':cloudSaveState==='saved'?CLOUD_SAVE_NAME+' buluta kaydedildi.':'Bu tarayıcıda otomatik kaydedilir; giriş yapılmışsa buluta da senkronlanır.')}><span aria-hidden="true">{browserSaveState==='saved'&&cloudSaveState!=='error'?'✓':browserSaveState==='error'||browserSaveState==='unsaved'||cloudSaveState==='error'?'!':'◷'}</span>{cloudSaveState==='saved'?'Buluta kaydedildi':cloudSaveState==='saving'?'Buluta kaydediliyor…':browserSaveLabel}</small></div>
-      <nav><button className="nav-action" onClick={()=>{setMachineError('');setMachineSettingsOpen(true);}}>⚙ Ayarlarım</button>{testDxfAllowed&&<button className="test-dxf-tab" disabled={locked} onClick={()=>setTestDxfOpen(true)}>Test DXF</button>}<button className="history-tab nav-action" disabled={locked} onClick={()=>setHistoryOpen(true)}><span aria-hidden="true">◷</span>Geçmiş</button><button className="mobile-settings" aria-expanded={panel} aria-controls="parts-settings" onClick={()=>setPanel(!panel)}>Parçalar &amp; ayarlar</button><button className="theme-toggle" title="Açık/koyu görünümü değiştir" aria-label="Açık/koyu görünümü değiştir" onClick={()=>setTheme(theme==='dark'||theme==='system'&&matchMedia('(prefers-color-scheme: dark)').matches?'light':'dark')}><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16Z" fill="currentColor" stroke="none"/></svg></button><button className="nav-action" aria-label="Serula Nesting Hakkında" onClick={()=>setInfo('about')}><span aria-hidden="true">ⓘ</span>Hakkında</button><button className="hello-button nav-action" aria-label="İletişim" onClick={()=>setInfo('contact')}><span className={downloadedResult?'hello-wave':undefined} aria-hidden="true">☎</span>İletişim</button><div id="serula-account-slot" className="account-slot"/></nav>
+      <nav>{testDxfAllowed&&<button className="test-dxf-tab" disabled={locked} onClick={()=>setTestDxfOpen(true)}>Test DXF</button>}<button className="history-tab nav-action" disabled={locked} onClick={()=>setHistoryOpen(true)}><span aria-hidden="true">◷</span>Geçmiş</button><button className="mobile-settings" aria-expanded={panel} aria-controls="parts-settings" onClick={()=>setPanel(!panel)}>Parçalar &amp; ayarlar</button><button className="theme-toggle" title="Açık/koyu görünümü değiştir" aria-label="Açık/koyu görünümü değiştir" onClick={()=>setTheme(theme==='dark'||theme==='system'&&matchMedia('(prefers-color-scheme: dark)').matches?'light':'dark')}><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16Z" fill="currentColor" stroke="none"/></svg></button><button className="nav-action" aria-label="Serula Nesting Hakkında" onClick={()=>setInfo('about')}><span aria-hidden="true">ⓘ</span>Hakkında</button><button className="hello-button nav-action" aria-label="İletişim" onClick={()=>setInfo('contact')}><span className={downloadedResult?'hello-wave':undefined} aria-hidden="true">☎</span>İletişim</button><div id="serula-account-slot" className="account-slot"/></nav>
       <input ref={input} hidden type="file" multiple accept=".json,.svg,.dxf,.plt,.hpgl,.hpg,.hgl" onChange={e=>{if(e.target.files)void openFiles(e.target.files,'shapes');e.target.value='';}}/>
       <input ref={projectInput} hidden type="file" accept=".zip,.sparrow-project.json,.json" onChange={e=>{if(e.target.files)void openFiles(e.target.files,'project');e.target.value='';}}/>
     </header>
-    {machineSettingsOpen&&<MachineSettingsDialog profile={machineProfile} required={machineOnboarding}
-      busy={machineSaving} serverError={machineError} onSave={saveMachineProfile}
-      onClose={()=>{if(!machineOnboarding&&!machineSaving)setMachineSettingsOpen(false);}}/>}
     {(error||solver.error)&&<div className="error-banner" role="alert">{error||solver.error}</div>}
     {recoveryError&&<div className="error-banner" role="alert">{recoveryError}</div>}
     <main className="main-workspace">
@@ -730,17 +680,20 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         <div className="panel-title"><h2>Parçalar <span>{displayedPieceCount(doc.parts)}</span></h2><div className="panel-title-actions"><div className="series-multiplier" title="Bütün proje için seri adedi"><span aria-hidden="true">×</span><input aria-label="Proje seri adedi" inputMode="numeric" type="text" pattern="[0-9]*" value={seriesDraft??String(seriesMultiplier)} disabled={locked||!doc.parts.length} onFocus={e=>{setSeriesDraft(String(seriesMultiplier));e.currentTarget.select();}} onChange={e=>{if(/^\d*$/.test(e.target.value))setSeriesDraft(e.target.value)}} onBlur={finishSeriesEdit} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();e.currentTarget.blur()}}}/></div><button onClick={()=>setInfo('help')}>Yardım</button></div></div>
         <div className="parts-list">{doc.parts.map((p,i)=>{const b=bounds(p.outer);return <div key={p.id} className={`part-row ${selected.includes(p.id)?'selected':''}`}>
           <button className="part-select" aria-pressed={selected.includes(p.id)} onClick={e=>{
-            // Select exactly the clicked part; modifier clicks toggle only that part.
-            // Shift must not silently select every row between the last two clicks.
-            const additive=e.shiftKey||e.metaKey||e.ctrlKey;
-            const next=additive
-              ? (selected.includes(p.id)?selected.filter(id=>id!==p.id):[...selected,p.id])
-              : [p.id];
+            const additive=e.metaKey||e.ctrlKey;
+            let next:string[];
+            if(e.shiftKey){
+              const range=doc.parts.slice(Math.min(partAnchor.current,i),Math.max(partAnchor.current,i)+1).map(part=>part.id);
+              next=additive?[...new Set([...selected,...range])]:range;
+            }else{
+              partAnchor.current=i;
+              next=additive?(selected.includes(p.id)?selected.filter(id=>id!==p.id):[...selected,p.id]):[p.id];
+            }
             setSelectedCopies(copyRefsFor(doc,next));
             setUnusedSelection(next.filter(id=>doc.parts.some(part=>part.id===id&&part.quantity===0)));
           }}>
             <svg aria-hidden="true" viewBox={`${b[0]-2} ${-b[3]-2} ${b[2]-b[0]+4} ${b[3]-b[1]+4}`}><path d={pathData([p.outer,...p.holes])} transform="scale(1 -1)" fillRule="evenodd" fill={colors[i%colors.length]}/></svg>
-            <span className="part-label"><span className="part-label__name" title={p.name}>{p.name}</span><small>{length(b[2]-b[0])} × {length(b[3]-b[1])} {unit}</small><small className="rotation-summary">{rotationSummary(p.rotations)}</small></span>
+            <span>{p.name}<small>{length(b[2]-b[0])} × {length(b[3]-b[1])} {unit}</small><small className="rotation-summary">{rotationSummary(p.rotations)}</small></span>
           </button><input data-undo-field aria-label={`${p.name} adedi`} type="text" inputMode="numeric" pattern="[0-9]*" aria-invalid={!validQuantity(p.quantity)} value={Number.isFinite(p.quantity)?String(p.quantity):''} disabled={locked} onFocus={e=>e.currentTarget.select()} onChange={e=>{const raw=e.target.value;if(!/^\d*$/.test(raw))return;const quantity=raw===''?Number.NaN:Number(raw);commit(syncQuantity({...doc,parts:doc.parts.map(part=>part.id===p.id?{...part,quantity}:part)}),true,`quantity:${p.id}`)}}/>
           <button className="remove-part" aria-label={`${p.name} kaldır`} title={`${p.name} ve tüm kopyalarını kaldır`} disabled={locked} onClick={()=>commit({...doc,parts:doc.parts.filter(part=>part.id!==p.id)})}><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/></svg></button>
           {!validQuantity(p.quantity)&&<small role="alert" className="field-error quantity-error">0 ile 500 arasında bir tam sayı girin.</small>}
@@ -769,78 +722,33 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         {solver.liveError&&<p className="field-error">Canlı önizleme kullanılamıyor: {solver.liveError}</p>}
       </section>
       <aside className="material-panel" aria-label="Malzeme ve Yerleşim">
-        <div className="panel-title material-panel__title">
-          <div><h2>Malzeme ve Yerleşim</h2><p>Üretim ayarlarını tek yerden yönetin</p></div>
-        </div>
-        <div className="settings material-settings">
-          <section className="material-group" aria-labelledby="material-group-1">
-            <div className="material-group__heading">
-              <span className="material-group__index" aria-hidden="true">01</span>
-              <div className="material-group__heading-copy"><h3 id="material-group-1">Parça dönüşü</h3><p>Seçili parçanın izin verilen açıları</p></div>
-            </div>
-            <div className="material-group__body">
+        <div className="panel-title"><h2>Malzeme ve Yerleşim</h2></div>
+        <section className="settings material-settings">
           <div className="material-rotation">
           <RotationControl key={JSON.stringify([selected,mixedRotations,chosen?.rotations])} rule={chosen?normalizedRotationRule(chosen.rotations):DEFAULT_ROTATIONS} mixed={!!chosen&&!!mixedRotations} disabled={locked||!chosen} required onChange={rotations=>{if(chosen)editPart({rotations})}}/>
           {chosen&&!validRotationRule(chosen.rotations)&&<small role="alert" className="field-error">İzin verilen dönüşler zorunludur.</small>}
           {!chosen&&<small className="muted">Dönüş ayarını değiştirmek için bir parça seçin.</small>}
         </div>
-            </div>
-          </section>
-          <section className="material-group material-group--combined" aria-labelledby="material-group-2">
-            <div className="material-group__heading">
-              <span className="material-group__index" aria-hidden="true">02</span>
-              <div className="material-group__heading-copy"><h3 id="material-group-2">Malzeme ölçüleri</h3><p>Malzeme tipi ve genişlik</p></div>
-            </div>
-            <div className="material-group__body">
           <label>Malzeme tipi<select value={doc.settings.materialType??'roll'} disabled={locked} onChange={e=>{const materialType=e.target.value as 'roll'|'sheet';const settings=materialType==='roll'?{...doc.settings,materialType,materialLengthMm:undefined}:{...doc.settings,materialType,materialLengthMm:doc.settings.materialLengthMm??1000};commit({...doc,settings},false)}}><option value="roll">Rulo</option><option value="sheet">Plaka</option></select></label>
-          <label className="measurement-field"><span className="measurement-field__name">Genişlik</span><span className="measurement-field__unit">{unit}</span><input data-undo-field type="number" min={0.001/factor} max={100000/factor} step="any" value={inputLength(physicalMaterialWidthMm(doc.settings))} onFocus={()=>setMaterialWidthFocused(true)} onBlur={()=>setMaterialWidthFocused(false)} disabled={locked} onChange={e=>commit({...doc,settings:setPhysicalMaterialWidth(doc.settings,e.target.valueAsNumber*factor)},true,'material-width')}/></label>
+          <label className="measurement-field"><span className="measurement-field__name">Malzeme genişliği</span><span className="measurement-field__unit">{unit}</span><input data-undo-field type="number" min={0.001/factor} max={100000/factor} step="any" value={inputLength(doc.settings.materialWidthMm)} onFocus={()=>setMaterialWidthFocused(true)} onBlur={()=>setMaterialWidthFocused(false)} disabled={locked} onChange={e=>commit({...doc,settings:{...doc.settings,materialWidthMm:e.target.valueAsNumber*factor}},true,'material-width')}/></label>
           {(!Number.isFinite(doc.settings.materialWidthMm)||doc.settings.materialWidthMm<=0||doc.settings.materialWidthMm>100_000)&&<small role="alert" className="field-error">Geçerli bir malzeme genişliği girin.</small>}
           {(doc.settings.materialType??'roll')==='sheet'&&<><label className="measurement-field"><span className="measurement-field__name">Plaka uzunluğu</span><span className="measurement-field__unit">{unit}</span><input data-undo-field type="number" min={0.001/factor} max={100000/factor} step="any" value={inputLength(doc.settings.materialLengthMm??0)} disabled={locked} onChange={e=>commit({...doc,settings:{...doc.settings,materialLengthMm:e.target.valueAsNumber*factor}},true,'material-length')}/></label>{(!Number.isFinite(doc.settings.materialLengthMm)||doc.settings.materialLengthMm!<=0)&&<small role="alert" className="field-error">Geçerli bir plaka uzunluğu girin.</small>}</>}
-            </div>
-            <div className="material-group__subsection" role="group" aria-labelledby="material-group-2-layout">
-              <h4 id="material-group-2-layout">Yerleşim kuralları</h4>
-              <div className="material-group__body">
-          <label className="measurement-field"><span className="measurement-field__unit">{unit}</span><input aria-label="Parça aralığı" data-undo-field type="number" min="0" step="any" value={inputLength(doc.settings.clearanceMm)} disabled={locked} onChange={e=>commit({...doc,settings:{...doc.settings,clearanceMm:e.target.valueAsNumber*factor}},true,'clearance')}/></label><label>Başlangıç yönü<select value={doc.settings.startCorner??'right-bottom'} disabled={locked} onChange={e=>commit({...doc,settings:{...doc.settings,startCorner:e.target.value as 'right-top'|'right-bottom'}},false)}><option value="right-bottom">Sağ alt ↘</option><option value="right-top">Sağ üst ↗</option></select></label>
+          <label className="measurement-field"><span className="measurement-field__name">Parça aralığı</span><span className="measurement-field__unit">{unit}</span><input data-undo-field type="number" min="0" step="any" value={inputLength(doc.settings.clearanceMm)} disabled={locked} onChange={e=>commit({...doc,settings:{...doc.settings,clearanceMm:e.target.valueAsNumber*factor}},true,'clearance')}/></label><label>Başlangıç yönü<select value={doc.settings.startCorner??'right-bottom'} disabled={locked} onChange={e=>commit({...doc,settings:{...doc.settings,startCorner:e.target.value as 'right-top'|'right-bottom'}},false)}><option value="right-bottom">Sağ alt ↘</option><option value="right-top">Sağ üst ↗</option></select></label>
           {doc.settings.clearanceMm>0&&<small>Parça aralığı yalnızca parçalar arasında uygulanır; malzeme kenarında ek pay oluşturmaz. Bu kesim kerfi değildir.</small>}
           {(!Number.isFinite(doc.settings.clearanceMm)||doc.settings.clearanceMm<0||doc.settings.clearanceMm>=doc.settings.materialWidthMm)&&<small role="alert" className="field-error">Sıfır veya malzeme genişliğinden küçük pozitif bir parça aralığı girin.</small>}
-              </div>
-            </div>
-          </section>
-                    <section className="material-group" aria-labelledby="material-group-3">
-            <div className="material-group__heading">
-              <span className="material-group__index" aria-hidden="true">03</span>
-              <div className="material-group__heading-copy"><h3 id="material-group-3">Optimizasyon</h3><p>Arama süresi ve hesaplama seçenekleri</p></div>
-            </div>
-            <div className="material-group__body">
           <label>Durdurma koşulu<select value={doc.settings.timeLimitSeconds??'auto'} disabled={locked} onChange={e=>commit({...doc,settings:{...doc.settings,timeLimitSeconds:e.target.value==='auto'?null:Number(e.target.value) as 10|30|60|120|300|600}},false)}><option value="auto">Otomatik · en fazla 59 sn</option>{[10,30,60,120,300,600].map(s=><option value={s} key={s}>{s<60?`En fazla ${s} saniye`:`En fazla ${s/60} dakika`}</option>)}</select></label>
-          <details className="solver-options"><summary>Yerleştirme seçenekleri</summary><label>Arama modu<select disabled={locked} value={doc.settings.solverPreset??'standard'} aria-describedby="preset-description" onChange={e=>commit({...doc,settings:{...doc.settings,solverPreset:e.target.value as 'standard'|'fast'}},false)}><option value="standard">Standart</option><option value="fast">Hızlı</option></select></label><small id="preset-description">{doc.settings.solverPreset==='fast'?'İyi yerleşimleri daha hızlı bulur; en iyi nihai yerleşimi kaçırabilir.':'En iyi nihai yerleşim için daha kapsamlı arama yapar.'}</small><label>İşlemci iş parçacıkları<select value="auto" disabled aria-label="İşlemci iş parçacıkları otomatik seçilir"><option value="auto">Otomatik</option></select></label><small>Bilgisayar ve tarayıcı desteğine göre {automaticSolverThreads()} iş parçacığı seçildi (en fazla 3).{solver.workers?.reason?` ${solver.workers.reason}`:''}</small>{solver.workers&&<small>Son çalışmada kullanılan: {solver.workers.actual} iş parçacığı.</small>}</details>
+          <details className="solver-options"><summary>Yerleştirme seçenekleri</summary><label>Arama modu<select disabled={locked} value={doc.settings.solverPreset??'standard'} aria-describedby="preset-description" onChange={e=>commit({...doc,settings:{...doc.settings,solverPreset:e.target.value as 'standard'|'fast'}},false)}><option value="standard">Standart</option><option value="fast">Hızlı</option></select></label><small id="preset-description">{doc.settings.solverPreset==='fast'?'İyi yerleşimleri daha hızlı bulur; en iyi nihai yerleşimi kaçırabilir.':'En iyi nihai yerleşim için daha kapsamlı arama yapar.'}</small><label>İşlemci iş parçacıkları<select disabled={locked} value={threads} onChange={e=>setThreads(Number(e.target.value))}><option value={0}>Otomatik</option>{[1,2,3].map(n=><option key={n} value={n}>{n}</option>)}</select></label>{solver.workers&&<small>Son başlatılan çalışma: {solver.workers.actual} çözücü işçisi{solver.workers.actual===1?'':'s'}.{solver.workers.reason&&` ${solver.workers.reason}`}</small>}<small>{crossOriginIsolated?'Otomatik mod kararlı başlatma için 1 iş parçacığı kullanır. İstersen 2 veya 3 seçebilirsin.':'Bu tarayıcı oturumu tek iş parçacığı kullanır.'}</small></details>
           <small>Arama ilerlemediğinde otomatik durur. İstediğiniz zaman durdurabilirsiniz.</small>
-            </div>
-          </section>
-        </div>
+        </section>
       </aside>
 
     </main>
     <footer className="statusbar"><div className="run-controls"><span id="compression-tooltip" role="tooltip" className="compression-tooltip"><strong>Sıkıştırmaya geç</strong>Keşfi bitir ve en iyi yerleşimi sıkıştır.</span>{running?<><button className="run-button" onClick={solver.stop}>Durdur</button>{solver.canSkip&&(solver.state==='Initializing'||solver.state==='Running'&&solver.phase==='Exploration')&&<button className="run-button skip-compression" aria-label="Sıkıştırmaya geç" disabled={solver.state!=='Running'||solver.skipping||!solver.result} aria-describedby="compression-tooltip" onClick={solver.skipToCompression}><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3 5v14l9-7zM12 5v14l9-7z"/></svg></button>}</>:<button className="run-button" disabled={locked||invalidSettings||!doc.parts.some(part=>part.quantity>0)||!!polygon} onClick={()=>void run()}>{result?'Yeniden yerleştir':'Parçaları yerleştir'}</button>}</div>
-      <div className="run-status" data-visual-state={running||busy?'working':error?'error':'ready'}><span className="status-symbol" aria-hidden="true">{running||busy||loadingExample?<FlowLoader/>:<i/>}</span><span role="status" className="run-state"><span>{busy?'Girdiler kontrol ediliyor':loadingExample?'Örnek yükleniyor…':solver.state==='Running'&&solver.phase?(solver.skipping?'Geçiliyor…':solver.phase):solver.state}</span>{(running||solver.state==='Complete'||solver.state==='Stopped')&&<span className="run-elapsed">{solver.elapsed.toFixed(1)} s</span>}</span>{solver.workers&&<small className="worker-status" title={solver.workers.reason} data-worker-count={solver.workers.actual}>{`${solver.workers.actual} çözücü işçisi`}{solver.workers.requested?` / ${solver.workers.requested} istendi`:' · otomatik'}{solver.workers.reason&&' · yedek'}</small>}</div>
+      <div className="run-status" data-visual-state={running||busy?'working':error?'error':'ready'}><span className="status-symbol" aria-hidden="true"><i className={running||busy?'active':undefined}/></span><span role="status" className="run-state"><span>{busy?'Girdiler kontrol ediliyor':loadingExample?'Örnek yükleniyor…':solver.state==='Running'&&solver.phase?(solver.skipping?'Geçiliyor…':solver.phase):solver.state}</span>{(running||solver.state==='Complete'||solver.state==='Stopped')&&<span className="run-elapsed">{solver.elapsed.toFixed(1)} s</span>}</span>{solver.workers&&<small className="worker-status" title={solver.workers.reason} data-worker-count={solver.workers.actual}>{`${solver.workers.actual} çözücü işçisi`}{solver.workers.requested?` / ${solver.workers.requested} istendi`:' · otomatik'}{solver.workers.reason&&' · yedek'}</small>}</div>
       <div className="metrics"><span>{doc.settings.materialType==='sheet'?'Kullanılan plaka':showingLive?'En iyi geçerli uzunluk':'Kullanılan uzunluk'} <strong>{result?(doc.settings.materialType==='sheet'?String(result.sheetCount??1):`${length(result.usedLengthMm)} ${unit}`):'—'}</strong></span><span>Malzeme verimliliği <strong>{result?`${utilization.toFixed(2)}%`:'—'}</strong></span><span>Fire <strong>{result?`${waste.toFixed(2)}%`:'—'}</strong></span>{improvement&&doc.settings.materialType!=='sheet'&&<span title="Keşif: ilk geçerli uzunluktan azalma. Sıkıştırma: en iyi keşif uzunluğundan ek azalma.">İyileştirme keşfet / sıkıştır <strong>{improvement.explore.toFixed(1)}% / {improvement.compress.toFixed(1)}%</strong></span>}</div>
       <div className="export-actions">
-        {transferAccess.corel&&<div className="corel-transfer-control">
-          <button type="button" disabled={!!exportBlockedReason} className="download-button corel-transfer-button" title="CorelDRAW'a dosya indirmeden aktar; Windows Serula Bridge gerekir" onClick={()=>void transferLayout('corel')}>
-            <img className="corel-transfer-logo" src={`${import.meta.env.BASE_URL}corel-button-logo.svg`} width="24" height="24" alt="" aria-hidden="true"/>
-            <span>CorelDRAW'a Aktar</span>
-          </button>
-          {bridgeInstallPrompt&&<div className="corel-bridge-prompt" role="alert">
-            <strong>Serula Bridge bağlantısı kurulamadı</strong>
-            <p>Köprü eksik veya çalışmıyor olabilir. Kurulumu çalıştırın, ardından CorelDRAW'a Aktar düğmesine yeniden basın. Köprü çalışıyorsa Chrome'un yerel ağ erişim iznini kontrol edin.</p>
-            <div className="corel-bridge-prompt-actions">
-              <a className="button" download="Serula-Kur.cmd" href={`${import.meta.env.BASE_URL}downloads/Serula-Kur.cmd`}>Köprüyü Kur / Onar (.cmd)</a>
-              <a href="http://127.0.0.1:43842/health" target="_blank" rel="noopener noreferrer">Bağlantıyı kontrol et</a>
-              <button type="button" onClick={()=>setBridgeInstallPrompt(false)}>Kapat</button>
-            </div>
-          </div>}
-        </div>}
-        <span className="download-control" tabIndex={exportBlockedReason?0:undefined} aria-describedby={exportBlockedReason?'download-tooltip':undefined}><button disabled={!!exportBlockedReason} className="download-button cssbuttons-io-button" onClick={()=>void exportLayout()}><svg className="download-button__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg><span>{downloadPhase==='preparing'?'DXF hazırlanıyor…':downloadPhase==='authorizing'?'Buluta kaydediliyor…':'DXF İndir'}</span></button>{exportBlockedReason&&<span id="download-tooltip" role="tooltip" className="compression-tooltip">{exportBlockedReason}</span>}</span></div>
+        {transferAccess.corel&&<button type="button" disabled={!!exportBlockedReason} className="download-button corel-transfer-button" title="CorelDRAW'a dosya indirmeden aktar; Windows Serula Bridge gerekir" onClick={()=>void transferLayout('corel')}>CorelDRAW'a Aktar</button>}
+        <span className="download-control" tabIndex={exportBlockedReason?0:undefined} aria-describedby={exportBlockedReason?'download-tooltip':undefined}><button disabled={!!exportBlockedReason} className="download-button" onClick={()=>void exportLayout()}><svg className="download-button__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg><span>{downloadPhase==='preparing'?'DXF hazırlanıyor…':downloadPhase==='authorizing'?'Buluta kaydediliyor…':'DXF İndir'}</span></button>{exportBlockedReason&&<span id="download-tooltip" role="tooltip" className="compression-tooltip">{exportBlockedReason}</span>}</span></div>
 
     </footer>
     
@@ -867,7 +775,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         {!testDxfFiles.length&&<p className="muted">Test DXF klasöründe dosya bulunamadı.</p>}
       </div>
     </Modal>}
-    {nameDialog&&<Modal title={nameDialog==='new'?'Yeni proje':'Projeyi yeniden adlandır'} onClose={()=>setNameDialog(undefined)}><form onSubmit={e=>{e.preventDefault();const name=projectName.trim();if(!name)return;if(nameDialog==='new')requestProject({document:applyMachineProfile(emptyProject(name),machineProfile),saved:true});else if(name!==doc.name)commit({...doc,name},false);setNameDialog(undefined);}}><label>Proje adı<input autoFocus onFocus={e=>e.currentTarget.select()} required maxLength={200} value={projectName} onChange={e=>setProjectAd(e.target.value)}/></label><div className="modal-actions"><button type="button" onClick={()=>setNameDialog(undefined)}>İptal</button><button className="primary" disabled={!projectName.trim()}>{nameDialog==='new'?'Proje oluştur':'Yeniden adlandır'}</button></div></form></Modal>}
+    {nameDialog&&<Modal title={nameDialog==='new'?'Yeni proje':'Projeyi yeniden adlandır'} onClose={()=>setNameDialog(undefined)}><form onSubmit={e=>{e.preventDefault();const name=projectName.trim();if(!name)return;if(nameDialog==='new')requestProject({document:emptyProject(name),saved:true});else if(name!==doc.name)commit({...doc,name},false);setNameDialog(undefined);}}><label>Proje adı<input autoFocus onFocus={e=>e.currentTarget.select()} required maxLength={200} value={projectName} onChange={e=>setProjectAd(e.target.value)}/></label><div className="modal-actions"><button type="button" onClick={()=>setNameDialog(undefined)}>İptal</button><button className="primary" disabled={!projectName.trim()}>{nameDialog==='new'?'Proje oluştur':'Yeniden adlandır'}</button></div></form></Modal>}
     {pendingProject&&<Modal title="Projeyi değiştir" locked={busy} onClose={()=>setPendingProject(undefined)}><p><strong>{pendingProject.document.name}</strong> açıldığında mevcut <strong>{doc.name}</strong> projesi değiştirilecek.</p><p className="muted">İsterseniz mevcut yerleşimi önce DXF olarak indirin.</p>{polygon&&<p>DXF indirmeden önce çizimi tamamlayın veya iptal edin.</p>}{error&&<p role="alert" className="field-error">{error}</p>}<div className="project-switch-actions"><button className="primary" disabled={busy||invalidSettings||!!polygon} onClick={async()=>{if(await exportLayout())switchProject(pendingProject);}}>DXF indir ve geç</button><button className="discard-project" disabled={busy} onClick={()=>switchProject(pendingProject)}>İndirmeden geç</button><button className="text-button" disabled={busy} onClick={()=>setPendingProject(undefined)}>İptal</button></div></Modal>}
     {info&&<Modal title={info==='admin'?'Yönetim Paneli':info==='about'?'Serula Nesting Hakkında':info==='contact'?'İletişim':'Kısayollar ve formatlar'} onClose={()=>setInfo(undefined)} className={info==='about'?'modal-about':''}>
       {info==='admin'?<><p>Serula Nesting yönetim alanı.</p><div className="admin-panel"><h2>Sistem durumu</h2><p><strong>Proje:</strong> {doc.name}</p><p><strong>Parça türü:</strong> {doc.parts.length}</p><p><strong>Toplam parça:</strong> {displayedPieceCount(doc.parts)}</p><p><strong>Malzeme:</strong> {(doc.settings.materialType??'roll')==='sheet'?'Plaka':'Rulo'}</p><h2>Etkin yerleşim ayarları</h2><p><strong>Genişlik:</strong> {length(doc.settings.materialWidthMm)} {unit}</p>{(doc.settings.materialType??'roll')==='sheet'&&<p><strong>Plaka uzunluğu:</strong> {length(doc.settings.materialLengthMm??0)} {unit}</p>}<p><strong>Parça aralığı:</strong> {length(doc.settings.clearanceMm)} {unit}</p><p className="muted">Kullanıcı/rol yetkilendirmesi için sunucu tarafı kimlik doğrulama ve kalıcı kullanıcı veritabanı gerekir. Bu statik istemcide güvenli kullanıcı yetkisi taklit edilmez.</p></div></>:info==='about'?<div className="about-layout">
@@ -875,19 +783,19 @@ export default function App({initialDocument=emptyProject(),initialError='',load
           <span className="about-eyebrow">SERULA NESTING PRO</span>
           <h2>Akıllı DXF yerleştirme</h2>
           <p>Ayakkabı, tekstil, suni deri ve CNC/lazer üretimi için geliştirilmiş 2B nesting aracı. Rulo veya plakada malzeme kullanımını iyileştirir; parça ölçülerini ve kesim konturlarını korur.</p>
-          <div className="about-feature-tags"><span>DXF / SVG / PLT</span><span>Rulo & Plaka</span><span>Tek / Çift kafa</span><span>CorelDRAW</span></div>
+          <div className="about-feature-tags"><span>DXF / SVG / PLT</span><span>Rulo & Plaka</span><span>CorelDRAW / RDWorks</span></div>
         </section>
         <section className="about-section">
           <div className="about-section-heading"><h3>Windows uygulaması ve aktarım</h3><span>2 seçenek</span></div>
           <div className="about-download-grid">
             <div className="about-download-card">
               <div className="about-card-title"><span className="about-download-icon" aria-hidden="true">▣</span><div><strong>Serula Nesting Pro PC</strong><small>Windows x64 · Masaüstü uygulaması</small></div></div>
-              <p>Serula'yı Windows'ta çalıştırın. CorelDRAW aktarım köprüsü kurulum paketine dahildir.</p>
+              <p>Serula'yı Windows'ta çalıştırın. CorelDRAW ve RDWorks aktarım köprüsü kurulum paketine dahildir.</p>
               <a className="button about-download-button about-pc-button" href="https://github.com/M93hasan/serula-nesting-pro-pc/releases/latest/download/Serula-Nesting-Pro-PC-Setup.exe" target="_blank" rel="noreferrer"><span aria-hidden="true">↓</span> PC Sürümünü İndir (.exe)</a>
             </div>
             <div className="about-download-card">
               <div className="about-card-title"><span className="about-download-icon" aria-hidden="true">⇄</span><div><strong>Otomatik Aktarım Köprüsü</strong><small>Windows · Tarayıcı kullanımı</small></div></div>
-              <p>Web sürümünden CorelDRAW'a yerleştirilmiş DXF aktarmak için köprüyü kurun.</p>
+              <p>Web sürümünden CorelDRAW veya RDWorks'e yerleştirilmiş DXF aktarmak için köprüyü kurun.</p>
               <a className="button about-download-button about-bridge-button" href={`${import.meta.env.BASE_URL}downloads/Serula-Kur.cmd`} download="Serula-Kur.cmd"><span aria-hidden="true">↓</span> Otomatik Kurulumu İndir (.cmd)</a>
             </div>
           </div>

@@ -555,7 +555,7 @@ Veri modelindeki üst sınırlar (kaynağa göre):
 |---|---:|
 | İstenen parça kopyası | 500 |
 | Parça başına vertex | 5.000 |
-| Toplam vertex | 500.000 |
+| Toplam vertex | 100.000 |
 | Koordinat kapsamı | 100.000 mm |
 
 Bu değerler başarının garantisi değil, kabul/koruma sınırlarıdır. Karmaşık geometrilerde daha az parçayla bile yavaşlık veya geçerli çözüm bulunamaması mümkündür. İç boşluklar geometrik olarak korunurken solver başka parçayı bir boşluğun içine yerleştirmeyebilir. Dönüş hassasiyeti, temas ve gerçek makine toleransları ayrıdır.
@@ -611,12 +611,3 @@ _Rulo + plaka • Gerçek DXF geometrisi • Sparrow/Jagua • Web + PC köprüs
 **[Uygulamayı Aç](https://serula.site/)**
 
 </div>
-
-
-## Makine profili ve çift kafa (0.1.15)
-
-İlk kayıt (e-posta veya Google) sonrasında kullanıcıdan **tek kafa / çift kafa**, **rulo / plaka**, **gerçek kesim eni (mm)** ve plaka için **kesim boyu (mm)** istenir. Kullanıcıya ait bu ayarlar hesap bazında D1 veritabanına kaydedilir ve **Ayarlarım** sekmesinden yeniden düzenlenebilir. Mevcut hesaplar için geriye dönük zorunlu kayıt ekranı gösterilmez.
-
-**0.1.16 düzeltmesi:** Tek ve çift kafada girilen gerçek malzeme eni aynen nesting alanıdır. Otomatik /2 hesabı ve ikinci kafa alanı önizlemesi kaldırıldı. Çift kafa seçimi yalnızca makine profilidir; makinenin X ofsetini ve kafa senkronizasyonunu operatör ayarlar. Eski 0.1.15 çift kafa projelerindeki yarım kaydedilmiş genişlik bir defaya mahsus gerçek genişliğe dönüştürülür; DXF parçalarının koordinatları değiştirilmez.
-
-RDWorks doğrudan aktarımı kaldırılmıştır; DXF dosyasını indirme ve yetkilendirilmiş CorelDRAW aktarımı korunur.

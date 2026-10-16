@@ -74,13 +74,6 @@ async function ensureSchema(env){
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )`),
-    env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_machine_profiles (
-      user_id INTEGER PRIMARY KEY,
-      profile_json TEXT,
-      configured INTEGER NOT NULL DEFAULT 0,
-      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    )`),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_licenses (
       user_id INTEGER PRIMARY KEY,
       started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -319,7 +312,6 @@ async function googleUserFromCredential(credential,env,requestedLocale='tr'){
     const userId=Number(result.meta.last_row_id);
     await env.DB.prepare(`INSERT INTO user_preferences(user_id,locale,updated_at) VALUES(?,?,CURRENT_TIMESTAMP)
       ON CONFLICT(user_id) DO NOTHING`).bind(userId,locale).run();
-    await env.DB.prepare('INSERT INTO user_machine_profiles(user_id,configured) VALUES(?,0)').bind(userId).run();
     user=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,l.started_at license_started_at,l.expires_at license_expires_at
       FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.id=?`).bind(userId).first();
   }else{
@@ -395,7 +387,6 @@ async function handleApi(request,env){
     const userId=Number(result.meta.last_row_id);
     await env.DB.prepare(`INSERT INTO user_preferences(user_id,locale,updated_at) VALUES(?,?,CURRENT_TIMESTAMP)
       ON CONFLICT(user_id) DO UPDATE SET locale=excluded.locale,updated_at=CURRENT_TIMESTAMP`).bind(userId,locale).run();
-    await env.DB.prepare('INSERT INTO user_machine_profiles(user_id,configured) VALUES(?,0)').bind(userId).run();
     const user=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,l.started_at license_started_at,l.expires_at license_expires_at
       FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.id=?`).bind(userId).first();
     return json({user:publicUser(user)},201,{'set-cookie':cookie(await makeSession(user.id,env))});
@@ -439,33 +430,6 @@ async function handleApi(request,env){
     await env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(reset.user_id).run();
     await audit(env,'password_changed',{actorType:'user',actorUserId:reset.user_id,targetUserId:reset.user_id});
     return json({ok:true});
-  }
-  if(path==='/api/machine-profile'&&request.method==='GET'){
-    const user=await sessionUser(request,env);
-    if(!user)return json({error:'Giriş gerekli.'},401);
-    const row=await env.DB.prepare('SELECT profile_json,configured FROM user_machine_profiles WHERE user_id=?')
-      .bind(user.id).first();
-    let profile=null;
-    try {if(row?.profile_json)profile=JSON.parse(row.profile_json);}catch{/* No corrupt defaults. */}
-    return json({profile,configured:row?.configured===1,onboardingRequired:row?.configured===0});
-  }
-  if(path==='/api/machine-profile'&&request.method==='POST'){
-    const user=await sessionUser(request,env);
-    if(!user)return json({error:'Giriş gerekli.'},401);
-    const p=await body(request);
-    const headMode=p.headMode,materialType=p.materialType;
-    const physicalWidthMm=Number(p.physicalWidthMm),materialLengthMm=Number(p.materialLengthMm);
-    if(!['single','dual'].includes(headMode)||!['roll','sheet'].includes(materialType)
-      ||!Number.isFinite(physicalWidthMm)||physicalWidthMm<=0||physicalWidthMm>100000
-      ||(materialType==='sheet'&&(!Number.isFinite(materialLengthMm)||materialLengthMm<=0||materialLengthMm>100000)))
-      return json({error:'Makine ve kesim alanı ölçüleri geçersiz.'},400);
-    const profile={headMode,materialType,physicalWidthMm,
-      ...(materialType==='sheet'?{materialLengthMm}:{})};
-    await env.DB.prepare(`INSERT INTO user_machine_profiles(user_id,profile_json,configured,updated_at)
-      VALUES(?,?,1,CURRENT_TIMESTAMP)
-      ON CONFLICT(user_id) DO UPDATE SET profile_json=excluded.profile_json,configured=1,updated_at=CURRENT_TIMESTAMP`)
-      .bind(user.id,JSON.stringify(profile)).run();
-    return json({ok:true,profile});
   }
   if(path==='/api/preferences'&&request.method==='GET'){
     const user=await sessionUser(request,env);if(!user)return json({locale:null},401);
@@ -711,7 +675,6 @@ async function handleApi(request,env){
       env.DB.prepare('DELETE FROM rdworks_tickets WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM user_rdworks_access WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM user_preferences WHERE user_id=?').bind(id),
-      env.DB.prepare('DELETE FROM user_machine_profiles WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM user_licenses WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM user_settings WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(id),

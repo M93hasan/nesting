@@ -1,3 +1,0 @@
-Serula Nesting production refresh
-source_commit: 6bd09f5eaabee44f313cc5b8f9941ac49858e027
-release: compact-every-plate-multi-width-shelf-packing

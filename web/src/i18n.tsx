@@ -5,11 +5,6 @@ type Entry={tr:string;en:string;ar:string;fa:string};
 const E=(tr:string,en:string,ar:string,fa:string):Entry=>({tr,en,ar,fa});
 
 const catalog:Entry[]=[
-E('Parça dönüşü','Part rotation','دوران القطعة','چرخش قطعه'),
-E('Seçili parçanın izin verilen açıları','Allowed angles for the selected part','الزوايا المسموحة للقطعة المحددة','زاویه‌های مجاز قطعه انتخاب‌شده'),
-E('Dönüş ayarını değiştirmek için bir parça seçin.','Select a part to change its rotation settings.','اختر قطعة لتغيير إعدادات دورانها.','برای تغییر تنظیمات چرخش، یک قطعه انتخاب کنید.'),
-E('Malzeme ölçüleri','Material dimensions','أبعاد المادة','ابعاد مواد'),
-E('Malzeme tipi ve genişlik','Material type and width','نوع المادة وعرضها','نوع و عرض مواد'),
 E('Akıllı DXF yerleştirme ve malzeme optimizasyonu','Smart DXF nesting and material optimization','ترتيب DXF ذكي وتحسين استخدام المواد','چیدمان هوشمند DXF و بهینه‌سازی مصرف مواد'),
 E('Yeni proje','New project','مشروع جديد','پروژه جدید'),
 E('Proje aç','Open project','فتح مشروع','باز کردن پروژه'),
