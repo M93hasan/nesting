@@ -1,5 +1,5 @@
 import type { SolverBinary } from '../wasm';
-import type { Document, Part, Point, Result } from '../model';
+import type { Document, Part, Point, Result, Validation } from '../model';
 import type { ImportReview } from '../import/sparrow';
 import type { ExportBundle } from '../export/svg';
 import type { LiveGeometry } from '../geometry/live';
@@ -37,6 +37,7 @@ export type GeometryRequest = Identity & (
   | { type:'archive'; document:Document; result?:Result }
   | { type:'live-preview'; sequence:number; document:Document; result:Result }
   | { type:'sheet-gap-fill'; document:Document; result:Result; budgetMs:number }
+  | { type:'sheet-validate'; sequence:number; document:Document; result:Result }
 );
 export type GeometryReply = Identity & (
   | { type:'part'; part:Part }
@@ -47,5 +48,6 @@ export type GeometryReply = Identity & (
   | { type:'archive-result'; archive:Uint8Array }
   | { type:'live-frame'; sequence:number; geometry:LiveGeometry }
   | { type:'sheet-gap-result'; result:Result }
+  | { type:'sheet-validated'; sequence:number; validation:Validation }
   | { type:'error'; message:string }
 );

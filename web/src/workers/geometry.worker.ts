@@ -13,6 +13,7 @@ import {arrangePreparation,labelPoints} from '../geometry/preparation';
 import { exportDXFOnly } from '../export/svg';
 import { exportProjectArchive } from '../export/zip';
 import {fillSheetGaps} from '../geometry/sheetGapFill';
+import {validate} from '../geometry/validate';
 import type { GeometryReply, GeometryRequest } from './protocol';
 
 self.onmessage=async({data}: MessageEvent<GeometryRequest>)=>{
@@ -67,6 +68,7 @@ self.onmessage=async({data}: MessageEvent<GeometryRequest>)=>{
       case 'archive': reply={...ids,type:'archive-result',archive:exportProjectArchive(data.document,data.documentRevision,data.result)};break;
       case 'live-preview':reply={...ids,type:'live-frame',sequence:data.sequence,geometry:liveGeometry(data.document,data.result)};break;
       case 'sheet-gap-fill':reply={...ids,type:'sheet-gap-result',result:fillSheetGaps(data.document,data.result,data.budgetMs)};break;
+      case 'sheet-validate':reply={...ids,type:'sheet-validated',sequence:data.sequence,validation:validate(data.document,data.result)};break;
     }
     if(reply.type==='archive-result') self.postMessage(reply,[reply.archive.buffer as ArrayBuffer]);
     else self.postMessage(reply);
