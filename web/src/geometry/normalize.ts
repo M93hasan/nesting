@@ -1,5 +1,6 @@
 import { orient2d } from 'robust-predicates';
 import { LIMITS, type Document, type Point, type Ring, type Part, type Placement } from '../model';
+import {upgradeLegacyDualHeadDocument} from './headMode';
 
 export const area = (ring: Ring) => ring.reduce((sum, p, i) => {
   const q = ring[(i + 1) % ring.length]; return sum + p[0] * q[1] - q[0] * p[1];
@@ -73,10 +74,11 @@ export function scalePart(part:Part,factor:number):Part {
 }
 export function normalizeDocument(doc: Document, allowEmpty=false): Document {
   if (typeof doc.name !== 'string' || !doc.name.trim() || !Array.isArray(doc.parts) || (!allowEmpty&&!doc.parts.length) || doc.parts.length > 500) throw Error('Project needs 1–500 part types.');
-  const s = doc.settings;
+  const updated=upgradeLegacyDualHeadDocument(doc);
+  const s = updated.settings;
   if (!s || !Number.isFinite(s.materialWidthMm) || s.materialWidthMm <= 0 || s.materialWidthMm > LIMITS.extent || !Number.isFinite(s.clearanceMm) || s.clearanceMm < 0 || s.clearanceMm >= s.materialWidthMm || (s.timeLimitSeconds!==null && ![10,30,60,120,300,600].includes(s.timeLimitSeconds))) throw Error('Invalid material width, clearance, or run duration.');
   if(s.headMode!==undefined&&!['single','dual'].includes(s.headMode))throw Error('Invalid machine head mode.');
-  if(s.headMode==='dual'&&s.materialWidthMm*2>LIMITS.extent)throw Error('Dual-head physical width exceeds allowed size.');
+  if(s.widthMode!==undefined&&s.widthMode!=='full')throw Error('Invalid material width mode.');
   if(s.solverPreset!==undefined&&!['standard','fast'].includes(s.solverPreset))throw Error('Invalid solver preset.');
   const seriesMultiplier=doc.seriesMultiplier??1;
   if(!Number.isInteger(seriesMultiplier)||seriesMultiplier<1||seriesMultiplier>LIMITS.copies)throw Error('Series multiplier must be a whole number from 1 to 500.');
@@ -103,5 +105,5 @@ export function normalizeDocument(doc: Document, allowEmpty=false): Document {
       seen.add(key);
     }
   }
-  return { ...doc, parts };
+  return { ...updated, parts };
 }
