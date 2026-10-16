@@ -1192,7 +1192,7 @@ dialog.modal.modal-about{
    The Inter variable font is packaged locally; glyphs not present fall back safely. */
 @font-face {
   font-family:"Serula Inter";
-  src:url("/fonts/InterVariable.ttf") format("truetype");
+  src:url("/fonts/InterVariable.woff2") format("woff2");
   font-weight:100 900;
   font-style:normal;
   font-display:swap;
