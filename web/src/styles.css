@@ -1160,7 +1160,11 @@ dialog.modal.modal-about{
   input[type="reset"],
   a.button,
   a.admin-workspace-link,
-  a.nav-action
+  a.nav-action,
+  a.github-link,
+  .header nav a:not(.brand),
+  details > summary,
+  [role="button"]
 ) {
   font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
   font-style:normal;
@@ -1194,7 +1198,11 @@ dialog.modal.modal-about{
 #root :is(.app,.admin-page,.auth-screen) :is(
   button,
   input[type="button"],input[type="submit"],input[type="reset"],
-  a.button,a.admin-workspace-link,a.nav-action
+  a.button,a.admin-workspace-link,a.nav-action,
+  a.github-link,
+  .header nav a:not(.brand),
+  details > summary,
+  [role="button"]
 ):hover:not(:disabled) {
   background:#f0f0f0!important;
   background-image:none!important;
@@ -1205,7 +1213,11 @@ dialog.modal.modal-about{
 #root :is(.app,.admin-page,.auth-screen) :is(
   button,
   input[type="button"],input[type="submit"],input[type="reset"],
-  a.button,a.admin-workspace-link,a.nav-action
+  a.button,a.admin-workspace-link,a.nav-action,
+  a.github-link,
+  .header nav a:not(.brand),
+  details > summary,
+  [role="button"]
 ):active:not(:disabled) {
   translate:0 .225em!important;
   transform:none!important;
@@ -1327,7 +1339,11 @@ dialog.modal.modal-about{
 @media(max-width:699px) {
   #root :is(.app,.admin-page,.auth-screen) :is(
     button,input[type="button"],input[type="submit"],input[type="reset"],
-    a.button,a.admin-workspace-link,a.nav-action
+    a.button,a.admin-workspace-link,a.nav-action,
+  a.github-link,
+  .header nav a:not(.brand),
+  details > summary,
+  [role="button"]
   ) {
     font-size:12px!important;
     padding:.375em .75em!important;
@@ -1338,7 +1354,11 @@ dialog.modal.modal-about{
   }
 }
 @media(prefers-reduced-motion:reduce) {
-  #root :is(.app,.admin-page,.auth-screen) :is(button,a.button,a.nav-action,a.admin-workspace-link) {
+  #root :is(.app,.admin-page,.auth-screen) :is(button,a.button,a.nav-action,
+  a.github-link,
+  .header nav a:not(.brand),
+  details > summary,
+  [role="button"],a.admin-workspace-link) {
     transition:none!important;
   }
 }
