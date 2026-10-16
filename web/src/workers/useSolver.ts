@@ -6,8 +6,6 @@ import type {LiveGeometry} from '../geometry/live';
 import {packResultIntoSheets} from '../geometry/multiSheet';
 import {solverCopies} from '../import/sparrow';
 import {documentPlacements,placementKey} from '../geometry/placements';
-import {validate} from '../geometry/validate';
-import {geometryTask} from './geometryTask';
 import {isBetterSheetResult} from '../geometry/sheetScore';
 
 export type RunState='Ready'|'Initializing'|'Running'|'Complete'|'Stopped'|'Error';
@@ -21,6 +19,7 @@ type Run={id:number;revision:number;doc:Document;seed:string;requestedAt:number;
   latest?:Candidate;previewActive?:{candidate:Candidate;result:Result};frame?:LiveFrame;previewSequence:number;previewError?:string;
   best?:Result;bestSheetSolverLength?:number;ended?:'Complete'|'Stopped'|'Error';startedAt?:number;watchdog:ReturnType<typeof setTimeout>;deadline?:ReturnType<typeof setTimeout>;
   deadlineAtEpochMs?:number;visibilityHandler?:()=>void;
+  validator?:Worker; validating?:{candidate:Candidate;packed:Result}; queuedValidation?:{candidate:Candidate;packed:Result}; verificationTimeout?:ReturnType<typeof setTimeout>;
   diagnostics:Diagnostics};
 export function candidateResult(doc:Document,candidate:Candidate,seed:string):Result {
   const copies=solverCopies(doc);
@@ -65,7 +64,7 @@ export function useSolver() {
   function clear() {
     const r=run.current;
     if(r) {
-      r.solver?.postMessage({type:'stop'});r.preview.terminate();clearTimeout(r.watchdog);if(r.deadline)clearTimeout(r.deadline);
+      r.solver?.postMessage({type:'stop'});r.preview.terminate();r.validator?.terminate();clearTimeout(r.watchdog);if(r.deadline)clearTimeout(r.deadline);if(r.verificationTimeout)clearTimeout(r.verificationTimeout);
       if(r.visibilityHandler&&typeof document!=='undefined')document.removeEventListener('visibilitychange',r.visibilityHandler);
     }
     run.current=undefined;setPhase(undefined);setSkipping(false);setCanSkip(false);
@@ -73,14 +72,31 @@ export function useSolver() {
   function scheduleDeadline(r:Run) {
     if(r.ended)return;
     if(r.deadline)clearTimeout(r.deadline);
-    // Reserve a small portion of the SAME hard wall-clock budget for a fully
-    // verified plate gap-fill pass; otherwise the deadline can terminate the
-    // solver at 0 ms remaining and silently skip this step for heavy DXF files.
-    // Roll mode keeps its original stopping behavior.
-    const reserve=r.doc.settings.materialType==='sheet'?1650:0;
-    const remaining=Math.max(0,(r.deadlineAtEpochMs??Date.now())-Date.now()-reserve);
+    // Sheet and roll use exactly the same wall-clock budget.
+    const remaining=Math.max(0,(r.deadlineAtEpochMs??Date.now())-Date.now());
     if(remaining<=0){end('Complete');return;}
     r.deadline=setTimeout(()=>end('Complete'),remaining);
+  }
+  function verifySheetCandidate(r:Run,item:{candidate:Candidate;packed:Result}){
+    if(!r.validator)return;
+    r.validating=item;
+    r.validator.postMessage({type:'sheet-validate',runId:r.id,documentRevision:r.revision,
+      sequence:item.candidate.sequence,document:r.doc,result:item.packed});
+  }
+  function finish(r:Run) {
+    if(run.current!==r)return;
+    if(r.verificationTimeout)clearTimeout(r.verificationTimeout);
+    r.verificationTimeout=undefined;
+    r.validator?.terminate();r.validator=undefined;
+    setPhase(undefined);
+    setResult(r.best);
+    if(r.ended==='Complete'&&!r.best){
+      const lastFailure=[...r.diagnostics.history].reverse().find(entry=>entry.validation==='failed'&&entry.errors?.length);
+      setState('Error');
+      setError(lastFailure?.errors?.[0]
+        ? `Yerleşim bulundu ancak doğrulama reddetti: ${lastFailure.errors[0]}`
+        : 'Geçerli bir plaka yerleşimi bulunamadı. Malzeme ölçüsünü ve parça aralığını kontrol edin.');
+    }else setState(r.ended??'Error');
   }
   useEffect(()=>{
     const timer=setInterval(()=>{
@@ -105,38 +121,27 @@ export function useSolver() {
     return ()=>{clearInterval(timer);clear();};
   },[]);
   function end(reason:'Complete'|'Stopped'|'Error',message?:string) {
-    const r=run.current;if(!r) return;
-    r.solver?.postMessage({type:'stop'});r.solver=undefined;clearTimeout(r.watchdog);if(r.deadline)clearTimeout(r.deadline);if(r.visibilityHandler&&typeof document!=='undefined')document.removeEventListener('visibilitychange',r.visibilityHandler);r.ended=reason;
-    r.diagnostics.stopReason=message ?? reason;
-    if(message) setError(message);
+    const r=run.current;if(!r||r.ended)return;
+    r.solver?.postMessage({type:'stop'});r.solver=undefined;
+    clearTimeout(r.watchdog);if(r.deadline)clearTimeout(r.deadline);
+    if(r.visibilityHandler&&typeof document!=='undefined')document.removeEventListener('visibilitychange',r.visibilityHandler);
+    r.ended=reason;
+    r.diagnostics.stopReason=message??reason;
+    if(message)setError(message);
     setElapsed((performance.now()-r.requestedAt)/1000);
-    setResult(r.best);setState(reason);
-    // Plaka: the continuous-strip result may leave usable interior voids.
-    // Reserve part of the EXISTING time limit for a separate verified gap pass.
-    if(reason==='Complete'&&r.best&&r.doc.settings.materialType==='sheet'){
-      const base=r.best;
-      const budget=Math.min(1500,Math.max(0,(r.deadlineAtEpochMs??Date.now())-Date.now()-120));
-      if(budget>=100){
-        setPhase('Plaka boşlukları kontrol ediliyor');
-        setState('Running'); // Keep export disabled until the final verified layout.
-        void geometryTask({type:'sheet-gap-fill',runId:r.id,documentRevision:r.revision,
-          document:r.doc,result:base,budgetMs:budget})
-          .then(reply=>{
-            if(run.current!==r||reply.type!=='sheet-gap-result')return;
-            if(reply.result!==base&&reply.result.validation.status==='passed'){
-              r.best=reply.result;
-              r.diagnostics.history.push({phase:'PlateGapFill',sequence:r.diagnostics.history.length+1,
-                elapsedMs:performance.now()-r.requestedAt,lengthMm:reply.result.usedLengthMm,validation:'passed'});
-              setResult(reply.result);
-            }
-          }).catch(()=>{/* A rejected local pass never replaces the valid Sparrow result. */})
-          .finally(()=>{if(run.current===r){setPhase(undefined);setState('Complete');}});
-      }
-    }
-    if(!r.best&&reason==='Complete'){
-      const lastFailure=[...r.diagnostics.history].reverse().find(entry=>entry.validation==='failed'&&entry.errors?.length);
-      setState('Error');
-      setError(lastFailure?.errors?.[0]?`Yerleşim bulundu ancak doğrulama reddetti: ${lastFailure.errors[0]}`:'Geçerli bir yerleşim bulunamadı. Malzeme ölçüsünü ve parça aralığını kontrol edip yeniden deneyin.');
+    // The sheet worker validates candidates while Sparrow runs. Only wait
+    // for an already-in-flight safety check; never do a second optimization.
+    if(reason==='Complete'&&r.validating){
+      setPhase('Plaka sınırları doğrulanıyor');
+      setState('Running');
+      r.verificationTimeout=setTimeout(()=>{
+        if(run.current!==r)return;
+        r.validating=undefined;r.queuedValidation=undefined;
+        finish(r);
+      },5000);
+    }else {
+      r.queuedValidation=undefined;
+      finish(r);
     }
   }
   function start(doc:Document,revision:number,threads?:number,requestedAt=performance.now()) {
@@ -145,7 +150,8 @@ export function useSolver() {
     const id=++serial.current,seed=crypto.getRandomValues(new BigUint64Array(1))[0].toString();
     const solver=new Worker(new URL('./solver.worker.ts',import.meta.url),{type:'module'});
     const preview=new Worker(new URL('./geometry.worker.ts',import.meta.url),{type:'module'});
-    const r:Run={id,revision,doc,seed,requestedAt,solver,preview,previewSequence:0,watchdog:setTimeout(()=>end('Stopped','Yerleştirme motoru 15 saniye içinde başlatılamadı. Tekrar deneyin.'),15_000),
+    const validator=doc.settings.materialType==='sheet'?new Worker(new URL('./geometry.worker.ts',import.meta.url),{type:'module'}):undefined;
+    const r:Run={id,revision,doc,seed,requestedAt,solver,preview,validator,previewSequence:0,watchdog:setTimeout(()=>end('Stopped','Yerleştirme motoru 15 saniye içinde başlatılamadı. Tekrar deneyin.'),15_000),
       diagnostics:{runDocument:doc,solverRevision:SOLVER_REVISION,seed,buildMode:'Initializing',startup,history:[],liveSnapshots:0,liveErrors:[]}};
     run.current=r;diagnostics.current=r.diagnostics;
     // Automatic mode is a hard wall-clock budget: preparation + initialization +
@@ -171,6 +177,41 @@ export function useSolver() {
       r.frame={...data.geometry,sequence:data.sequence,result:r.previewActive.result,report:r.previewActive.candidate.report};r.previewActive=undefined;
     };
     preview.onerror=e=>{if(run.current===r){r.previewError=e.message;r.previewActive=undefined;preview.terminate();}};
+    if(validator){
+      validator.onmessage=({data}:MessageEvent<GeometryReply>)=>{
+        if(run.current!==r||data.runId!==r.id||data.documentRevision!==r.revision)return;
+        const active=r.validating;if(!active)return;
+        if(data.type!=='sheet-validated'&&data.type!=='error')return;
+        if(data.type==='sheet-validated'&&data.sequence!==active.candidate.sequence)return;
+        const history=r.diagnostics.history.find(entry=>entry.sequence===active.candidate.sequence);
+        const checked=data.type==='sheet-validated'?data.validation:undefined;
+        if(history){
+          history.validation=checked?.status??'failed';
+          if(checked?.status!=='passed')history.errors=checked?.errors??[data.type==='error'?data.message:'Plaka doğrulaması başarısız oldu.'];
+        }
+        if(checked?.status==='passed'&&isBetterSheetResult(r.doc,active.packed,r.best,
+          active.candidate.solution.strip_width,r.bestSheetSolverLength)){
+          r.diagnostics.startup!.firstValidMs??=performance.now()-r.requestedAt;
+          r.best={...active.packed,validation:{...checked,source:'local'}};
+          r.bestSheetSolverLength=active.candidate.solution.strip_width;
+          setResult(r.best);
+        }
+        r.validating=undefined;
+        const next=r.queuedValidation;
+        r.queuedValidation=undefined;
+        if(next&&(!r.best||isBetterSheetResult(r.doc,next.packed,r.best,
+          next.candidate.solution.strip_width,r.bestSheetSolverLength))){
+          verifySheetCandidate(r,next);
+        }
+        if(r.ended==='Complete'&&!r.validating)finish(r);
+      };
+      validator.onerror=event=>{
+        if(run.current!==r)return;
+        r.validating=undefined;r.queuedValidation=undefined;
+        if(r.ended==='Complete')finish(r);
+        else end('Error',event.message||'Plaka doğrulama işlemi başarısız oldu.');
+      };
+    }
     solver.onmessage=({data}:MessageEvent<SolverMessage>)=>{
       if(run.current!==r || !r.solver || data.runId!==r.id || data.documentRevision!==r.revision) return;
       switch(data.type) {
@@ -204,9 +245,8 @@ export function useSolver() {
               r.diagnostics.history.at(-1)!.errors=[error instanceof Error?error.message:String(error)];
               break;
             }
-            // Roll candidates are complete Sparrow/Jagua solutions, including
-            // warm-start recovery runs. Sheet mode remains locally validated because
-            // Serula repacks the continuous strip into fixed plates afterwards.
+            // Both modes use the identical Sparrow candidates. Fixed-length
+            // plates only need their own boundary check, done off the UI thread.
             if(doc.settings.materialType!=='sheet'){
               const better=!r.best||packed.usedLengthMm<r.best.usedLengthMm;
               if(better){
@@ -215,19 +255,17 @@ export function useSolver() {
               }
               break;
             }
-            const checked=validate(doc,packed);
-            r.diagnostics.history.at(-1)!.validation=checked.status;
-            if(checked.status!=='passed'){
-              r.diagnostics.history.at(-1)!.errors=checked.errors;
+            r.diagnostics.history.at(-1)!.validation='pending';
+            if(r.best&&!isBetterSheetResult(doc,packed,r.best,data.solution.strip_width,r.bestSheetSolverLength)){
+              r.diagnostics.history.at(-1)!.validation='skipped';
               break;
             }
-            const better=isBetterSheetResult(doc,packed,r.best,
-              data.solution.strip_width,r.bestSheetSolverLength);
-            if(better){
-              startup.firstValidMs??=performance.now()-requestedAt;
-              r.best={...packed,validation:{...checked,source:'local'}};
-              r.bestSheetSolverLength=data.solution.strip_width;
-            }
+            const item={candidate:data,packed};
+            if(!r.validating)verifySheetCandidate(r,item);
+            else if(!r.queuedValidation||isBetterSheetResult(doc,packed,r.queuedValidation.packed,
+              data.solution.strip_width,r.queuedValidation.candidate.solution.strip_width)){
+              r.queuedValidation=item;
+            }else r.diagnostics.history.at(-1)!.validation='skipped';
           }
           break;
         case 'finished': end('Complete');break;
@@ -236,7 +274,7 @@ export function useSolver() {
     };
     solver.onerror=e=>{if(run.current===r && r.solver) end('Error',e.message||'Arka plan işçisi yüklenemedi. Sayfayı yenileyip tekrar deneyin.');};
     solver.postMessage({type:'start',runId:id,documentRevision:revision,document:doc,seed,threads,
-      hardLimitMs:Math.max(0,(r.deadlineAtEpochMs??Date.now())-Date.now()-(doc.settings.materialType==='sheet'?1850:0))});
+      hardLimitMs:Math.max(0,(r.deadlineAtEpochMs??Date.now())-Date.now())});
   }
   function invalidate() {clear();setWorkers(undefined);setResult(undefined);setLive(undefined);setLiveError('');setState('Ready');setError('');}
   function load(checked:Result) {
