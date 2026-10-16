@@ -12,6 +12,7 @@ import {editSelection} from '../geometry/manipulate';
 import {arrangePreparation,labelPoints} from '../geometry/preparation';
 import { exportDXFOnly } from '../export/svg';
 import { exportProjectArchive } from '../export/zip';
+import {compactRollGaps} from '../geometry/gapFill';
 import type { GeometryReply, GeometryRequest } from './protocol';
 
 self.onmessage=async({data}: MessageEvent<GeometryRequest>)=>{
@@ -65,6 +66,7 @@ self.onmessage=async({data}: MessageEvent<GeometryRequest>)=>{
       case 'export': reply={...ids,type:'export-result',bundle:exportDXFOnly(data.document,data.result)}; break;
       case 'archive': reply={...ids,type:'archive-result',archive:exportProjectArchive(data.document,data.documentRevision,data.result)};break;
       case 'live-preview':reply={...ids,type:'live-frame',sequence:data.sequence,geometry:liveGeometry(data.document,data.result)};break;
+      case 'gap-fill':reply={...ids,type:'gap-fill-result',result:compactRollGaps(data.document,data.result)};break;
     }
     if(reply.type==='archive-result') self.postMessage(reply,[reply.archive.buffer as ArrayBuffer]);
     else self.postMessage(reply);
