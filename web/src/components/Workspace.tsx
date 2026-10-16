@@ -70,13 +70,14 @@ export default function Workspace({ document: doc, result, live, selected, selec
     const parts = new Map(doc.parts.map((part, index) => [part.id, {part, index}]));
     return placements.slice().reverse().map(placement => {
       const {part, index} = parts.get(placement.partId)!;
-      const sheetOffset=doc.settings.materialType==='sheet'?(placement.sheetIndex??0)*((doc.settings.materialLengthMm??0)+20):0;
+      const sheetOffset=doc.settings.materialType==='sheet'&&result
+        ? Math.max(0,(result.sheetCount??1)-1-(placement.sheetIndex??0))*((doc.settings.materialLengthMm??0)+20):0;
       return {...placement, index, path:partPaths[index], outer:part.outer,
         detailPaths:(part.source.dxfDetails??[]).map(detail=>pathData([detail.ring])),
         markPaths:(part.source.dxfAux??[]).filter(mark=>mark.kind==='path').map(mark=>`M${mark.points.map(point=>point.join(',')).join('L')}`),
         box:bounds(part.outer) as [number,number,number,number], position:[placement.xMm,placement.yMm] as Point, sheetOffset};
     });
-  }, [placements, doc.parts, partPaths]);
+  }, [placements, doc.parts, partPaths, doc.settings.materialType, doc.settings.materialLengthMm, result?.sheetCount]);
 
   function fit() {
     const all: Point[] = [];
@@ -291,7 +292,7 @@ export default function Workspace({ document: doc, result, live, selected, selec
         </text>
       </g>}
       {world && (doc.settings.materialType==='sheet'&&doc.settings.materialLengthMm
-        ? Array.from({length:result!.sheetCount??1},(_,sheet)=><g key={sheet} transform={`translate(0 ${-sheet*(doc.settings.materialLengthMm!+20)})`}><rect x="0" y={-doc.settings.materialLengthMm!} width={doc.settings.materialWidthMm} height={doc.settings.materialLengthMm!} fill={outlines ? 'none' : 'var(--material-fill)'} stroke="var(--secondary)" vectorEffect="non-scaling-stroke" /><text x="2" y={-2} fontSize={camera.w/70} fill="var(--muted)">Plaka {sheet+1} · {displayLength(doc.settings.materialWidthMm, displayUnit)} × {displayLength(doc.settings.materialLengthMm!, displayUnit)} {displayUnit}</text></g>)
+        ? Array.from({length:result!.sheetCount??1},(_,sheet)=><g key={sheet} transform={`translate(0 ${-((result!.sheetCount??1)-1-sheet)*(doc.settings.materialLengthMm!+20)})`}><rect x="0" y={-doc.settings.materialLengthMm!} width={doc.settings.materialWidthMm} height={doc.settings.materialLengthMm!} fill={outlines ? 'none' : 'var(--material-fill)'} stroke="var(--secondary)" vectorEffect="non-scaling-stroke" /><text x="2" y={-2} fontSize={camera.w/70} fill="var(--muted)">Plaka {sheet+1} · {displayLength(doc.settings.materialWidthMm, displayUnit)} × {displayLength(doc.settings.materialLengthMm!, displayUnit)} {displayUnit}</text></g>)
         : <><rect x="0" y={-result!.usedLengthMm} width={doc.settings.materialWidthMm} height={result!.usedLengthMm} fill={outlines ? 'none' : 'var(--material-fill)'} stroke="var(--secondary)" vectorEffect="non-scaling-stroke" /><text x="0" y={-result!.usedLengthMm - 2} fontSize={camera.w / 70} fill="var(--muted)">Rulo {displayLength(doc.settings.materialWidthMm, displayUnit)} {displayUnit} · kullanılan {(result!.usedLengthMm / unitScale(displayUnit)).toFixed(2)} {displayUnit}</text></>)}
       {showGenişlik && <g className="material-width-band" data-material-width-band={actualWidth} pointerEvents="none" aria-hidden="true"><rect x="0" y={coordinates.top} width={actualWidth} height={size.height * unit} /><path d={`M0,${coordinates.top}v${size.height * unit}M${actualWidth},${coordinates.top}v${size.height * unit}`} vectorEffect="non-scaling-stroke" /></g>}
       <g className="coordinate-grid" aria-hidden="true" pointerEvents="none" data-grid-step={coordinates.major}>{(['minor', 'major', 'origin'] as const).map(kind => <path key={kind} className={kind} fill="none" vectorEffect="non-scaling-stroke" d={[...coordinates.x.filter(t => (t.value === 0 ? 'origin' : t.major ? 'major' : 'minor') === kind).map(t => `M${t.mm},${coordinates.top}v${size.height * unit}`), ...coordinates.y.filter(t => (t.value === 0 ? 'origin' : t.major ? 'major' : 'minor') === kind).map(t => `M${coordinates.left},${-t.mm}h${size.width * unit}`)].join(' ')} />)}</g>
