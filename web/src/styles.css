@@ -1187,3 +1187,65 @@ dialog.modal.modal-about{
   box-shadow:0 0 0 2px rgba(102,113,127,.18)!important;
   translate:0 0;
 }
+
+/* Typography/size correction for every Serula operator, admin and login button.
+   The Inter variable font is packaged locally; glyphs not present fall back safely. */
+@font-face {
+  font-family:"Serula Inter";
+  src:url("/fonts/InterVariable.ttf") format("truetype");
+  font-weight:100 900;
+  font-style:normal;
+  font-display:swap;
+}
+:root {
+  font-family:"Serula Inter","Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-optical-sizing:auto;
+}
+#root :is(.app,.admin-page,.auth-screen) {
+  font-family:"Serula Inter","Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  font-optical-sizing:auto;
+}
+#root :is(.app,.admin-page,.auth-screen) :is(button,a.button, a.admin-workspace-link) {
+  font-family:"Serula Inter","Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  font-size:13px!important;
+  font-weight:600!important;
+  font-style:normal;
+  line-height:1.3!important;
+  letter-spacing:0!important;
+  padding:6px 10px!important;
+  min-height:34px!important;
+  text-transform:none;
+}
+#root :is(.app,.admin-page,.auth-screen) button :is(span,strong,small):not(.auth-avatar) {
+  font-family:inherit!important;
+  font-size:inherit!important;
+  font-weight:inherit;
+}
+#root :is(.app,.admin-page,.auth-screen) .statusbar button {
+  min-height:36px!important;
+  height:36px!important;
+}
+#root :is(.app,.admin-page,.auth-screen) .download-control button.cssbuttons-io-button {
+  font-size:13px!important;
+  font-weight:600!important;
+  min-height:36px!important;
+  height:36px!important;
+  padding:6px 12px!important;
+  letter-spacing:0!important;
+}
+#root :is(.app,.admin-page,.auth-screen) :is(.admin-chat-compose,.auth-card,.modal) button {
+  font-size:13px!important;
+}
+#root :is(.app,.admin-page,.auth-screen) button:disabled {
+  cursor:not-allowed;
+}
+@media(max-width:699px) {
+  #root :is(.app,.admin-page,.auth-screen) :is(button,a.button,a.admin-workspace-link) {
+    font-size:12px!important;
+    min-height:36px!important;
+    padding:6px 9px!important;
+  }
+  #root :is(.app,.admin-page,.auth-screen) .statusbar button {
+    height:36px!important;
+  }
+}
