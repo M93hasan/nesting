@@ -840,7 +840,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
             </div>
           </div>}
         </div>}
-        <span className="download-control" tabIndex={exportBlockedReason?0:undefined} aria-describedby={exportBlockedReason?'download-tooltip':undefined}><button disabled={!!exportBlockedReason} className="download-button" onClick={()=>void exportLayout()}><svg className="download-button__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg><span>{downloadPhase==='preparing'?'DXF hazırlanıyor…':downloadPhase==='authorizing'?'Buluta kaydediliyor…':'DXF İndir'}</span></button>{exportBlockedReason&&<span id="download-tooltip" role="tooltip" className="compression-tooltip">{exportBlockedReason}</span>}</span></div>
+        <span className="download-control" tabIndex={exportBlockedReason?0:undefined} aria-describedby={exportBlockedReason?'download-tooltip':undefined}><button disabled={!!exportBlockedReason} className="download-button cssbuttons-io-button" onClick={()=>void exportLayout()}><svg className="download-button__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg><span>{downloadPhase==='preparing'?'DXF hazırlanıyor…':downloadPhase==='authorizing'?'Buluta kaydediliyor…':'DXF İndir'}</span></button>{exportBlockedReason&&<span id="download-tooltip" role="tooltip" className="compression-tooltip">{exportBlockedReason}</span>}</span></div>
 
     </footer>
     
