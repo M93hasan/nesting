@@ -1,3 +1,4 @@
+import {GlassSelect} from './ReferenceControls';
 import {useEffect,useState} from 'react';
 import {example,type Document} from '../model';
 import {loadCatalog,loadExample,type Dataset} from '../datasets';
@@ -31,10 +32,10 @@ export default function ExamplePicker({onChoose,onClose}:{onChoose:(doc:Document
   }
   const dataset=catalog.find(d=>d.id===selected);
   return <Modal title="Bir örnek deneyin" onClose={onClose} locked={busy}>
-    <label>Veri seti<select value={selected} disabled={busy} onChange={e=>void choose(e.target.value)}>
+    <label>Veri seti<GlassSelect value={selected} disabled={busy} onChange={e=>void choose(e.target.value)}>
       <option value="workshop">Atölye örneği</option>
       {['Main','Gardeyn'].map(group=><optgroup key={group} label={group}>{catalog.filter(d=>d.group===group).map(d=><option key={d.id} value={d.id}>{d.id}{d.continuous?' · serbest dönüş':''}</option>)}</optgroup>)}
-    </select></label>
+    </GlassSelect></label>
     <p>{dataset?`${dataset.partTypes} şekil · ${dataset.copies} kopya`:'4 şekil · 12 kopya'} · nesting otomatik durur</p>
     {busy&&<p role="status">Örnek yükleniyor…</p>}
     {catalogError&&<p role="alert" className="field-error">{catalogError} Atölye örneği hâlâ kullanılabilir.</p>}

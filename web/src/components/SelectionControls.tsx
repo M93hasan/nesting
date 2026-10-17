@@ -1,3 +1,4 @@
+import {WaveField} from './ReferenceControls';
 import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {displayLength,unitScale,type DisplayUnit} from '../units';
 
@@ -43,13 +44,13 @@ export default function SelectionControls({
   }
   const angleValid=!!angleText.trim()&&Number.isFinite(Number(angleText));
   const stepValue=Number(step),stepValid=!!step.trim()&&Number.isFinite(stepValue)&&stepValue>0&&stepValue<=360;
-  return <><div className="size-controls">{['X','Y','Genişlik','Yükseklik'].map((label,i)=><label key={label}>{label}, {unit}<input type="number" step="any" min={(i<2?-100000:.000001)/scale} max={100000/scale} required disabled={disabled||(sizeLocked&&i>=2)} aria-invalid={!valid(fields[i],i)} value={fields[i]} onChange={e=>setFields(f=>f.map((v,j)=>j===i?e.target.value:v))} onBlur={()=>apply(i)} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur();}}/></label>)}<small>Konum, döndürme ve aynalama seçili kopyaları etkiler. Boyutlandırma bu şeklin tüm kopyalarını değiştirir; en-boy oranı kilitlidir.</small>{invalid&&<small className="field-error" role="alert">Geçerli konumlar ve şu sınıra kadar pozitif ölçüler girin: {unit==='mm'?'100,000':displayLength(100000,unit)} {unit}.</small>}{sizeLocked&&<small>DXF ölçüleri kilitlidir; genişlik ve yükseklik değiştirilemez.</small>}</div>
+  return <><div className="size-controls">{['X','Y','Genişlik','Yükseklik'].map((label,i)=><WaveField key={label} caption={<>{label}, {unit}</>}><input type="number" step="any" min={(i<2?-100000:.000001)/scale} max={100000/scale} required disabled={disabled||(sizeLocked&&i>=2)} aria-invalid={!valid(fields[i],i)} value={fields[i]} onChange={e=>setFields(f=>f.map((v,j)=>j===i?e.target.value:v))} onBlur={()=>apply(i)} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur();}}/></WaveField>)}<small>Konum, döndürme ve aynalama seçili kopyaları etkiler. Boyutlandırma bu şeklin tüm kopyalarını değiştirir; en-boy oranı kilitlidir.</small>{invalid&&<small className="field-error" role="alert">Geçerli konumlar ve şu sınıra kadar pozitif ölçüler girin: {unit==='mm'?'100,000':displayLength(100000,unit)} {unit}.</small>}{sizeLocked&&<small>DXF ölçüleri kilitlidir; genişlik ve yükseklik değiştirilemez.</small>}</div>
     <form className="rotation-control" onSubmit={e=>{e.preventDefault();if(!disabled&&angleValid)onSetAngle(Number(angleText));}}>
-      <label>Yön açısı, derece<input type="text" inputMode="decimal" placeholder={angle===undefined?'—':undefined} value={angleText} disabled={disabled} onFocus={e=>{angleEditing.current=true;e.currentTarget.select();}} onChange={e=>setAngleText(e.target.value.replace(',', '.'))} onBlur={()=>{angleEditing.current=false;if(angle!==undefined&&!angleText.trim())setAngleText(String(angle));}}/></label>
+      <WaveField caption={<>Yön açısı, derece</>}><input type="text" inputMode="decimal" placeholder={angle===undefined?'—':undefined} value={angleText} disabled={disabled} onFocus={e=>{angleEditing.current=true;e.currentTarget.select();}} onChange={e=>setAngleText(e.target.value.replace(',', '.'))} onBlur={()=>{angleEditing.current=false;if(angle!==undefined&&!angleText.trim())setAngleText(String(angle));}}/></WaveField>
       <button disabled={disabled||!angleValid}>Açıyı uygula</button>
     </form>
     <div className="rotation-control">
-      <label>Elle çevirme adımı, derece<input type="text" inputMode="decimal" value={step} disabled={disabled} onFocus={e=>e.currentTarget.select()} onChange={e=>setStep(e.target.value.replace(',', '.'))}/></label>
+      <WaveField caption={<>Elle çevirme adımı, derece</>}><input type="text" inputMode="decimal" value={step} disabled={disabled} onFocus={e=>e.currentTarget.select()} onChange={e=>setStep(e.target.value.replace(',', '.'))}/></WaveField>
       <div className="row-actions"><button type="button" disabled={disabled||!stepValid} onClick={()=>onRotate(stepValue)}>Sola ↺</button><button type="button" disabled={disabled||!stepValid} onClick={()=>onRotate(-stepValue)}>Sağa ↻</button></div>
       <small>Tuvaldeki döndürme kolunu fareyle sürükleyerek de çevirebilirsiniz.</small>
     </div>

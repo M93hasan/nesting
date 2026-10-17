@@ -1,3 +1,4 @@
+import {WaveField} from './ReferenceControls';
 import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import type {Part} from '../model';
 import {bounds} from '../geometry/normalize';
@@ -19,6 +20,6 @@ export default function SizeControls({part,disabled,onApply,onValidity,unit='mm'
   const apply=(axis:0|1,value:string)=>{
     if(valid(value)&&value!==initial[axis]&&Number(value)!==Number(initial[axis]))onApply(axis,Number(value)*scale);
   };
-  return <div className="size-controls"><label>Genişlik, {unit}<input type="number" min={.000001/scale} max={100000/scale} step="any" required aria-invalid={!valid(width)} disabled={disabled} value={width} onChange={e=>setWidth(e.target.value)} onBlur={()=>apply(0,width)} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur();}}/></label>
-    <label>Yükseklik, {unit}<input type="number" min={.000001/scale} max={100000/scale} step="any" required aria-invalid={!valid(height)} disabled={disabled} value={height} onChange={e=>setHeight(e.target.value)} onBlur={()=>apply(1,height)} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur();}}/></label><small>En-boy oranı kilitli</small>{invalid&&<small className="field-error" role="alert">Şu sınıra kadar pozitif ölçüler girin: {unit==='mm'?'100,000':displayLength(100000,unit)} {unit}.</small>}</div>;
+  return <div className="size-controls"><WaveField caption={<>Genişlik, {unit}</>}><input type="number" min={.000001/scale} max={100000/scale} step="any" required aria-invalid={!valid(width)} disabled={disabled} value={width} onChange={e=>setWidth(e.target.value)} onBlur={()=>apply(0,width)} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur();}}/></WaveField>
+    <WaveField caption={<>Yükseklik, {unit}</>}><input type="number" min={.000001/scale} max={100000/scale} step="any" required aria-invalid={!valid(height)} disabled={disabled} value={height} onChange={e=>setHeight(e.target.value)} onBlur={()=>apply(1,height)} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur();}}/></WaveField><small>En-boy oranı kilitli</small>{invalid&&<small className="field-error" role="alert">Şu sınıra kadar pozitif ölçüler girin: {unit==='mm'?'100,000':displayLength(100000,unit)} {unit}.</small>}</div>;
 }

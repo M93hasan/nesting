@@ -1,3 +1,4 @@
+import {GlassSelect} from './components/GlassSelect';
 import {createContext,useCallback,useContext,useEffect,useMemo,useState,type ReactNode} from 'react';
 
 export type Locale='tr'|'en'|'ar'|'fa';
@@ -537,7 +538,7 @@ function AutoTranslate({locale}:{locale:Locale}){
 export function useI18n(){return useContext(I18nContext)}
 export function LanguageSelect({compact=false}:{compact?:boolean}){
   const {locale,setLocale,t}=useI18n();
-  return <label className={'language-select'+(compact?' compact':'')}><span>{compact?'🌐':t('Dil')}</span><select aria-label={t('Varsayılan dil')} value={locale} onChange={e=>setLocale(e.target.value as Locale)}>
+  return <label className={'language-select'+(compact?' compact':'')}><span>{compact?'🌐':t('Dil')}</span><GlassSelect aria-label={t('Varsayılan dil')} value={locale} onChange={e=>setLocale(e.target.value as Locale)}>
     <option value="tr">TR · Türkçe</option><option value="en">EN · English</option><option value="ar">AR · العربية</option><option value="fa">FA · فارسی (ایران)</option>
-  </select></label>;
+  </GlassSelect></label>;
 }

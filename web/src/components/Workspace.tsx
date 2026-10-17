@@ -1,3 +1,4 @@
+import {GlassSelect} from './ReferenceControls';
 import {useDismissibleMenu} from './useDismissibleMenu';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { Document, Point, Result } from '../model';
@@ -180,8 +181,8 @@ export default function Workspace({ document: doc, result, live, selected, selec
   return <div className="canvas-wrap">
     <div className="canvas-tools"><details className="cad-snapping" ref={snapMenu}><summary>Yakalama{snapping ? ' açık' : ' kapalı'}</summary><div>
       <label className="checkbox"><input type="checkbox" checked={snapping} onChange={event => setSnapping(event.target.checked)} />Yakalamayı etkinleştir</label>
-      <label>Izgara, {displayUnit}<select value={grid} onChange={event => setGrid(Number(event.target.value))}>{[.1, 1, 5, 10].map(value => <option key={value} value={value}>{displayLength(value, displayUnit)}</option>)}</select></label>
-      <label>Açı adımı<select value={angleStep} onChange={event => setAngleStep(Number(event.target.value))}>{[1, 5, 15, 45, 90].map(value => <option key={value} value={value}>{value}°</option>)}</select></label>
+      <label>Izgara, {displayUnit}<GlassSelect value={grid} onChange={event => setGrid(Number(event.target.value))}>{[.1, 1, 5, 10].map(value => <option key={value} value={value}>{displayLength(value, displayUnit)}</option>)}</GlassSelect></label>
+      <label>Açı adımı<GlassSelect value={angleStep} onChange={event => setAngleStep(Number(event.target.value))}>{[1, 5, 15, 45, 90].map(value => <option key={value} value={value}>{value}°</option>)}</GlassSelect></label>
       <small>Geçici olarak kapatmak için Alt tuşunu basılı tutun. Sayısal alanlar tam değerini korur.</small>
     </div></details><button aria-label="Kontur modu" aria-pressed={outlines} title="Soluk dolgulu konturları göster" onClick={() => setOutlines(!outlines)}><span aria-hidden="true">👻</span></button>
       <button onClick={fit}>Sığdır</button><button aria-label="Uzaklaştır" onClick={() => zoom(1.25)}>−</button><button aria-label="Yakınlaştır" onClick={() => zoom(.8)}>+</button></div>
