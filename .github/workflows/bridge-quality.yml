@@ -1,0 +1,76 @@
+name: Serula Windows transfer bridge quality
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "integrations/windows/**"
+      - "web/public/downloads/Serula-Kur.cmd"
+      - "web/src/App.tsx"
+      - ".github/workflows/bridge-quality.yml"
+  pull_request:
+    paths:
+      - "integrations/windows/**"
+      - "web/public/downloads/Serula-Kur.cmd"
+      - "web/src/App.tsx"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bridge-powershell:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse bridge and installer with Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          $files = @("integrations/windows/SerulaTransferBridge.ps1", "integrations/windows/InstallSerulaBridge.ps1")
+          foreach ($file in $files) {
+            $tokens = $null
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file), [ref]$tokens, [ref]$errors)
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Error "$file : $_" }
+              exit 1
+            }
+          }
+          $bridge = Get-Content $files[0] -Raw
+          if ($bridge -notmatch "version='1.5'" -or $bridge -notmatch "Open-RDWorksImportPicker" -or $bridge -notmatch "Try-RDWorksClassicPicker" -or $bridge -notmatch "Wait-RDWorksPasteAndImport") {
+            throw "RDWorks compatibility fallback or bridge version missing"
+          }
+      - name: Verify download and source installer are identical
+        shell: powershell
+        run: |
+          $a = (Get-FileHash "integrations/windows/Serula-Kur.cmd" -Algorithm SHA256).Hash
+          $b = (Get-FileHash "web/public/downloads/Serula-Kur.cmd" -Algorithm SHA256).Hash
+          if ($a -ne $b) { throw "Published Windows installer is stale" }
+      - name: Verify web installer pins current verified source and keeps newer bridges
+        shell: powershell
+        run: |
+          $source = Get-Content "integrations/windows/InstallSerulaBridge.ps1" -Raw
+          if ($source -notmatch 'function Keep-NewerBridge' -or
+              $source -notmatch '\[version\]\$v.version -ge \[version\]\$bridgeVersion') {
+            throw "The web installer can downgrade a newer running bridge."
+          }
+          $currentBlob = (git rev-parse HEAD:integrations/windows/InstallSerulaBridge.ps1).Trim()
+          $command = Get-Content "integrations/windows/Serula-Kur.cmd" -Raw
+          if (-not $command.Contains($currentBlob)) {
+            throw "The public CMD installer pins an outdated source checksum."
+          }
+
+  web-typescript:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
