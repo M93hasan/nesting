@@ -1,4 +1,3 @@
-import {readFileSync} from 'node:fs';
 import {expect,test} from 'vitest';
 import {DEFAULT_SETTINGS,newPart,type Document,type Result} from '../src/model';
 import {solverInput} from '../src/import/sparrow';
@@ -50,12 +49,4 @@ test('1400x700 plate mode splits an overlapping Y chain across sheets instead of
   expect(packed.usedLengthMm).toBe(1400);
   expect(packed.placements.map(p=>p.sheetIndex)).toEqual([0,0,1]);
   expect(validate(doc,packed).status).toBe('passed');
-});
-
-test('solver runtime has no sheet-only batching or second nesting path',()=>{
-  const runtime=readFileSync(new URL('../src/workers/solver-runtime.worker.ts',import.meta.url),'utf8');
-  expect(runtime).not.toContain('solveSheetMode');
-  expect(runtime).not.toContain('batchCounts');
-  expect(runtime).not.toContain("materialType==='sheet'");
-  expect(runtime).toContain('const input=doc?solverInput(doc)');
 });

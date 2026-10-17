@@ -59,7 +59,7 @@ export function pointSegmentDistance(p: Point, a: Point, b: Point): number {
   const t=d === 0 ? 0 : Math.max(0,Math.min(1,((p[0]-a[0])*dx+(p[1]-a[1])*dy)/d));
   return Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dy);
 }
-function distance(a: Ring,b: Ring): number {
+export function ringDistance(a: Ring,b: Ring): number {
   let min=Infinity;
   for(let i=0;i<a.length;i++) for(let j=0;j<b.length;j++) {
     const p=a[i],q=a[(i+1)%a.length],r=b[j],s=b[(j+1)%b.length];
@@ -131,7 +131,7 @@ export function validate(doc: Document, result: Result, serialized?: WorldPart[]
       if(doc.settings.clearanceMm>0 && (v.minClearanceMm===null || boxDistance<v.minClearanceMm)) {
         operations+=collision[i].length*collision[j].length;
         if(operations>50_000_000) throw Error('Clearance check exceeded its segment budget. Use fewer vertices or parts.');
-        const gap=distance(collision[i],collision[j]);
+        const gap=ringDistance(collision[i],collision[j]);
         if(!Number.isFinite(gap)) throw Error('Clearance check returned a non-finite distance.');
         v.minClearanceMm=Math.min(v.minClearanceMm ?? Infinity,gap);
       }
