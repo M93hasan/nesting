@@ -3,6 +3,7 @@ import {DEFAULT_SETTINGS,newPart,type Document} from '../src/model';
 import {solverInput} from '../src/import/sparrow';
 import {candidateResult} from '../src/workers/solverResult';
 import {validate} from '../src/geometry/validate';
+import {prepareSheetSearch} from '../src/geometry/sheetSearch';
 import type {Candidate,SolverMessage,Start} from '../src/workers/protocol';
 
 afterEach(()=>{vi.unstubAllGlobals();vi.doUnmock('../src/wasm');vi.resetModules();});
@@ -18,18 +19,27 @@ async function execute(materialType:'roll'|'sheet'){
   vi.stubGlobal('self',scope);
   vi.doMock('../src/wasm',()=>({supportsSIMD:true,loadSerialWasm:async()=>({default:async()=>{},thread_count:()=>1,
     run:(input:string,_seconds:number,_seed:string,_clearance:number,_preset:string,callback:(json:string)=>void)=>{
-      inputs.push(input);callback(JSON.stringify(candidate));callback(JSON.stringify({type:'finished'}));
+      inputs.push(input);
+      const invalid=structuredClone(candidate);invalid.sequence=999;
+      invalid.solution.layout.placed_items[0].transformation.translation=[0,100];
+      callback(JSON.stringify({...invalid,type:'live'}));
+      callback(JSON.stringify({...candidate,type:'live'}));
+      callback(JSON.stringify(candidate));callback(JSON.stringify({type:'finished'}));
     }})}));
   await import('../src/workers/solver-runtime.worker');
   await scope.onmessage!({data:{type:'start',runId:1,documentRevision:5,seed:'42',document:doc,threads:1}});
   return {doc,candidate,messages,inputs};
 }
 
-test('the real runtime publishes a complete finite-sheet improvement while retaining Sparrow input',async()=>{
+test('the real runtime constrains the finite plate axis and publishes physical coordinates',async()=>{
   const {doc,messages,inputs}=await execute('sheet');
-  expect(inputs).toEqual([solverInput({...doc,settings:{...doc.settings,materialType:'roll'}})]);
+  expect(inputs).toEqual([solverInput(prepareSheetSearch(doc).document)]);
+  expect(JSON.parse(inputs[0]).strip_height).toBeCloseTo(10.02);
   const candidate=messages.find(message=>message.type==='candidate') as Candidate;
   expect(candidate.sheetResult).toMatchObject({sheetCount:1,documentRevision:5});
+  expect(messages.filter(message=>message.type==='live'||message.type==='candidate')
+    .every(message=>'sheetResult' in message)).toBe(true);
+  expect(messages.some(message=>'sequence' in message&&message.sequence===999)).toBe(false);
   const decoded=candidateResult(doc,candidate,'42');
   expect(decoded.placements).toHaveLength(4);
   expect(validate(doc,decoded).status).toBe('passed');
@@ -37,6 +47,7 @@ test('the real runtime publishes a complete finite-sheet improvement while retai
 });
 
 test('roll candidates pass through the runtime without sheet repacking',async()=>{
-  const {candidate,messages}=await execute('roll');
+  const {candidate,messages,inputs,doc}=await execute('roll');
+  expect(inputs).toEqual([solverInput(doc)]);
   expect(messages.find(message=>message.type==='candidate')).toEqual(candidate);
 });
