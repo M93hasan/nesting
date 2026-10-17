@@ -71,7 +71,7 @@ test('Google enrolls only a newly created account and preserves the dismissed st
 
 test('global colors are public, persist after an authenticated admin save and leave nesting defaults intact',async()=>{
   const env=environment(),admin=await register(env,'admin@example.test');
-  const defaults={background:'#2f396b',panel:'#192142'};
+  const defaults={background:'#121421',panel:'#242935'};
   expect(await (await call(env,'/api/appearance')).json()).toEqual({appearance:defaults});
   env.db.prepare("UPDATE users SET role='admin' WHERE id=?").run(admin.user.id);
   env.db.prepare("INSERT INTO system_settings(key,value_json) VALUES('defaults',?)").run(JSON.stringify({materialWidthMm:1400}));
@@ -96,5 +96,5 @@ test('normal sessions, cross-origin calls and invalid colors cannot modify globa
   for(const invalid of [null,{}, {appearance:{background:'url(https://other.test)',panel:'#334455'}},{appearance:{background:'#112233',panel:'#fff'}},{appearance:{background:123,panel:'#112233'}}]){
     expect((await call(env,'/api/admin/appearance',{cookie,data:invalid})).status).toBe(400);
   }
-  expect(await (await call(env,'/api/appearance')).json()).toEqual({appearance:{background:'#2f396b',panel:'#192142'}});
+  expect(await (await call(env,'/api/appearance')).json()).toEqual({appearance:{background:'#121421',panel:'#242935'}});
 });

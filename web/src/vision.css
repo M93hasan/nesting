@@ -15,8 +15,8 @@
 :root {
   color-scheme:dark;
   --font-ui:"Plus Jakarta Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  --page:light-dark(#eef2fb,var(--appearance-background,#2f396b));
-  --panel:light-dark(#ffffff,var(--appearance-panel,#192142));
+  --page:light-dark(#eef2fb,var(--appearance-background,#121421));
+  --panel:light-dark(#ffffff,var(--appearance-panel,#242935));
   --panel-soft:light-dark(#f4f7ff,#0c122c);
   --panel-raised:light-dark(#ffffff,#182142);
   --ink:light-dark(#14234b,#f3f6ff);

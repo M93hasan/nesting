@@ -1,6 +1,6 @@
 import {expect,test,type Page} from '@playwright/test';
 test.use({serviceWorkers:'block'});
-const initial={background:'#2f396b',panel:'#192142'};
+const initial={background:'#121421',panel:'#242935'};
 async function backend(page:Page){
   const state={saved:{...initial},writes:[] as unknown[],fail:false,loadFail:false,hold:false,release:()=>{}};
   await page.route('**/api/**',async route=>{
