@@ -5,6 +5,7 @@ import './admin.css';
 import './auth.css';
 import './vision.css';
 import './reference-controls.css';
+import './typography.css';
 import {AdminGate,UserGate} from './AuthGate';
 import {loadCatalog} from './datasets';
 import { prepareIsolation } from './isolation';
