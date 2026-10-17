@@ -155,9 +155,11 @@ label{color:var(--muted)}
 .panel-title{padding:18px 16px 14px}.panel-title h2,.material-panel h2{font-size:13px;font-weight:750}
 .panel-title h2>span{background:var(--selected);color:var(--accent);border-radius:7px;padding:2px 7px;font-weight:700}
 .series-multiplier{background:var(--panel-soft);border-color:var(--border);border-radius:10px}
-.part-row{margin:3px 8px;padding:6px 8px;border-radius:11px;border-left-width:2px}
+.part-row{margin:2px 8px;padding:2px 8px;border-radius:11px;border-left-width:2px}
 .part-row.selected{background:var(--selected);border-left-color:var(--accent)}
-.part-select small{color:var(--muted)}
+.part-select{gap:8px;padding:2px 0;line-height:1.3}
+.part-select svg{width:24px;height:28px}
+.part-select small{color:var(--muted);line-height:1.3}
 .sidebar>.part-properties-inline{background:transparent;border-radius:0;box-shadow:none}
 .part-settings,.settings,.material-settings{border-color:var(--border)}
 .size-controls{grid-template-columns:repeat(2,minmax(0,1fr))}
