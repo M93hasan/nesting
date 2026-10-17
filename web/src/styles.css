@@ -431,3 +431,37 @@ html[dir="rtl"] body{direction:rtl}html[dir="rtl"] .workspace-svg,html[dir="rtl"
 .part-properties-inline .rotation-control,.part-properties-inline .mirror-control{display:grid;gap:8px;margin-top:10px}
 .part-properties-inline .rotation-control .row-actions,.part-properties-inline .mirror-control .row-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .part-properties-inline .mirror-control button[aria-pressed=true]{background:var(--accent)!important;color:#fff!important;border-color:var(--accent)!important;font-weight:700}
+
+/* CorelDRAW only, ported from Oct 16 */
+.download-button.corel-transfer-button{
+  background:linear-gradient(135deg,#167845,#21975b);
+  border-color:#12693c;
+  color:#fff;
+  box-shadow:0 5px 14px rgba(22,120,69,.25);
+}
+.download-button.corel-transfer-button:hover:enabled{
+  background:linear-gradient(135deg,#11673b,#1b8550);
+  border-color:#0d5932;
+  box-shadow:0 7px 18px rgba(22,120,69,.33);
+}
+
+#root button.corel-transfer-button{background:linear-gradient(135deg,#167845,#21975b)!important;border-color:#12693c!important;color:#fff!important}
+#root button.corel-transfer-toggle{background:#167845;color:#fff}
+/* CorelDRAW branded transfer and one-click recovery from a missing local bridge. */
+.corel-transfer-control{position:relative;display:flex;align-items:center}
+#root .corel-transfer-button{display:inline-flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap}
+.corel-transfer-logo{display:block;width:26px;height:26px;flex:none;background:#fff;border-radius:50%;padding:2px;object-fit:contain}
+.corel-bridge-prompt{
+  position:absolute;z-index:8;bottom:calc(100% + 10px);right:0;
+  width:min(368px,calc(100vw - 24px));padding:14px;
+  display:grid;gap:9px;background:var(--panel);color:var(--ink);
+  border:1px solid var(--border);border-radius:12px;
+  box-shadow:0 12px 34px rgba(0,0,0,.22);
+  white-space:normal;
+}
+.corel-bridge-prompt strong{font-size:14px;line-height:1.3}
+.corel-bridge-prompt p{margin:0;color:var(--muted);font-size:12px;line-height:1.5}
+.corel-bridge-prompt-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+#root .corel-bridge-prompt-actions a.button{padding:7px 10px;font-size:12px;min-height:34px}
+.corel-bridge-prompt-actions>a:not(.button){font-size:12px;text-decoration:underline}
+#root .corel-bridge-prompt-actions button{min-height:34px;padding:6px 10px;font-size:12px}

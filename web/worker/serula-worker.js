@@ -64,6 +64,8 @@ async function ensureSchema(env){
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS system_settings (key TEXT PRIMARY KEY, value_json TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_settings (user_id INTEGER PRIMARY KEY, settings_json TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_features (user_id INTEGER PRIMARY KEY, test_dxf_enabled INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_corel_transfer_access (user_id INTEGER PRIMARY KEY, enabled INTEGER NOT NULL DEFAULT 1, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS transfer_tickets (token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL, target TEXT NOT NULL CHECK(target='corel'), expires_at TEXT NOT NULL, redeemed_at TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_preferences (
       user_id INTEGER PRIMARY KEY,
       locale TEXT NOT NULL DEFAULT 'tr' CHECK(locale IN ('tr','en','ar','fa')),
@@ -242,6 +244,11 @@ const validEmail=e=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 const cleanLocale=value=>['tr','en','ar','fa'].includes(String(value||'').toLowerCase())?String(value).toLowerCase():'tr';
 const passwordOk=p=>typeof p==='string'&&p.length>=8&&p.length<=200;
 const TEST_DXF_FILES=['1003.dxf','1239.dxf','test.dxf'];
+async function corelAllowed(userId,env){
+  if(!userId)return false;
+  const row=await env.DB.prepare('SELECT enabled FROM user_corel_transfer_access WHERE user_id=?').bind(userId).first();
+  return row==null?true:Number(row.enabled)===1;
+}
 async function testDxfAllowed(userId,env){
   if(!userId)return false;
   const row=await env.DB.prepare('SELECT test_dxf_enabled FROM user_features WHERE user_id=?').bind(userId).first();
@@ -312,6 +319,35 @@ async function handleApi(request,env){
   if(request.method!=='GET'&&!sameOrigin(request))return json({error:'Geçersiz istek.'},403);
 
   if(path==='/api/version'&&request.method==='GET')return json({version:APP_VERSION});
+  if(path==='/api/transfer/access'&&request.method==='GET'){
+    const user=await sessionUser(request,env);
+    if(!user||licenseExpired(user))return json({corel:false,rdworks:false});
+    return json({corel:await corelAllowed(user.id,env),rdworks:false});
+  }
+  if(path==='/api/transfer/ticket'&&request.method==='POST'){
+    const user=await sessionUser(request,env);
+    if(!user||licenseExpired(user))return json({error:'Giriş ve geçerli lisans gerekli.'},403);
+    const data=await body(request),target=data.target;
+    if(target!=='corel')return json({error:'RDWorks otomatik aktarımı desteklenmiyor.'},403);
+    if(!await corelAllowed(user.id,env))return json({error:'Bu aktarım yetkisi yönetici tarafından kapatılmış.'},403);
+    const ticket=randomToken(),expiresAt=new Date(Date.now()+120000).toISOString();
+    await env.DB.prepare("DELETE FROM transfer_tickets WHERE datetime(expires_at)<datetime('now','-1 day')").run();
+    await env.DB.prepare("INSERT INTO transfer_tickets(token_hash,user_id,target,expires_at) VALUES(?,?,?,?)").bind(await sha256(ticket),user.id,target,expiresAt).run();
+    return json({ticket,expiresAt});
+  }
+  if(path==='/api/transfer/redeem'&&request.method==='POST'){
+    const data=await body(request),ticket=String(data.ticket||''),target=data.target;
+    if(!/^[a-f0-9]{64}$/.test(ticket)||target!=='corel')return json({ok:false},403);
+    const found=await env.DB.prepare('SELECT user_id,target,redeemed_at,expires_at FROM transfer_tickets WHERE token_hash=?').bind(await sha256(ticket)).first();
+    if(!found||found.target!==target||found.redeemed_at||Date.parse(String(found.expires_at))<=Date.now())return json({ok:false},403);
+    const user=await env.DB.prepare('SELECT u.id,u.role,l.expires_at license_expires_at FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.id=?').bind(found.user_id).first();
+    if(!user||licenseExpired(user))return json({ok:false},403);
+    if(!await corelAllowed(user.id,env))return json({ok:false},403);
+    const redeemed=await env.DB.prepare("UPDATE transfer_tickets SET redeemed_at=CURRENT_TIMESTAMP WHERE token_hash=? AND redeemed_at IS NULL AND datetime(expires_at)>datetime('now')").bind(await sha256(ticket)).run();
+    if(!redeemed.meta.changes)return json({ok:false},403);
+    await audit(env,'local_transfer_authorized',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:target});
+    return json({ok:true});
+  }
   if(path==='/api/test-dxf'&&request.method==='GET'){
     const user=await sessionUser(request,env);if(!user)return json({allowed:false},401);
     const allowed=await testDxfAllowed(user.id,env);
@@ -534,15 +570,16 @@ async function handleApi(request,env){
   if(path==='/api/admin/users'&&request.method==='GET'){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
     const rows=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,u.google_id,u.created_at,u.last_login_at,
-      COALESCE(f.test_dxf_enabled,0) test_dxf_enabled,p.last_seen,l.started_at license_started_at,l.expires_at license_expires_at,
+      COALESCE(f.test_dxf_enabled,0) test_dxf_enabled,COALESCE(ct.enabled,1) corel_enabled,p.last_seen,l.started_at license_started_at,l.expires_at license_expires_at,
       CASE WHEN ${onlineSql} THEN 1 ELSE 0 END online
       FROM users u
       LEFT JOIN user_features f ON f.user_id=u.id
+      LEFT JOIN user_corel_transfer_access ct ON ct.user_id=u.id
       LEFT JOIN user_presence p ON p.user_id=u.id
       LEFT JOIN user_licenses l ON l.user_id=u.id
       ORDER BY u.created_at DESC LIMIT 500`).all();
     const online=await env.DB.prepare("SELECT COUNT(*) n FROM user_presence WHERE datetime(last_seen)>=datetime('now','-15 seconds')").first();
-    return json({onlineCount:Number(online?.n||0),users:rows.results.map(u=>({...publicUser(u),testDxfEnabled:!!u.test_dxf_enabled,authProvider:u.google_id?'google':'email',createdAt:u.created_at,lastLoginAt:u.last_login_at,lastSeen:u.last_seen||null,online:!!u.online}))});
+    return json({onlineCount:Number(online?.n||0),users:rows.results.map(u=>({...publicUser(u),testDxfEnabled:!!u.test_dxf_enabled,corelTransferEnabled:!!u.corel_enabled,authProvider:u.google_id?'google':'email',createdAt:u.created_at,lastLoginAt:u.last_login_at,lastSeen:u.last_seen||null,online:!!u.online}))});
   }
   if(path==='/api/admin/chats'&&request.method==='GET'){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
@@ -585,6 +622,8 @@ async function handleApi(request,env){
       env.DB.prepare('DELETE FROM support_frames WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM support_signals WHERE session_id IN (SELECT id FROM support_sessions WHERE user_id=?)').bind(id),
       env.DB.prepare('DELETE FROM support_sessions WHERE user_id=?').bind(id),
+      env.DB.prepare('DELETE FROM transfer_tickets WHERE user_id=?').bind(id),
+      env.DB.prepare('DELETE FROM user_corel_transfer_access WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM user_features WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM user_preferences WHERE user_id=?').bind(id),
       env.DB.prepare('DELETE FROM user_licenses WHERE user_id=?').bind(id),
@@ -731,6 +770,17 @@ async function handleApi(request,env){
     const row=await env.DB.prepare('SELECT settings_json FROM user_settings WHERE user_id=?').bind(user.id).first();
     if(!row?.settings_json)return json({settings:defaults});
     try{return json({settings:{...defaults,...cleanSettings(JSON.parse(row.settings_json))}})}catch{return json({settings:defaults})}
+  }
+  const corelToggleMatch=path.match(/^\/api\/admin\/users\/(\d+)\/transfer$/);
+  if(corelToggleMatch&&request.method==='POST'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const id=Number(corelToggleMatch[1]),data=await body(request);
+    if(data.target!=='corel'||typeof data.enabled!=='boolean')return json({error:'Geçersiz aktarım yetkisi.'},400);
+    const user=await env.DB.prepare('SELECT id FROM users WHERE id=?').bind(id).first();
+    if(!user)return json({error:'Kullanıcı bulunamadı.'},404);
+    await env.DB.prepare('INSERT INTO user_corel_transfer_access (user_id,enabled,updated_at) VALUES (?,?,CURRENT_TIMESTAMP) ON CONFLICT(user_id) DO UPDATE SET enabled=excluded.enabled,updated_at=CURRENT_TIMESTAMP').bind(id,data.enabled?1:0).run();
+    await audit(env,'corel_transfer_permission_changed',{actorType:'admin',targetUserId:id,detail:data.enabled?'enabled':'disabled'});
+    return json({ok:true,corel:data.enabled});
   }
   const userSettingsMatch=path.match(/^\/api\/admin\/users\/(\d+)\/settings$/);
   if(userSettingsMatch&&request.method==='GET'){
