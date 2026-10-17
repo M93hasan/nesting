@@ -96,6 +96,54 @@ function findPosition(item:Item,sheet:Placed[],sheetIndex:number,width:number,le
   return best;
 }
 
+function findRowPosition(item:Item,sheet:Placed[],sheetIndex:number,width:number,length:number,gap:number,budget:Budget,fromTop:boolean):Placed|undefined{
+  let best:Placed|undefined,bestDepth=Infinity;
+  for(const variant of item.shapes){
+    if(expired(budget))break;
+    const xs=anchors(sheet,width,variant.width,0,gap).reverse();
+    const ys=anchors(sheet,length,variant.height,1,gap);
+    if(fromTop)ys.reverse();
+    for(const y of ys){
+      const depth=fromTop?length-y-variant.height:y;
+      if(depth>bestDepth+EPS)break;
+      let found=false;
+      for(const x of xs){
+        if(expired(budget))return best;
+        const candidate=position(item,variant,x,y,sheetIndex);
+        if(fits(candidate,sheet,gap,budget)){
+          if(!best||depth<bestDepth-EPS||
+            (Math.abs(depth-bestDepth)<=EPS&&candidate.box[2]>best.box[2]+EPS)){
+            best=candidate;bestDepth=depth;
+          }
+          found=true;break;
+        }
+      }
+      if(found)break;
+    }
+  }
+  return best;
+}
+
+function packingItems(doc:Document,source:Result,width:number,length:number):Item[]{
+  const parts=new Map(doc.parts.map(part=>[part.id,part])),rings=new Map<string,Ring>();
+  const shapeCache=new Map<string,Shape>();
+  return source.placements.map((placement,index):Item=>{
+    const part=parts.get(placement.partId);
+    if(!part)throw Error('Yerleşimde bilinmeyen parça bulundu.');
+    let ring=rings.get(part.id);
+    if(!ring){ring=collisionRing(part);rings.set(part.id,ring);}
+    const shapes=angles(placement,part).map(angle=>{
+      const key=JSON.stringify([part.id,angle,!!placement.mirrorX,!!placement.mirrorY]);
+      let variant=shapeCache.get(key);
+      if(!variant){variant=shape(ring!,placement,angle);shapeCache.set(key,variant);}
+      return variant;
+    }).filter(variant=>variant.width<=width+EPS&&variant.height<=length+EPS)
+      .sort((a,b)=>a.height-b.height||a.width-b.width);
+    if(!shapes.length)throw Error(`${part.name} izin verilen dönüşlerle seçilen plakaya sığmıyor.`);
+    return {index,placement,part,ring,area:Math.abs(area(ring)),shapes};
+  });
+}
+
 function resultFromSheets(doc:Document,source:Result,sheets:Placed[][]):Result{
   const nonempty=sheets.filter(sheet=>sheet.length),placements=new Array<Placement>(source.placements.length);
   nonempty.forEach((sheet,sheetIndex)=>sheet.forEach(placed=>{
@@ -120,23 +168,7 @@ export function improveSheetPacking(doc:Document,source:Result,options:{timeLimi
   }catch(error){originalError=error;}
   if(best?.sheetCount===1)return best;
 
-  const parts=new Map(doc.parts.map(part=>[part.id,part])),rings=new Map<string,Ring>();
-  const shapeCache=new Map<string,Shape>();
-  const items=source.placements.map((placement,index):Item=>{
-    const part=parts.get(placement.partId);
-    if(!part)throw Error('Yerleşimde bilinmeyen parça bulundu.');
-    let ring=rings.get(part.id);
-    if(!ring){ring=collisionRing(part);rings.set(part.id,ring);}
-    const shapes=angles(placement,part).map(angle=>{
-      const key=JSON.stringify([part.id,angle,!!placement.mirrorX,!!placement.mirrorY]);
-      let variant=shapeCache.get(key);
-      if(!variant){variant=shape(ring!,placement,angle);shapeCache.set(key,variant);}
-      return variant;
-    }).filter(variant=>variant.width<=width+EPS&&variant.height<=length+EPS)
-      .sort((a,b)=>a.height-b.height||a.width-b.width);
-    if(!shapes.length)throw Error(`${part.name} izin verilen dönüşlerle seçilen plakaya sığmıyor.`);
-    return {index,placement,part,ring,area:Math.abs(area(ring)),shapes};
-  });
+  const items=packingItems(doc,source,width,length);
   const lowerBound=Math.max(1,Math.ceil((items.reduce((sum,item)=>sum+item.area,0)-EPS)/(width*length)));
   const accept=(sheets:Placed[][])=>{
     const count=sheets.filter(sheet=>sheet.length).length;
@@ -193,4 +225,46 @@ export function improveSheetPacking(doc:Document,source:Result,options:{timeLimi
   }
   if(!best)throw originalError??Error('Seçilen plaka ölçülerinde geçerli bir yerleşim bulunamadı.');
   return best;
+}
+
+/** Try physical horizontal rows even when Sparrow already found one plate.
+ * A dense interlocking solution remains the fallback if a complete directional
+ * packing cannot fit in the same number of sheets within the worker budget. */
+export function arrangeSheetRows(doc:Document,source:Result,options:{timeLimitMs?:number}={}):Result{
+  if(doc.settings.materialType!=='sheet'||!source.placements.length)return source;
+  const budget:Budget={deadline:performance.now()+Math.max(0,options.timeLimitMs??200),segments:2_000_000};
+  if(expired(budget))return source;
+  const width=doc.settings.materialWidthMm,length=doc.settings.materialLengthMm!,gap=doc.settings.clearanceMm;
+  const items=packingItems(doc,source,width,length),partOrder=new Map(doc.parts.map((part,index)=>[part.id,index]));
+  const byCopy=(a:Item,b:Item)=>partOrder.get(a.part.id)!-partOrder.get(b.part.id)!||a.placement.copyIndex-b.placement.copyIndex;
+  const orders=[
+    [...items].sort(byCopy),
+    [...items].sort((a,b)=>b.shapes[0].height-a.shapes[0].height||b.area-a.area||byCopy(a,b)),
+    [...items].sort((a,b)=>b.area-a.area||byCopy(a,b)),
+  ];
+  const fromTop=doc.settings.startCorner==='right-top',maxSheets=source.sheetCount??1;
+  for(const order of orders){
+    if(expired(budget))break;
+    const sheets:Placed[][]=[];
+    let complete=true;
+    for(const item of order){
+      if(expired(budget)){complete=false;break;}
+      let placed:Placed|undefined;
+      for(let sheetIndex=0;sheetIndex<sheets.length&&!placed;sheetIndex++){
+        placed=findRowPosition(item,sheets[sheetIndex],sheetIndex,width,length,gap,budget,fromTop);
+        if(placed)sheets[sheetIndex].push(placed);
+      }
+      if(!placed){
+        if(sheets.length>=maxSheets){complete=false;break;}
+        placed=findRowPosition(item,[],sheets.length,width,length,gap,budget,fromTop);
+        if(!placed){complete=false;break;}
+        sheets.push([placed]);
+      }
+    }
+    if(complete){
+      const candidate=resultFromSheets(doc,source,sheets),checked=validate(doc,candidate);
+      if(checked.status==='passed')return {...candidate,validation:{...checked,source:'local'}};
+    }
+  }
+  return source;
 }

@@ -15,7 +15,7 @@ export type Placement = { item_id: number; transformation: { reflected?: boolean
 export type SolverMessage = Identity & (
   | { type: 'ready'; threads: number; solverBinary: SolverBinary; simd: boolean; canSkip: boolean; fallbackReason?: string }
   | { type: 'phase'; phase: string; workers: number; initializationMs: number }
-  | (({ type:'candidate' }|{ type:'live' }) & { sequence:number; report:string; elapsedMs:number; sheetResult?:Result;
+  | (({ type:'candidate' }|{ type:'live' }) & { sequence:number; report:string; elapsedMs:number; sheetResult?:Result; rowOrdered?:boolean;
       solution: { strip_width: number; layout: { placed_items: Placement[] } } })
   | { type: 'solver-log'; line:string; timestamp:number }
   | { type:'run-input'; input:string; seed:string; seconds:number|null; clearance:number; preset:string; threads:number; solverBinary:SolverBinary }

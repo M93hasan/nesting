@@ -70,6 +70,49 @@ test('sheet candidates decode stacked Sparrow coordinates into Plate 1 and Plate
   expect(render().result?.sheetCount).toBe(2);
 });
 
+test.each(['right-bottom','right-top'] as const)('best result and live preview restart each physical row on the right from %s',startCorner=>{
+  const rowDoc:Document={...doc,parts:[{...doc.parts[0],quantity:3}],settings:{...doc.settings,
+    materialType:'sheet',materialWidthMm:30,materialLengthMm:30,startCorner}};
+  render().start(rowDoc,7);
+  const [solver,preview]=WorkerStub.all;
+  solver.deliver({type:'candidate',runId:1,documentRevision:7,sequence:1,report:'ExplFeas',elapsedMs:100,
+    solution:{strip_width:20,layout:{placed_items:[
+      {item_id:0,transformation:{rotation:0,translation:[0,0]}},
+      {item_id:1,transformation:{rotation:0,translation:[0,10]}},
+      {item_id:2,transformation:{rotation:0,translation:[10,0]}}
+    ]}}});
+  vi.advanceTimersByTime(100);
+  const result=render().result!;
+  expect(result.sheetCount).toBe(1);
+  expect(result.placements.map(p=>[p.copyIndex,p.xMm,p.yMm])).toEqual([
+    [0,20,startCorner==='right-bottom'?0:20],
+    [1,10,startCorner==='right-bottom'?0:20],
+    [2,20,10],
+  ]);
+  const frame=preview.messages.find(message=>message.type==='live-preview');
+  expect(frame?.type==='live-preview'&&frame.result.placements).toEqual(result.placements);
+});
+
+test('keeps validated row ordering when a later same-plate raw candidate has a shorter strip',()=>{
+  const rowDoc:Document={...doc,parts:[{...doc.parts[0],quantity:2}],settings:{...doc.settings,
+    materialType:'sheet',materialWidthMm:30,materialLengthMm:30}};
+  render().start(rowDoc,7);const [solver]=WorkerStub.all;
+  const first:SolverMessage={type:'candidate',runId:1,documentRevision:7,sequence:1,report:'ExplFeas',elapsedMs:100,rowOrdered:true,
+    solution:{strip_width:30,layout:{placed_items:[
+      {item_id:0,transformation:{rotation:0,translation:[0,0]}},
+      {item_id:1,transformation:{rotation:0,translation:[0,10]}}
+    ]}}};
+  solver.deliver(first);vi.advanceTimersByTime(100);
+  const ordered=render().result;
+  solver.deliver({...first,sequence:2,rowOrdered:false,solution:{strip_width:20,layout:{placed_items:[
+    {item_id:0,transformation:{rotation:0,translation:[0,0]}},
+    {item_id:1,transformation:{rotation:0,translation:[10,0]}}
+  ]}}});
+  vi.advanceTimersByTime(100);expect(render().result).toBe(ordered);
+  solver.deliver({...first,sequence:3,solution:{...first.solution,strip_width:19}});
+  vi.advanceTimersByTime(100);expect(render().result).not.toBe(ordered);
+});
+
 test('live clip failures are logged without stopping the preview worker',()=>{
   render().start(doc,7);const [solver,preview]=WorkerStub.all;
   solver.deliver({...candidate(1,7,1,20),type:'live'});

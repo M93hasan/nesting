@@ -1,6 +1,6 @@
 import {expect,test} from 'vitest';
 import {DEFAULT_SETTINGS,newPart,type Document,type Part,type Result} from '../src/model';
-import {improveSheetPacking} from '../src/geometry/sheetPacking';
+import {arrangeSheetRows,improveSheetPacking} from '../src/geometry/sheetPacking';
 import {packResultIntoSheets} from '../src/geometry/multiSheet';
 import {validate} from '../src/geometry/validate';
 
@@ -110,4 +110,31 @@ test('backfills earlier plates for a production-size batch without dropping copi
   const packed=improveSheetPacking(doc,result,{timeLimitMs:1000});
   expect(packed.sheetCount).toBe(2);
   checked(doc,packed);
+});
+
+test.each(['right-bottom','right-top'] as const)('reflows an already single plate in physical right-to-left rows from %s',startCorner=>{
+  const part={...rectangle(2,2,'rows'),quantity:6};
+  const {doc,result}=fixture([part],4,6,[0]);
+  doc.settings.startCorner=startCorner;
+  result.sheetCount=1;result.usedLengthMm=6;
+  result.placements.forEach((placement,index)=>{
+    placement.xMm=Math.floor(index/3)*2;placement.yMm=(index%3)*2;placement.sheetIndex=0;
+  });
+  const before=structuredClone({doc,result}),packed=arrangeSheetRows(doc,result);
+  expect(packed.sheetCount).toBe(1);
+  packed.placements.forEach((placement,index)=>{
+    expect(placement.xMm).toBeCloseTo(index%2===0?2:0);
+    expect(placement.yMm).toBeCloseTo(startCorner==='right-bottom'?Math.floor(index/2)*2:4-Math.floor(index/2)*2);
+  });
+  checked(doc,packed);
+  expect({doc,result}).toEqual(before);
+});
+
+test('does not trade a dense interlocking one-plate result for extra directional sheets',()=>{
+  const l={...newPart([[0,0],[6,0],[6,2],[2,2],[2,6],[0,6]],'L'),id:'L',rotations:{kind:'discrete' as const,degrees:[0]}};
+  const {doc,result}=fixture([l,rectangle(4,4,'insert')],6,6,[0,7]);
+  const nested=improveSheetPacking(doc,result),packed=arrangeSheetRows(doc,nested);
+  expect(packed.sheetCount).toBe(1);
+  checked(doc,packed);
+  expect(arrangeSheetRows(doc,nested,{timeLimitMs:0})).toBe(nested);
 });

@@ -4,6 +4,7 @@ import { SOLVER_REVISION, type Document, type Result } from '../model';
 import type { Candidate, GeometryReply, SolverMessage } from './protocol';
 import type {LiveGeometry} from '../geometry/live';
 import {packResultIntoSheets} from '../geometry/multiSheet';
+import {orientToStartCorner} from '../geometry/startDirection';
 import {candidateResult} from './solverResult';
 export {candidateResult} from './solverResult';
 import {validate} from '../geometry/validate';
@@ -17,7 +18,7 @@ export type LiveFrame=LiveGeometry & {sequence:number;result:Result;report:strin
 export const wallClockLimitSeconds=(doc:Document)=>doc.settings.timeLimitSeconds??59;
 type Run={id:number;revision:number;doc:Document;seed:string;requestedAt:number;solver?:Worker;preview:Worker;
   latest?:Candidate;previewActive?:{candidate:Candidate;result:Result};frame?:LiveFrame;previewSequence:number;previewError?:string;
-  best?:Result;bestSheetSolverLength?:number;ended?:'Complete'|'Stopped'|'Error';startedAt?:number;watchdog:ReturnType<typeof setTimeout>;deadline?:ReturnType<typeof setTimeout>;
+  best?:Result;bestSheetSolverLength?:number;bestRowOrdered?:boolean;ended?:'Complete'|'Stopped'|'Error';startedAt?:number;watchdog:ReturnType<typeof setTimeout>;deadline?:ReturnType<typeof setTimeout>;
   deadlineAtEpochMs?:number;visibilityHandler?:()=>void;
   diagnostics:Diagnostics};
 export function phaseImprovements(history:Timing[],lengthMm:number) {
@@ -67,7 +68,7 @@ export function useSolver() {
         if(r.latest&&!r.previewActive&&!r.previewError&&r.latest.sequence>r.previewSequence) {
           const candidate=r.latest;
           let previewResult:Result|undefined;
-          try{previewResult=packResultIntoSheets(r.doc,candidateResult(r.doc,candidate,r.seed));}
+          try{previewResult=orientToStartCorner(r.doc,packResultIntoSheets(r.doc,candidateResult(r.doc,candidate,r.seed)));}
           catch{r.previewSequence=candidate.sequence;}
           if(previewResult){
             r.previewActive={candidate,result:previewResult};r.previewSequence=candidate.sequence;
@@ -150,7 +151,7 @@ export function useSolver() {
           r.diagnostics.history.push({phase:r.diagnostics.phases?.at(-1)?.phase,sequence:data.sequence,elapsedMs:data.elapsedMs,lengthMm:data.solution.strip_width,validation:'passed'});
           {
             let packed:Result;
-            try{packed=packResultIntoSheets(doc,candidateResult(doc,data,seed));}
+            try{packed=orientToStartCorner(doc,packResultIntoSheets(doc,candidateResult(doc,data,seed)));}
             catch(error){
               r.diagnostics.history.at(-1)!.validation='failed';
               r.diagnostics.history.at(-1)!.errors=[error instanceof Error?error.message:String(error)];
@@ -174,13 +175,17 @@ export function useSolver() {
               break;
             }
             const sheetCount=packed.sheetCount??1,bestSheetCount=r.best?.sheetCount??Infinity;
+            const rowOrdered=data.rowOrdered===true;
             const better=!r.best
               || sheetCount<bestSheetCount
-              || (sheetCount===bestSheetCount&&(r.bestSheetSolverLength===undefined||data.solution.strip_width<r.bestSheetSolverLength));
+              || (sheetCount===bestSheetCount&&(
+                (rowOrdered&&!r.bestRowOrdered)||
+                (rowOrdered===!!r.bestRowOrdered&&(r.bestSheetSolverLength===undefined||data.solution.strip_width<r.bestSheetSolverLength))));
             if(better){
               startup.firstValidMs??=performance.now()-requestedAt;
               r.best={...packed,validation:{...checked,source:'local'}};
               r.bestSheetSolverLength=data.solution.strip_width;
+              r.bestRowOrdered=rowOrdered;
             }
           }
           break;

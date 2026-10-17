@@ -3,7 +3,7 @@ import type { Start, SolverMessage } from './protocol';
 import { normalizeDocument } from '../geometry/normalize';
 import { solverInput } from '../import/sparrow';
 import {candidateResult} from './solverResult';
-import {improveSheetPacking} from '../geometry/sheetPacking';
+import {arrangeSheetRows,improveSheetPacking} from '../geometry/sheetPacking';
 import {packResultIntoSheets} from '../geometry/multiSheet';
 import {prepareSheetSearch,restoreSheetSearchResult} from '../geometry/sheetSearch';
 
@@ -50,8 +50,10 @@ self.onmessage = async ({ data }: MessageEvent<Start | {type:'preload';threads:n
           const decoded=candidateResult(search.document,{...message,runId,documentRevision},data.seed);
           const packed=improve?improveSheetPacking(search.document,decoded,{timeLimitMs:Math.min(200,sheetSearchBudget-sheetSearchMs)}):
             packResultIntoSheets(search.document,decoded);
-          const sheetResult=restoreSheetSearchResult(doc,packed,search.transposed);
-          send({...message,sheetResult});
+          const physical=restoreSheetSearchResult(doc,packed,search.transposed);
+          const remaining=Math.min(200,sheetSearchBudget-sheetSearchMs)-(performance.now()-began);
+          const sheetResult=improve&&remaining>0?arrangeSheetRows(doc,physical,{timeLimitMs:remaining}):physical;
+          send({...message,sheetResult,...(sheetResult!==physical?{rowOrdered:true}:{})});
         }catch{
           // Original-axis candidates retain the existing UI validation fallback.
           // Transposed raw coordinates must never be interpreted as physical XY.
