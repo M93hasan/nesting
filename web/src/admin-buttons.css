@@ -1,0 +1,51 @@
+/* One button treatment throughout desktop and mobile administration. */
+:root #root .admin-page :is(button,a.admin-workspace-link){
+  box-sizing:border-box;
+  min-height:44px!important;
+  padding:10px 14px!important;
+  border:1px solid var(--border)!important;
+  border-radius:10px!important;
+  background:var(--panel)!important;
+  color:var(--ink)!important;
+  font:600 12px/1.4 var(--font-ui)!important;
+  letter-spacing:normal!important;
+  text-decoration:none;
+  box-shadow:none!important;
+  text-shadow:none!important;
+  transform:none!important;
+  white-space:normal;
+  cursor:pointer;
+}
+:root #root .admin-page :is(button,a.admin-workspace-link):hover:not(:disabled){
+  background:var(--hover)!important;
+  border-color:var(--hover-border)!important;
+  color:var(--ink)!important;
+  box-shadow:none!important;
+  transform:none!important;
+}
+:root #root .admin-page :is(button,a.admin-workspace-link):focus-visible{
+  outline:2px solid var(--accent)!important;
+  outline-offset:3px!important;
+}
+:root #root .admin-page button:is(.active,[aria-pressed=true],[aria-selected=true]){
+  background:var(--panel)!important;
+  color:var(--ink)!important;
+  border-color:var(--accent)!important;
+  outline:none;
+}
+:root #root .admin-page button:disabled{
+  opacity:.42!important;
+  cursor:not-allowed!important;
+  box-shadow:none!important;
+}
+:root #root .admin-page .admin-sidebar nav button>span{
+  background:transparent!important;
+  color:inherit!important;
+  box-shadow:none!important;
+}
+:root #root .admin-page .reference-settings .settings-gear{
+  animation:none!important;
+  transform:none!important;
+}
+.admin-page .admin-conversation-list{display:grid;gap:6px;padding:6px}
+.admin-page a.admin-workspace-link{display:inline-flex;align-items:center;justify-content:center}
