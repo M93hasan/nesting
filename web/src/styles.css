@@ -431,3 +431,32 @@ html[dir="rtl"] body{direction:rtl}html[dir="rtl"] .workspace-svg,html[dir="rtl"
 .part-properties-inline .rotation-control,.part-properties-inline .mirror-control{display:grid;gap:8px;margin-top:10px}
 .part-properties-inline .rotation-control .row-actions,.part-properties-inline .mirror-control .row-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .part-properties-inline .mirror-control button[aria-pressed=true]{background:var(--accent)!important;color:#fff!important;border-color:var(--accent)!important;font-weight:700}
+
+
+/* Brand-distinct DXF transfer actions (web and desktop shell share this UI). */
+.download-button.corel-transfer-button{
+  background:linear-gradient(135deg,#167845,#21975b);
+  border-color:#12693c;
+  color:#fff;
+  box-shadow:0 5px 14px rgba(22,120,69,.25);
+}
+.download-button.corel-transfer-button:hover:enabled{
+  background:linear-gradient(135deg,#11673b,#1b8550);
+  border-color:#0d5932;
+  box-shadow:0 7px 18px rgba(22,120,69,.33);
+}
+.download-button.rdworks-transfer-button{
+  background:linear-gradient(135deg,#ad2337,#d33949);
+  border-color:#972032;
+  color:#fff;
+  box-shadow:0 5px 14px rgba(173,35,55,.25);
+}
+.download-button.rdworks-transfer-button:hover:enabled{
+  background:linear-gradient(135deg,#961c30,#bd3040);
+  border-color:#821a2c;
+  box-shadow:0 7px 18px rgba(173,35,55,.33);
+}
+
+
+
+@media(max-width:760px){.export-actions{flex-wrap:wrap;gap:8px}}
