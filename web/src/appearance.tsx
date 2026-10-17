@@ -1,7 +1,7 @@
 import {createContext,useCallback,useContext,useEffect,useLayoutEffect,useRef,useState,type ReactNode} from 'react';
 
 export type Appearance={background:string;panel:string};
-export const DEFAULT_APPEARANCE:Appearance={background:'#2f396b',panel:'#192142'};
+export const DEFAULT_APPEARANCE:Appearance={background:'#121421',panel:'#242935'};
 export function parseAppearance(value:unknown):Appearance|null{
   if(!value||typeof value!=='object')return null;
   const input=value as Partial<Appearance>;

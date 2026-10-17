@@ -568,13 +568,23 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
   if(ambiguousHoleContours)warnings.push(`${ambiguousHoleContours} kesişen veya temas eden iç DXF konturu delik yerine üretim detayı olarak korundu; orijinal kesim çizgileri değiştirilmedi.`);
   let attachedOpenMarks=0;
   // Preserve simple open LINE/ARC/POLYLINE/SPLINE chains as non-nesting marks when
-  // they are fully contained by one imported part. They stay rigidly attached to
+  // they are contained by one imported part, including its boundary. They stay rigidly attached to
   // that part and count as source entities, but never become independent pieces.
   for(const mark of joined.openMarks) {
     const candidates=imported.map(part=>{
       const contour=part.source.entityId?keptContours.find(c=>c.entityId===part.source.entityId):undefined;
       return contour?{part,contour,size:Math.abs(area(contour.ring))}:undefined;
-    }).filter((v):v is NonNullable<typeof v>=>!!v&&mark.points.every(point=>inside(point,v.contour.ring)))
+    }).filter((v):v is NonNullable<typeof v>=>{
+      if(!v)return false;
+      // Notches often terminate exactly on the native outline. Strict inside()
+      // excludes boundary points; curve flattening can also put an endpoint just
+      // outside the sampled ring. Use the existing 0.01 mm CAD join tolerance
+      // or the combined approximation budget, whichever is larger,
+      // without snapping or changing the original mark geometry.
+      const tolerance=Math.max(.01,v.part.approximationToleranceMm+(mark.curved?options.tolerance:0));
+      return mark.points.every(point=>inside(point,v.contour.ring)||v.contour.ring.some((a,i)=>
+        pointSegmentDistance(point,a,v.contour.ring[(i+1)%v.contour.ring.length])<=tolerance));
+    })
       .sort((a,b)=>a.size-b.size);
     const target=candidates[0];
     if(target){
