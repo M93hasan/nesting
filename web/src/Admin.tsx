@@ -23,15 +23,15 @@ function Metric({label,value,detail}:{label:string;value:string;detail:string}){
   return <article className="admin-metric"><span>{label}</span><strong>{value}</strong><small>{detail}</small></article>;
 }
 
-type AdminUser={id:number;email:string;name:string;role:string;credits:number;unlimited:boolean;testDxfEnabled?:boolean;authProvider?:string;suspended?:boolean;licenseStartedAt?:string|null;licenseExpiresAt?:string|null;licenseExpired?:boolean;createdAt?:string;lastLoginAt?:string;lastSeen?:string|null;online?:boolean};
-type AdminSettings={materialWidthMm:number;clearanceMm:number;marginMm:number;rotation:'fixed'|'half'|'free';materialType:'roll'|'sheet';solverPreset:'standard'|'fast'};
+type AdminUser={id:number;email:string;name:string;role:string;credits:number;unlimited:boolean;testDxfEnabled?:boolean;corelTransferEnabled?:boolean;rdworksTransferEnabled?:boolean;authProvider?:string;suspended?:boolean;licenseStartedAt?:string|null;licenseExpiresAt?:string|null;licenseExpired?:boolean;createdAt?:string;lastLoginAt?:string;lastSeen?:string|null;online?:boolean};
+type AdminSettings={materialWidthMm:number;clearanceMm:number;marginMm:number;rotation:'fixed'|'half'|'free';materialType:'roll'|'sheet';solverPreset:'standard'|'fast';corelTransferEnabled:boolean;rdworksTransferEnabled:boolean};
 type AuditLog={id:number;actorType:string;actorEmail:string;targetEmail:string;action:string;detail:string;success:boolean;createdAt:string};
 type Health={adminApi:boolean;auth:boolean;userStore:boolean};
 type SupportSession={id:number;status:'pending'|'approved'|'declined'|'ended'|'expired';mode?:'settings'|'screen';expiresAt?:string;createdAt?:string;approvedAt?:string;endedAt?:string;offer?:RTCSessionDescriptionInit|null;answer?:RTCSessionDescriptionInit|null};
 type ChatSummary={userId:number;email:string;name:string;lastMessageAt?:string|null;unread:number;lastSeen?:string|null;online:boolean};
 type ChatMessage={id:number;sender:'user'|'admin';body:string;createdAt:string;readAt?:string|null};
 type ChatUser={id:number;email:string;name:string;online:boolean;lastSeen?:string|null};
-const FALLBACK_SETTINGS:AdminSettings={materialWidthMm:1400,clearanceMm:0,marginMm:0,rotation:'half',materialType:'roll',solverPreset:'standard'};
+const FALLBACK_SETTINGS:AdminSettings={materialWidthMm:1400,clearanceMm:0,marginMm:0,rotation:'half',materialType:'roll',solverPreset:'standard',corelTransferEnabled:false,rdworksTransferEnabled:false};
 
 type GoogleCredentialResponse={credential?:string};
 type GoogleAccounts={id:{initialize:(options:{client_id:string;callback:(response:GoogleCredentialResponse)=>void;auto_select?:boolean})=>void;renderButton:(parent:HTMLElement,options:Record<string,unknown>)=>void;disableAutoSelect:()=>void}};
@@ -303,6 +303,22 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
     catch(e){setUsersError(e instanceof Error?e.message:String(e))}
     finally{setSavingUserId(undefined)}
   }
+  async function setTransferPermission(user:AdminUser,target:'corel'|'rdworks',enabled:boolean){
+    if(savingUserId!==undefined)return;
+    setSavingUserId(user.id);setUsersError('');setUserNotice('');
+    try{
+      const response=await getJson(`/api/admin/users/${user.id}/transfer`,{
+        method:'POST',body:JSON.stringify({target,enabled})
+      }) as {corel:boolean;rdworks:boolean};
+      const label=target==='corel'?'CorelDRAW':'RDWorks';
+      setUserNotice(`${user.email} için ${label} aktarımı ${enabled?'açıldı':'kapatıldı'}.`);
+      if(selectedUserId===user.id){
+        setUserSettings(previous=>({...previous,corelTransferEnabled:response.corel,rdworksTransferEnabled:response.rdworks}));
+      }
+      await loadUsers();
+    }catch(e){setUsersError(e instanceof Error?e.message:String(e))}
+    finally{setSavingUserId(undefined)}
+  }
   async function setTestDxf(user:AdminUser,enabled:boolean){
     setSavingUserId(user.id);setUsersError('');setUserNotice('');
     try{
@@ -394,7 +410,20 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
               <span><strong>{user.role==='admin'?'Yönetici':'Kullanıcı'}</strong><small>{user.authProvider==='google'?'Google / Gmail':'E-posta'}</small></span>
               <span className="admin-user-quota"><div className="admin-switch-row"><label className="switch"><input type="checkbox" checked={user.unlimited} disabled={savingUserId===user.id} onChange={e=>void setUnlimited(user,e.target.checked)}/><span className="slider"><span className="glow"/><span className="icon-on">✓</span><span className="icon-off">○</span></span></label><span>Kotasız / Sınırsız</span></div>{!user.unlimited&&<label>Hak<input aria-label={user.email+' yerleştirme hakkı'} type="number" min="0" max="100000" defaultValue={user.credits} key={user.id+'-'+user.credits} onBlur={e=>{const value=Math.max(0,Math.trunc(e.currentTarget.valueAsNumber||0));if(value!==user.credits)void saveCredits(user,value)}}/></label>}</span>
               <span className="admin-user-license"><strong>{user.licenseExpiresAt?(user.licenseExpired?'Süresi doldu · ':'Bitiş · ')+new Date(user.licenseExpiresAt).toLocaleDateString(localeTag(locale)):'Süresiz'}</strong><small>{user.licenseStartedAt?'Başlangıç: '+new Date(user.licenseStartedAt).toLocaleDateString(localeTag(locale)):'Lisans süresi sınırlandırılmamış'}</small><div className="admin-license-controls"><select aria-label={user.email+' hızlı lisans süresi'} defaultValue="" disabled={savingUserId===user.id} onChange={e=>{const days=Number(e.currentTarget.value);if(days>0)void setLicenseDays(user,days);e.currentTarget.value=''}}><option value="">Süre ver…</option><option value="7">7 gün</option><option value="30">30 gün</option><option value="90">90 gün</option><option value="180">180 gün</option><option value="365">1 yıl</option></select><input key={user.id+'-'+String(user.licenseExpiresAt)} aria-label={user.email+' özel lisans günü'} type="number" min="1" max="36500" placeholder="Özel gün" disabled={savingUserId===user.id} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur()}} onBlur={e=>{const days=Math.trunc(e.currentTarget.valueAsNumber);if(Number.isFinite(days)&&days>0)void setLicenseDays(user,days)}}/><button type="button" disabled={savingUserId===user.id||!user.licenseExpiresAt} onClick={()=>void setLicenseDays(user,null)}>Süresiz</button></div></span>
-              <span className="admin-user-actions"><button className={user.testDxfEnabled?'primary':''} onClick={()=>void setTestDxf(user,!user.testDxfEnabled)} disabled={savingUserId===user.id}>{user.testDxfEnabled?'Test DXF Kapat':'Test DXF Aç'}</button><button onClick={()=>{setSection('user-settings');void loadUserSettings(user.id)}}>Ayarlar</button><button onClick={()=>{setSection('messages');void loadChat(user.id)}}>Mesajlar</button><button className="screen-support-button" onClick={()=>{setSection('user-settings');void loadUserSettings(user.id).then(()=>requestSupport('screen',user.id))}}>Ekrana bağlan</button><button onClick={()=>void sendPasswordReset(user)} disabled={resettingUserId===user.id}>{resettingUserId===user.id?'Gönderiliyor…':'Şifre sıfırla'}</button><button className="danger-button" onClick={()=>void deleteUser(user)} disabled={savingUserId===user.id}>{savingUserId===user.id?'Siliniyor…':'Kullanıcıyı sil'}</button></span>
+              <span className="admin-user-actions">
+                <button type="button" className={user.corelTransferEnabled?'primary admin-transfer-toggle corel-transfer-toggle':'admin-transfer-toggle corel-transfer-toggle'}
+                  aria-pressed={!!user.corelTransferEnabled} aria-label={user.email+' CorelDRAW aktarımını '+(user.corelTransferEnabled?'kapat':'aç')}
+                  title="Bu kullanıcı için CorelDRAW aktarım yetkisi" disabled={savingUserId===user.id}
+                  onClick={()=>void setTransferPermission(user,'corel',!user.corelTransferEnabled)}>
+                  CorelDRAW {user.corelTransferEnabled?'Kapat':'Aç'}
+                </button>
+                <button type="button" className={user.rdworksTransferEnabled?'primary admin-transfer-toggle rdworks-transfer-toggle':'admin-transfer-toggle rdworks-transfer-toggle'}
+                  aria-pressed={!!user.rdworksTransferEnabled} aria-label={user.email+' RDWorks aktarımını '+(user.rdworksTransferEnabled?'kapat':'aç')}
+                  title="Bu kullanıcı için RDWorks aktarım yetkisi" disabled={savingUserId===user.id}
+                  onClick={()=>void setTransferPermission(user,'rdworks',!user.rdworksTransferEnabled)}>
+                  RDWorks {user.rdworksTransferEnabled?'Kapat':'Aç'}
+                </button>
+                <button className={user.testDxfEnabled?'primary':''} onClick={()=>void setTestDxf(user,!user.testDxfEnabled)} disabled={savingUserId===user.id}>{user.testDxfEnabled?'Test DXF Kapat':'Test DXF Aç'}</button><button onClick={()=>{setSection('user-settings');void loadUserSettings(user.id)}}>Ayarlar</button><button onClick={()=>{setSection('messages');void loadChat(user.id)}}>Mesajlar</button><button className="screen-support-button" onClick={()=>{setSection('user-settings');void loadUserSettings(user.id).then(()=>requestSupport('screen',user.id))}}>Ekrana bağlan</button><button onClick={()=>void sendPasswordReset(user)} disabled={resettingUserId===user.id}>{resettingUserId===user.id?'Gönderiliyor…':'Şifre sıfırla'}</button><button className="danger-button" onClick={()=>void deleteUser(user)} disabled={savingUserId===user.id}>{savingUserId===user.id?'Siliniyor…':'Kullanıcıyı sil'}</button></span>
             </div>):<Empty title="Kullanıcı bulunamadı">Filtreye uyan kullanıcı yok.</Empty>}
           </div>
         </section>}
@@ -445,6 +474,8 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
             <label>Rotasyon<select value={userSettings.rotation} onChange={e=>setUserSettings({...userSettings,rotation:e.target.value as AdminSettings['rotation']})}><option value="fixed">0°</option><option value="half">0° / 180°</option><option value="free">Her yöne</option></select></label>
             <label>Malzeme tipi<select value={userSettings.materialType} onChange={e=>setUserSettings({...userSettings,materialType:e.target.value as AdminSettings['materialType']})}><option value="roll">Rulo</option><option value="sheet">Plaka</option></select></label>
             <label>Solver profili<select value={userSettings.solverPreset} onChange={e=>setUserSettings({...userSettings,solverPreset:e.target.value as AdminSettings['solverPreset']})}><option value="standard">Standart</option><option value="fast">Hızlı</option></select></label>
+            <label className="checkbox"><input type="checkbox" checked={!!userSettings.corelTransferEnabled} onChange={e=>setUserSettings({...userSettings,corelTransferEnabled:e.target.checked})}/> CorelDRAW aktarımına izin ver</label>
+            <label className="checkbox"><input type="checkbox" checked={!!userSettings.rdworksTransferEnabled} onChange={e=>setUserSettings({...userSettings,rdworksTransferEnabled:e.target.checked})}/> RDWorks aktarımına izin ver</label>
           </div><div className="admin-save-row"><button onClick={()=>void resetUserSettings()} disabled={adminBusy==='user-settings'}>Sistem varsayılanlarına dön</button><button className="primary" onClick={()=>void saveUserSettings()} disabled={adminBusy==='user-settings'}>{adminBusy==='user-settings'?'Kaydediliyor…':'Kullanıcı ayarlarını kaydet'}</button></div></>:<Empty title="Kullanıcı seçin">Yukarıdaki listeden bir kullanıcı seçerek ona özel varsayılanları düzenleyebilirsiniz.</Empty>}
         </section>}
 
@@ -457,6 +488,8 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
             <label>Varsayılan rotasyon<select value={systemSettings.rotation} onChange={e=>setSystemSettings({...systemSettings,rotation:e.target.value as AdminSettings['rotation']})}><option value="fixed">0°</option><option value="half">0° / 180°</option><option value="free">Her yöne</option></select></label>
             <label>Varsayılan malzeme<select value={systemSettings.materialType} onChange={e=>setSystemSettings({...systemSettings,materialType:e.target.value as AdminSettings['materialType']})}><option value="roll">Rulo</option><option value="sheet">Plaka</option></select></label>
             <label>Solver profili<select value={systemSettings.solverPreset} onChange={e=>setSystemSettings({...systemSettings,solverPreset:e.target.value as AdminSettings['solverPreset']})}><option value="standard">Standart</option><option value="fast">Hızlı</option></select></label>
+            <label className="checkbox"><input type="checkbox" checked={!!systemSettings.corelTransferEnabled} onChange={e=>setSystemSettings({...systemSettings,corelTransferEnabled:e.target.checked})}/> CorelDRAW aktarımını aç</label>
+            <label className="checkbox"><input type="checkbox" checked={!!systemSettings.rdworksTransferEnabled} onChange={e=>setSystemSettings({...systemSettings,rdworksTransferEnabled:e.target.checked})}/> RDWorks aktarımını aç</label>
           </div>
           <div className="admin-save-row"><small>Kullanıcıya özel ayar yoksa bu değerler kullanılır.</small><button className="primary" onClick={()=>void saveSystemSettings()} disabled={adminBusy==='system-settings'}>{adminBusy==='system-settings'?'Kaydediliyor…':'Kaydet'}</button></div>
         </section>}
