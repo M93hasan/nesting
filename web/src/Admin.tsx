@@ -3,8 +3,9 @@ import {useEffect,useMemo,useRef,useState} from 'react';
 import packageInfo from '../package.json';
 import {LanguageSelect,localeTag,useI18n} from './i18n';
 import UiIcon from './components/UiIcon';
+import AppearanceSettings from './components/AppearanceSettings';
 
-type Section='overview'|'users'|'messages'|'roles'|'user-settings'|'defaults'|'history'|'logs'|'system';
+type Section='overview'|'users'|'messages'|'roles'|'user-settings'|'defaults'|'appearance'|'history'|'logs'|'system';
 
 const nav:{id:Section;label:string}[]=[
   {id:'overview',label:'Genel Bakış'},
@@ -13,6 +14,7 @@ const nav:{id:Section;label:string}[]=[
   {id:'roles',label:'Roller ve Yetkiler'},
   {id:'user-settings',label:'Kullanıcı Ayarları'},
   {id:'defaults',label:'Sistem Varsayılanları'},
+  {id:'appearance',label:'Görünüm'},
   {id:'history',label:'İşlem Geçmişi'},
   {id:'logs',label:'Sistem Logları'},
   {id:'system',label:'Sistem Bilgisi'},
@@ -393,6 +395,7 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
       <main className="admin-main">
         <div className="admin-heading"><div><p>Yönetim</p><h1>{title}</h1></div><span className="admin-connection">{health?.adminApi?'Sunucu bağlı':health?'Sunucu hatası':'Kontrol ediliyor…'}</span></div>
 
+        {section==='appearance'&&<AppearanceSettings/>}
         {section==='overview'&&<>
           <section className="admin-metrics">
             <Metric label="Toplam kullanıcı" value={String(users.length)} detail="D1 kullanıcı veritabanı"/>

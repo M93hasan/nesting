@@ -15,8 +15,8 @@
 :root {
   color-scheme:dark;
   --font-ui:"Plus Jakarta Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  --page:light-dark(#eef2fb,#060b24);
-  --panel:light-dark(#ffffff,#101735);
+  --page:light-dark(#eef2fb,var(--appearance-background,#2f396b));
+  --panel:light-dark(#ffffff,var(--appearance-panel,#192142));
   --panel-soft:light-dark(#f4f7ff,#0c122c);
   --panel-raised:light-dark(#ffffff,#182142);
   --ink:light-dark(#14234b,#f3f6ff);
@@ -36,7 +36,7 @@
   --danger-soft:light-dark(#fff0f3,#321e34);
   --brand-gradient:linear-gradient(135deg,#0068e8,#0052bf);
   --brand-gradient-hover:linear-gradient(135deg,#075ed8,#00459f);
-  --card-surface:linear-gradient(128deg,light-dark(#fff,#111a3b),light-dark(#f8faff,#0c122c));
+  --card-surface:linear-gradient(128deg,light-dark(#fff,var(--panel)),light-dark(#f8faff,var(--panel)));
   --surface-shadow:0 12px 32px light-dark(#233e7410,#01051b40);
   --radius-card:20px;
   --radius-control:11px;
@@ -47,8 +47,8 @@
 :root[data-theme=dark]{color-scheme:dark}
 :root[data-theme=system]{color-scheme:light dark}
 body {
-  background:radial-gradient(ellipse at 15% 0%,light-dark(#c9ddff88,#142c6860),transparent 48%),
-    radial-gradient(ellipse at 90% 30%,light-dark(#e1d8ff55,#23164540),transparent 48%),var(--page);
+  background:radial-gradient(ellipse at 15% 0%,light-dark(#c9ddff88,transparent),transparent 48%),
+    radial-gradient(ellipse at 90% 30%,light-dark(#e1d8ff55,transparent),transparent 48%),var(--page);
   background-attachment:fixed;
   -webkit-font-smoothing:antialiased;
 }

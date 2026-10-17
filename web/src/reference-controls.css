@@ -72,12 +72,12 @@
 
 /* Floating wave captions. Required/optional/zero/mixed values use native
    placeholder state, so an optional empty input never masquerades as filled. */
-:root #root input:not([type=checkbox]):not([type=radio]):not([type=file]):not([hidden]){
+:root #root input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=color]):not([hidden]){
   background:transparent!important;color:var(--ink)!important;border:0!important;
   border-bottom:1px solid var(--hover-border)!important;border-radius:0!important;box-shadow:none!important;
   transition:border-color .2s ease,background-size .2s ease;
 }
-:root #root input:not([type=checkbox]):not([type=radio]):not([type=file]):focus-visible{
+:root #root input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=color]):focus-visible{
   outline:2px solid var(--control-violet)!important;outline-offset:3px;border-bottom-color:var(--control-violet)!important;
 }
 :root #root label.wave-field{position:relative;display:block;min-width:0;min-height:50px;padding:0;margin:0;color:var(--muted)}

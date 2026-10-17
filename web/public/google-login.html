@@ -8,11 +8,11 @@
   <style>
     @font-face{font-family:"Plus Jakarta Sans";font-style:normal;font-weight:200 800;font-display:swap;src:url('/fonts/plus-jakarta-sans/latin-ext.woff2') format('woff2');unicode-range:U+0100-024F}
     @font-face{font-family:"Plus Jakarta Sans";font-style:normal;font-weight:200 800;font-display:swap;src:url('/fonts/plus-jakarta-sans/latin.woff2') format('woff2');unicode-range:U+0000-00FF,U+2000-206F}
-    :root{color-scheme:dark;--page:light-dark(#eef2fb,#060b24);--panel:light-dark(#fff,#101735);--ink:light-dark(#14234b,#f3f6ff);--muted:light-dark(#536481,#a3b1d0);--border:light-dark(#dbe3f2,#273255);--accent:light-dark(#075ed8,#7cb8ff);font:12px/1.55 "Plus Jakarta Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink);background:var(--page)}
+    :root{color-scheme:dark;--page:light-dark(#eef2fb,var(--appearance-background,#2f396b));--panel:light-dark(#fff,var(--appearance-panel,#192142));--ink:light-dark(#14234b,#f3f6ff);--muted:light-dark(#536481,#a3b1d0);--border:light-dark(#dbe3f2,#273255);--accent:light-dark(#075ed8,#7cb8ff);font:12px/1.55 "Plus Jakarta Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink);background:var(--page)}
     body,body *{font-size:12px!important;font-weight:500!important}
     :root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}:root[data-theme=system]{color-scheme:light dark}
     *{box-sizing:border-box}body{margin:0;min-height:100dvh;display:grid;place-items:center;padding:20px}
-    body{background:radial-gradient(ellipse at 20% 0%,light-dark(#c9ddff88,#142c6860),transparent 55%),var(--page)}
+    body{background:radial-gradient(ellipse at 20% 0%,light-dark(#c9ddff88,transparent),transparent 55%),var(--page)}
     .card{width:min(100%,430px);background:var(--panel);border:1px solid var(--border);border-radius:24px;padding:32px;box-shadow:0 20px 64px #02061925;text-align:center}
     img{width:58px;height:58px}h1{font-size:25px;font-weight:750;letter-spacing:-.04em;margin:14px 0 8px}p{color:var(--muted);margin:0 0 18px}
     #google{min-height:44px;display:flex;justify-content:center;align-items:center;margin:18px 0}
@@ -34,6 +34,14 @@
   </main>
 <script>
 const statusEl=document.getElementById('status');
+void fetch('/api/appearance',{credentials:'same-origin',cache:'no-store'}).then(async response=>{
+  if(!response.ok)return;
+  const colors=(await response.json()).appearance;
+  if(typeof colors?.background==='string'&&typeof colors?.panel==='string'&&/^#[0-9a-f]{6}$/i.test(colors.background)&&/^#[0-9a-f]{6}$/i.test(colors.panel)){
+    document.documentElement.style.setProperty('--appearance-background',colors.background);
+    document.documentElement.style.setProperty('--appearance-panel',colors.panel);
+  }
+}).catch(()=>{});
 const requestedLocale=new URLSearchParams(location.search).get('locale')||'tr';
 const selectedLocale=['tr','en','ar','fa'].includes(requestedLocale)?requestedLocale:'tr';
 document.documentElement.lang=selectedLocale==='fa'?'fa-IR':selectedLocale;

@@ -68,3 +68,33 @@ test('Google enrolls only a newly created account and preserves the dismissed st
   expect((await google()).status).toBe(200);
   expect(await (await call(env,'/api/onboarding',{cookie})).json()).toEqual({pending:false});
 });
+
+test('global colors are public, persist after an authenticated admin save and leave nesting defaults intact',async()=>{
+  const env=environment(),admin=await register(env,'admin@example.test');
+  const defaults={background:'#2f396b',panel:'#192142'};
+  expect(await (await call(env,'/api/appearance')).json()).toEqual({appearance:defaults});
+  env.db.prepare("UPDATE users SET role='admin' WHERE id=?").run(admin.user.id);
+  env.db.prepare("INSERT INTO system_settings(key,value_json) VALUES('defaults',?)").run(JSON.stringify({materialWidthMm:1400}));
+  const login=await call(env,'/api/auth/admin-login',{data:{email:admin.user.email,password:'a-valid-password'}});
+  expect(login.status).toBe(200);const cookie=login.headers.get('set-cookie')!.split(';')[0];
+  const saved=await call(env,'/api/admin/appearance',{cookie,data:{appearance:{background:'#1122AA',panel:'#3344BB'}}});
+  expect(saved.status).toBe(200);
+  expect(await (await call(env,'/api/appearance')).json()).toEqual({appearance:{background:'#1122aa',panel:'#3344bb'}});
+  expect(env.db.prepare("SELECT value_json FROM system_settings WHERE key='defaults'").get()?.value_json).toBe(JSON.stringify({materialWidthMm:1400}));
+  expect(env.db.prepare("SELECT action FROM audit_logs WHERE action='appearance_changed'").get()?.action).toBe('appearance_changed');
+});
+
+test('normal sessions, cross-origin calls and invalid colors cannot modify global appearance',async()=>{
+  const env=environment(),admin=await register(env,'admin@example.test');
+  const data={appearance:{background:'#112233',panel:'#334455'}};
+  expect((await call(env,'/api/admin/appearance',{data})).status).toBe(403);
+  expect((await call(env,'/api/admin/appearance',{...admin,data})).status).toBe(403);
+  env.db.prepare("UPDATE users SET role='admin' WHERE id=?").run(admin.user.id);
+  const login=await call(env,'/api/auth/admin-login',{data:{email:admin.user.email,password:'a-valid-password'}});
+  const cookie=login.headers.get('set-cookie')!.split(';')[0];
+  expect((await call(env,'/api/admin/appearance',{cookie,data,origin:'https://other.test'})).status).toBe(403);
+  for(const invalid of [null,{}, {appearance:{background:'url(https://other.test)',panel:'#334455'}},{appearance:{background:'#112233',panel:'#fff'}},{appearance:{background:123,panel:'#112233'}}]){
+    expect((await call(env,'/api/admin/appearance',{cookie,data:invalid})).status).toBe(400);
+  }
+  expect(await (await call(env,'/api/appearance')).json()).toEqual({appearance:{background:'#2f396b',panel:'#192142'}});
+});

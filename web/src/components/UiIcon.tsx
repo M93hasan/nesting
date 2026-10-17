@@ -1,4 +1,4 @@
-type IconName='overview'|'users'|'messages'|'roles'|'user-settings'|'defaults'|'history'|'logs'|'system'|'contact';
+type IconName='overview'|'users'|'messages'|'roles'|'user-settings'|'defaults'|'appearance'|'history'|'logs'|'system'|'contact';
 
 const paths:Record<IconName,string>={
   overview:'m3 10 9-7 9 7v10H3V10Zm6 10v-7h6v7',
@@ -7,6 +7,7 @@ const paths:Record<IconName,string>={
   roles:'m12 3 8 3v6c0 5-8 9-8 9S4 17 4 12V6l8-3Zm-4 9 3 3 5-6',
   'user-settings':'M4 6h16M4 12h16M4 18h16M8 3v6m8 0v6M9 15v6',
   defaults:'M4 4h16v16H4V4Zm0 6h16M10 10v10',
+  appearance:'M12 3a9 9 0 1 0 0 18h1a2 2 0 0 0 1-3.7 1 1 0 0 1 .5-1.8H17a4 4 0 0 0 4-4A8.5 8.5 0 0 0 12 3ZM7 10h.01M10 6h.01M15 6h.01M18 10h.01',
   history:'M3 11a9 9 0 1 1 2.4 7.1M3 4v7h7m2-5v6l4 2',
   logs:'M6 3h12v18H6V3Zm3 5h6m-6 4h6m-6 4h4',
   system:'M12 11v6m0-10v.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z',

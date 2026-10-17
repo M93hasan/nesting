@@ -337,6 +337,24 @@ async function handleApi(request,env){
   if(request.method!=='GET'&&!sameOrigin(request))return json({error:'Geçersiz istek.'},403);
 
   if(path==='/api/version'&&request.method==='GET')return json({version:APP_VERSION});
+  if(path==='/api/appearance'&&request.method==='GET'){
+    const row=await env.DB.prepare("SELECT value_json FROM system_settings WHERE key='appearance'").first();
+    let appearance={background:'#2f396b',panel:'#192142'};
+    try{
+      const value=JSON.parse(row?.value_json||'null');
+      if(/^#[0-9a-f]{6}$/i.test(value?.background)&&/^#[0-9a-f]{6}$/i.test(value?.panel))appearance={background:value.background.toLowerCase(),panel:value.panel.toLowerCase()};
+    }catch{}
+    return json({appearance});
+  }
+  if(path==='/api/admin/appearance'&&request.method==='POST'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const value=(await body(request))?.appearance;
+    if(typeof value?.background!=='string'||typeof value?.panel!=='string'||!/^#[0-9a-f]{6}$/i.test(value.background)||!/^#[0-9a-f]{6}$/i.test(value.panel))return json({error:'Geçerli renkler seçin.'},400);
+    const appearance={background:value.background.toLowerCase(),panel:value.panel.toLowerCase()};
+    await env.DB.prepare("INSERT INTO system_settings(key,value_json,updated_at) VALUES('appearance',?,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json,updated_at=CURRENT_TIMESTAMP").bind(JSON.stringify(appearance)).run();
+    await audit(env,'appearance_changed',{actorType:'admin',detail:JSON.stringify(appearance)});
+    return json({appearance});
+  }
   if(path==='/api/transfer/access'&&request.method==='GET'){
     const user=await sessionUser(request,env);
     if(!user||licenseExpired(user))return json({corel:false,rdworks:false});
