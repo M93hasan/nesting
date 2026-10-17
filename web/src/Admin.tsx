@@ -1,26 +1,33 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
 import packageInfo from '../package.json';
 import {LanguageSelect,localeTag,useI18n} from './i18n';
+import UiIcon from './components/UiIcon';
 
 type Section='overview'|'users'|'messages'|'roles'|'user-settings'|'defaults'|'history'|'logs'|'system';
 
-const nav:{id:Section;label:string;icon:string}[]=[
-  {id:'overview',label:'Genel Bakış',icon:'⌂'},
-  {id:'users',label:'Kullanıcılar',icon:'◎'},
-  {id:'messages',label:'Canlı Destek',icon:'✉'},
-  {id:'roles',label:'Roller ve Yetkiler',icon:'◆'},
-  {id:'user-settings',label:'Kullanıcı Ayarları',icon:'⚙'},
-  {id:'defaults',label:'Sistem Varsayılanları',icon:'◫'},
-  {id:'history',label:'İşlem Geçmişi',icon:'↺'},
-  {id:'logs',label:'Sistem Logları',icon:'≡'},
-  {id:'system',label:'Sistem Bilgisi',icon:'ⓘ'},
+const nav:{id:Section;label:string}[]=[
+  {id:'overview',label:'Genel Bakış'},
+  {id:'users',label:'Kullanıcılar'},
+  {id:'messages',label:'Canlı Destek'},
+  {id:'roles',label:'Roller ve Yetkiler'},
+  {id:'user-settings',label:'Kullanıcı Ayarları'},
+  {id:'defaults',label:'Sistem Varsayılanları'},
+  {id:'history',label:'İşlem Geçmişi'},
+  {id:'logs',label:'Sistem Logları'},
+  {id:'system',label:'Sistem Bilgisi'},
 ];
 
 function Empty({title,children}:{title:string;children:string}){
   return <div className="admin-empty"><strong>{title}</strong><p>{children}</p></div>;
 }
 function Metric({label,value,detail}:{label:string;value:string;detail:string}){
-  return <article className="admin-metric"><span>{label}</span><strong>{value}</strong><small>{detail}</small></article>;
+  const paths:Record<string,string>={
+    'Toplam kullanıcı':'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M16 3a4 4 0 0 1 0 8M22 21v-2a4 4 0 0 0-3-3.87M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z',
+    'Çevrim içi':'M22 12h-4l-3 9L9 3l-3 9H2',
+    'Destek konuşması':'M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5Z',
+    'Sistem durumu':'m9 12 2 2 4-4M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z',
+  };
+  return <article className="admin-metric"><span>{label}</span><strong>{value}</strong><small>{detail}</small><div className="admin-metric-icon" aria-hidden="true"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d={paths[label]??paths['Sistem durumu']}/></svg></div></article>;
 }
 
 type AdminUser={id:number;email:string;name:string;role:string;credits:number;unlimited:boolean;testDxfEnabled?:boolean;corelTransferEnabled?:boolean;rdworksTransferEnabled?:boolean;authProvider?:string;suspended?:boolean;licenseStartedAt?:string|null;licenseExpiresAt?:string|null;licenseExpired?:boolean;createdAt?:string;lastLoginAt?:string;lastSeen?:string|null;online?:boolean};
@@ -378,7 +385,7 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
 
     <div className="admin-shell">
       <aside className="admin-sidebar" aria-label="Yönetim menüsü">
-        <nav>{nav.map(item=><button key={item.id} className={section===item.id?'active':''} onClick={()=>setSection(item.id)}><span>{item.icon}</span>{item.label}</button>)}</nav>
+        <nav>{nav.map(item=><button key={item.id} className={section===item.id?'active':''} onClick={()=>setSection(item.id)}><span><UiIcon name={item.id}/></span>{item.label}</button>)}</nav>
         <div className="admin-security-note"><strong>Güvenli yönetim</strong><small>Kullanıcı ve yetki değişiklikleri sunucu kimlik doğrulaması olmadan uygulanmaz.</small></div>
       </aside>
 
