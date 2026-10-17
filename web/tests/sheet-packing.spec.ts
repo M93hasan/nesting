@@ -48,7 +48,13 @@ for(const {threads,width} of [{threads:1,width:6.1},{threads:2,width:6.1},{threa
       await expect(best).toBeEnabled({timeout:20_000});
       await best.click();
       const stop=page.getByRole('button',{name:'Durdur',exact:true});
-      if(await stop.isVisible())await stop.click();
+      if(await stop.isVisible()){
+        // Tiny layouts can finish between visibility and click. A completed
+        // run already satisfies Stop; do not wait for its removed button.
+        try{await stop.click({timeout:1000});}
+        catch(error){if(await stop.isVisible())throw error;}
+      }
+      await expect(stop).toHaveCount(0);
       await expect(page.getByRole('img',{name:'Geçerli nesting sonucu',exact:true})).toBeVisible();
       await expect(page.locator('[data-worker-count]')).toHaveAttribute('data-worker-count',String(threads));
       await expect.poll(()=>page.evaluate(()=>(window as unknown as {packingEvidence:Evidence}).packingEvidence.exported?.sheetCount)).toBe(1);
