@@ -1,4 +1,5 @@
 import {WaveField} from './components/ReferenceControls';
+import WelcomeTour from './components/WelcomeTour';
 import {useEffect,useRef,useState,type ReactNode} from 'react';
 import {createPortal} from 'react-dom';
 import packageInfo from '../package.json';
@@ -172,6 +173,7 @@ export function UserGate({children}:{children:ReactNode}){
     catch(e){setError(e instanceof Error?e.message:String(e))}finally{setBusy(false)}
   }
   return <>{children}
+    <WelcomeTour userId={user?.id} blocked={open||!!support}/>
     {accountHost&&createPortal(user?
       <details className="auth-account-menu">
         <summary aria-label="Hesap menüsü"><span className="auth-avatar">{(user.name||user.email).trim().charAt(0).toUpperCase()}</span><span className="auth-account-name">{user.name||user.email}</span><span className="auth-chevron" aria-hidden="true">▾</span></summary>

@@ -74,6 +74,12 @@ async function ensureSchema(env){
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_onboarding (
+      user_id INTEGER PRIMARY KEY,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','completed','dismissed')),
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_licenses (
       user_id INTEGER PRIMARY KEY,
       started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -310,6 +316,7 @@ async function googleUserFromCredential(credential,env,requestedLocale='tr'){
     const result=await env.DB.prepare(`INSERT INTO users(email,name,google_id,role,nesting_credits,unlimited,last_login_at)
       VALUES(?,?,?,'user',5,0,CURRENT_TIMESTAMP)`).bind(email,String(claims.name||'').slice(0,120),String(claims.sub||'')).run();
     const userId=Number(result.meta.last_row_id);
+    await env.DB.prepare('INSERT INTO user_onboarding(user_id) VALUES(?)').bind(userId).run();
     await env.DB.prepare(`INSERT INTO user_preferences(user_id,locale,updated_at) VALUES(?,?,CURRENT_TIMESTAMP)
       ON CONFLICT(user_id) DO NOTHING`).bind(userId,locale).run();
     user=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,l.started_at license_started_at,l.expires_at license_expires_at
@@ -385,6 +392,7 @@ async function handleApi(request,env){
     const result=await env.DB.prepare(`INSERT INTO users(email,name,password_hash,role,nesting_credits,unlimited,last_login_at)
       VALUES(?,?,?,'user',5,0,CURRENT_TIMESTAMP)`).bind(email,name,await hashPassword(password)).run();
     const userId=Number(result.meta.last_row_id);
+    await env.DB.prepare('INSERT INTO user_onboarding(user_id) VALUES(?)').bind(userId).run();
     await env.DB.prepare(`INSERT INTO user_preferences(user_id,locale,updated_at) VALUES(?,?,CURRENT_TIMESTAMP)
       ON CONFLICT(user_id) DO UPDATE SET locale=excluded.locale,updated_at=CURRENT_TIMESTAMP`).bind(userId,locale).run();
     const user=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,l.started_at license_started_at,l.expires_at license_expires_at
@@ -429,6 +437,20 @@ async function handleApi(request,env){
     await env.DB.prepare('UPDATE password_reset_tokens SET used_at=CURRENT_TIMESTAMP WHERE token_hash=?').bind(tokenHash).run();
     await env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(reset.user_id).run();
     await audit(env,'password_changed',{actorType:'user',actorUserId:reset.user_id,targetUserId:reset.user_id});
+    return json({ok:true});
+  }
+  if(path==='/api/onboarding'&&(request.method==='GET'||request.method==='POST')){
+    const user=await sessionUser(request,env);
+    if(!user)return json({error:'Giriş gerekli.'},401);
+    if(request.method==='GET'){
+      const row=await env.DB.prepare('SELECT status FROM user_onboarding WHERE user_id=?').bind(user.id).first();
+      // Accounts created before the tour was introduced have no pending row.
+      return json({pending:row?.status==='pending'});
+    }
+    const status=(await body(request))?.status;
+    if(status!=='completed'&&status!=='dismissed')return json({error:'Geçersiz tur durumu.'},400);
+    await env.DB.prepare(`INSERT INTO user_onboarding(user_id,status) VALUES(?,?)
+      ON CONFLICT(user_id) DO UPDATE SET status=excluded.status,updated_at=CURRENT_TIMESTAMP`).bind(user.id,status).run();
     return json({ok:true});
   }
   if(path==='/api/preferences'&&request.method==='GET'){
