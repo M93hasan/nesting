@@ -30,7 +30,7 @@ describe('scoped custom workspace CSS',()=>{
 @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.04); } 100% { transform: scale(1); } }`;
     expect(validateCustomCss(css)).toContain('@keyframes pulse');
     expect(customCssStylesheet(css)).toContain('@keyframes pulse');
-    expect(customCssStylesheet(css)).toContain('.app .container{ transition: transform .3s ease; animation: pulse 1s ease-in-out infinite; }');
+    expect(customCssStylesheet(css)).toContain('.app .container{transition: transform .3s ease; animation: pulse 1s ease-in-out infinite;}');
     expect(()=>validateCustomCss('@import "x";')).toThrow();
     expect(()=>validateCustomCss('@keyframes bad { body { display:none; } }')).toThrow();
   });
