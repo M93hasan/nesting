@@ -42,6 +42,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const [unusedSelection,setUnusedSelection]=useState<string[]>([]);
   // Safari clears the focus selection on mouse-up; preserve it for the first click only.
   const partAnchor=useRef(0),focusClick=useRef<HTMLInputElement|null>(null);
+  const clipboardParts=useRef<string[]>([]);
   const [busy,setBusy]=useState(false),[error,setError]=useState(initialError);
   const [fitRequest,setFitRequest]=useState(0);
   const [resultMode,setResultMode]=useState<'live'|'checked'>('live');
@@ -310,8 +311,42 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     const key=(e:KeyboardEvent)=>{try {
       if(document.querySelector('dialog[open]'))return;
       const editable=isEditableTarget(e.target);
-      if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='a'&&!editable&&!locked) {e.preventDefault();setUnusedSelection([]);setSelectedCopies(copyRefsFor(doc,doc.parts.map(part=>part.id)));return;}
-      if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'&&!editable) {e.preventDefault();restore(e.shiftKey);return;}
+      const command=e.metaKey||e.ctrlKey,keyName=e.key.toLowerCase();
+      if(command&&keyName==='a'&&!editable&&!locked) {e.preventDefault();setUnusedSelection([]);setSelectedCopies(copyRefsFor(doc,doc.parts.map(part=>part.id)));return;}
+      if(command&&keyName==='z'&&!editable) {e.preventDefault();restore(e.shiftKey);return;}
+      if(command&&!editable&&!locked&&keyName==='c') {
+        if(!selectedCopies.length)return;
+        e.preventDefault();clipboardParts.current=[...new Set(selectedCopies.map(copy=>copy.partId))];return;
+      }
+      if(command&&!editable&&!locked&&keyName==='x') {
+        if(!selectedCopies.length)return;
+        e.preventDefault();clipboardParts.current=[...new Set(selectedCopies.map(copy=>copy.partId))];
+        commit(removeCopies(canvasDocument,selectedCopies));setSelectedCopies([]);return;
+      }
+      if(command&&!editable&&!locked&&keyName==='v') {
+        if(!clipboardParts.current.length)return;
+        e.preventDefault();
+        try {
+          let next=canvasDocument;
+          const created:CopyRef[]=[];
+          for(const partId of clipboardParts.current) {
+            const part=next.parts.find(item=>item.id===partId);if(!part)continue;
+            const existing=copyRefsFor(next,[partId])[0];
+            if(existing) {
+              const before=new Map(next.parts.map(item=>[item.id,item.quantity]));
+              next=duplicateCopies(next,[existing]);
+              const count=before.get(partId)??0;created.push({partId,copyIndex:count});
+            } else {
+              next=syncQuantity({...next,parts:next.parts.map(item=>item.id===partId?{...item,quantity:1}:item)});
+              created.push({partId,copyIndex:0});
+            }
+          }
+          commit(next);setUnusedSelection([]);setSelectedCopies(created);
+        }catch(error){setError(String(error));}
+        return;
+      }
+      if(command&&!editable&&!locked&&keyName==='e') {e.preventDefault();void exportLayout();return;}
+      if(command&&!editable&&!locked&&keyName==='i') {e.preventDefault();input.current?.click();return;}
       if(e.key==='Escape') {setUnusedSelection([]);setSelectedCopies([]);setPolygon(undefined);}
       if(e.key==='Enter'&&polygon&&!locked&&!editable) {e.preventDefault();void addShape('polygon');return;}
       if(editable||locked||e.altKey||!selected.length)return;
