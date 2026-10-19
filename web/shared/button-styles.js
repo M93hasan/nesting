@@ -97,7 +97,8 @@ export function validateCustomCss(css) {
 }
 
 export function customCssStylesheet(css) {
-  const valid = validateCustomCss(css || '');
+  let valid = '';
+  try { valid = validateCustomCss(css || ''); } catch { return ''; }
   return valid.replace(/([^{}]+)\\{([^{}]*)\\}/g, (_, selectors, declarations) =>
     selectors.split(',').map(selector => {
       const trimmed = selector.trim();
