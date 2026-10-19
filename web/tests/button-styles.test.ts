@@ -25,7 +25,7 @@ describe('scoped custom workspace CSS',()=>{
     expect(validateCustomCss(css)).toContain('.app button{background: #8f0000; color: #fff;}');
     expect(customCssStylesheet(css)).toContain('.app button:hover::before{transform: scaleX(1);}');
   });
-  it('accepts visibility declarations',()=>{\n    expect(validateCustomCss('.container { visibility: hidden; }')).toContain('visibility: hidden');\n    expect(customCssStylesheet('.container { visibility: visible; }')).toContain('.app .container{visibility: visible;}');\n  });\n  it('supports safe scoped selectors and keyframe animations',()=>{ 
+  it('accepts aspect-ratio declarations',()=>{\n    expect(validateCustomCss('.media { aspect-ratio: 16 / 9; }')).toContain('aspect-ratio: 16 / 9');\n    expect(customCssStylesheet('.media { aspect-ratio: 1 / 1; }')).toContain('.app .media{aspect-ratio: 1 / 1;}');\n  });\n  it('accepts visibility declarations',()=>{\n    expect(validateCustomCss('.container { visibility: hidden; }')).toContain('visibility: hidden');\n    expect(customCssStylesheet('.container { visibility: visible; }')).toContain('.app .container{visibility: visible;}');\n  });\n  it('supports safe scoped selectors and keyframe animations',()=>{ 
     const css=`.container { transition: transform .3s ease; animation: pulse 1s ease-in-out infinite; }
 @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.04); } 100% { transform: scale(1); } }`;
     expect(validateCustomCss(css)).toContain('@keyframes pulse');
