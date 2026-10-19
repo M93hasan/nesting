@@ -168,3 +168,34 @@ html[dir=rtl] .glass-glider{left:auto;right:3px;transform:translateX(calc(var(--
   .glass-select{outline:1px solid ButtonText}.glass-glider{background:Highlight}
   .rotation-choice button[aria-pressed=true]{outline:2px solid Highlight}
 }
+
+
+/* Animated DXF download control — retain Serula's existing typography and label. */
+:root #root .download-control .download-button{
+  position:relative;isolation:isolate;overflow:hidden;
+  font:inherit;font-weight:600;letter-spacing:inherit;
+  transition:background .35s ease,border-color .35s ease,box-shadow .35s ease,transform .25s ease;
+}
+:root #root .download-control .download-button::before{
+  content:'';position:absolute;z-index:-1;inset:0;
+  background:linear-gradient(110deg,transparent 15%,rgba(255,255,255,.22) 48%,transparent 78%);
+  transform:translateX(-130%);transition:transform .55s ease;pointer-events:none;
+}
+:root #root .download-control .download-button:hover:enabled::before{transform:translateX(130%)}
+:root #root .download-control .download-button .download-button__icon{
+  transition:transform .35s cubic-bezier(.2,.8,.2,1),filter .35s ease;
+  transform-origin:50% 50%;
+}
+:root #root .download-control .download-button:hover:enabled .download-button__icon{
+  transform:translateY(2px) scale(.94);filter:drop-shadow(0 2px 2px rgba(0,0,0,.18));
+}
+:root #root .download-control .download-button:active:enabled{
+  transform:scale(.97);
+  box-shadow:0 0 0 4px rgba(46,168,242,.2),0 3px 9px rgba(46,168,242,.2)!important;
+}
+:root #root .download-control .download-button:active:enabled .download-button__icon{transform:translateY(4px) scale(.88)}
+@media(prefers-reduced-motion:reduce){
+  :root #root .download-control .download-button,
+  :root #root .download-control .download-button::before,
+  :root #root .download-control .download-button .download-button__icon{transition:none!important}
+}
