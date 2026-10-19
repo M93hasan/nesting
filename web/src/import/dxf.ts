@@ -217,8 +217,7 @@ function join(chains:Chain[],issues:string[]):{contours:Contour[];openMarks:Open
           if(gap>0){gaps++;adjustment=Math.max(adjustment,gap/2);componentAdjustment=Math.max(componentAdjustment,gap/2);}
           points[points.length-1]=midpoint;
           for(const point of segment.slice(1))append(points,point);
-        }
-        curved ||= chain.curved;
+        }        curved ||= chain.curved;
         const exitIndex=edge*2+(current%2?0:1);
         if(neighbors[exitIndex].length===0)break;
         current=neighbors[exitIndex][0];
@@ -437,8 +436,7 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
         ellipse(center,u,v,start,sweep,tolerance,ring);curved=true;if(closed)ring.pop();
       }else {
         const vertices=entity.vertices??[];
-        if(vertices.length<2||vertices.length>5000)throw Error('Polyline needs 2–5,000 vertices.');
-        const points=vertices.map(point);closed=!!entity.closed;ring=[points[0]];
+        if(vertices.length<2||vertices.length>5000)throw Error('Polyline needs 2–5,000 vertices.');        const points=vertices.map(point);closed=!!entity.closed;ring=[points[0]];
         for(let i=0;i<points.length-(closed?0:1);i++) {const b=vertices[i].bulge??0;bulge(points[i],points[(i+1)%points.length],b,tolerance,ring);curved ||= b!==0;}
         if(closed)ring.pop();
         if(r.groups.some(([code,v])=>[40,41,43].includes(code)&&finite(v)!==0))warnings.push(`${r.id}: polyline width is ignored; the centerline is the contour.`);
@@ -568,14 +566,26 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
   if(ambiguousHoleContours)warnings.push(`${ambiguousHoleContours} kesişen veya temas eden iç DXF konturu delik yerine üretim detayı olarak korundu; orijinal kesim çizgileri değiştirilmedi.`);
   let attachedOpenMarks=0;
   // Preserve simple open LINE/ARC/POLYLINE/SPLINE chains as non-nesting marks when
-  // they are fully contained by one imported part. They stay rigidly attached to
-  // that part and count as source entities, but never become independent pieces.
+  // they are contained by, or lie within 10 mm of, a part boundary. CAD detail
+  // strokes often sit just outside the closed outline. Attach them to the nearest
+  // matching part so they remain visible and move with it, without inventing
+  // artificial closed cutting geometry or treating a stroke as a nestable piece.
   for(const mark of joined.openMarks) {
     const candidates=imported.map(part=>{
       const contour=part.source.entityId?keptContours.find(c=>c.entityId===part.source.entityId):undefined;
-      return contour?{part,contour,size:Math.abs(area(contour.ring))}:undefined;
-    }).filter((v):v is NonNullable<typeof v>=>!!v&&mark.points.every(point=>inside(point,v.contour.ring)))
-      .sort((a,b)=>a.size-b.size);
+      if(!contour)return undefined;
+      const contained=mark.points.every(point=>inside(point,contour.ring));
+      const maxDistance=Math.max(...mark.points.map(point=>{
+        let distance=Infinity;
+        for(let i=0;i<contour.ring.length;i++){
+          const next=contour.ring[(i+1)%contour.ring.length];
+          distance=Math.min(distance,pointSegmentDistance(point,contour.ring[i],next));
+        }
+        return distance;
+      }));
+      return {part,contour,size:Math.abs(area(contour.ring)),contained,maxDistance};
+    }).filter((v):v is NonNullable<typeof v>=>!!v&&(v.contained||v.maxDistance<=10))
+      .sort((a,b)=>Number(b.contained)-Number(a.contained)||a.maxDistance-b.maxDistance||a.size-b.size);
     const target=candidates[0];
     if(target){
       const b=bounds(target.contour.ring);
