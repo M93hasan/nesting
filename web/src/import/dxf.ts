@@ -392,13 +392,20 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
   layers.sort();
   const joined=join(chains,issues);contours.push(...joined.contours);
   if(joined.gaps)warnings.push(`Joined ${joined.gaps} gaps within 0.01 mm; largest endpoint adjustment ${joined.adjustment} mm. Confirm this preview before importing.`);
-  const valid:Contour[]=[];let repairedPeriodicSplines=0;
+  const valid:Contour[]=[];const degeneratePeriodicSplines:Contour[]=[];let repairedPeriodicSplines=0;
   for(const c of contours){
     try{valid.push({...c,ring:normalizeRing(c.ring)});continue;}catch(error){
       const sourceSpline=sourceSplines.get(c.entityId);
       if(sourceSpline&&(sourceSpline.flags&1)!==0&&(sourceSpline.flags&2)!==0){
         const repaired=repairTinySplineSelfIntersections(c.ring);
         if(repaired)try{valid.push({...c,ring:normalizeRing(repaired)});repairedPeriodicSplines++;continue;}catch{}
+        // Some CAD exports mark tiny decorative/corner strokes as closed periodic
+        // splines even though they enclose effectively zero area. They cannot be
+        // safe nesting parts, but dropping them loses visible drawing geometry.
+        const box=bounds(c.ring),size=Math.max(box[2]-box[0],box[3]-box[1]);
+        if(c.ring.length>=4&&size<=10&&Math.abs(area(c.ring))<=1e-3){
+          degeneratePeriodicSplines.push(c);continue;
+        }
       }
       issues.push(`${c.entityId}: ${String(error)}`);
     }
@@ -505,6 +512,46 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
     } else issues.push(`${mark.id}: open DXF path is outside every closed part and was not attached.`);
   }
   if(attachedOpenMarks)warnings.push(`${attachedOpenMarks} açık DXF işaret çizgisi ait olduğu parçaya bağlandı; ayrı nesting parçası olarak sayılmadı.`);
+  let attachedDegenerateSplines=0;
+  // Retain tiny, zero-area closed periodic SPLINEs as rigid detail paths on the
+  // nearby part. Their original SPLINE entities are kept for DXF export when
+  // possible; they are not fabricated into invalid zero-area nesting pieces.
+  for(const detail of degeneratePeriodicSplines){
+    const points=detail.ring.length>1&&detail.ring[0][0]===detail.ring.at(-1)![0]&&detail.ring[0][1]===detail.ring.at(-1)![1]
+      ?detail.ring:[...detail.ring,detail.ring[0]];
+    const candidates=imported.map(part=>{
+      const contour=part.source.entityId?keptContours.find(c=>c.entityId===part.source.entityId):undefined;
+      if(!contour)return undefined;
+      const contained=points.every(point=>inside(point,contour.ring));
+      const maxDistance=Math.max(...points.map(point=>{
+        let distance=Infinity;
+        for(let i=0;i<contour.ring.length;i++){
+          const next=contour.ring[(i+1)%contour.ring.length];
+          distance=Math.min(distance,pointSegmentDistance(point,contour.ring[i],next));
+        }
+        return distance;
+      }));
+      return {part,contour,size:Math.abs(area(contour.ring)),contained,maxDistance};
+    }).filter((v):v is NonNullable<typeof v>=>!!v&&(v.contained||v.maxDistance<=10))
+      .sort((a,b)=>Number(b.contained)-Number(a.contained)||a.maxDistance-b.maxDistance||a.size-b.size);
+    const target=candidates[0];
+    if(!target){issues.push(`${detail.entityId}: degenerate closed SPLINE is not near a supported part and could not be attached.`);continue;}
+    const b=bounds(target.contour.ring);
+    const localPoints=points.map(([x,y])=>[x-b[0],y-b[1]] as Point);
+    const entity:DxfAuxEntity={kind:'path',points:localPoints,layer:detail.layer,
+      ...(detail.dxfColorNumber!==undefined?{colorNumber:detail.dxfColorNumber}:{})};
+    const native=sourceEntities.get(detail.entityId);
+    target.part.source={
+      ...target.part.source,
+      dxfAux:[...(target.part.source.dxfAux??[]),entity],
+      ...(native&&target.part.source.dxfEntities
+        ?{dxfEntities:[...target.part.source.dxfEntities,localSourceEntity(native,b[0],b[1])]}
+        :{}),
+      dxfSourceEntityCount:(target.part.source.dxfSourceEntityCount??1)+detail.sourceEntityCount
+    };
+    attachedDegenerateSplines+=detail.sourceEntityCount;
+  }
+  if(attachedDegenerateSplines)warnings.push(`${attachedDegenerateSplines} küçük, sıfıra yakın alanlı kapalı SPLINE çizimi ana parçaya görünür detay olarak bağlandı; özgün eğriler DXF dışa aktarımında korunur.`);
   // Attach POINT/TEXT/MTEXT records to the smallest containing outer contour.
   // Stored coordinates are local to the part, so every placement/rotation keeps marks rigidly locked to that part.
   for(const mark of auxEntities) {
