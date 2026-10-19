@@ -115,7 +115,7 @@ export function customCssStylesheet(css) {
   let valid = '';
   try { valid = validateCustomCss(css || ''); } catch { return ''; }
   return valid.replace(/(@keyframes\s+[a-zA-Z_][a-zA-Z0-9_-]*\s*\{(?:[^{}]*\{[^{}]*\}\s*)+\}|([^{}]+)\{([^{}]*)\})/g, (rule, keyframes, selectors, declarations) => {
-    if (keyframes) return keyframes;
+    if (rule.startsWith('@keyframes')) return rule;
     return selectors.split(',').map(selector => {
       const trimmed = selector.trim();
       return (trimmed.startsWith('.app') ? trimmed : '.app ' + trimmed) + '{' + declarations + '}';
