@@ -465,3 +465,28 @@ html[dir="rtl"] body{direction:rtl}html[dir="rtl"] .workspace-svg,html[dir="rtl"
 #root .corel-bridge-prompt-actions a.button{padding:7px 10px;font-size:12px;min-height:34px}
 .corel-bridge-prompt-actions>a:not(.button){font-size:12px;text-decoration:underline}
 #root .corel-bridge-prompt-actions button{min-height:34px;padding:6px 10px;font-size:12px}
+
+/* Compact workspace layout for narrow phones. */
+@media(max-width:420px){
+  .header{padding-inline:10px;gap:6px}
+  .brand{font-size:18px}
+  .brand span{font-size:12px}
+  .header nav button{padding:7px 6px;font-size:11px}
+  .header-primary{gap:6px}
+  .header-primary button{padding-inline:8px;font-size:12px}
+  .drawing-panel{height:340px}
+  .canvas-tools{top:8px;right:8px}
+  .material-size-badge{left:22px;top:26px;max-width:calc(100% - 112px);font-size:10px}
+  .settings{grid-template-columns:minmax(0,1fr);padding:12px}
+  .settings>label:nth-of-type(3){grid-column:auto}
+  .statusbar{align-items:stretch}
+  .statusbar .metrics{min-width:0;gap:10px;justify-content:space-between}
+  .statusbar .metrics>div{min-width:0}
+  .statusbar .metrics strong{font-size:13px}
+  .statusbar>button{padding-inline:8px;white-space:normal}
+  .result-details{grid-template-columns:minmax(0,1fr);gap:6px;padding:10px 12px}
+  .result-mode{max-width:100%;overflow-x:auto}
+  .result-mode button{padding-inline:8px;font-size:12px}
+  .modal-actions{flex-wrap:wrap}
+  .modal-actions button{flex:1 1 auto}
+}
