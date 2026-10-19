@@ -101,7 +101,7 @@ export function validateCustomCss(css) {
       const selectorText = ordinary[1].trim(), declarations = ordinary[2].trim();
       if (!selectorText || !declarations) throw Error('CSS kuralı boş olamaz.');
       for (const selector of selectorText.split(',').map(s => s.trim())) {
-        if (!/^[.#[]/.test(selector) || !/^[.a-zA-Z0-9_#:\[\]=\"'()\-\s>+~,:*]+$/.test(selector)) throw Error('Güvenlik için seçiciler .class, #id veya [attribute] ile başlamalıdır.');
+        if (!/^(?:\\.|#|\\[)/.test(selector) || !/^[.a-zA-Z0-9_#:\[\]=\"'()\-\s>+~,:*]+$/.test(selector)) throw Error('Güvenlik için seçiciler .class, #id veya [attribute] ile başlamalıdır.');
       }
       validateDeclarations(declarations, true);
       rules.push(selectorText + '{' + declarations + '}');
