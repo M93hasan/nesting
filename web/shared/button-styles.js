@@ -67,7 +67,7 @@ function validateDeclarations(declarations, allowAnimation = false) {
     const colon = declaration.indexOf(':');
     const property = declaration.slice(0, colon).trim().toLowerCase();
     const value = declaration.slice(colon + 1).trim();
-    if (colon < 1 || !(CUSTOM_CSS_PROPERTIES.has(property) || (allowAnimation && CUSTOM_CSS_ANIMATION_PROPERTIES.has(property))) || !value || !/^[a-z0-9#%.,() _"'!+\-]+$/i.test(value)) {
+    if (colon < 1 || !(CUSTOM_CSS_PROPERTIES.has(property) || (allowAnimation && CUSTOM_CSS_ANIMATION_PROPERTIES.has(property))) || !value || !/^[a-z0-9#%.,() _"'!+\/-]+$/i.test(value)) {
       throw Error('Desteklenmeyen veya geçersiz CSS özelliği: ' + property);
     }
   }
