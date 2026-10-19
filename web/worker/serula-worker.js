@@ -333,8 +333,8 @@ async function handleApi(request,env){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
     const value=(await body(request))?.appearance;
     if(typeof value?.background!=='string'||typeof value?.panel!=='string'||!/^#[0-9a-f]{6}$/i.test(value.background)||!/^#[0-9a-f]{6}$/i.test(value.panel))return json({error:'Geçerli renkler seçin.'},400);
-    let buttons;try{buttons=parseButtonStyles(value.buttons);}catch(error){return json({error:error.message},400);}
-    const appearance={background:value.background.toLowerCase(),panel:value.panel.toLowerCase(),buttons};
+    let buttons,customCss;try{buttons=parseButtonStyles(value.buttons);customCss=validateCustomCss(value.customCss??'');}catch(error){return json({error:error.message},400);}
+    const appearance={background:value.background.toLowerCase(),panel:value.panel.toLowerCase(),buttons,customCss};
     await env.DB.prepare("INSERT INTO system_settings(key,value_json,updated_at) VALUES('appearance',?,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json,updated_at=CURRENT_TIMESTAMP").bind(JSON.stringify(appearance)).run();
     await audit(env,'appearance_changed',{actorType:'admin',detail:JSON.stringify(appearance)});
     return json({appearance});
