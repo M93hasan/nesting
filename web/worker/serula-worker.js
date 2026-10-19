@@ -1,4 +1,4 @@
-import {parseButtonStyles} from '../shared/button-styles.js';
+import {parseButtonStyles,validateCustomCss} from '../shared/button-styles.js';
 import packageInfo from '../package.json';
 const GOOGLE_CLIENT_ID='249559754500-36grgmm2jucf2159d41efqdcqut02lj6.apps.googleusercontent.com';
 const SESSION_DAYS=30;
@@ -325,7 +325,7 @@ async function handleApi(request,env){
     let appearance={background:'#121421',panel:'#242935'};
     try{
       const value=JSON.parse(row?.value_json||'null');
-      if(/^#[0-9a-f]{6}$/i.test(value?.background)&&/^#[0-9a-f]{6}$/i.test(value?.panel))appearance={background:value.background.toLowerCase(),panel:value.panel.toLowerCase(),buttons:parseButtonStyles(value.buttons)};
+      if(/^#[0-9a-f]{6}$/i.test(value?.background)&&/^#[0-9a-f]{6}$/i.test(value?.panel))appearance={background:value.background.toLowerCase(),panel:value.panel.toLowerCase(),buttons:parseButtonStyles(value.buttons),customCss:validateCustomCss(value.customCss??'')};
     }catch{}
     return json({appearance});
   }
