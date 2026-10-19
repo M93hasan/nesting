@@ -53,9 +53,9 @@ function ColorEditor(){
     <ButtonStyleEditor value={colors.buttons??{}} onChange={buttons=>change({...colors,buttons})} disabled={busy} onPending={setPendingCss}/>
     <fieldset className="custom-css-editor" disabled={busy}>
       <legend>Kullanıcı paneli için özel CSS</legend>
-      <p>Butonları, açılır seçim alanlarını ve seçeneklerini CSS ile özelleştir. Seçiciler yalnızca <code>.app</code> içindeki öğeleri etkiler. Örnek hedefler: <code>.app button</code>, <code>.app select</code>, <code>.app option</code>.</p>
+      <p>CSS seçicileriyle kullanıcı panelindeki öğeleri özelleştir. Normal seçiciler yalnızca <code>.app</code> içinde çalışır. Güvenli <code>@keyframes</code> animasyonları desteklenir.</p>
       <label>CSS kodun<textarea rows={12} spellCheck={false} maxLength={10000} value={colors.customCss??''} onChange={event=>{const customCss=event.target.value;try{validateCustomCss(customCss);setCustomCssError('');}catch(reason){setCustomCssError(reason instanceof Error?reason.message:'CSS geçersiz.');}change({...colors,customCss});}} placeholder={'.app button {\n  background: #8f0000;\n  color: #fff;\n  border-radius: 1.5rem;\n}\n\n.app select, .app option {\n  background: #fff;\n  color: #0f172a;\n  border-radius: 8px;\n}'} /></label>
-      <small>Kuralları seçici ve süslü parantezlerle yaz. @ kuralları, URL ve CSS değişkenleri güvenlik nedeniyle desteklenmez.</small>
+      <small>Seçicileri ve animasyonları doğrudan yazabilirsin. Yalnızca <code>@keyframes</code> desteklenir; <code>@import</code>, URL ve CSS değişkenleri güvenlik nedeniyle engellenir. Yazı tipini korumak için font ailesi ve boyutu tanımlamak zorunda değilsin.</small>
       {customCssError&&<p className="field-error" role="alert">{customCssError}</p>}
       <div className="appearance-actions"><button type="button" onClick={()=>{setCustomCssError('');change({...colors,customCss:''});}}>Özel CSS’yi temizle</button></div>
     </fieldset>
