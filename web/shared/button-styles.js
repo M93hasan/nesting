@@ -57,7 +57,7 @@ export function buttonStylesheet(styles) {
 
 
 const CUSTOM_CSS_PROPERTIES = new Set((
-  'color background background-color background-image background-size border border-color border-width border-style border-radius box-shadow padding padding-inline padding-block margin margin-inline margin-block width min-width max-width height min-height max-height font-size font-weight font-family letter-spacing line-height opacity text-transform text-shadow position overflow overflow-x overflow-y cursor display align-items justify-content gap transform transform-origin transition z-index top right bottom left content pointer-events outline outline-color outline-width outline-style outline-offset flex flex-grow flex-shrink flex-basis box-sizing white-space text-align'
+  'color background background-color background-image background-size border border-color border-width border-style border-radius box-shadow padding padding-inline padding-block margin margin-inline margin-block width min-width max-width height min-height max-height font-size font-weight font-family letter-spacing line-height opacity text-transform text-shadow position overflow overflow-x overflow-y cursor display align-items justify-content gap transform transform-origin transition z-index top right bottom left content pointer-events outline outline-color outline-width outline-style outline-offset flex flex-grow flex-shrink flex-basis box-sizing white-space text-align appearance vertical-align user-select'
 ).split(/\s+/));
 
 const CUSTOM_CSS_ANIMATION_PROPERTIES = new Set('animation animation-name animation-duration animation-delay animation-timing-function animation-iteration-count animation-direction animation-fill-mode animation-play-state'.split(' '));
@@ -101,7 +101,7 @@ export function validateCustomCss(css) {
       const selectorText = ordinary[1].trim(), declarations = ordinary[2].trim();
       if (!selectorText || !declarations) throw Error('CSS kuralı boş olamaz.');
       for (const selector of selectorText.split(',').map(s => s.trim())) {
-        if (!selector.startsWith('.app') || !/^[.a-zA-Z0-9_#:\[\]=\"'()\-\s>+~,:*]+$/.test(selector)) throw Error('Güvenlik için seçiciler yalnızca .app içindeki öğeleri hedefleyebilir.');
+        if (!/^[.#[]/.test(selector) || !/^[.a-zA-Z0-9_#:\[\]=\"'()\-\s>+~,:*]+$/.test(selector)) throw Error('Güvenlik için seçiciler .class, #id veya [attribute] ile başlamalıdır.');
       }
       validateDeclarations(declarations, true);
       rules.push(selectorText + '{' + declarations + '}');
