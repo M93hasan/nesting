@@ -259,9 +259,9 @@ it('preserves tiny closed periodic SPLINE drawings attached to a valid part',()=
     [[7188.9152,-861.6843],[7189.2317,-862.8329],[7189.5785,-864.0911],[7189.9098,-865.2934],[7189.9098,-865.2934],[7188.9152,-861.6843],[7188.9152,-861.6843]]
   ];
   const knots=[0,0,0,0,.5,.5,.5,1,1,1,1];
-  const tiny=smallPoints.map(points=>'0\\nSPLINE\\n8\\nCUT\\n70\\n11\\n71\\n3\\n72\\n11\\n73\\n7\\n74\\n0\\n'+
-    knots.map(k=>`40\\n${k}\\n`).join('')+
-    points.map(([x,y])=>`10\\n${x-shiftX}\\n20\\n${y+shiftY}\\n30\\n0\\n`).join('')).join('');
+  const tiny=smallPoints.map(points=>'0\nSPLINE\n8\nCUT\n70\n11\n71\n3\n72\n11\n73\n7\n74\n0\n'+
+    knots.map(k=>`40\n${k}\n`).join('')+
+    points.map(([x,y])=>`10\n${x-shiftX}\n20\n${y+shiftY}\n30\n0\n`).join('')).join('');
   const outline=poly([[0,0],[30,0],[30,30],[0,30]],'CUT');
   const review=importDXF(dxf(outline+tiny),'small-periodic-details.dxf',options);
   expect(review.issues).toEqual([]);
