@@ -26,7 +26,7 @@ describe('scoped custom workspace CSS',()=>{
     expect(customCssStylesheet(css)).toContain('.app button:hover::before{transform: scaleX(1);}');
   });
   it('supports safe scoped selectors and keyframe animations',()=>{ 
-    const css=`.app .container { transition: transform .3s ease; animation: pulse 1s ease-in-out infinite; }
+    const css=`.container { transition: transform .3s ease; animation: pulse 1s ease-in-out infinite; }
 @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.04); } 100% { transform: scale(1); } }`;
     expect(validateCustomCss(css)).toContain('@keyframes pulse');
     expect(customCssStylesheet(css)).toContain('@keyframes pulse');
@@ -36,6 +36,7 @@ describe('scoped custom workspace CSS',()=>{
   });
   it('rejects selectors outside the app and unsafe declarations',()=>{
     expect(()=>validateCustomCss('body { display: none; }')).toThrow();
+    expect(validateCustomCss('.container { animation: pulse 1s; }')).toContain('.container');
     expect(()=>validateCustomCss('.app button { background: url(https://example.com); }')).toThrow();
     expect(()=>validateCustomCss('@import "x";')).toThrow();
     expect(()=>validateCustomCss('.app button { color: var(--secret); }')).toThrow();
