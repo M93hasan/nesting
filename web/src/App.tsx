@@ -203,7 +203,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const recoveryResult=running?undefined:result;
   const browserSavePending=browserSaved?.document!==doc||browserSaved?.result!==recoveryResult||browserSaved?.revision!==revision;
   const browserSaveState=recoveryError?'error':!recoveryReady||loadingExample?'loading':invalidSettings||!!polygon?.length?'unsaved':browserSavePending?'saving':'saved';
-  const browserSaveLabel={error:'Tarayıcıya kaydedilmedi',loading:'Proje yükleniyor…',unsaved:'Tarayıcıya kaydedilmedi',saving:'Tarayıcıya kaydediliyor…',saved:'Tarayıcıya kaydedildi'}[browserSaveState];
+  const browserSaveLabel={error:'Tarayıcıya kaydedilmedi',loading:'',unsaved:'Tarayıcıya kaydedilmedi',saving:'Tarayıcıya kaydediliyor…',saved:'Tarayıcıya kaydedildi'}[browserSaveState];
   useEffect(()=>{
     if(!recoveryReady||loadingExample||invalidSettings||!doc.name.trim())return;
     const project={...doc,...(recoveryResult?{placements:recoveryResult.placements,result:recoveryResult}:{}),schemaVersion:1 as const,revision};
@@ -310,6 +310,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     const key=(e:KeyboardEvent)=>{try {
       if(document.querySelector('dialog[open]'))return;
       const editable=isEditableTarget(e.target);
+      if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='a'&&!editable&&!locked) {e.preventDefault();setUnusedSelection([]);setSelectedCopies(copyRefsFor(doc,doc.parts.map(part=>part.id)));return;}
       if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'&&!editable) {e.preventDefault();restore(e.shiftKey);return;}
       if(e.key==='Escape') {setUnusedSelection([]);setSelectedCopies([]);setPolygon(undefined);}
       if(e.key==='Enter'&&polygon&&!locked&&!editable) {e.preventDefault();void addShape('polygon');return;}
