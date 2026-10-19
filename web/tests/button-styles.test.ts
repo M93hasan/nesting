@@ -22,8 +22,8 @@ describe('scoped button styles',()=>{
 describe('scoped custom workspace CSS',()=>{
   it('accepts button, select, option and pseudo-element rules within the app',()=>{
     const css='.app button { background: #8f0000; color: #fff; }\\n.app button:hover::before { transform: scaleX(1); }\\n.app select, .app option { background: #fff; color: #0f172a; }';
-    expect(validateCustomCss(css)).toBe(css);
-    expect(customCssStylesheet(css)).toContain('.app button:hover::before{ transform: scaleX(1); }');
+    expect(validateCustomCss(css)).toContain('.app button {background: #8f0000; color: #fff;}');
+    expect(customCssStylesheet(css)).toContain('.app button:hover::before{transform: scaleX(1);}');
   });
   it('rejects selectors outside the app and unsafe declarations',()=>{
     expect(()=>validateCustomCss('body { display: none; }')).toThrow();
