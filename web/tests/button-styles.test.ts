@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {parseButtonStyles,buttonStylesheet,validateButtonCss} from '../shared/button-styles.js';
+import {parseButtonStyles,buttonStylesheet,validateButtonCss,validateCustomCss,customCssStylesheet} from '../shared/button-styles.js';
 describe('scoped button styles',()=>{
   it('loads older settings and round trips states',()=>{
     expect(parseButtonStyles(undefined)).toEqual({});
@@ -16,5 +16,19 @@ describe('scoped button styles',()=>{
   it('drops empty overrides and preserves compound selectors',()=>{
     expect(parseButtonStyles({corel:{normal:''}})).toEqual({});
     expect(buttonStylesheet({download:{normal:'color: red !important;'}})).toBe(':root #root .download-control .download-button{color: red !important}');
+  });
+});
+
+describe('scoped custom workspace CSS',()=>{
+  it('accepts button, select, option and pseudo-element rules within the app',()=>{
+    const css='.app button { background: #8f0000; color: #fff; }\\n.app button:hover::before { transform: scaleX(1); }\\n.app select, .app option { background: #fff; color: #0f172a; }';
+    expect(validateCustomCss(css)).toBe(css);
+    expect(customCssStylesheet(css)).toContain('.app button:hover::before{ transform: scaleX(1); }');
+  });
+  it('rejects selectors outside the app and unsafe declarations',()=>{
+    expect(()=>validateCustomCss('body { display: none; }')).toThrow();
+    expect(()=>validateCustomCss('.app button { background: url(https://example.com); }')).toThrow();
+    expect(()=>validateCustomCss('@import "x";')).toThrow();
+    expect(()=>validateCustomCss('.app button { color: var(--secret); }')).toThrow();
   });
 });
