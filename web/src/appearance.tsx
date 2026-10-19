@@ -1,12 +1,14 @@
 import {createContext,useCallback,useContext,useEffect,useLayoutEffect,useRef,useState,type ReactNode} from 'react';
 
-export type Appearance={background:string;panel:string};
+import {parseButtonStyles,buttonStylesheet,type ButtonStyles} from '../shared/button-styles.js';
+export type Appearance={background:string;panel:string;buttons?:ButtonStyles};
 export const DEFAULT_APPEARANCE:Appearance={background:'#121421',panel:'#242935'};
 export function parseAppearance(value:unknown):Appearance|null{
   if(!value||typeof value!=='object')return null;
   const input=value as Partial<Appearance>;
+  let buttons:ButtonStyles;try{buttons=parseButtonStyles(input.buttons);}catch{return null;}
   return typeof input.background==='string'&&/^#[0-9a-f]{6}$/i.test(input.background)&&typeof input.panel==='string'&&/^#[0-9a-f]{6}$/i.test(input.panel)
-    ?{background:input.background.toLowerCase(),panel:input.panel.toLowerCase()}:null;
+    ?{background:input.background.toLowerCase(),panel:input.panel.toLowerCase(),buttons}:null;
 }
 type AppearanceContextValue={appearance:Appearance;loaded:boolean;error:string;preview:(value:Appearance|null)=>void;reload:()=>void;save:(value:Appearance)=>Promise<Appearance>};
 const AppearanceContext=createContext<AppearanceContextValue|null>(null);
@@ -52,7 +54,7 @@ export function AppearanceProvider({children}:{children:ReactNode}){
       return saved;
     }finally{saving.current=false;}
   },[]);
-  return <AppearanceContext.Provider value={{appearance,loaded,error,preview:setDraft,reload,save}}>{children}</AppearanceContext.Provider>;
+  return <AppearanceContext.Provider value={{appearance,loaded,error,preview:setDraft,reload,save}}><style>{buttonStylesheet((draft??appearance).buttons??{})}</style>{children}</AppearanceContext.Provider>;
 }
 export function useAppearance(){
   const context=useContext(AppearanceContext);
