@@ -57,52 +57,68 @@ export function buttonStylesheet(styles) {
 
 
 const CUSTOM_CSS_PROPERTIES = new Set((
-  'color background background-color background-image background-size border border-color border-width border-style border-radius box-shadow padding padding-inline padding-block margin margin-inline margin-block width min-width max-width height min-height max-height font-size font-weight font-family letter-spacing line-height opacity text-transform text-shadow position overflow overflow-x overflow-y cursor display align-items justify-content gap transform transform-origin transition z-index top right bottom left content pointer-events outline outline-color outline-width outline-style outline-offset flex flex-grow flex-shrink flex-basis box-sizing white-space text-align'
+  'color background background-color background-image background-size border border-color border-width border-style border-radius box-shadow padding padding-inline padding-block margin margin-inline margin-block width min-width max-width height min-height max-height font-size font-weight font-family letter-spacing line-height opacity text-transform text-shadow position overflow overflow-x overflow-y cursor display align-items justify-content gap transform transform-origin transition z-index top right bottom left content pointer-events outline outline-color outline-width outline-style outline-offset flex flex-grow flex-shrink flex-basis box-sizing white-space text-align appearance vertical-align user-select'
 ).split(/\s+/));
 
+const CUSTOM_CSS_ANIMATION_PROPERTIES = new Set('animation animation-name animation-duration animation-delay animation-timing-function animation-iteration-count animation-direction animation-fill-mode animation-play-state'.split(' '));
+function validateDeclarations(declarations, allowAnimation = false) {
+  for (const declaration of declarations.split(';')) {
+    if (!declaration.trim()) continue;
+    const colon = declaration.indexOf(':');
+    const property = declaration.slice(0, colon).trim().toLowerCase();
+    const value = declaration.slice(colon + 1).trim();
+    if (colon < 1 || !(CUSTOM_CSS_PROPERTIES.has(property) || (allowAnimation && CUSTOM_CSS_ANIMATION_PROPERTIES.has(property))) || !value || !/^[a-z0-9#%.,() _"'!+\-]+$/i.test(value)) {
+      throw Error('Desteklenmeyen veya geçersiz CSS özelliği: ' + property);
+    }
+  }
+}
 export function validateCustomCss(css) {
   if (typeof css !== 'string' || css.length > 10000) throw Error('Özel CSS en fazla 10000 karakter olabilir.');
   if (!css.trim()) return '';
-  if (/@|url\s*\(|expression\s*\(|var\s*\(|javascript:|\\|<|>/.test(css)) {
-    throw Error('Özel CSS içinde @ kuralı, URL, değişken veya HTML kullanılamaz.');
+  if (/url\s*\(|expression\s*\(|var\s*\(|javascript:|\\|<|>|@import|@charset|@font-face|@media|@supports/i.test(css)) {
+    throw Error('Yalnızca güvenli seçiciler ve @keyframes animasyonları kullanılabilir; URL, CSS değişkeni ve diğer @ kuralları desteklenmez.');
   }
   const rules = [];
   let consumed = '';
-  const pattern = /([^{}]+)\{([^{}]*)\}/g;
+  const pattern = /(@keyframes\s+[a-zA-Z_][a-zA-Z0-9_-]*\s*\{(?:[^{}]*\{[^{}]*\}\s*)+\}|[^{}]+\{[^{}]*\})/g;
   let match;
   while ((match = pattern.exec(css)) !== null) {
-    const selectorText = match[1].trim();
-    const declarations = match[2].trim();
-    if (!selectorText || !declarations) throw Error('CSS kuralı boş olamaz.');
-    const selectors = selectorText.split(',').map(s => s.trim());
-    for (const selector of selectors) {
-      if (!selector.startsWith('.app') || !/^[.a-zA-Z0-9_#:\[\]="'()\-\s>+~,:]+$/.test(selector)) {
-        throw Error('Güvenlik için seçiciler yalnızca .app içindeki öğeleri hedefleyebilir.');
+    const rule = match[0];
+    const keyframes = rule.match(/^@keyframes\s+([a-zA-Z_][a-zA-Z0-9_-]*)\s*\{([\s\S]*)\}$/);
+    if (keyframes) {
+      const framePattern = /([^{}]+)\{([^{}]*)\}/g;
+      let frame, frameConsumed = '';
+      while ((frame = framePattern.exec(keyframes[2])) !== null) {
+        const steps = frame[1].trim().split(',').map(step => step.trim());
+        if (!steps.length || steps.some(step => !/^(from|to|(?:100|[0-9]{1,2})(?:\.[0-9]+)?%)$/i.test(step))) throw Error('Animasyon adımları from, to veya yüzde olmalıdır.');
+        validateDeclarations(frame[2], true);
+        frameConsumed += frame[0];
       }
-    }
-    for (const declaration of declarations.split(';')) {
-      if (!declaration.trim()) continue;
-      const colon = declaration.indexOf(':');
-      const property = declaration.slice(0, colon).trim().toLowerCase();
-      const value = declaration.slice(colon + 1).trim();
-      if (colon < 1 || !CUSTOM_CSS_PROPERTIES.has(property) || !value || !/^[a-z0-9#%.,() _"'!+\-]+$/i.test(value)) {
-        throw Error('Desteklenmeyen veya geçersiz CSS özelliği: ' + property);
+      if (keyframes[2].replace(/\s/g, '') !== frameConsumed.replace(/\s/g, '')) throw Error('@keyframes sözdizimi hatalı.');
+      rules.push(rule);
+    } else {
+      const ordinary = rule.match(/^([^{}]+)\{([^{}]*)\}$/);
+      const selectorText = ordinary[1].trim(), declarations = ordinary[2].trim();
+      if (!selectorText || !declarations) throw Error('CSS kuralı boş olamaz.');
+      for (const selector of selectorText.split(',').map(s => s.trim())) {
+        if (!(selector.startsWith('.') || selector.startsWith('#') || selector.startsWith('[')) || !/^[.a-zA-Z0-9_#:\[\]=\"'()\-\s>+~,:*]+$/.test(selector)) throw Error('Güvenlik için seçiciler .class, #id veya [attribute] ile başlamalıdır.');
       }
+      validateDeclarations(declarations, true);
+      rules.push(selectorText + '{' + declarations + '}');
     }
-    rules.push(selectorText + '{' + declarations + '}');
-    consumed += match[0];
+    consumed += rule;
   }
   if (css.replace(/\s/g, '') !== consumed.replace(/\s/g, '')) throw Error('CSS sözdizimi hatalı. Her seçici için { ... } kullanın.');
   return rules.join('\n');
 }
-
 export function customCssStylesheet(css) {
   let valid = '';
   try { valid = validateCustomCss(css || ''); } catch { return ''; }
-  return valid.replace(/([^{}]+)\{([^{}]*)\}/g, (_, selectors, declarations) =>
-    selectors.split(',').map(selector => {
+  return valid.replace(/(@keyframes\s+[a-zA-Z_][a-zA-Z0-9_-]*\s*\{(?:[^{}]*\{[^{}]*\}\s*)+\}|([^{}]+)\{([^{}]*)\})/g, (rule, keyframes, selectors, declarations) => {
+    if (rule.startsWith('@keyframes')) return rule;
+    return selectors.split(',').map(selector => {
       const trimmed = selector.trim();
       return (trimmed.startsWith('.app') ? trimmed : '.app ' + trimmed) + '{' + declarations + '}';
-    }).join('\n')
-  );
+    }).join('\n');
+  });
 }
