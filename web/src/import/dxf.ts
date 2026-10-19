@@ -468,14 +468,26 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
   if(groups.some(group=>group.length>1))warnings.push('İç içe konturlar ve farklı renkte üst üste gelen detaylar ana parçaya kilitlendi; aynı renkteki temas eden parçalar ayrı parça olarak korundu.');
   let attachedOpenMarks=0;
   // Preserve simple open LINE/ARC/POLYLINE/SPLINE chains as non-nesting marks when
-  // they are fully contained by one imported part. They stay rigidly attached to
-  // that part and count as source entities, but never become independent pieces.
+  // they are contained by, or lie within 10 mm of, a part boundary. CAD detail
+  // strokes often sit just outside the closed outline. Attach them to the nearest
+  // matching part so they remain visible and move with it, without inventing
+  // artificial closed cutting geometry or treating a stroke as a nestable piece.
   for(const mark of joined.openMarks) {
     const candidates=imported.map(part=>{
       const contour=part.source.entityId?keptContours.find(c=>c.entityId===part.source.entityId):undefined;
-      return contour?{part,contour,size:Math.abs(area(contour.ring))}:undefined;
-    }).filter((v):v is NonNullable<typeof v>=>!!v&&mark.points.every(point=>inside(point,v.contour.ring)))
-      .sort((a,b)=>a.size-b.size);
+      if(!contour)return undefined;
+      const contained=mark.points.every(point=>inside(point,contour.ring));
+      const maxDistance=Math.max(...mark.points.map(point=>{
+        let distance=Infinity;
+        for(let i=0;i<contour.ring.length;i++){
+          const next=contour.ring[(i+1)%contour.ring.length];
+          distance=Math.min(distance,pointSegmentDistance(point,contour.ring[i],next));
+        }
+        return distance;
+      }));
+      return {part,contour,size:Math.abs(area(contour.ring)),contained,maxDistance};
+    }).filter((v):v is NonNullable<typeof v>=>!!v&&(v.contained||v.maxDistance<=10))
+      .sort((a,b)=>Number(b.contained)-Number(a.contained)||a.maxDistance-b.maxDistance||a.size-b.size);
     const target=candidates[0];
     if(target){
       const b=bounds(target.contour.ring);
