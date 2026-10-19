@@ -1,4 +1,5 @@
 import ButtonStyleEditor from './ButtonStyleEditor';
+import {validateCustomCss} from '../../shared/button-styles.js';
 import {useEffect,useRef,useState} from 'react';
 import {DEFAULT_APPEARANCE,useAppearance,type Appearance} from '../appearance';
 import {useI18n} from '../i18n';
@@ -19,10 +20,10 @@ export default function AppearanceSettings(){
 function ColorEditor(){
   const {appearance,preview,save}=useAppearance(),{t}=useI18n();
   const [draft,setDraft]=useState<Appearance|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
-  const [pendingCss,setPendingCss]=useState(false);
+  const [pendingCss,setPendingCss]=useState(false),[customCssError,setCustomCssError]=useState('');
   const originalTheme=useRef(document.documentElement.getAttribute('data-theme'));
   const colors=draft??appearance;
-  const dirty=colors.background!==appearance.background||colors.panel!==appearance.panel||JSON.stringify(colors.buttons??{})!==JSON.stringify(appearance.buttons??{});
+  const dirty=colors.background!==appearance.background||colors.panel!==appearance.panel||JSON.stringify(colors.buttons??{})!==JSON.stringify(appearance.buttons??{})||(colors.customCss??'')!==(appearance.customCss??'');
   const restoreTheme=()=>{
     if(originalTheme.current===null)document.documentElement.removeAttribute('data-theme');
     else document.documentElement.setAttribute('data-theme',originalTheme.current);
@@ -37,7 +38,7 @@ function ColorEditor(){
   const revert=()=>{setDraft(null);preview(null);restoreTheme();setError('');setNotice('Kaydedilmiş renklere dönüldü.');};
   const submit=async()=>{
     setBusy(true);setError('');setNotice('');
-    try{await save(colors);setDraft(null);setNotice('Görünüm herkes için kaydedildi. Açık ekranlar en geç 30 saniye içinde güncellenir.');}
+    try{validateCustomCss(colors.customCss??'');await save(colors);setDraft(null);setCustomCssError('');setNotice('Görünüm herkes için kaydedildi. Açık ekranlar en geç 30 saniye içinde güncellenir.');}
     catch(reason){setError(reason instanceof Error?reason.message:'Renkler kaydedilemedi.');}
     finally{setBusy(false);}
   };
@@ -50,8 +51,16 @@ function ColorEditor(){
     <fieldset className="appearance-presets" disabled={busy}><legend>Hazır renkler</legend>{presets.map(({name,...value})=><button key={name} type="button" aria-pressed={colors.background===value.background&&colors.panel===value.panel} onClick={()=>change({...colors,background:value.background,panel:value.panel})}><span className="appearance-swatch" style={{backgroundColor:value.background}} aria-hidden="true"><span style={{backgroundColor:value.panel}}/></span>{t(name)}</button>)}</fieldset>
     <div className="appearance-sample" style={{background:colors.background}} aria-label={t('Renk önizlemesi')}><div style={{background:colors.panel}}><span>Panel önizlemesi</span><p>Yazılar ve düğmeler bu zemin üzerinde görünür.</p><span className="appearance-sample-button">Örnek düğme</span></div></div>
     <ButtonStyleEditor value={colors.buttons??{}} onChange={buttons=>change({...colors,buttons})} disabled={busy} onPending={setPendingCss}/>
+    <fieldset className="custom-css-editor" disabled={busy}>
+      <legend>Kullanıcı paneli için özel CSS</legend>
+      <p>Butonları, açılır seçim alanlarını ve seçeneklerini CSS ile özelleştir. Seçiciler yalnızca <code>.app</code> içindeki öğeleri etkiler. Örnek hedefler: <code>.app button</code>, <code>.app select</code>, <code>.app option</code>.</p>
+      <label>CSS kodun<textarea rows={12} spellCheck={false} maxLength={10000} value={colors.customCss??''} onChange={event=>{const customCss=event.target.value;try{validateCustomCss(customCss);setCustomCssError('');}catch(reason){setCustomCssError(reason instanceof Error?reason.message:'CSS geçersiz.');}change({...colors,customCss});}} placeholder={'.app button {\n  background: #8f0000;\n  color: #fff;\n  border-radius: 1.5rem;\n}\n\n.app select, .app option {\n  background: #fff;\n  color: #0f172a;\n  border-radius: 8px;\n}'} /></label>
+      <small>Kuralları seçici ve süslü parantezlerle yaz. @ kuralları, URL ve CSS değişkenleri güvenlik nedeniyle desteklenmez.</small>
+      {customCssError&&<p className="field-error" role="alert">{customCssError}</p>}
+      <div className="appearance-actions"><button type="button" onClick={()=>{setCustomCssError('');change({...colors,customCss:''});}}>Özel CSS’yi temizle</button></div>
+    </fieldset>
     {draft&&<p className="appearance-preview-status" role="status">Canlı önizleme açık. Değişiklikler henüz diğer kullanıcılara uygulanmadı.</p>}
     {error&&<p className="field-error" role="alert">{error}</p>}{notice&&<p className="admin-notice" role="status">{notice}</p>}
-    <div className="appearance-actions"><button type="button" disabled={busy||!draft} onClick={revert}>Kaydedilene dön</button><button type="button" className="primary" disabled={busy||!dirty||pendingCss} onClick={()=>void submit()}>{busy?'Kaydediliyor…':'Herkes için kaydet'}</button></div>
+    <div className="appearance-actions"><button type="button" disabled={busy||!draft} onClick={revert}>Kaydedilene dön</button><button type="button" className="primary" disabled={busy||!dirty||pendingCss||!!customCssError} onClick={()=>void submit()}>{busy?'Kaydediliyor…':'Herkes için kaydet'}</button></div>
   </>;
 }
