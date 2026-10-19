@@ -403,7 +403,7 @@ export function importDXF(text:string,fileName:string,options:DXFOptions):Import
         // splines even though they enclose effectively zero area. They cannot be
         // safe nesting parts, but dropping them loses visible drawing geometry.
         const box=bounds(c.ring),size=Math.max(box[2]-box[0],box[3]-box[1]);
-        if(c.ring.length>=4&&size<=10&&Math.abs(area(c.ring))<=1e-3){
+        if(c.ring.length>=2&&size<=10&&Math.abs(area(c.ring))<=1e-3){
           degeneratePeriodicSplines.push(c);continue;
         }
       }
