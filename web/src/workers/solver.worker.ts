@@ -62,7 +62,7 @@ self.onmessage = ({ data }: MessageEvent<Start | { type: 'stop' } | { type: 'ski
       const finalMessage=start.type==='start'?friendlyInitialPlacementError(start.document,message):message;
       self.postMessage({ type: 'error', runId: start.runId, documentRevision: start.documentRevision, message: finalMessage });
     };
-    const timer = setTimeout(() => fail('Thread initialization timed out.'), count > 1 ? 8000 : 6000);
+    const timer = setTimeout(() => fail('Thread initialization timed out.'), count > 1 ? 12000 : 10000);
     runtime.onmessage = ({ data: message }: MessageEvent<SolverMessage | PoolInit>) => {
       if (closed) return;
       if (message.type === 'pool-init') {
