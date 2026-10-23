@@ -103,7 +103,6 @@ function similarityKey(part:Part):number[] {
 export function solverCopies(doc:Document):SolverCopy[] {
   const copies=doc.parts.flatMap(part=>Array.from({length:part.quantity},(_,copyIndex)=>({partId:part.id,copyIndex})));
   if(doc.settings.groupSimilarParts){
-    const parts=new Map(doc.parts.map(part=>[part.id,part] as const));
     const keys=new Map(doc.parts.map(part=>[part.id,similarityKey(part)] as const));
     copies.sort((a,b)=>{
       const ka=keys.get(a.partId)!,kb=keys.get(b.partId)!;
