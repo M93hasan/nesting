@@ -75,3 +75,12 @@ test('similar-part grouping is opt-in and keeps similar geometries adjacent in s
   const input=JSON.parse(solverInput(grouped)) as {items:{id:number}[]};
   expect(input.items.map(item=>item.id)).toEqual([0,1,2]);
 });
+test('similar outlines with different dimensions are grouped ahead of unrelated shapes',()=>{
+  const triangleSmall={...newPart([[0,0],[20,0],[10,10]],'Small triangle'),id:'triangle-small',quantity:1};
+  const square={...newPart([[0,0],[12,0],[12,12],[0,12]],'Square'),id:'square',quantity:1};
+  const triangleLarge={...newPart([[0,0],[40,0],[20,20]],'Large triangle'),id:'triangle-large',quantity:1};
+  const doc:Document={name:'similar shapes different sizes',parts:[triangleSmall,square,triangleLarge],
+    settings:{materialWidthMm:100,clearanceMm:0,timeLimitSeconds:30,groupSimilarParts:true}};
+  const ids=solverCopies(doc).map(copy=>copy.partId);
+  expect(Math.abs(ids.indexOf('triangle-small')-ids.indexOf('triangle-large'))).toBe(1);
+});
