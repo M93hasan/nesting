@@ -465,3 +465,5 @@ html[dir="rtl"] body{direction:rtl}html[dir="rtl"] .workspace-svg,html[dir="rtl"
 #root .corel-bridge-prompt-actions a.button{padding:7px 10px;font-size:12px;min-height:34px}
 .corel-bridge-prompt-actions>a:not(.button){font-size:12px;text-decoration:underline}
 #root .corel-bridge-prompt-actions button{min-height:34px;padding:6px 10px;font-size:12px}
+
+.group-similar-option{align-items:center;gap:8px}.group-similar-option>input[type=checkbox]{width:16px;min-height:16px;margin:0;flex:0 0 auto}
