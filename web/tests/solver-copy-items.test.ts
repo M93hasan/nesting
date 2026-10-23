@@ -62,3 +62,16 @@ test('initial placement errors identify the real part copy instead of raw solver
   expect(friendlyInitialPlacementError(doc,'No valid initial placement could be constructed for item 3. Review the part size.'))
     .toContain('B — Kopya 2');
 });
+
+
+test('similar-part grouping is opt-in and keeps similar geometries adjacent in solver input',()=>{
+  const squareA={...newPart([[0,0],[10,0],[10,10],[0,10]],'Square A'),id:'square-a',quantity:1};
+  const rectangle={...newPart([[0,0],[20,0],[20,10],[0,10]],'Rectangle'),id:'rectangle',quantity:1};
+  const squareB={...newPart([[0,0],[10,0],[10,10],[0,10]],'Square B'),id:'square-b',quantity:1};
+  const base:Document={name:'similar grouping',parts:[squareA,rectangle,squareB],settings:{materialWidthMm:100,clearanceMm:0,timeLimitSeconds:30}};
+  expect(solverCopies(base).map(copy=>copy.partId)).toEqual(['square-a','rectangle','square-b']);
+  const grouped:Document={...base,settings:{...base.settings,groupSimilarParts:true}};
+  expect(solverCopies(grouped).map(copy=>copy.partId)).toEqual(['square-a','square-b','rectangle']);
+  const input=JSON.parse(solverInput(grouped)) as {items:{id:number}[]};
+  expect(input.items.map(item=>item.id)).toEqual([0,1,2]);
+});

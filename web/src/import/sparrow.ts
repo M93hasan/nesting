@@ -1,5 +1,5 @@
 import { DEFAULT_SETTINGS, newPart, type Document, type Part, type Ring } from '../model';
-import { bounds, normalizeDocument, normalizeRing } from '../geometry/normalize';
+import { area, bounds, normalizeDocument, normalizeRing } from '../geometry/normalize';
 import { collisionRing } from '../geometry/validate';
 
 export type ImportReview = { document: Document; warnings: string[]; replace: boolean; issues?:string[]; layers?:string[]; result?:import('../model').Result };
@@ -85,9 +85,35 @@ export const SOLVER_EDGE_EPS_MM=0.01;
 export const solverEdgePadding=(clearanceMm:number)=>Math.max(0,clearanceMm)+SOLVER_EDGE_EPS_MM;
 
 export type SolverCopy={itemId:number;partId:string;copyIndex:number};
+
+function similarityKey(part:Part):number[] {
+  const [x0,y0,x1,y1]=bounds(part.outer);
+  const dimensions=[x1-x0,y1-y0].sort((a,b)=>a-b);
+  const perimeter=(ring:Ring)=>ring.reduce((sum,point,index)=>{
+    const next=ring[(index+1)%ring.length];
+    return sum+Math.hypot(next[0]-point[0],next[1]-point[1]);
+  },0);
+  const netArea=Math.abs(area(part.outer))-part.holes.reduce((sum,hole)=>sum+Math.abs(area(hole)),0);
+  // Quantize only the comparison key, never the manufacturing geometry.
+  const rounded=(value:number)=>Math.round(value*100)/100;
+  return [...dimensions.map(rounded),rounded(netArea),rounded(perimeter(part.outer)+part.holes.reduce((sum,hole)=>sum+perimeter(hole),0)),
+    part.outer.length,part.holes.length];
+}
+
 export function solverCopies(doc:Document):SolverCopy[] {
-  let itemId=0;
-  return doc.parts.flatMap(part=>Array.from({length:part.quantity},(_,copyIndex)=>({itemId:itemId++,partId:part.id,copyIndex})));
+  const copies=doc.parts.flatMap(part=>Array.from({length:part.quantity},(_,copyIndex)=>({partId:part.id,copyIndex})));
+  if(doc.settings.groupSimilarParts){
+    const keys=new Map(doc.parts.map(part=>[part.id,similarityKey(part)] as const));
+    copies.sort((a,b)=>{
+      const ka=keys.get(a.partId)!,kb=keys.get(b.partId)!;
+      for(let i=0;i<Math.max(ka.length,kb.length);i++){
+        const difference=(ka[i]??0)-(kb[i]??0);
+        if(difference)return difference;
+      }
+      return a.partId.localeCompare(b.partId)||a.copyIndex-b.copyIndex;
+    });
+  }
+  return copies.map((copy,itemId)=>({itemId,...copy}));
 }
 export function solverCopyForItem(doc:Document,itemId:number):SolverCopy|undefined {
   return solverCopies(doc).find(copy=>copy.itemId===itemId);
