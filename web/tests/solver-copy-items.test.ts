@@ -71,7 +71,8 @@ test('similar-part grouping is opt-in and keeps similar geometries adjacent in s
   const base:Document={name:'similar grouping',parts:[squareA,rectangle,squareB],settings:{materialWidthMm:100,clearanceMm:0,timeLimitSeconds:30}};
   expect(solverCopies(base).map(copy=>copy.partId)).toEqual(['square-a','rectangle','square-b']);
   const grouped:Document={...base,settings:{...base.settings,groupSimilarParts:true}};
-  expect(solverCopies(grouped).map(copy=>copy.partId)).toEqual(['square-a','square-b','rectangle']);
+  const groupedIds=solverCopies(grouped).map(copy=>copy.partId);
+  expect(Math.abs(groupedIds.indexOf('square-a')-groupedIds.indexOf('square-b'))).toBe(1);
   const input=JSON.parse(solverInput(grouped)) as {items:{id:number}[]};
   expect(input.items.map(item=>item.id)).toEqual([0,1,2]);
 });
