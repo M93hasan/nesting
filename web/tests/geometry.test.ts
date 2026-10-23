@@ -236,3 +236,24 @@ it('sheet splitting preserves Sparrow band order instead of re-nesting',()=>{
   expect(packed.sheetCount).toBe(3);
   expect(validate(doc,packed).status).toBe('passed');
 });
+
+
+it('accepts sub-0.01 mm sheet-length overshoot consistently with independent validation',()=>{
+  const part={...newPart([[0,0],[1,0],[1,1.005],[0,1.005]]),id:'near-exact-sheet-fit',quantity:1};
+  const doc:Document={name:'near-exact-sheet-fit',parts:[part],settings:{...DEFAULT_SETTINGS,materialType:'sheet',materialWidthMm:2,materialLengthMm:1,clearanceMm:0,startCorner:'right-bottom'}};
+  const result:Result={documentRevision:1,solverRevision:'test',seed:'1',elapsedSeconds:0,usedLengthMm:1,
+    placements:[{partId:part.id,copyIndex:0,xMm:0,yMm:0,angleDeg:0}],
+    validation:{status:'pending',overlapAreaMm2:0,maxBoundaryViolationMm:0,minClearanceMm:null,errors:[]}};
+  const packed=packResultIntoSheets(doc,result);
+  expect(packed.sheetCount).toBe(1);
+  expect(validate(doc,packed).status).toBe('passed');
+});
+
+it('still rejects a part that exceeds the sheet-length tolerance',()=>{
+  const part={...newPart([[0,0],[1,0],[1,1.02],[0,1.02]]),id:'oversized-sheet-fit',quantity:1};
+  const doc:Document={name:'oversized-sheet-fit',parts:[part],settings:{...DEFAULT_SETTINGS,materialType:'sheet',materialWidthMm:2,materialLengthMm:1,clearanceMm:0}};
+  const result:Result={documentRevision:1,solverRevision:'test',seed:'1',elapsedSeconds:0,usedLengthMm:1,
+    placements:[{partId:part.id,copyIndex:0,xMm:0,yMm:0,angleDeg:0}],
+    validation:{status:'pending',overlapAreaMm2:0,maxBoundaryViolationMm:0,minClearanceMm:null,errors:[]}};
+  expect(()=>packResultIntoSheets(doc,result)).toThrow('Part seçilen plaka uzunluğuna sığmıyor.');
+});

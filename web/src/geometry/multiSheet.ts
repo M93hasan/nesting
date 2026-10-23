@@ -5,6 +5,9 @@ type IntervalItem={placement:Placement;index:number;part:Part;minY:number;maxY:n
 type Band={items:IntervalItem[];minY:number;maxY:number};
 type SheetChunk={items:IntervalItem[];minY:number;maxY:number};
 
+// Match the independent validator's 0.01 mm linear tolerance at exact fits.
+const SHEET_LINEAR_TOLERANCE_MM=0.01;
+
 const rotatedBounds=(ring:Ring,angleDeg:number)=>{
   const a=angleDeg*Math.PI/180,c=Math.cos(a),s=Math.sin(a);
   let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
@@ -75,7 +78,7 @@ export function packResultIntoSheets(doc:Document,result:Result):Result {
     const b=rotatedBounds(collisionRing(part),placement.angleDeg);
     const minX=placement.xMm+b[0],maxX=placement.xMm+b[2],minY=placement.yMm+b[1],maxY=placement.yMm+b[3];
     if(minX<-1e-6||maxX>width+1e-6)throw Error(`${part.name} malzeme genişliğinin dışına taşıyor.`);
-    if(maxY-minY>length+1e-7)throw Error(`${part.name} seçilen plaka uzunluğuna sığmıyor.`);
+    if(maxY-minY>length+SHEET_LINEAR_TOLERANCE_MM)throw Error(`${part.name} seçilen plaka uzunluğuna sığmıyor.`);
     return {placement,index,part,minY,maxY};
   }).sort((a,b)=>a.minY-b.minY||a.maxY-b.maxY);
 
@@ -94,7 +97,7 @@ export function packResultIntoSheets(doc:Document,result:Result):Result {
   // bands into rigid chunks; different chunks may live on different plates.
   const chunks:SheetChunk[]=[];
   for(const band of bands){
-    if(band.maxY-band.minY<=length+1e-7){
+    if(band.maxY-band.minY<=length+SHEET_LINEAR_TOLERANCE_MM){
       chunks.push({items:band.items,minY:band.minY,maxY:band.maxY});
       continue;
     }
@@ -106,7 +109,7 @@ export function packResultIntoSheets(doc:Document,result:Result):Result {
         continue;
       }
       const nextMax=Math.max(current.maxY,item.maxY);
-      if(nextMax-current.minY<=length+1e-7){
+      if(nextMax-current.minY<=length+SHEET_LINEAR_TOLERANCE_MM){
         current.items.push(item);current.maxY=nextMax;
       }else{
         current={items:[item],minY:item.minY,maxY:item.maxY};
@@ -122,7 +125,7 @@ export function packResultIntoSheets(doc:Document,result:Result):Result {
   for(const chunk of chunks){
     const height=chunk.maxY-chunk.minY;
     let start=used+(used>0?gap:0);
-    if(start+height>length+1e-7){sheetIndex++;used=0;start=0;}
+    if(start+height>length+SHEET_LINEAR_TOLERANCE_MM){sheetIndex++;used=0;start=0;}
     const offset=start-chunk.minY;
     for(const item of chunk.items)packed[item.index]={...item.placement,sheetIndex,yMm:item.placement.yMm+offset};
     used=start+height;
