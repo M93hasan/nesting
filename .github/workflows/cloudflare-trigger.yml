@@ -1,5 +1,6 @@
 name: Fast Cloudflare trigger
 
+# Push this commit to refresh the Cloudflare Git integration deployment.
 on:
   workflow_dispatch:
 
