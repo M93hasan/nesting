@@ -255,5 +255,5 @@ it('still rejects a part that exceeds the sheet-length tolerance',()=>{
   const result:Result={documentRevision:1,solverRevision:'test',seed:'1',elapsedSeconds:0,usedLengthMm:1,
     placements:[{partId:part.id,copyIndex:0,xMm:0,yMm:0,angleDeg:0}],
     validation:{status:'pending',overlapAreaMm2:0,maxBoundaryViolationMm:0,minClearanceMm:null,errors:[]}};
-  expect(()=>packResultIntoSheets(doc,result)).toThrow('oversized-sheet-fit seçilen plaka uzunluğuna sığmıyor.');
+  expect(()=>packResultIntoSheets(doc,result)).toThrow('Part seçilen plaka uzunluğuna sığmıyor.');
 });
