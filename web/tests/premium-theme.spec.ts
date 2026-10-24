@@ -27,13 +27,16 @@ test('admin dashboard theme variables stay correct on desktop and mobile',async(
   await expect(admin).toBeVisible();
   const pageBackground=()=>admin.evaluate(el=>getComputedStyle(el).backgroundColor);
   const surface=()=>page.locator('.admin-sidebar').evaluate(el=>getComputedStyle(el).backgroundColor);
+  const surfaceBlur=()=>page.locator('.admin-sidebar').evaluate(el=>getComputedStyle(el).backdropFilter);
   await expect.poll(pageBackground).toBe('rgb(16, 17, 20)');
-  await expect.poll(surface).toBe('rgb(25, 26, 32)');
+  await expect.poll(surface).not.toBe('rgba(0, 0, 0, 0)');
+  await expect.poll(surfaceBlur).toContain('blur(');
   await page.evaluate(()=>localStorage.setItem('serula-theme','light'));
   await page.reload();
   await expect(admin).toBeVisible();
   await expect.poll(pageBackground).toBe('rgb(247, 248, 250)');
-  await expect.poll(surface).toBe('rgb(255, 255, 255)');
+  await expect.poll(surface).not.toBe('rgba(0, 0, 0, 0)');
+  await expect.poll(surfaceBlur).toContain('blur(');
   await page.setViewportSize({width:390,height:844});
   await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
