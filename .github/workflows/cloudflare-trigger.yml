@@ -1,14 +1,41 @@
-name: Fast Cloudflare trigger
+name: Deploy Serula to Cloudflare
 
-# Push this commit to refresh the Cloudflare Git integration deployment.
 on:
+  push:
+    branches: [main]
+    paths:
+      - "web/**"
+      - ".github/workflows/cloudflare-trigger.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: cloudflare-production
+  cancel-in-progress: false
+
 jobs:
-  disabled:
+  deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: web
     steps:
-      - run: echo "Automatic deploy hook disabled. Cloudflare Git integration handles production deploys."
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit --no-fund
+      - name: Verify prebuilt WASM
+        run: npm run wasm:verify
+      - name: Build production site
+        run: npm run build
+      - name: Deploy production site to Cloudflare
+        run: npx --yes wrangler@4 deploy --config wrangler.jsonc
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
