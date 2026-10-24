@@ -50,3 +50,116 @@ a { text-underline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
+
+/* Final product pass: unify the studio, account area and admin surfaces. */
+:root {
+  --panel-soft: light-dark(#f3f4f8, #15161c);
+  --panel-raised: light-dark(#ffffff, #1d1e25);
+  --brand-gradient: linear-gradient(135deg, #6875e8, #555fc5);
+  --brand-gradient-hover: linear-gradient(135deg, #5966d8, #454fb0);
+  --radius-card: 14px;
+  --radius-control: 10px;
+  --surface-shadow: 0 10px 30px light-dark(#1b23400a, #00000030);
+}
+:root[data-theme="light"] {
+  --panel-soft: #f3f4f8;
+  --panel-raised: #ffffff;
+}
+:root[data-theme="dark"] {
+  --panel-soft: #15161c;
+  --panel-raised: #1d1e25;
+}
+
+/* App header: quiet hierarchy, clear separation from the workspace. */
+.header {
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  box-shadow: 0 4px 18px light-dark(#1b234006, #00000020);
+}
+.brand.serula-brand { color: var(--ink); }
+.brand.serula-brand strong { letter-spacing: -.04em; }
+.tagline { color: var(--muted); }
+#root :is(input:not([type=checkbox]):not([type=radio]):not([type=file]), select, textarea) {
+  border-color: var(--border);
+  border-radius: 9px;
+}
+#root :is(input:not([type=checkbox]):not([type=radio]):not([type=file]), select, textarea):focus {
+  border-color: var(--accent);
+}
+
+/* Replace legacy red/purple user-panel styling with the current brand accent. */
+.user-panel .button {
+  border: 1px solid color-mix(in srgb, var(--accent) 72%, var(--border));
+  border-radius: 10px;
+  background: var(--brand-gradient);
+  color: #fff;
+  box-shadow: 0 3px 10px light-dark(#5e6ad21c, #00000026);
+}
+.user-panel .button::before {
+  background: var(--brand-gradient-hover);
+  border-radius: inherit;
+}
+.user-panel select {
+  border-color: var(--border);
+  border-radius: 9px;
+  background-color: var(--panel-raised);
+  color: var(--ink);
+}
+.user-panel select:focus {
+  border-color: var(--accent);
+  outline: 2px solid color-mix(in srgb, var(--accent) 24%, transparent);
+  outline-offset: 1px;
+}
+
+/* Admin keeps the same visual language as the main studio. */
+.admin-page {
+  --admin-surface: light-dark(#ffffff, #191a20);
+  --admin-surface-soft: light-dark(#f3f4f8, #15161c);
+  --admin-surface-raised: light-dark(#ffffff, #1d1e25);
+  --admin-border: var(--border);
+  --admin-accent: var(--accent);
+  --admin-accent-strong: var(--accent);
+  --admin-accent-soft: var(--selected);
+  --admin-text: var(--ink);
+  --admin-muted: var(--muted);
+  --admin-danger: var(--error);
+}
+.admin-page .admin-topbar,
+.admin-page .admin-sidebar {
+  background: color-mix(in srgb, var(--panel) 96%, transparent);
+  border-color: var(--border);
+}
+.admin-page .admin-card,
+.admin-page .admin-metric,
+.admin-page .admin-user-row {
+  border-radius: 14px;
+  box-shadow: var(--surface-shadow);
+}
+.admin-page .admin-heading h1 { letter-spacing: -.045em; }
+.admin-page .admin-sidebar nav button.active {
+  background: var(--selected) !important;
+  color: var(--accent) !important;
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border)) !important;
+}
+.admin-page .primary {
+  background: var(--brand-gradient) !important;
+  border-color: transparent !important;
+  box-shadow: 0 4px 12px light-dark(#5e6ad21f, #00000030) !important;
+}
+.admin-page .primary:hover:enabled {
+  background: var(--brand-gradient-hover) !important;
+  border-color: transparent !important;
+}
+.admin-page .admin-notice,
+.admin-page .admin-support-box {
+  background: color-mix(in srgb, var(--selected) 75%, var(--panel));
+  border-color: color-mix(in srgb, var(--accent) 24%, var(--border));
+}
+.admin-page .admin-connection { color: var(--accent); }
+
+@media (max-width: 760px) {
+  .header { gap: 10px; }
+  .admin-page .admin-topbar { backdrop-filter: blur(14px); }
+  .admin-page .admin-main { padding-top: 16px; }
+}
+
