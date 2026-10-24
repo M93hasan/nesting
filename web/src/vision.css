@@ -14,32 +14,11 @@
 }
 :root {
   color-scheme:dark;
-  --font-ui:"Plus Jakarta Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  --page:light-dark(#eef2fb,var(--appearance-background,#121421));
-  --panel:light-dark(#ffffff,var(--appearance-panel,#242935));
-  --panel-soft:light-dark(#f4f7ff,#0c122c);
-  --panel-raised:light-dark(#ffffff,#182142);
-  --ink:light-dark(#14234b,#f3f6ff);
-  --muted:light-dark(#536481,#a3b1d0);
-  --border:light-dark(#dbe3f2,#273255);
-  --accent:light-dark(#075ed8,#7cb8ff);
-  --accent-hover:light-dark(#0049af,#a4ceff);
-  --hover:light-dark(#edf3ff,#1c2a50);
-  --hover-border:light-dark(#a6c6f5,#496596);
-  --selected:light-dark(#e8f1ff,#152e59);
-  --secondary:light-dark(#637b9f,#7890b9);
   --material-fill:light-dark(#f7faff,#121d3c);
-  --error:light-dark(#b51f36,#ff9eaa);
-  --error-bg:light-dark(#fff0f2,#361b32);
   --success:light-dark(#08784c,#5ed8ab);
   --success-soft:light-dark(#e7f7ef,#102e32);
   --danger-soft:light-dark(#fff0f3,#321e34);
-  --brand-gradient:linear-gradient(135deg,#0068e8,#0052bf);
-  --brand-gradient-hover:linear-gradient(135deg,#075ed8,#00459f);
   --card-surface:linear-gradient(128deg,light-dark(#fff,var(--panel)),light-dark(#f8faff,var(--panel)));
-  --surface-shadow:0 12px 32px light-dark(#233e7410,#01051b40);
-  --radius-card:20px;
-  --radius-control:11px;
   font-family:var(--font-ui);font-size:14px;line-height:1.55;color:var(--ink);
   background:var(--page);font-synthesis:none;
 }
