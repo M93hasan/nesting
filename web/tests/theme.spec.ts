@@ -34,6 +34,19 @@ test('system is the default; borders follow the theme and explicit choices persi
   await page.reload();await expect.poll(background).toBe('rgb(16, 17, 20)');
 });
 
+
+test('Google login follows saved appearance and system preference',async({page})=>{
+  await page.emulateMedia({colorScheme:'dark'});
+  await page.addInitScript(()=>localStorage.setItem('serula-theme','system'));
+  await page.goto('/google-login.html');
+  await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
+  await page.emulateMedia({colorScheme:'light'});
+  await expect(page.locator('html')).toHaveAttribute('data-theme','light');
+  await page.evaluate(()=>localStorage.setItem('serula-theme','dark'));
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
+});
+
 test('dark palette and ghost mode remain clear on desktop and mobile',async({page},testInfo)=>{
   await page.emulateMedia({colorScheme:'dark'});await page.goto('/');
   await openExamples(page);
