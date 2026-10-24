@@ -124,9 +124,12 @@ a { text-underline-offset: 3px; }
   --admin-muted: var(--muted);
   --admin-danger: var(--error);
 }
-.admin-page .admin-topbar,
-.admin-page .admin-sidebar {
+.admin-page .admin-topbar {
   background: color-mix(in srgb, var(--panel) 96%, transparent);
+  border-color: var(--border);
+}
+.admin-page .admin-sidebar {
+  background: var(--panel);
   border-color: var(--border);
 }
 .admin-page .admin-card,
