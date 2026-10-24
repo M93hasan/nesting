@@ -18,9 +18,14 @@ Aşağıdaki görseli depoya `web/public/media/re.png` adıyla ekleyin.
 
 ### Uygulama tanıtım videosu
 
-Videoyu depoya `web/public/media/ve.mp4` adıyla ekleyin. GitHub README içinde video oynatımı her yerde desteklenmediğinden, aşağıdaki bağlantı video dosyasını açar.
+**YouTube üzerinden izle:** Aşağıdaki video görseline tıklayarak tanıtımı YouTube'da açabilirsiniz.
 
-[▶ Serula Nesting Pro tanıtım videosunu izle](web/public/media/ve.mp4)
+[![Serula Nesting Pro tanıtım videosu — YouTube'da izle](https://img.youtube.com/vi/awy4QFCk7jg/hqdefault.jpg)](https://youtu.be/awy4QFCk7jg)
+
+- [▶ YouTube'da tanıtım videosunu izle](https://youtu.be/awy4QFCk7jg)
+- [MP4 dosyasını GitHub'dan aç](web/public/media/ve.mp4)
+
+Videonun MP4 kopyası depoda `web/public/media/ve.mp4` adıyla tutulur. GitHub README içinde MP4'ün doğrudan oynatımı her yerde desteklenmediğinden, YouTube bağlantısı da eklenmiştir.
 
 > **Dosyaları nereye koymalısınız?** GitHub deposunda `web/public/media/` klasörünü açın ve dosyaları tam olarak `re.png` ve `ve.mp4` adlarıyla yükleyin. Görsel için PNG veya JPG kullanabilirsiniz; bu README'deki bağlantı `re.png` adını bekler. Video MP4 biçiminde olmalıdır. Dosyalar yüklenmeden görsel/video bağlantıları görüntülenmez.
 
