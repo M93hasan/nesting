@@ -67,7 +67,7 @@
     border-color var(--lg-motion-fast) var(--lg-ease),
     color var(--lg-motion-fast) var(--lg-ease),
     box-shadow var(--lg-motion-standard) var(--lg-ease),
-    outline-color var(--lg-motion-fast) var(--lg-ease);
+    outline-color var(--lg-motion-fast) var(--lg-ease) !important;
 }
 
 #root :is(button, a, input, select, textarea, summary):focus-visible {
