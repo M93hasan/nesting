@@ -466,26 +466,13 @@ html[dir="rtl"] body{direction:rtl}html[dir="rtl"] .workspace-svg,html[dir="rtl"
 .corel-bridge-prompt-actions>a:not(.button){font-size:12px;text-decoration:underline}
 #root .corel-bridge-prompt-actions button{min-height:34px;padding:6px 10px;font-size:12px}
 
-.group-similar-option{align-items:center;gap:10px}
-.group-similar-option>.checkbox-wrapper-25 input[type=checkbox],
-.group-similar-option>input.checkbox-wrapper-25[type=checkbox]{
-  display:block;flex:0 0 75px;box-sizing:border-box;margin:0;
-  background-image:linear-gradient(hsla(0,0%,0%,.1),hsla(0,0%,100%,.1)),
-    linear-gradient(to right,rgb(255,0,0) 50%,rgb(0,255,64) 50%);
-  background-size:100% 100%,200% 100%;background-position:0 0,15px 0;
-  border:0;border-radius:25px;
-  box-shadow:inset 0 1px 4px hsla(0,0%,0%,.5),inset 0 0 10px hsla(0,0%,0%,.5),
-    0 0 0 1px hsla(0,0%,0%,.1),0 -1px 2px 2px hsla(0,0%,0%,.25),
-    0 2px 2px 2px hsla(0,0%,100%,.75);
-  cursor:pointer;height:25px;min-height:25px;padding:0 25px 0 0;width:75px;
-  appearance:none;-webkit-appearance:none;transition:background-position .25s,padding .25s;
+.group-similar-option{align-items:flex-start;gap:10px}
+.group-similar-option>input[type=checkbox]{
+  display:block;flex:0 0 18px;box-sizing:border-box;
+  width:18px;height:18px;min-height:18px;margin:2px 0 0;
+  padding:0;accent-color:var(--accent);cursor:pointer;
 }
-.group-similar-option>input.checkbox-wrapper-25[type=checkbox]::after{
-  display:block;content:'';height:25px;width:50px;border-radius:25px;background-color:#eee;
-  background-image:linear-gradient(hsla(0,0%,100%,.1),hsla(0,0%,0%,.1));
-  box-shadow:inset 0 1px 1px 1px hsla(0,0%,100%,1),inset 0 -1px 1px 1px hsla(0,0%,0%,.25),
-    0 1px 3px 1px hsla(0,0%,0%,.5),0 0 2px hsla(0,0%,0%,.25);
+.group-similar-option>input[type=checkbox]:focus-visible{
+  outline:2px solid var(--accent);outline-offset:3px;
 }
-.group-similar-option>input.checkbox-wrapper-25[type=checkbox]:checked{background-position:0 0,35px 0;padding-left:25px;padding-right:0}
-.group-similar-option>input.checkbox-wrapper-25[type=checkbox]:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
-.group-similar-option>input.checkbox-wrapper-25[type=checkbox]:disabled{cursor:not-allowed;opacity:.55}
+.group-similar-option>input[type=checkbox]:disabled{cursor:not-allowed;opacity:.55}
