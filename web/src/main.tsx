@@ -12,7 +12,8 @@ import {loadCatalog} from './datasets';
 import { prepareIsolation } from './isolation';
 import {I18nProvider} from './i18n';
 import {AppearanceProvider} from './appearance';
-import './user-theme.css'
+import './user-theme.css';
+import './premium-theme.css'
 
 const ADMIN_EMAIL='m93hasan@icloud.com';
 const GOOGLE_CLIENT_ID='249559754500-36grgmm2jucf2159d41efqdcqut02lj6.apps.googleusercontent.com';
