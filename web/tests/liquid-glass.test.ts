@@ -34,3 +34,14 @@ test('shared theme tokens have one owner and Liquid Glass only adds namespaced t
   expect(glass).toContain('var(--panel)');
   expect(glass).toContain('var(--accent)');
 });
+
+
+test('Liquid Glass phase 5 preserves keyboard focus and accessibility preference fallbacks',()=>{
+  const css=readFileSync(new URL('../src/liquid-glass.css',import.meta.url),'utf8');
+  expect(css).toContain('#root .admin-sidebar nav button:focus-visible');
+  expect(css).toContain('#root .canvas-tools button:focus-visible');
+  expect(css).toContain('@media (prefers-reduced-motion: reduce)');
+  expect(css).toContain('@media (prefers-contrast: more)');
+  expect(css).toContain('@media (forced-colors: active)');
+  expect(css).toContain('outline: 2px solid Highlight');
+});
