@@ -45,3 +45,13 @@ test('phase 4 refines admin navigation, workspace hit areas, and appearance cont
   expect(css).toContain('@media (max-width: 699px)');
   expect(css).toContain('#root .admin-page .admin-card');
 });
+
+test('phase 5 preserves keyboard focus and accessibility preference fallbacks',()=>{
+  const css=readFileSync(new URL('../src/liquid-glass.css',import.meta.url),'utf8');
+  expect(css).toContain('#root .admin-sidebar nav button:focus-visible');
+  expect(css).toContain('#root .canvas-tools button:focus-visible');
+  expect(css).toContain('@media (prefers-reduced-motion: reduce)');
+  expect(css).toContain('@media (prefers-contrast: more)');
+  expect(css).toContain('@media (forced-colors: active)');
+  expect(css).toContain('outline: 2px solid Highlight');
+});
