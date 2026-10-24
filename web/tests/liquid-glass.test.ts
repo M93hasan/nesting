@@ -12,6 +12,8 @@ test('Liquid Glass is limited to navigation and floating controls with accessibl
   expect(css).toContain('#root .header');
   expect(css).toContain('#root .admin-topbar');
   expect(css).toContain('#root .canvas-tools');
+  expect(css).toContain('#root .canvas-tools button:not(:disabled):hover');
+  expect(css).toContain('#root .cad-snapping summary:focus-visible');
   expect(css).toContain('@media (prefers-reduced-motion: reduce)');
   expect(css).toContain('@media (prefers-contrast: more)');
   expect(css).toContain('@media (forced-colors: active)');
