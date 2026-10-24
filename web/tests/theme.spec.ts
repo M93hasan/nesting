@@ -4,14 +4,14 @@ import {test,expect} from '@playwright/test';
 test('system is the default; borders follow the theme and explicit choices persist',async({page})=>{
   await page.emulateMedia({colorScheme:'light'});await page.goto('/');
   const background=()=>page.evaluate(()=>getComputedStyle(document.documentElement).backgroundColor);
-  await expect.poll(background).toBe('rgb(245, 246, 248)');
+  await expect.poll(background).toBe('rgb(247, 248, 250)');
   const border=page.locator('.workspace-svg g[data-part] > path').first();
   await expect(border).toHaveCSS('stroke','rgb(100, 116, 139)');
   await page.getByRole('button',{name:'About sparrow/studio',exact:true}).click();
   await expect(page.getByLabel('Appearance')).toHaveValue('system');
-  await expect.poll(background).toBe('rgb(245, 246, 248)');
+  await expect.poll(background).toBe('rgb(247, 248, 250)');
   await page.emulateMedia({colorScheme:'dark'});
-  await expect.poll(background).toBe('rgb(17, 25, 31)');
+  await expect.poll(background).toBe('rgb(16, 17, 20)');
   await expect(border).not.toHaveCSS('stroke','rgb(100, 116, 139)');
   await page.getByRole('button',{name:'Close',exact:true}).click();
   await page.getByRole('button',{name:'Ghost mode',exact:true}).click();
@@ -21,18 +21,20 @@ test('system is the default; borders follow the theme and explicit choices persi
   await page.emulateMedia({colorScheme:'dark'});
   await page.reload();
   await page.emulateMedia({colorScheme:'light'});
-  await expect.poll(background).toBe('rgb(245, 246, 248)');
+  await expect.poll(background).toBe('rgb(247, 248, 250)');
   await page.getByRole('button',{name:'About sparrow/studio',exact:true}).click();
   await expect(page.getByLabel('Appearance')).toHaveValue('system');
   await page.getByLabel('Appearance').selectOption('light');
   await page.emulateMedia({colorScheme:'dark'});
-  await expect.poll(background).toBe('rgb(245, 246, 248)');
-  await page.reload();await expect.poll(background).toBe('rgb(245, 246, 248)');
+  await expect.poll(background).toBe('rgb(247, 248, 250)');
+  await page.reload();await expect.poll(background).toBe('rgb(247, 248, 250)');
   await page.getByRole('button',{name:'About sparrow/studio',exact:true}).click();
   await page.getByLabel('Appearance').selectOption('dark');
   await page.emulateMedia({colorScheme:'light'});
-  await page.reload();await expect.poll(background).toBe('rgb(17, 25, 31)');
+  await page.reload();await expect.poll(background).toBe('rgb(16, 17, 20)');
 });
+
+
 
 test('dark palette and ghost mode remain clear on desktop and mobile',async({page},testInfo)=>{
   await page.emulateMedia({colorScheme:'dark'});await page.goto('/');

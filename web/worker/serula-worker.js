@@ -1,6 +1,6 @@
 import {parseButtonStyles,validateCustomCss} from '../shared/button-styles.js';
 import packageInfo from '../package.json';
-const GOOGLE_CLIENT_ID='249559754500-36grgmm2jucf2159d41efqdcqut02lj6.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID='207092733568-2h2751l65c8cbnb3o6qfpvl4uug9f975.apps.googleusercontent.com';
 const SESSION_DAYS=30;
 const ADMIN_LOGIN_EMAIL='m93hasan@icloud.com';
 const APP_VERSION=String(packageInfo.version);
