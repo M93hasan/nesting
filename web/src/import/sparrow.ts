@@ -88,16 +88,55 @@ export type SolverCopy={itemId:number;partId:string;copyIndex:number};
 
 function similarityKey(part:Part):number[] {
   const [x0,y0,x1,y1]=bounds(part.outer);
-  const dimensions=[x1-x0,y1-y0].sort((a,b)=>a-b);
+  const width=x1-x0,height=y1-y0;
+  const dimensions=[Math.min(width,height),Math.max(width,height)];
   const perimeter=(ring:Ring)=>ring.reduce((sum,point,index)=>{
     const next=ring[(index+1)%ring.length];
     return sum+Math.hypot(next[0]-point[0],next[1]-point[1]);
   },0);
-  const netArea=Math.abs(area(part.outer))-part.holes.reduce((sum,hole)=>sum+Math.abs(area(hole)),0);
-  // Quantize only the comparison key, never the manufacturing geometry.
+  const ringSignature=(ring:Ring):number[]=>{
+    // Sample the contour at equal perimeter intervals. Distances from the
+    // polygon centroid are translation-, rotation-, and scale-invariant.
+    const signedArea=area(ring);
+    let cx=0,cy=0;
+    for(let i=0;i<ring.length;i++){
+      const a=ring[i],b=ring[(i+1)%ring.length],cross=a[0]*b[1]-b[0]*a[1];
+      cx+=(a[0]+b[0])*cross;cy+=(a[1]+b[1])*cross;
+    }
+    cx/=6*signedArea;cy/=6*signedArea;
+    const lengths=ring.map((point,i)=>Math.hypot(ring[(i+1)%ring.length][0]-point[0],ring[(i+1)%ring.length][1]-point[1]));
+    const total=lengths.reduce((sum,value)=>sum+value,0);
+    const samples:number[]=[];
+    let edge=0,edgeStart=0;
+    for(let i=0;i<32;i++){
+      const target=total*i/32;
+      while(edge<lengths.length-1&&edgeStart+lengths[edge]<target){edgeStart+=lengths[edge];edge++;}
+      const a=ring[edge],b=ring[(edge+1)%ring.length],fraction=lengths[edge]?(target-edgeStart)/lengths[edge]:0;
+      samples.push(Math.hypot(a[0]+(b[0]-a[0])*fraction-cx,a[1]+(b[1]-a[1])*fraction-cy));
+    }
+    const maxRadius=Math.max(...samples,1e-9);
+    const normalized=samples.map(value=>Math.round(value/maxRadius*20)/20);
+    // The contour's first vertex and winding are arbitrary; canonicalize
+    // cyclic shifts and reversed order so equivalent outlines compare alike.
+    let best:number[]|undefined;
+    for(const sequence of [normalized,[...normalized].reverse()]){
+      for(let shift=0;shift<sequence.length;shift++){
+        const candidate=[...sequence.slice(shift),...sequence.slice(0,shift)];
+        if(!best||candidate.some((value,index)=>value!==(best as number[])[index]&&value<(best as number[])[index]
+          &&candidate.slice(0,index).every((previous,j)=>previous===best![j])))best=candidate;
+      }
+    }
+    return best??normalized;
+  };
+  const outerSignature=ringSignature(part.outer);
+  const outerArea=Math.abs(area(part.outer));
+  const holeArea=part.holes.reduce((sum,hole)=>sum+Math.abs(area(hole)),0);
+  // Shape profile comes first so differently sized versions of the same
+  // outline stay together; size only orders parts inside each shape family.
   const rounded=(value:number)=>Math.round(value*100)/100;
-  return [...dimensions.map(rounded),rounded(netArea),rounded(perimeter(part.outer)+part.holes.reduce((sum,hole)=>sum+perimeter(hole),0)),
-    part.outer.length,part.holes.length];
+  return [rounded(Math.min(width,height)/Math.max(width,height)),...outerSignature,
+    part.holes.length,rounded(outerArea?holeArea/outerArea:0),
+    ...dimensions.map(rounded),part.outer.length];
 }
 
 export function solverCopies(doc:Document):SolverCopy[] {
