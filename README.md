@@ -5,7 +5,6 @@
 Serula Nesting Pro; rulo ve plaka malzemelerdeki parçaları gerçek konturlarını ve ölçülerini koruyarak yerleştirmeye, malzeme kullanımını azaltmaya ve yerleşimi DXF olarak dışa aktarmaya yardımcı olur.
 
 - **Canlı uygulama:** https://serula.site/
-- **Yönetim paneli:** https://serula.site/admin
 - **Kaynak kod:** https://github.com/M93hasan/nesting
 
 ## Görsel ve video
