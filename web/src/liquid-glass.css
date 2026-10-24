@@ -144,3 +144,112 @@
     box-shadow: none;
   }
 }
+
+
+/* Phase 4: admin navigation, workspace controls, and appearance editor. */
+/* Admin content remains opaque; only the navigation shell gets a restrained glass finish. */
+#root .admin-sidebar {
+  background: var(--panel);
+  border-right-color: var(--lg-glass-border);
+}
+#root .admin-sidebar nav button {
+  min-height: 42px;
+  border-radius: var(--lg-radius-control);
+  transition: background-color var(--lg-motion-fast) var(--lg-ease),
+    color var(--lg-motion-fast) var(--lg-ease),
+    border-color var(--lg-motion-fast) var(--lg-ease) !important;
+}
+#root .admin-sidebar nav button:not(.active):hover {
+  background: var(--hover);
+}
+#root .admin-sidebar nav button.active {
+  background: var(--selected);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+#root .admin-page .admin-card,
+#root .admin-page .admin-metric,
+#root .admin-page .admin-user-row,
+#root .admin-page .admin-table {
+  background: var(--panel);
+  border-color: var(--border);
+  box-shadow: 0 6px 24px color-mix(in srgb, var(--ink) 4%, transparent);
+}
+#root .admin-page .admin-card-head select,
+#root .admin-page .admin-toolbar input,
+#root .admin-page .admin-toolbar select,
+#root .admin-page .admin-chat-compose textarea,
+#root .admin-page .admin-settings-grid input,
+#root .admin-page .admin-settings-grid select {
+  min-height: 42px;
+  border-radius: var(--lg-radius-control);
+}
+#root .admin-page :is(.admin-metric, .admin-card, .admin-user-row) {
+  transition: border-color var(--lg-motion-standard) var(--lg-ease),
+    box-shadow var(--lg-motion-standard) var(--lg-ease);
+}
+
+/* Workspace toolbar: consistent hit areas and visible keyboard focus without scaling controls. */
+#root .canvas-tools {
+  gap: 6px;
+  padding: 6px;
+}
+#root .canvas-tools button {
+  min-width: 38px;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+#root .cad-snapping {
+  border-color: var(--lg-glass-border);
+  border-radius: var(--lg-radius-control);
+}
+#root .cad-snapping summary {
+  border-radius: inherit;
+  transition: background-color var(--lg-motion-fast) var(--lg-ease);
+}
+#root .cad-snapping > div {
+  border-radius: var(--lg-radius-floating);
+}
+
+/* Appearance editor: keep the real color controls native and give the form a calm hierarchy. */
+#root .appearance-settings,
+#root .button-style-editor,
+#root .custom-css-editor,
+#root .appearance-presets {
+  border-color: var(--border);
+}
+#root .appearance-color,
+#root .button-style-preview {
+  border-color: var(--border);
+  background: var(--panel-soft);
+}
+#root .appearance-color:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--lg-control-ring);
+}
+#root .appearance-sample,
+#root .appearance-sample > div {
+  border-color: var(--lg-glass-border);
+}
+#root .appearance-presets button[aria-pressed=true] {
+  background: var(--selected);
+  border-color: var(--accent);
+}
+
+/* Narrow screens: tool groups remain usable and never demand glass blur for contrast. */
+@media (max-width: 699px) {
+  #root .canvas-tools {
+    max-width: calc(100% - 16px);
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+  #root .canvas-tools button {
+    min-width: 42px;
+    min-height: 42px;
+    flex: 0 0 auto;
+  }
+  #root .admin-mobile-page .admin-sidebar nav button {
+    min-height: 42px;
+  }
+}
