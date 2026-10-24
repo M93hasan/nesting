@@ -16,7 +16,7 @@ import './user-theme.css';
 import './premium-theme.css'
 
 const ADMIN_EMAIL='m93hasan@icloud.com';
-const GOOGLE_CLIENT_ID='207092733568-ob34qhuguardlnfaihliiuo83p1462rh.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID='207092733568-2h2751l65c8cbnb3o6qfpvl4uug9f975.apps.googleusercontent.com';
 
 void prepareIsolation().catch(()=>{}).then(async () => {
   if (import.meta.env.PROD && ['sparrowstudio.app', 'www.sparrowstudio.app'].includes(location.hostname)) {
