@@ -13,7 +13,8 @@ import { prepareIsolation } from './isolation';
 import {I18nProvider} from './i18n';
 import {AppearanceProvider} from './appearance';
 import './user-theme.css';
-import './premium-theme.css'
+import './premium-theme.css';
+import './liquid-glass.css';
 
 const ADMIN_EMAIL='m93hasan@icloud.com';
 const GOOGLE_CLIENT_ID='207092733568-2h2751l65c8cbnb3o6qfpvl4uug9f975.apps.googleusercontent.com';
