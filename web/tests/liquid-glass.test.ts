@@ -28,7 +28,7 @@ test('shared theme tokens have one owner and Liquid Glass only adds namespaced t
   const shared=['--page','--panel','--ink','--muted','--border','--accent','--accent-hover','--hover','--hover-border','--selected','--secondary','--error','--error-bg','--panel-soft','--panel-raised','--brand-gradient','--brand-gradient-hover','--surface-shadow','--radius-card','--radius-control','--font-ui'];
   for(const token of shared){
     expect(premium, `premium-theme.css owns ${token}`).toContain(token+':');
-    expect(vision, `vision.css must not redeclare ${token}`).not.toMatch(new RegExp('^\\s*'+token.replace(/[.*+?^${}()|[\\]\\\\]/g,'\\$&')+'\\s*:', 'm'));
+    expect(vision.split('\\n').some(line=>line.trimStart().startsWith(token+':')), `vision.css must not redeclare ${token}`).toBe(false);
   }
   expect(glass).toContain('--lg-glass-fill:');
   expect(glass).toContain('var(--panel)');
