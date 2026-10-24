@@ -18,7 +18,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: web
@@ -63,3 +63,7 @@ jobs:
         run: npm run build
       - name: Test
         run: npm test
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Browser theme regression tests
+        run: npx playwright test tests/theme.spec.ts --project=chromium
