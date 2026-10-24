@@ -188,3 +188,71 @@ a { text-underline-offset: 3px; }
   transform: none !important;
   flex: 0 0 18px;
 }
+
+
+/* Half-size animated switch for the similar-parts grouping option. */
+#root .solver-options .group-similar-option .switch {
+  position: relative;
+  display: inline-block;
+  width: 3.5em;
+  height: 2em;
+  font-size: 8.5px; /* 50% of the original 17px control */
+  line-height: normal;
+  flex: 0 0 auto;
+  vertical-align: middle;
+}
+#root .solver-options .group-similar-option .switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  margin: 0;
+  padding: 0;
+}
+#root .solver-options .group-similar-option .switch .slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: var(--panel-raised, #fff);
+  border: 1px solid var(--border, #ccc);
+  border-radius: 50px;
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.215, 0.610, 0.355, 1);
+}
+#root .solver-options .group-similar-option .switch .slider::before {
+  position: absolute;
+  content: "";
+  height: 1.4em;
+  width: 1.4em;
+  right: 0.3em;
+  bottom: 0.3em;
+  transform: translateX(150%);
+  background-color: #59d102;
+  border-radius: inherit;
+  transition: all 0.4s cubic-bezier(0.215, 0.610, 0.355, 1);
+}
+#root .solver-options .group-similar-option .switch .slider::after {
+  position: absolute;
+  content: "";
+  height: 1.4em;
+  width: 1.4em;
+  left: 0.3em;
+  bottom: 0.3em;
+  background-color: #cccccc;
+  border-radius: inherit;
+  transition: all 0.4s cubic-bezier(0.215, 0.610, 0.355, 1);
+}
+#root .solver-options .group-similar-option .switch input:focus-visible + .slider {
+  outline: 2px solid var(--accent, #59d102);
+  outline-offset: 3px;
+}
+#root .solver-options .group-similar-option .switch input:checked + .slider::before {
+  transform: translateY(0);
+}
+#root .solver-options .group-similar-option .switch input:checked + .slider::after {
+  transform: translateX(-150%);
+}
+#root .solver-options .group-similar-option .switch input:disabled + .slider {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
