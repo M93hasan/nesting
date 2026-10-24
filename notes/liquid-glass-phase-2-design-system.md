@@ -6,9 +6,9 @@
 
 ## Eklenenler
 
-- `web/src/liquid-glass.css`: Liquid Glass'a benzer web yüzeyleri ve ortak hareket token'ları.
+- `web/src/liquid-glass.css`: Liquid Glass'a benzer web yüzeyleri, ortak hareket/yarıçap token'ları ve çizim araçları için hover/active/focus durumları.
 - `web/src/main.tsx`: yeni katmanı mevcut `premium-theme.css` sonrasında yükler.
-- `web/tests/liquid-glass.test.ts`: katmanın yükleme sırası, kapsamı ve erişilebilirlik alternatifleri için kaynak testleri.
+- `web/tests/liquid-glass.test.ts`: katmanın yükleme sırası, kapsamı, araç kontrollerinin durumları ve erişilebilirlik alternatifleri için kaynak testleri.
 
 ## Tasarım kararları
 
@@ -36,4 +36,4 @@
 
 ## Güncel sonuç
 
-İkinci aşamanın başlangıç tasarım katmanı ve testleri geliştirme dalına kaydedildi. Bu henüz tamamlanmış ve yayına hazır bir Liquid Glass dönüşümü değildir; kalan token denetimi ve doğrulama adımları tamamlanmalıdır.
+İkinci aşamanın başlangıç tasarım katmanı ve testleri geliştirme dalına kaydedildi. İlk GitHub Actions doğrulama koşusu (commit `912b6c23b1f5e98f382efd0dbe1e77387af0d3e9`) başarılı tamamlandı; daha sonra eklenen hover/active/focus düzeltmeleri için yeni commit üzerinde ayrı bir CI sonucu henüz doğrulanmadı. Bu nedenle sonuç, tüm son değişikliklerin geçtiği anlamına gelmez. Bu henüz tamamlanmış ve yayına hazır bir Liquid Glass dönüşümü değildir; kalan token denetimi ve son commit doğrulaması tamamlanmalıdır.
