@@ -20,7 +20,7 @@ test('admin dashboard theme variables stay correct on desktop and mobile',async(
     contentType:'application/json',
     body:JSON.stringify({user:{id:1,email:'theme-test@example.test',name:'Theme Test',role:'admin',credits:0,unlimited:true}})
   }));
-  await page.addInitScript(()=>localStorage.setItem('serula-theme','dark'));
+  await page.addInitScript(()=>{if(!localStorage.getItem('serula-theme'))localStorage.setItem('serula-theme','dark');});
   await page.setViewportSize({width:1280,height:800});
   await page.goto('/admin2');
   const admin=page.locator('.admin-page');
