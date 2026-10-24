@@ -1,0 +1,52 @@
+/* Serula premium theme — Linear-inspired surfaces, without changing application behavior. */
+:root {
+  --page: light-dark(#f7f8fa, #101114);
+  --panel: light-dark(#ffffff, #191a20);
+  --ink: light-dark(#17191f, #f3f4f6);
+  --muted: light-dark(#777d89, #a0a3ad);
+  --border: light-dark(#e1e5eb, #303238);
+  --accent: light-dark(#5e6ad2, #818cf8);
+  --accent-hover: light-dark(#4c58bf, #9aa3ff);
+  --hover: light-dark(#f0f1f6, #22232a);
+  --hover-border: light-dark(#c8ccef, #484b5d);
+  --selected: light-dark(#eef0ff, #27283b);
+  --secondary: light-dark(#7e8490, #a0a3ad);
+  --error: light-dark(#c23d4b, #ff9aa5);
+  --error-bg: light-dark(#fff0f1, #3b2227);
+  --premium-radius: 12px;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --page: #f7f8fa; --panel: #fff; --ink: #17191f; --muted: #777d89;
+  --border: #e1e5eb; --accent: #5e6ad2; --accent-hover: #4c58bf;
+  --hover: #f0f1f6; --hover-border: #c8ccef; --selected: #eef0ff;
+  --secondary: #7e8490; --error: #c23d4b; --error-bg: #fff0f1;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #101114; --panel: #191a20; --ink: #f3f4f6; --muted: #a0a3ad;
+  --border: #303238; --accent: #818cf8; --accent-hover: #9aa3ff;
+  --hover: #22232a; --hover-border: #484b5d; --selected: #27283b;
+  --secondary: #a0a3ad; --error: #ff9aa5; --error-bg: #3b2227;
+}
+:root { --font-ui: "Inter", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+body { background: var(--page); color: var(--ink); }
+button, input, select, textarea { border-radius: 9px; }
+button { transition: background-color .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease, transform .16s ease; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 3px;
+}
+button:not(:disabled):active { transform: translateY(1px); }
+input, select, textarea {
+  border-color: var(--border);
+}
+.admin-topbar { background: color-mix(in srgb, var(--panel) 88%, transparent); backdrop-filter: blur(16px); }
+.admin-sidebar, .admin-page, .admin-content, .admin-card, .admin-panel, .admin-section {
+  border-color: var(--border);
+}
+.admin-sidebar { background: var(--panel); }
+.admin-version, .admin-badge, .admin-connection { border-radius: 999px; }
+a { text-underline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}
