@@ -144,3 +144,37 @@
     box-shadow: none;
   }
 }
+
+
+/* Liquid Glass phase 5: accessibility and regression safeguards. */
+#root .admin-sidebar nav button:focus-visible,
+#root .canvas-tools button:focus-visible,
+#root .appearance-presets button:focus-visible,
+#root .appearance-color :is(input, button):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  #root .admin-sidebar nav button,
+  #root .admin-page :is(.admin-metric, .admin-card, .admin-user-row),
+  #root .cad-snapping summary {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+@media (prefers-contrast: more) {
+  #root .admin-sidebar nav button,
+  #root .canvas-tools button,
+  #root .appearance-presets button,
+  #root .appearance-color {
+    border-color: var(--ink);
+  }
+}
+@media (forced-colors: active) {
+  #root .admin-sidebar nav button:focus-visible,
+  #root .canvas-tools button:focus-visible,
+  #root .appearance-presets button:focus-visible,
+  #root .appearance-color :is(input, button):focus-visible {
+    outline: 2px solid Highlight;
+  }
+}
