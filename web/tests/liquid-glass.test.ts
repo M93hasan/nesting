@@ -34,3 +34,14 @@ test('shared theme tokens have one owner and Liquid Glass only adds namespaced t
   expect(glass).toContain('var(--panel)');
   expect(glass).toContain('var(--accent)');
 });
+
+test('phase 4 refines admin navigation, workspace hit areas, and appearance controls',()=>{
+  const css=readFileSync(new URL('../src/liquid-glass.css',import.meta.url),'utf8');
+  expect(css).toContain('#root .admin-sidebar nav button.active');
+  expect(css).toContain('box-shadow: inset 3px 0 0 var(--accent)');
+  expect(css).toContain('#root .canvas-tools button');
+  expect(css).toContain('min-height: 42px');
+  expect(css).toContain('#root .appearance-color:focus-within');
+  expect(css).toContain('@media (max-width: 699px)');
+  expect(css).toContain('#root .admin-page .admin-card');
+});
