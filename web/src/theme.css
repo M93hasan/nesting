@@ -1,0 +1,627 @@
+/* Serula unified theme: legacy user overrides, shared design tokens, and Liquid Glass layer. */
+
+/* Kept separate from layout/component styles so the visual system has one explicit owner. */
+
+/* ===== Kullanıcı paneli butonu ===== */
+.user-panel .button {
+  position: relative;
+  overflow: hidden;
+  height: 3rem;
+  padding: 0 2rem;
+  border-radius: 1.5rem;
+  background: #8f0000;
+  background-size: 400%;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+}
+
+.user-panel .button:hover::before {
+  transform: scaleX(1);
+}
+
+.user-panel .button-content {
+  position: relative;
+  z-index: 1;
+}
+
+.user-panel .button::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  width: 100%;
+  height: inherit;
+  border-radius: inherit;
+  background: linear-gradient(
+    82.3deg,
+    rgba(150, 93, 233, 1) 10.8%,
+    rgba(99, 88, 238, 1) 94.3%
+  );
+  transition: all 0.475s;
+}
+
+/* ===== Kullanıcı paneli select alanları ===== */
+.user-panel select {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 6px 10px;
+  background-color: #ffffff;
+  color: #0f172a;
+  font-size: 14px;
+}
+
+.user-panel select:focus {
+  outline: none;
+  border-color: #2563eb;
+}
+
+
+/* Serula premium theme — Linear-inspired surfaces, without changing application behavior. */
+:root {
+  --page: light-dark(#f7f8fa, #101114);
+  --panel: light-dark(#ffffff, #191a20);
+  --ink: light-dark(#17191f, #f3f4f6);
+  --muted: light-dark(#777d89, #a0a3ad);
+  --border: light-dark(#e1e5eb, #303238);
+  --accent: light-dark(#5e6ad2, #818cf8);
+  --accent-hover: light-dark(#4c58bf, #9aa3ff);
+  --hover: light-dark(#f0f1f6, #22232a);
+  --hover-border: light-dark(#c8ccef, #484b5d);
+  --selected: light-dark(#eef0ff, #27283b);
+  --secondary: light-dark(#7e8490, #a0a3ad);
+  --error: light-dark(#c23d4b, #ff9aa5);
+  --error-bg: light-dark(#fff0f1, #3b2227);
+  --premium-radius: 12px;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --page: #f7f8fa; --panel: #fff; --ink: #17191f; --muted: #777d89;
+  --border: #e1e5eb; --accent: #5e6ad2; --accent-hover: #4c58bf;
+  --hover: #f0f1f6; --hover-border: #c8ccef; --selected: #eef0ff;
+  --secondary: #7e8490; --error: #c23d4b; --error-bg: #fff0f1;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #101114; --panel: #191a20; --ink: #f3f4f6; --muted: #a0a3ad;
+  --border: #303238; --accent: #818cf8; --accent-hover: #9aa3ff;
+  --hover: #22232a; --hover-border: #484b5d; --selected: #27283b;
+  --secondary: #a0a3ad; --error: #ff9aa5; --error-bg: #3b2227;
+}
+:root { --font-ui: "Inter", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+body { background: var(--page); color: var(--ink); }
+button, input, select, textarea { border-radius: 9px; }
+button { transition: background-color .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease, transform .16s ease; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 3px;
+}
+button:not(:disabled):active { transform: translateY(1px); }
+input, select, textarea {
+  border-color: var(--border);
+}
+.admin-topbar { background: color-mix(in srgb, var(--panel) 88%, transparent); backdrop-filter: blur(16px); }
+.admin-sidebar, .admin-page, .admin-content, .admin-card, .admin-panel, .admin-section {
+  border-color: var(--border);
+}
+.admin-sidebar { background: var(--panel); }
+.admin-version, .admin-badge, .admin-connection { border-radius: 999px; }
+a { text-underline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}
+
+/* Final product pass: unify the studio, account area and admin surfaces. */
+:root {
+  --panel-soft: light-dark(#f3f4f8, #15161c);
+  --panel-raised: light-dark(#ffffff, #1d1e25);
+  --brand-gradient: linear-gradient(135deg, #6875e8, #555fc5);
+  --brand-gradient-hover: linear-gradient(135deg, #5966d8, #454fb0);
+  --radius-card: 14px;
+  --radius-control: 10px;
+  --surface-shadow: 0 10px 30px light-dark(#1b23400a, #00000030);
+}
+:root[data-theme="light"] {
+  --panel-soft: #f3f4f8;
+  --panel-raised: #ffffff;
+}
+:root[data-theme="dark"] {
+  --panel-soft: #15161c;
+  --panel-raised: #1d1e25;
+}
+
+/* App header: quiet hierarchy, clear separation from the workspace. */
+.header {
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  box-shadow: 0 4px 18px light-dark(#1b234006, #00000020);
+}
+.brand.serula-brand { color: var(--ink); }
+.brand.serula-brand strong { letter-spacing: -.04em; }
+.tagline { color: var(--muted); }
+#root :is(input:not([type=checkbox]):not([type=radio]):not([type=file]), select, textarea) {
+  border-color: var(--border);
+  border-radius: 9px;
+}
+#root :is(input:not([type=checkbox]):not([type=radio]):not([type=file]), select, textarea):focus {
+  border-color: var(--accent);
+}
+
+/* Replace legacy red/purple user-panel styling with the current brand accent. */
+.user-panel .button {
+  border: 1px solid color-mix(in srgb, var(--accent) 72%, var(--border));
+  border-radius: 10px;
+  background: var(--brand-gradient);
+  color: #fff;
+  box-shadow: 0 3px 10px light-dark(#5e6ad21c, #00000026);
+}
+.user-panel .button::before {
+  background: var(--brand-gradient-hover);
+  border-radius: inherit;
+}
+.user-panel select {
+  border-color: var(--border);
+  border-radius: 9px;
+  background-color: var(--panel-raised);
+  color: var(--ink);
+}
+.user-panel select:focus {
+  border-color: var(--accent);
+  outline: 2px solid color-mix(in srgb, var(--accent) 24%, transparent);
+  outline-offset: 1px;
+}
+
+/* Admin keeps the same visual language as the main studio. */
+.admin-page {
+  --admin-surface: light-dark(#ffffff, #191a20);
+  --admin-surface-soft: light-dark(#f3f4f8, #15161c);
+  --admin-surface-raised: light-dark(#ffffff, #1d1e25);
+  --admin-border: var(--border);
+  --admin-accent: var(--accent);
+  --admin-accent-strong: var(--accent);
+  --admin-accent-soft: var(--selected);
+  --admin-text: var(--ink);
+  --admin-muted: var(--muted);
+  --admin-danger: var(--error);
+}
+.admin-page .admin-topbar {
+  background: color-mix(in srgb, var(--panel) 96%, transparent);
+  border-color: var(--border);
+}
+.admin-page .admin-sidebar {
+  background: var(--panel);
+  border-color: var(--border);
+}
+.admin-page .admin-card,
+.admin-page .admin-metric,
+.admin-page .admin-user-row {
+  border-radius: 14px;
+  box-shadow: var(--surface-shadow);
+}
+.admin-page .admin-heading h1 { letter-spacing: -.045em; }
+.admin-page .admin-sidebar nav button.active {
+  background: var(--selected) !important;
+  color: var(--accent) !important;
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border)) !important;
+}
+.admin-page .primary {
+  background: var(--brand-gradient) !important;
+  border-color: transparent !important;
+  box-shadow: 0 4px 12px light-dark(#5e6ad21f, #00000030) !important;
+}
+.admin-page .primary:hover:enabled {
+  background: var(--brand-gradient-hover) !important;
+  border-color: transparent !important;
+}
+.admin-page .admin-notice,
+.admin-page .admin-support-box {
+  background: color-mix(in srgb, var(--selected) 75%, var(--panel));
+  border-color: color-mix(in srgb, var(--accent) 24%, var(--border));
+}
+.admin-page .admin-connection { color: var(--accent); }
+
+@media (max-width: 760px) {
+  .header { gap: 10px; }
+  .admin-page .admin-topbar { backdrop-filter: blur(14px); }
+  .admin-page .admin-main { padding-top: 16px; }
+}
+
+/* Compact, vertically stacked similar-shape option: label first, checkbox underneath. */
+#root .solver-options .group-similar-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 8px;
+  width: fit-content;
+  max-width: 100%;
+  line-height: 1.45;
+}
+#root .solver-options .group-similar-option .checkbox-wrapper-25 {
+  display: block;
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  min-height: 18px !important;
+  margin: 0;
+  padding: 0 !important;
+  transform: none !important;
+  flex: 0 0 18px;
+}
+
+
+/*
+ * Serula Liquid Glass — Phase 2 shared design layer.
+ * Applied after legacy/component styles so it can harmonize surfaces without
+ * changing application state, routing, permissions, geometry, or button handlers.
+ */
+:root {
+  --lg-glass-fill: color-mix(in srgb, var(--panel) 78%, transparent);
+  --lg-glass-fill-strong: color-mix(in srgb, var(--panel) 90%, transparent);
+  --lg-glass-border: color-mix(in srgb, var(--border) 76%, transparent);
+  --lg-glass-shadow: 0 8px 26px color-mix(in srgb, var(--ink) 9%, transparent);
+  --lg-glass-blur: 18px;
+  --lg-motion-fast: 140ms;
+  --lg-motion-standard: 190ms;
+  --lg-ease: cubic-bezier(.2, .7, .2, 1);
+  --lg-control-ring: color-mix(in srgb, var(--accent) 30%, transparent);
+  --lg-radius-control: var(--radius-control, 10px);
+  --lg-radius-floating: 14px;
+}
+
+/* Primary navigation: glass is a functional layer, not a content-card default. */
+#root .header {
+  position: relative;
+  z-index: 4;
+  background: var(--lg-glass-fill-strong);
+  border-bottom-color: var(--lg-glass-border);
+  box-shadow: 0 4px 18px color-mix(in srgb, var(--ink) 4%, transparent);
+}
+
+#root .admin-topbar {
+  background: var(--lg-glass-fill-strong);
+  border-bottom-color: var(--lg-glass-border);
+  box-shadow: 0 5px 22px color-mix(in srgb, var(--ink) 5%, transparent);
+  -webkit-backdrop-filter: blur(var(--lg-glass-blur)) saturate(1.25);
+  backdrop-filter: blur(var(--lg-glass-blur)) saturate(1.25);
+}
+
+/* Floating tool groups and popovers receive the glass treatment; drawing/content stays clear. */
+#root .canvas-tools {
+  gap: 5px;
+  padding: 5px;
+  border: 1px solid var(--lg-glass-border);
+  border-radius: var(--lg-radius-floating);
+  background: var(--lg-glass-fill);
+  box-shadow: var(--lg-glass-shadow);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  backdrop-filter: blur(14px) saturate(1.2);
+}
+
+#root .canvas-tools button {
+  border-radius: var(--lg-radius-control);
+}
+
+#root .canvas-tools button:not(:disabled):hover {
+  border-color: var(--lg-glass-border);
+  background: color-mix(in srgb, var(--accent) 9%, var(--panel));
+}
+
+#root .canvas-tools button:not(:disabled):active {
+  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--ink) 12%, transparent);
+}
+
+#root .cad-snapping summary:hover {
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+#root .cad-snapping summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+#root .cad-snapping > div,
+#root .modal {
+  border-color: var(--lg-glass-border);
+  box-shadow: 0 16px 44px color-mix(in srgb, var(--ink) 14%, transparent);
+}
+
+#root .cad-snapping > div {
+  background: var(--lg-glass-fill-strong);
+  -webkit-backdrop-filter: blur(16px) saturate(1.18);
+  backdrop-filter: blur(16px) saturate(1.18);
+}
+
+/* Unified motion vocabulary. No scale/bounce effects are imposed on controls. */
+#root :is(button, a, input, select, textarea, summary) {
+  transition:
+    background-color var(--lg-motion-fast) var(--lg-ease),
+    border-color var(--lg-motion-fast) var(--lg-ease),
+    color var(--lg-motion-fast) var(--lg-ease),
+    box-shadow var(--lg-motion-standard) var(--lg-ease),
+    outline-color var(--lg-motion-fast) var(--lg-ease) !important;
+}
+
+#root :is(button, a, input, select, textarea, summary):focus-visible {
+  outline-color: var(--accent);
+  outline-offset: 3px;
+}
+
+#root :is(input, select, textarea):focus-visible {
+  box-shadow: 0 0 0 3px var(--lg-control-ring);
+}
+
+/* Keep admin content and data tables on readable, mostly opaque surfaces. */
+#root .admin-sidebar,
+#root .admin-card,
+#root .admin-metric,
+#root .admin-user-row,
+#root .admin-table,
+#root .admin-security-note {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* A translucent effect must never be required for legibility. */
+@media (prefers-reduced-motion: reduce) {
+  #root :is(button, a, input, select, textarea, summary) {
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (prefers-contrast: more) {
+  #root .header,
+  #root .admin-topbar,
+  #root .canvas-tools,
+  #root .cad-snapping > div {
+    border-color: var(--border);
+    background: var(--panel);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    box-shadow: none;
+  }
+}
+
+@media (forced-colors: active) {
+  #root .header,
+  #root .admin-topbar,
+  #root .canvas-tools,
+  #root .cad-snapping > div {
+    border: 1px solid CanvasText;
+    background: Canvas;
+    color: CanvasText;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    box-shadow: none;
+  }
+}
+
+
+/* Phase 4: admin navigation, workspace controls, and appearance editor. */
+/* Admin content remains opaque; only the navigation shell gets a restrained glass finish. */
+#root .admin-sidebar {
+  background: var(--panel);
+  border-right-color: var(--lg-glass-border);
+}
+#root .admin-sidebar nav button {
+  min-height: 42px;
+  border-radius: var(--lg-radius-control);
+  transition: background-color var(--lg-motion-fast) var(--lg-ease),
+    color var(--lg-motion-fast) var(--lg-ease),
+    border-color var(--lg-motion-fast) var(--lg-ease) !important;
+}
+#root .admin-sidebar nav button:not(.active):hover {
+  background: var(--hover);
+}
+#root .admin-sidebar nav button.active {
+  background: var(--selected);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+#root .admin-page .admin-card,
+#root .admin-page .admin-metric,
+#root .admin-page .admin-user-row,
+#root .admin-page .admin-table {
+  background: var(--panel);
+  border-color: var(--border);
+  box-shadow: 0 6px 24px color-mix(in srgb, var(--ink) 4%, transparent);
+}
+#root .admin-page .admin-card-head select,
+#root .admin-page .admin-toolbar input,
+#root .admin-page .admin-toolbar select,
+#root .admin-page .admin-chat-compose textarea,
+#root .admin-page .admin-settings-grid input,
+#root .admin-page .admin-settings-grid select {
+  min-height: 42px;
+  border-radius: var(--lg-radius-control);
+}
+#root .admin-page :is(.admin-metric, .admin-card, .admin-user-row) {
+  transition: border-color var(--lg-motion-standard) var(--lg-ease),
+    box-shadow var(--lg-motion-standard) var(--lg-ease);
+}
+
+/* Workspace toolbar: consistent hit areas and visible keyboard focus without scaling controls. */
+#root .canvas-tools {
+  gap: 6px;
+  padding: 6px;
+}
+#root .canvas-tools button {
+  min-width: 38px;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+#root .cad-snapping {
+  border-color: var(--lg-glass-border);
+  border-radius: var(--lg-radius-control);
+}
+#root .cad-snapping summary {
+  border-radius: inherit;
+  transition: background-color var(--lg-motion-fast) var(--lg-ease);
+}
+#root .cad-snapping > div {
+  border-radius: var(--lg-radius-floating);
+}
+
+/* Appearance editor: keep the real color controls native and give the form a calm hierarchy. */
+#root .appearance-settings,
+#root .button-style-editor,
+#root .custom-css-editor,
+#root .appearance-presets {
+  border-color: var(--border);
+}
+#root .appearance-color,
+#root .button-style-preview {
+  border-color: var(--border);
+  background: var(--panel-soft);
+}
+#root .appearance-color:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--lg-control-ring);
+}
+#root .appearance-sample,
+#root .appearance-sample > div {
+  border-color: var(--lg-glass-border);
+}
+#root .appearance-presets button[aria-pressed=true] {
+  background: var(--selected);
+  border-color: var(--accent);
+}
+
+/* Narrow screens: tool groups remain usable and never demand glass blur for contrast. */
+@media (max-width: 699px) {
+  #root .canvas-tools {
+    max-width: calc(100% - 16px);
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+  #root .canvas-tools button {
+    min-width: 42px;
+    min-height: 42px;
+    flex: 0 0 auto;
+  }
+  #root .admin-mobile-page .admin-sidebar nav button {
+    min-height: 42px;
+  }
+}
+
+
+/* Phase 5: accessibility and regression safeguards for the added controls. */
+#root .admin-sidebar nav button:focus-visible,
+#root .canvas-tools button:focus-visible,
+#root .appearance-presets button:focus-visible,
+#root .appearance-color :is(input, button):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  #root .admin-sidebar nav button,
+  #root .admin-page :is(.admin-metric, .admin-card, .admin-user-row),
+  #root .cad-snapping summary {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+@media (prefers-contrast: more) {
+  #root .admin-sidebar nav button,
+  #root .canvas-tools button,
+  #root .appearance-presets button,
+  #root .appearance-color {
+    border-color: var(--ink);
+  }
+}
+@media (forced-colors: active) {
+  #root .admin-sidebar nav button:focus-visible,
+  #root .canvas-tools button:focus-visible,
+  #root .appearance-presets button:focus-visible,
+  #root .appearance-color :is(input, button):focus-visible {
+    outline: 2px solid Highlight;
+  }
+}
+
+
+/* Production rebuild trigger after Liquid Glass phases 1–5. */
+
+
+
+/* Unified Liquid Glass finish: consistent buttons, panels and controls across the app. */
+:root {
+  --lg-surface: color-mix(in srgb, var(--panel) 84%, transparent);
+  --lg-surface-raised: color-mix(in srgb, var(--panel) 92%, transparent);
+  --lg-surface-soft: color-mix(in srgb, var(--panel-soft, var(--panel)) 82%, transparent);
+  --lg-edge-highlight: color-mix(in srgb, white 28%, var(--lg-glass-border));
+  --lg-primary-glow: color-mix(in srgb, var(--accent) 20%, transparent);
+}
+#root :is(button, .button, .primary, .text-button, .result-mode, .result-mode button) {
+  border-color: var(--lg-glass-border);
+  border-radius: var(--lg-radius-control);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  backdrop-filter: blur(12px) saturate(1.2);
+  box-shadow: inset 0 1px 0 var(--lg-edge-highlight), 0 4px 14px color-mix(in srgb, var(--ink) 7%, transparent);
+  transition: background-color var(--lg-motion-fast) var(--lg-ease),
+    border-color var(--lg-motion-fast) var(--lg-ease),
+    color var(--lg-motion-fast) var(--lg-ease),
+    box-shadow var(--lg-motion-standard) var(--lg-ease) !important;
+}
+#root button:not(:disabled):not(.primary):not(.active):not([aria-pressed="true"]):hover {
+  background: color-mix(in srgb, var(--accent) 10%, var(--lg-surface-raised));
+  border-color: color-mix(in srgb, var(--accent) 34%, var(--lg-glass-border));
+  box-shadow: inset 0 1px 0 var(--lg-edge-highlight), 0 7px 20px color-mix(in srgb, var(--ink) 10%, transparent);
+}
+#root :is(button, .button, .primary):not(:disabled):active {
+  box-shadow: inset 0 2px 5px color-mix(in srgb, var(--ink) 12%, transparent);
+}
+#root :is(button.primary, .primary, .user-panel .button) {
+  color: #fff;
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--accent) 92%, white 8%),
+    color-mix(in srgb, var(--accent) 74%, #202b68 26%));
+  border-color: color-mix(in srgb, var(--accent) 70%, white 30%);
+  box-shadow: inset 0 1px 0 #ffffff55, 0 6px 18px var(--lg-primary-glow);
+}
+#root :is(button.primary, .primary, .user-panel .button):not(:disabled):hover {
+  filter: brightness(1.06);
+  box-shadow: inset 0 1px 0 #ffffff66, 0 8px 24px var(--lg-primary-glow);
+}
+#root :is(.admin-topbar, .admin-sidebar, .admin-card, .admin-metric, .admin-user-row,
+  .admin-table, .admin-security-note, .admin-panel, .admin-section, .modal,
+  .appearance-settings, .button-style-editor, .custom-css-editor, .appearance-presets,
+  .result-details, .settings, .part-settings, .panel-title, .result-mode) {
+  border-color: var(--lg-glass-border);
+  background-color: var(--lg-surface);
+  -webkit-backdrop-filter: blur(var(--lg-glass-blur)) saturate(1.12);
+  backdrop-filter: blur(var(--lg-glass-blur)) saturate(1.12);
+  box-shadow: 0 8px 26px color-mix(in srgb, var(--ink) 7%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 12%, transparent);
+}
+#root .admin-sidebar { background: var(--lg-surface-raised); }
+#root .admin-page .admin-card,
+#root .admin-page .admin-metric,
+#root .admin-page .admin-user-row,
+#root .admin-page .admin-table {
+  background: var(--lg-surface);
+}
+#root :is(input, select, textarea) {
+  border-color: var(--lg-glass-border);
+  background-color: color-mix(in srgb, var(--panel) 90%, transparent);
+  border-radius: var(--lg-radius-control);
+}
+#root :is(input, select, textarea):focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--lg-control-ring), inset 0 1px 0 var(--lg-edge-highlight);
+}
+@media (max-width: 699px) {
+  #root :is(.admin-card, .admin-metric, .admin-user-row, .admin-table, .modal) {
+    -webkit-backdrop-filter: blur(10px) saturate(1.08);
+    backdrop-filter: blur(10px) saturate(1.08);
+  }
+}
+@media (prefers-contrast: more), (forced-colors: active) {
+  #root :is(button, .button, .primary, .admin-topbar, .admin-sidebar, .admin-card, .admin-metric, .admin-user-row, .admin-table, .modal) {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    box-shadow: none;
+  }
+}
