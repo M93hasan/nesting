@@ -161,7 +161,7 @@ The 34 static dataset files total 4,816,368 raw bytes (about 488 KB gzip versus 
 
 ## Completed
 
-- Evenly spaced copy stacks, softer light-mode borders, theme-aware ghost fills, 12 shape colors, and lower canvas hints.
+- Evenly spaced copy stacks, consistent ghost outlines, 12 shape colors, and lower canvas hints.
 
 - Preparation shortcuts follow permitted rotations and support copying/deletion down to zero; undo and editable-field focus are respected.
 - Manual position, rotation and resizing no longer automatically displace neighbouring parts.

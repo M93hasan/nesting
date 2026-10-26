@@ -65,5 +65,5 @@ jobs:
         run: npm test
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
-      - name: Browser regression tests after theme cleanup
-        run: npx playwright test tests/theme-cleanup.spec.ts --project=chromium
+      - name: Functional browser regression tests
+        run: npx playwright test tests/functional-controls.spec.ts --project=chromium

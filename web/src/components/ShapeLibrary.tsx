@@ -142,5 +142,5 @@ export default function ShapeLibrary({selectedParts=[],onAdd,onClose,unit='mm'}:
 
 function Preview({part}:{part:Part}) {
   const [x0,y0,x1,y1]=bounds(part.outer),pad=Math.max(x1-x0,y1-y0)*.08;
-  return <svg aria-hidden="true" viewBox={`${x0-pad} ${-y1-pad} ${x1-x0+pad*2} ${y1-y0+pad*2}`}><path transform="scale(1 -1)" d={pathData([part.outer,...part.holes])} fill="var(--accent)" fillOpacity=".22" fillRule="evenodd" stroke="var(--accent)" vectorEffect="non-scaling-stroke"/></svg>;
+  return <svg aria-hidden="true" viewBox={`${x0-pad} ${-y1-pad} ${x1-x0+pad*2} ${y1-y0+pad*2}`}><path transform="scale(1 -1)" d={pathData([part.outer,...part.holes])} fill="#2563eb" fillOpacity=".22" fillRule="evenodd" stroke="#2563eb" vectorEffect="non-scaling-stroke"/></svg>;
 }

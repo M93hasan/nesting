@@ -8,7 +8,7 @@ test('outlines preserve interior selection and dragging across drawing views',as
   await expect(toggle).toHaveAttribute('aria-pressed','false');
   await toggle.click();
   await expect(toggle).toHaveAttribute('aria-pressed','true');
-  expect(await paths.evaluateAll(nodes=>nodes.every(n=>n.getAttribute('fill')==='light-dark(black, white)'&&n.getAttribute('fill-opacity')==='0.1'))).toBe(true);
+  expect(await paths.evaluateAll(nodes=>nodes.every(n=>n.getAttribute('fill')==='#ffffff'&&n.getAttribute('fill-opacity')==='0.1'))).toBe(true);
   const first=paths.nth(8);
   const before=await first.evaluate(node=>node.parentElement!.getAttribute('transform'));
   const start=await first.evaluate(node=>{const b=(node as SVGGraphicsElement).getBBox(),p=new DOMPoint(b.x+b.width/2,b.y+b.height/2).matrixTransform(node.getScreenCTM()!);return {x:p.x,y:p.y};});
@@ -32,12 +32,12 @@ test('outlines preserve interior selection and dragging across drawing views',as
   });
   await openExamples(page);await page.getByRole('button',{name:'Open and nest',exact:true}).click();await finishSwitch(page);
   await expect(page.getByRole('img',{name:'Live nesting search'})).toBeVisible({timeout:20_000});
-  expect(await paths.evaluateAll(nodes=>nodes.length>0&&nodes.every(n=>n.getAttribute('fill')==='light-dark(black, white)'&&n.getAttribute('fill-opacity')==='0.1'))).toBe(true);
+  expect(await paths.evaluateAll(nodes=>nodes.length>0&&nodes.every(n=>n.getAttribute('fill')==='#ffffff'&&n.getAttribute('fill-opacity')==='0.1'))).toBe(true);
   await page.waitForFunction(()=>Reflect.get(window,'outlineOverlapSeen')===true,{},{timeout:15_000});
   await page.getByRole('button',{name:'Best valid solution',exact:true}).click({timeout:20_000});
   await expect(page.getByRole('img',{name:'Valid nesting result'})).toBeVisible();
   await expect(page.locator('.workspace-svg > rect')).toHaveAttribute('fill','none');
-  expect(await paths.evaluateAll(nodes=>nodes.length>0&&nodes.every(n=>n.getAttribute('fill')==='light-dark(black, white)'&&n.getAttribute('fill-opacity')==='0.1'))).toBe(true);
+  expect(await paths.evaluateAll(nodes=>nodes.length>0&&nodes.every(n=>n.getAttribute('fill')==='#ffffff'&&n.getAttribute('fill-opacity')==='0.1'))).toBe(true);
   await page.getByRole('button',{name:'Stop',exact:true}).click();
   await page.screenshot({path:testInfo.outputPath('outlines-checked-light.png'),fullPage:true});
   await page.emulateMedia({colorScheme:'dark'});
