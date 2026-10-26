@@ -94,3 +94,65 @@ select, textarea {
   :root:not([data-theme="light"]) .admin-page button.danger-button:hover:not(:disabled),
   :root:not([data-theme="light"]) .app button.danger-button:hover:not(:disabled) {background:#3a1b20}
 }
+
+
+/* Explicit user-selected dark theme, independent of the operating-system preference. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --serula-bg: #111318;
+  --serula-surface: #191c23;
+  --serula-surface-muted: #222630;
+  --serula-text: #f1f3f7;
+  --serula-text-muted: #a0a8b7;
+  --serula-border: #343946;
+  --serula-accent: #fb923c;
+  --serula-accent-hover: #fdba74;
+  --serula-accent-soft: #3a261b;
+  --serula-focus: #fdba74;
+}
+:root[data-theme="dark"] body,
+:root[data-theme="dark"] .app,
+:root[data-theme="dark"] .admin-page,
+:root[data-theme="dark"] .admin-mobile-page { color: var(--serula-text); background: var(--serula-bg); }
+:root[data-theme="dark"] .admin-sidebar,
+:root[data-theme="dark"] .admin-card,
+:root[data-theme="dark"] .admin-metric,
+:root[data-theme="dark"] .auth-card,
+:root[data-theme="dark"] .canvas-wrap,
+:root[data-theme="dark"] .canvas-tools,
+:root[data-theme="dark"] .drawing-panel,
+:root[data-theme="dark"] .material-panel,
+:root[data-theme="dark"] .sidebar { background: var(--serula-surface); }
+:root[data-theme="dark"] .admin-page button:not(.primary),
+:root[data-theme="dark"] .auth-screen button:not(.primary),
+:root[data-theme="dark"] .app button:not(.primary):not(.run-button):not(.download-button) {
+  color: var(--serula-text);
+  background: var(--serula-surface);
+  border-color: var(--serula-border);
+}
+:root[data-theme="dark"] .admin-page input:not([type=checkbox]):not([type=radio]):not([type=range]),
+:root[data-theme="dark"] .admin-page select,
+:root[data-theme="dark"] .admin-page textarea,
+:root[data-theme="dark"] .auth-screen input:not([type=checkbox]):not([type=radio]),
+:root[data-theme="dark"] .app input:not([type=checkbox]):not([type=radio]):not([type=range]),
+:root[data-theme="dark"] .app select,
+:root[data-theme="dark"] .app textarea {
+  color: var(--serula-text);
+  background: var(--serula-surface-muted);
+  border-color: var(--serula-border);
+}
+:root[data-theme="dark"] .admin-table-head,
+:root[data-theme="dark"] .admin-table th,
+:root[data-theme="dark"] .admin-security-note,
+:root[data-theme="dark"] .auth-tabs { background: var(--serula-surface-muted); }
+:root[data-theme="dark"] .admin-page button.primary,
+:root[data-theme="dark"] .auth-screen button.primary,
+:root[data-theme="dark"] .app button.primary,
+:root[data-theme="dark"] .app .run-button,
+:root[data-theme="dark"] .app .download-button {
+  background: var(--serula-accent);
+  color: #21150c;
+  border-color: var(--serula-accent);
+}
+:root[data-theme="dark"] .admin-page button.danger-button,
+:root[data-theme="dark"] .app button.danger-button { color: #fca5a5; border-color: #7f1d1d; }
