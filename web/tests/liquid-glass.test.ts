@@ -12,6 +12,8 @@ test('unified theme is the single imported theme layer',()=>{
   expect(entry).not.toContain("import './user-theme.css'");
   expect(entry).not.toContain("import './premium-theme.css'");
   expect(entry).not.toContain("import './liquid-glass.css'");
+  expect(readFileSync(new URL('../public/google-login.html',import.meta.url),'utf8')).toContain('href="/theme/google-login.css"');
+  expect(readFileSync(new URL('../bridge.html',import.meta.url),'utf8')).toContain('href="/theme/base.css"');
 });
 
 test('Liquid Glass is limited to navigation and floating controls with accessible fallbacks',()=>{
@@ -31,7 +33,7 @@ test('Liquid Glass is limited to navigation and floating controls with accessibl
 test('shared theme tokens have one owner and Liquid Glass only adds namespaced tokens',()=>{
   const premium=readFileSync(new URL('../public/theme/tokens.css',import.meta.url),'utf8');
   const vision=readFileSync(new URL('../public/theme/vision.css',import.meta.url),'utf8');
-  const glass=readFileSync(new URL('../src/theme.css',import.meta.url),'utf8');
+  const glass=readFileSync(new URL('../public/theme/tokens.css',import.meta.url),'utf8');
   const shared=['--page','--panel','--ink','--muted','--border','--accent','--accent-hover','--hover','--hover-border','--selected','--secondary','--error','--error-bg','--panel-soft','--panel-raised','--brand-gradient','--brand-gradient-hover','--surface-shadow','--radius-card','--radius-control','--font-ui'];
   for(const token of shared){
     expect(premium, `theme.css owns ${token}`).toContain(token+':');
@@ -43,7 +45,7 @@ test('shared theme tokens have one owner and Liquid Glass only adds namespaced t
 });
 
 test('phase 4 refines admin navigation, workspace hit areas, and appearance controls',()=>{
-  const css=readFileSync(new URL('../src/theme.css',import.meta.url),'utf8');
+  const css=readFileSync(new URL('../public/theme/tokens.css',import.meta.url),'utf8');
   expect(css).toContain('#root .admin-sidebar nav button.active');
   expect(css).toContain('box-shadow: inset 3px 0 0 var(--accent)');
   expect(css).toContain('#root .canvas-tools button');
@@ -55,7 +57,7 @@ test('phase 4 refines admin navigation, workspace hit areas, and appearance cont
 
 
 test('phase 5 preserves keyboard focus and accessibility preference fallbacks',()=>{
-  const css=readFileSync(new URL('../src/theme.css',import.meta.url),'utf8');
+  const css=readFileSync(new URL('../public/theme/tokens.css',import.meta.url),'utf8');
   expect(css).toContain('#root .admin-sidebar nav button:focus-visible');
   expect(css).toContain('#root :is(button, .button, .primary, .text-button, .result-mode, .result-mode button)');
   expect(css).toContain('#root :is(.admin-topbar, .admin-sidebar, .admin-card, .admin-metric, .admin-user-row');
