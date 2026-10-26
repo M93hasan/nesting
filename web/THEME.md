@@ -17,3 +17,5 @@ The Cloudflare deployment workflow watches changes under `web/**`. When only fil
 
 - Explicit light/dark toggle added to the workspace, user sign-in overlay, and admin header; user preference persists in local storage.
 - Canvas viewport sizing and overflow safeguards added for narrow screens.
+
+- Follow-up verification fix: admin sign-in/loading cards expose the same persisted light/dark theme toggle; empty-canvas DXF button and wrapper both have explicit 220px width constraints.

@@ -216,11 +216,21 @@
 }
 
 /* Keep the empty-canvas import action useful without letting it dominate the canvas. */
-.app .drawing-panel .empty-project .empty-project-actions > button[data-button-style="import"] {
+.app .drawing-panel .empty-project .empty-project-actions {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   box-sizing: border-box;
+}
+.app .drawing-panel .empty-project .empty-project-actions > button[data-button-style="import"] {
+  display: inline-flex !important;
+  box-sizing: border-box !important;
+  inline-size: min(100%, 220px) !important;
   width: min(100%, 220px) !important;
-  max-width: 220px;
-  flex: 0 1 220px;
+  min-width: 0 !important;
+  max-width: 220px !important;
+  flex: 0 1 220px !important;
+  justify-content: center;
 }
 
 /* Narrow-phone layout: keep controls readable and prevent the workspace footer from overflowing. */
