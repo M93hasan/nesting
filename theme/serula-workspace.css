@@ -214,3 +214,109 @@
   .app .statusbar .run-button,
   .app .statusbar .download-button { width: 100%; }
 }
+
+/* Narrow-phone layout: keep controls readable and prevent the workspace footer from overflowing. */
+@media (max-width: 420px) {
+  .app .header {
+    gap: 8px;
+    padding: 10px;
+  }
+  .app .brand-block {
+    width: 100%;
+    min-width: 0;
+  }
+  .app .header-primary {
+    width: 100%;
+    min-width: 0;
+    gap: 6px;
+  }
+  .app .header nav {
+    width: 100%;
+    gap: 5px;
+  }
+  .app .header nav button,
+  .app .header-primary button {
+    min-width: 0;
+    padding: 7px 8px;
+    font-size: .75rem;
+    white-space: normal;
+  }
+  .app .drawing-panel {
+    min-width: 0;
+    min-height: 320px;
+  }
+  .app .empty-project {
+    max-width: calc(100% - 24px);
+    margin-inline: auto;
+    padding-inline: 8px;
+  }
+  .app .empty-project-actions button[data-button-style="import"] {
+    width: min(100%, 220px);
+    max-width: 220px;
+  }
+  .app .settings.material-settings {
+    padding: 12px;
+    gap: 9px;
+  }
+  .app .statusbar {
+    min-width: 0;
+    gap: 10px;
+    padding: 12px;
+  }
+  .app .statusbar .run-controls,
+  .app .statusbar .run-status,
+  .app .statusbar .metrics,
+  .app .statusbar .export-actions {
+    width: 100%;
+    min-width: 0;
+  }
+  .app .statusbar .run-status {
+    flex-wrap: wrap;
+  }
+  .app .statusbar .metrics {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .app .statusbar .metrics > span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .app .statusbar .run-button,
+  .app .statusbar .download-button {
+    width: 100%;
+    min-width: 0;
+    white-space: normal;
+  }
+  .app .statusbar .export-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .app .statusbar .export-actions > *,
+  .app .statusbar .corel-transfer-control,
+  .app .statusbar .download-control {
+    width: 100%;
+    min-width: 0;
+  }
+  .app .result-details {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+    padding: 10px;
+  }
+  .app .result-mode {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  .app .result-mode button {
+    flex: 0 0 auto;
+    padding-inline: 8px;
+    font-size: .75rem;
+  }
+  .app .modal-actions {
+    flex-wrap: wrap;
+  }
+  .app .modal-actions button {
+    flex: 1 1 120px;
+    min-width: 0;
+  }
+}
