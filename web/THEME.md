@@ -19,3 +19,5 @@ The Cloudflare deployment workflow watches changes under `web/**`. When only fil
 - Canvas viewport sizing and overflow safeguards added for narrow screens.
 
 - Follow-up verification fix: admin sign-in/loading cards expose the same persisted light/dark theme toggle; empty-canvas DXF button and wrapper both have explicit 220px width constraints.
+
+- Empty-canvas DXF import button width is explicitly capped at 220px, with a viewport-aware max-width for narrow screens.
