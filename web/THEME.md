@@ -14,3 +14,6 @@ The Cloudflare deployment workflow watches changes under `web/**`. When only fil
 - The empty-canvas DXF import action is capped at 220px to match the compact workspace action hierarchy.
 
 - Narrow-phone pass: responsive header, workspace, result metrics, and export actions are stacked at widths of 420px and below.
+
+- Explicit light/dark toggle added to the workspace, user sign-in overlay, and admin header; user preference persists in local storage.
+- Canvas viewport sizing and overflow safeguards added for narrow screens.
