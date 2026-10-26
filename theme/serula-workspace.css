@@ -274,3 +274,25 @@
   .app .modal-actions { flex-wrap: wrap; }
   .app .modal-actions button { flex: 1 1 120px; min-width: 0; }
 }
+
+
+/* Prevent the drawing viewport from creating a second horizontal page scroll. */
+.app { width: 100%; max-width: 100%; overflow-x: clip; }
+.main-workspace, .main-workspace > *, .drawing-panel, .material-panel, .sidebar { min-width: 0; }
+.drawing-panel { max-width: 100%; overflow: hidden; }
+.canvas-wrap { width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
+.canvas-wrap > .workspace-svg {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.canvas-tools { min-width: 0; max-width: 100%; box-sizing: border-box; }
+@media (max-width: 560px) {
+  .app { overflow-x: clip; }
+  .main-workspace, .drawing-panel, .material-panel, .sidebar { max-width: 100%; }
+  .app .header nav { min-width: 0; }
+  .app .header nav > * { max-width: 100%; }
+  .app .statusbar { box-sizing: border-box; }
+}
