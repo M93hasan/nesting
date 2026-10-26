@@ -100,3 +100,117 @@
   .panel-title { align-items: flex-start; }
   .panel-title-actions { justify-content: flex-end; }
 }
+
+
+/* Button hierarchy and panel rhythm — visual-only overrides for the existing workspace. */
+.app .empty-project-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 16px auto 0;
+}
+.app .empty-project-actions button[data-button-style="import"] {
+  min-height: 40px;
+  min-width: 0;
+  width: auto;
+  max-width: 100%;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-size: .92rem;
+  line-height: 1.2;
+}
+.app .add-shape {
+  display: grid;
+  grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr);
+  gap: 8px;
+  margin-top: 12px;
+}
+.app .add-shape button {
+  min-width: 0;
+  min-height: 38px;
+  padding: 8px 10px;
+  white-space: normal;
+}
+.app .row-actions.history {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.app .row-actions.history button { flex: 1 1 0; }
+.app .clear-all-parts {
+  width: 100%;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top-color: var(--serula-border);
+}
+.app .sidebar .import-formats {
+  margin: 7px 0 0;
+  color: var(--serula-text-muted);
+  font-size: .78rem;
+  line-height: 1.4;
+}
+.app .material-panel .material-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.app .material-panel .material-settings > label,
+.app .material-panel .material-settings .material-rotation {
+  min-width: 0;
+  margin: 0;
+}
+.app .material-panel .material-settings > label {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 5px;
+}
+.app .material-panel .material-settings > label input,
+.app .material-panel .material-settings > label select {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+.app .material-panel .material-settings .solver-options {
+  margin-top: 2px;
+}
+.app .material-panel .material-settings small {
+  line-height: 1.45;
+}
+.app .statusbar .run-controls,
+.app .statusbar .export-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.app .statusbar .run-button,
+.app .statusbar .download-button {
+  min-height: 38px;
+  border-radius: 9px;
+  padding: 9px 13px;
+  font-size: .88rem;
+  line-height: 1.2;
+}
+.app .statusbar .download-button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  white-space: normal;
+}
+.app .statusbar .export-actions > *,
+.app .statusbar .corel-transfer-control,
+.app .statusbar .download-control { min-width: 0; }
+@media (max-width: 900px) {
+  .app .statusbar .metrics { flex-wrap: wrap; gap: 8px 14px; }
+  .app .statusbar .export-actions { flex-wrap: wrap; }
+}
+@media (max-width: 560px) {
+  .app .add-shape { grid-template-columns: minmax(0, 1fr); }
+  .app .row-actions.history button { min-width: 0; }
+  .app .statusbar .run-controls,
+  .app .statusbar .export-actions { width: 100%; }
+  .app .statusbar .run-button,
+  .app .statusbar .download-button { width: 100%; }
+}
