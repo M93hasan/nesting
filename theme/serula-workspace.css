@@ -214,3 +214,11 @@
   .app .statusbar .run-button,
   .app .statusbar .download-button { width: 100%; }
 }
+
+/* Keep the empty-canvas import action useful without letting it dominate the canvas. */
+.app .drawing-panel .empty-project .empty-project-actions > button[data-button-style="import"] {
+  box-sizing: border-box;
+  width: min(100%, 220px) !important;
+  max-width: 220px;
+  flex: 0 1 220px;
+}
