@@ -1,5 +1,4 @@
 import type { SolverMessage } from './workers/protocol';
-import './theme/bridge.css';
 import { SOLVER_REVISION } from './model';
 
 const run = document.querySelector<HTMLButtonElement>('#run')!;
