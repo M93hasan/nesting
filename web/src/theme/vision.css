@@ -1,7 +1,7 @@
 /* Serula adaptation of Vision UI's palette and surface language.
  * Reference: Creative Tim / Simmmple, Vision UI Dashboard React (MIT).
  * License: /licenses/vision-ui-MIT.txt. Fonts: /fonts/plus-jakarta-sans/OFL.txt.
- * Loaded after component CSS so presentation has one final set of shared tokens. */
+ * Shared theme tokens are owned by tokens.css; this file provides visual components and font setup. */
 @font-face {
   font-family:"Plus Jakarta Sans";font-style:normal;font-weight:200 800;font-display:swap;
   src:url('/fonts/plus-jakarta-sans/latin-ext.woff2') format('woff2');
