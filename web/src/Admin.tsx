@@ -133,7 +133,7 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
       if(!window.google?.accounts.id||!googleButton.current)return;
       window.google.accounts.id.initialize({client_id:clientId,callback:onCredential,auto_select:false});
       googleButton.current.replaceChildren();
-      window.google.accounts.id.renderButton(googleButton.current,{theme:'outline',size:'large',text:'signin_with',shape:'pill'});
+      window.google.accounts.id.renderButton(googleButton.current,{size:'large',text:'signin_with',shape:'pill'});
       setAuth('signed-out');
     };
     if(window.google?.accounts.id){setup();return()=>{cancelled=true};}
