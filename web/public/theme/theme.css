@@ -2607,3 +2607,18 @@ body {
   .statusbar { margin:0 7px 7px; padding:9px 12px; }
   .auth-card { padding:22px; border-radius:18px; }
 }
+
+
+
+/* Google sign-in page layout — part of the shared Serula theme */
+body:has(> .card){margin:0;min-height:100dvh;display:grid;place-items:center;padding:24px;background:var(--page)}
+body:has(> .card) .card{width:min(100%,400px);background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:34px;box-shadow:0 24px 72px #10111416;text-align:center}
+body:has(> .card) .card img{width:72px;height:72px}
+body:has(> .card) .card h1{font-size:24px;letter-spacing:-.7px;margin:14px 0 8px;font-weight:650}
+body:has(> .card) .card p{color:var(--muted);margin:0 0 18px}
+body:has(> .card) #google{min-height:44px;display:flex;justify-content:center;align-items:center;margin:20px 0}
+body:has(> .card) #status{min-height:22px;font-size:13px;color:var(--muted)}
+body:has(> .card) .error{color:var(--error)!important}
+body:has(> .card) .card a{display:inline-block;margin-top:10px;color:var(--accent);text-decoration:none}
+body:has(> .card) .card a:hover{text-decoration:underline}
+@media(max-width:480px){body:has(> .card) .card{padding:28px 22px;border-radius:16px}}
