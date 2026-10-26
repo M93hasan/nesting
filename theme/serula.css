@@ -3,7 +3,7 @@
 /* Serula Studio theme — adapted from the clean, neutral dashboard principles of Studio Admin.
    Kept framework-free for the existing React + Vite application. */
 :root {
-  color-scheme: light;
+  color-scheme: light dark;
   --serula-bg: #f6f7f9;
   --serula-surface: #ffffff;
   --serula-surface-muted: #f1f3f6;
@@ -51,3 +51,46 @@ select, textarea {
 .serula-theme-muted { color: var(--serula-text-muted); }
 .serula-theme-primary { background: var(--serula-accent); color: #fff; border-color: var(--serula-accent); }
 .serula-theme-primary:hover { background: var(--serula-accent-hover); }
+
+
+/* Respect the operating-system theme while retaining light mode as the default. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --serula-bg:#111318;
+    --serula-surface:#191c23;
+    --serula-surface-muted:#222630;
+    --serula-text:#f1f3f7;
+    --serula-text-muted:#a0a8b7;
+    --serula-border:#343946;
+    --serula-accent:#fb923c;
+    --serula-accent-hover:#fdba74;
+    --serula-accent-soft:#3a261b;
+    --serula-focus:#fdba74;
+    color-scheme:dark;
+  }
+  :root:not([data-theme="light"]) .admin-sidebar,
+  :root:not([data-theme="light"]) .admin-card,
+  :root:not([data-theme="light"]) .admin-metric,
+  :root:not([data-theme="light"]) .auth-card,
+  :root:not([data-theme="light"]) .canvas-wrap,
+  :root:not([data-theme="light"]) .canvas-tools {background:var(--serula-surface)}
+  :root:not([data-theme="light"]) .admin-page button,
+  :root:not([data-theme="light"]) .auth-screen button,
+  :root:not([data-theme="light"]) .app button {background:var(--serula-surface);color:var(--serula-text)}
+  :root:not([data-theme="light"]) .admin-page button.primary,
+  :root:not([data-theme="light"]) .auth-screen button.primary,
+  :root:not([data-theme="light"]) .app button.primary,
+  :root:not([data-theme="light"]) .app .run-button,
+  :root:not([data-theme="light"]) .app .download-button {background:var(--serula-accent);color:#21150c;border-color:var(--serula-accent)}
+  :root:not([data-theme="light"]) .admin-page input:not([type=checkbox]):not([type=radio]):not([type=range]),
+  :root:not([data-theme="light"]) .admin-page select,
+  :root:not([data-theme="light"]) .admin-page textarea,
+  :root:not([data-theme="light"]) .auth-screen input:not([type=checkbox]):not([type=radio]),
+  :root:not([data-theme="light"]) .app input:not([type=checkbox]):not([type=radio]):not([type=range]),
+  :root:not([data-theme="light"]) .app select,
+  :root:not([data-theme="light"]) .app textarea {background:var(--serula-surface-muted);color:var(--serula-text);border-color:var(--serula-border)}
+  :root:not([data-theme="light"]) .admin-page button.danger-button,
+  :root:not([data-theme="light"]) .app button.danger-button {color:#fca5a5;border-color:#7f1d1d}
+  :root:not([data-theme="light"]) .admin-page button.danger-button:hover:not(:disabled),
+  :root:not([data-theme="light"]) .app button.danger-button:hover:not(:disabled) {background:#3a1b20}
+}
