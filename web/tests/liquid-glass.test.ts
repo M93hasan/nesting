@@ -11,7 +11,10 @@ test('unified theme is the single imported theme layer',()=>{
   expect(entry).not.toContain("import './user-theme.css'");
   expect(entry).not.toContain("import './premium-theme.css'");
   expect(entry).not.toContain("import './liquid-glass.css'");
-  expect(readFileSync(new URL('../public/google-login.html',import.meta.url),'utf8')).toContain('href="/theme/google-login.css"');
+  const googleLogin=readFileSync(new URL('../public/google-login.html',import.meta.url),'utf8');
+  expect(googleLogin).toContain('href="/theme/index.css"');
+  expect(googleLogin).not.toContain('google-login.css');
+  expect(readFileSync(new URL('../public/theme/theme.css',import.meta.url),'utf8')).toContain('body:has(> .card) .card');
   expect(readFileSync(new URL('../bridge.html',import.meta.url),'utf8')).toContain('href="/theme/index.css"');
 });
 
