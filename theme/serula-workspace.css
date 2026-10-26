@@ -215,24 +215,26 @@
   .app .statusbar .download-button { width: 100%; }
 }
 
-/* Keep the empty-canvas import action useful without letting it dominate the canvas. */
-.app .drawing-panel .empty-project .empty-project-actions {
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
+/* Keep the empty-canvas action compact even when legacy button rules set full width. */
+.app .empty-project .empty-project-actions {
+  display: flex !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
 }
-.app .drawing-panel .empty-project .empty-project-actions > button[data-button-style="import"] {
+.app .empty-project .empty-project-actions > button,
+.app .empty-project button[data-button-style="import"] {
   display: inline-flex !important;
   box-sizing: border-box !important;
-  inline-size: min(100%, 220px) !important;
-  width: min(100%, 220px) !important;
+  width: 220px !important;
+  max-width: min(220px, calc(100vw - 48px)) !important;
   min-width: 0 !important;
-  max-width: 220px !important;
   flex: 0 1 220px !important;
-  justify-content: center;
+  justify-content: center !important;
+  white-space: normal;
 }
-
 /* Narrow-phone layout: keep controls readable and prevent the workspace footer from overflowing. */
 @media (max-width: 420px) {
   .app .header { gap: 8px; padding: 10px; }
