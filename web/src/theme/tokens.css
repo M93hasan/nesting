@@ -117,26 +117,14 @@ a { text-underline-offset: 3px; }
   outline-offset: 1px;
 }
 
-/* Admin keeps the same visual language as the main studio. */
-.admin-page {
-  --admin-surface: light-dark(#ffffff, #191a20);
-  --admin-surface-soft: light-dark(#f3f4f8, #15161c);
-  --admin-surface-raised: light-dark(#ffffff, #1d1e25);
-  --admin-border: var(--border);
-  --admin-accent: var(--accent);
-  --admin-accent-strong: var(--accent);
-  --admin-accent-soft: var(--selected);
-  --admin-text: var(--ink);
-  --admin-muted: var(--muted);
-  --admin-danger: var(--error);
-}
+/* Admin-specific tokens are owned by admin.css. */
 .admin-page .admin-topbar {
-  background: color-mix(in srgb, var(--panel) 96%, transparent);
-  border-color: var(--border);
+  background: color-mix(in srgb, var(--admin-surface, var(--panel)) 96%, transparent);
+  border-color: var(--admin-border, var(--border));
 }
 .admin-page .admin-sidebar {
-  background: var(--panel);
-  border-color: var(--border);
+  background: var(--admin-surface, var(--panel));
+  border-color: var(--admin-border, var(--border));
 }
 .admin-page .admin-card,
 .admin-page .admin-metric,
