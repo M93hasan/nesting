@@ -144,7 +144,7 @@ export default function Workspace({ document: doc, result, live, selected, selec
   const shapes = useMemo(() => drawings.map(drawing => {
     const index = drawing.index, key = placementKey(drawing), active = selectedSet.size ? selectedSet.has(key) : selected.includes(drawing.partId);
     const position = moved.get(key) ?? drawing.position, [x0, y0, x1, y1] = drawing.box;
-    const fill = outlines ? 'light-dark(black, white)' : colors[index % colors.length], fillOpacity = outlines ? .1 : 1;
+    const fill = outlines ? '#ffffff' : colors[index % colors.length], fillOpacity = outlines ? .1 : 1;
     const stroke = outlines ? (active ? 'var(--accent)' : 'var(--muted)') : active ? 'var(--ink)' :
       `light-dark(#64748b, color-mix(in srgb, ${colors[index % colors.length]} 60%, white))`;
     const strokeWidth = outlines ? (active ? 1.5 : 1) : (active ? 3 : 2);
