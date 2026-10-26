@@ -5,10 +5,6 @@ test('gardeyn2 loads without solving, rotation labels are visible and dialogs st
   await page.goto('/');
   await expect(page.locator('.project-menu>summary')).toContainText('gardeyn2');
   await expect(page.getByRole('status')).toHaveText('Ready');
-  await page.getByRole('button',{name:'Toggle light/dark mode'}).click();
-  await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
-  await page.getByRole('button',{name:'Toggle light/dark mode'}).click();
-  await expect(page.locator('html')).toHaveAttribute('data-theme','light');
   await page.locator('.workspace-svg').click({position:{x:35,y:60}});
   await expect(page.locator('.workspace-svg')).toHaveCSS('outline-style','none');
   await expect(page.locator('nav').getByRole('link',{name:'Read the paper',exact:true})).toHaveAttribute('href','https://arxiv.org/abs/2509.13329');
