@@ -1,9 +1,8 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
 import packageInfo from '../package.json';
 import {LanguageSelect,localeTag,useI18n} from './i18n';
-import AppearanceSettings from './components/AppearanceSettings';
 
-type Section='overview'|'users'|'messages'|'roles'|'user-settings'|'defaults'|'appearance'|'history'|'logs'|'system';
+type Section='overview'|'users'|'messages'|'roles'|'user-settings'|'defaults'|'history'|'logs'|'system';
 
 const nav:{id:Section;label:string;icon:string}[]=[
   {id:'overview',label:'Genel Bakış',icon:'⌂'},
@@ -12,7 +11,6 @@ const nav:{id:Section;label:string;icon:string}[]=[
   {id:'roles',label:'Roller ve Yetkiler',icon:'◆'},
   {id:'user-settings',label:'Kullanıcı Ayarları',icon:'⚙'},
   {id:'defaults',label:'Sistem Varsayılanları',icon:'◫'},
-  {id:'appearance',label:'Görünüm',icon:'◉'},
   {id:'history',label:'İşlem Geçmişi',icon:'↺'},
   {id:'logs',label:'Sistem Logları',icon:'≡'},
   {id:'system',label:'Sistem Bilgisi',icon:'ⓘ'},
@@ -381,7 +379,6 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
       <main className="admin-main">
         <div className="admin-heading"><div className="admin-heading-copy"><p>YÖNETİM MERKEZİ</p><h1>{title}</h1><small>{({overview:'Serula sistemini, kullanıcı hareketlerini ve servis sağlığını tek ekrandan takip edin.',users:'Hesapları, kullanım haklarını ve lisans sürelerini yönetin.',messages:'Kullanıcı destek taleplerini ve mesajlaşmaları takip edin.',roles:'Yönetim yetkilerinin kapsamını ve sınırlarını inceleyin.','user-settings':'Seçilen kullanıcı için üretim varsayılanlarını ve destek bağlantısını yönetin.',defaults:'Yeni projelerde kullanılacak üretim başlangıç değerlerini belirleyin.',appearance:'Yönetim arayüzünün görünüm ve erişilebilirlik tercihlerini ayarlayın.',history:'Yönetim ve üretim işlemlerinin kayıtlarını inceleyin.',logs:'Servis olaylarını ve başarısız işlemleri kontrol edin.',system:'API, kimlik doğrulama ve veri katmanı durumunu kontrol edin.'} as Record<Section,string>)[section]}</small></div><span className="admin-connection"><i aria-hidden="true"/>{health?.adminApi?'Sunucu bağlı':health?'Sunucu hatası':'Kontrol ediliyor…'}</span></div>
 
-        {section==='appearance'&&<AppearanceSettings/>}
         {section==='overview'&&<>
           <section className="admin-metrics">
             <Metric label="Toplam kullanıcı" value={String(users.length)} detail="D1 kullanıcı veritabanı" icon="♙"/>
