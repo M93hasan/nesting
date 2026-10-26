@@ -10,3 +10,5 @@ The shared visual tokens and dashboard/authentication styles live in the reposit
 The Cloudflare deployment workflow watches changes under `web/**`. When only files in the root `theme/` directory change, a web-path change or a manual workflow dispatch is needed to trigger a production deployment.
 
 - Workspace follow-up: consistent import, run, and export button sizing; clearer left-panel action grouping; tighter material settings spacing and responsive footer wrapping.
+
+- Narrow-phone pass: responsive header, workspace, result metrics, and export actions are stacked at widths of 420px and below.
