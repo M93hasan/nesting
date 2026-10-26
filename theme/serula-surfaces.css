@@ -153,3 +153,31 @@
  .admin-top-actions {gap:6px}
  .admin-workspace-link {font-size:.78rem}
 }
+
+
+/* Theme switch and dark-mode corrections for surfaces with legacy fixed white fills. */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px !important;
+  padding: 7px 10px !important;
+  border: 1px solid var(--serula-border) !important;
+  border-radius: 999px !important;
+  background: var(--serula-surface) !important;
+  color: var(--serula-text) !important;
+  font-size: .8rem;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+.theme-toggle span:first-child { font-size: 1rem; line-height: 1; }
+.auth-card-tools { display:flex; justify-content:flex-end; margin:0 0 12px; }
+:root[data-theme="dark"] .admin-sidebar,
+:root[data-theme="dark"] .admin-card,
+:root[data-theme="dark"] .admin-metric,
+:root[data-theme="dark"] .auth-card { background: var(--serula-surface); }
+:root[data-theme="dark"] .admin-page input:not([type=checkbox]):not([type=radio]):not([type=range]),
+:root[data-theme="dark"] .admin-page select,
+:root[data-theme="dark"] .admin-page textarea,
+:root[data-theme="dark"] .auth-screen input:not([type=checkbox]):not([type=radio]) { background:var(--serula-surface-muted); color:var(--serula-text); }
