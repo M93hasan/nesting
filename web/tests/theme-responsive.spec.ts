@@ -9,11 +9,10 @@ test('workspace stays within supported viewport widths and keeps the empty-canva
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
 
     const emptyImport = page.locator('.app .empty-project .empty-project-actions > button').filter({ hasText: 'DXF İçe Aktar' });
-    if (await emptyImport.count()) {
-      const bounds = await emptyImport.first().boundingBox();
-      expect(bounds, `empty-canvas DXF import should be visible at ${width}px`).not.toBeNull();
-      expect(bounds!.width, `empty-canvas DXF import width at ${width}px`).toBeLessThanOrEqual(220);
-    }
+    await expect(emptyImport.first()).toBeVisible();
+    const bounds = await emptyImport.first().boundingBox();
+    expect(bounds, `empty-canvas DXF import should be visible at ${width}px`).not.toBeNull();
+    expect(bounds!.width, `empty-canvas DXF import width at ${width}px`).toBeLessThanOrEqual(220);
   }
 });
 
