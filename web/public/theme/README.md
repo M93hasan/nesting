@@ -1,6 +1,6 @@
 # Serula theme styles
 
-The main application loads its presentation layer through `index.css` only. Do not import theme styles individually from React components or page entry points.
+The main application loads its presentation layer through `/theme/index.css`, linked once from `index.html`. Do not import theme styles individually from React components or TypeScript entry points.
 
 ## Structure
 
@@ -12,7 +12,8 @@ The main application loads its presentation layer through `index.css` only. Do n
 - `reference-controls.css` — custom workspace controls.
 - `typography.css` — shared UI type scale.
 - `components/` — styles for appearance settings, workspace, and shape library.
-- `bridge.css` — isolated styles for the separate browser-bridge page; it is imported only by `bridge.ts`.
+- `base.css` — shared layout/reset styles used by the main application and the separate browser-bridge page.
+- `google-login.css` — standalone static Google login page stylesheet, linked directly by `google-login.html`.
 
 ## Rules
 
