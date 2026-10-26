@@ -2,6 +2,7 @@
  * Keep all site-wide and component presentation styles in this directory.
  * Order: page/component layers first; shared tokens and final overrides last.
  */
+@import './base.css';
 @import './admin.css';
 @import './auth.css';
 @import './vision.css';
