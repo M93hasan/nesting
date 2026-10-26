@@ -1,18 +1,11 @@
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import Admin from './Admin';
-import './admin.css';
-import './auth.css';
-import './vision.css';
-import './reference-controls.css';
-import './typography.css';
-import './admin-buttons.css';
 import {AdminGate,UserGate} from './AuthGate';
 import {loadCatalog} from './datasets';
 import { prepareIsolation } from './isolation';
 import {I18nProvider} from './i18n';
 import {AppearanceProvider} from './appearance';
-import './theme.css';
 
 const ADMIN_EMAIL='m93hasan@icloud.com';
 const GOOGLE_CLIENT_ID='207092733568-2h2751l65c8cbnb3o6qfpvl4uug9f975.apps.googleusercontent.com';

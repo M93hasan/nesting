@@ -3,7 +3,6 @@ import {validateCustomCss} from '../../shared/button-styles.js';
 import {useEffect,useRef,useState} from 'react';
 import {DEFAULT_APPEARANCE,useAppearance,type Appearance} from '../appearance';
 import {useI18n} from '../i18n';
-import './AppearanceSettings.css';
 
 const presets=[
   {name:'Seçtiğin renkler',...DEFAULT_APPEARANCE},

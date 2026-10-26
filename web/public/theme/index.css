@@ -1,0 +1,15 @@
+/* Serula theme entry point.
+ * Keep all site-wide and component presentation styles in this directory.
+ * Order: shared base, page/component layers, then the single token owner.
+ */
+@import './base.css';
+@import './admin.css';
+@import './auth.css';
+@import './vision.css';
+@import './reference-controls.css';
+@import './typography.css';
+@import './admin-buttons.css';
+@import './components/appearance-settings.css';
+@import './components/workspace.css';
+@import './components/shape-library.css';
+@import './tokens.css';

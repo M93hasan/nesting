@@ -1,63 +1,4 @@
-/* Serula unified theme: legacy user overrides, shared design tokens, and Liquid Glass layer. */
-
-/* Kept separate from layout/component styles so the visual system has one explicit owner. */
-
-/* ===== Kullanıcı paneli butonu ===== */
-.user-panel .button {
-  position: relative;
-  overflow: hidden;
-  height: 3rem;
-  padding: 0 2rem;
-  border-radius: 1.5rem;
-  background: #8f0000;
-  background-size: 400%;
-  color: #fff;
-  border: none;
-  cursor: pointer;
-}
-
-.user-panel .button:hover::before {
-  transform: scaleX(1);
-}
-
-.user-panel .button-content {
-  position: relative;
-  z-index: 1;
-}
-
-.user-panel .button::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  transform: scaleX(0);
-  transform-origin: 0 50%;
-  width: 100%;
-  height: inherit;
-  border-radius: inherit;
-  background: linear-gradient(
-    82.3deg,
-    rgba(150, 93, 233, 1) 10.8%,
-    rgba(99, 88, 238, 1) 94.3%
-  );
-  transition: all 0.475s;
-}
-
-/* ===== Kullanıcı paneli select alanları ===== */
-.user-panel select {
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  padding: 6px 10px;
-  background-color: #ffffff;
-  color: #0f172a;
-  font-size: 14px;
-}
-
-.user-panel select:focus {
-  outline: none;
-  border-color: #2563eb;
-}
-
+/* Single owner for shared design tokens, theme overrides and Liquid Glass refinements. */
 
 /* Serula premium theme — Linear-inspired surfaces, without changing application behavior. */
 :root {
@@ -172,26 +113,14 @@ a { text-underline-offset: 3px; }
   outline-offset: 1px;
 }
 
-/* Admin keeps the same visual language as the main studio. */
-.admin-page {
-  --admin-surface: light-dark(#ffffff, #191a20);
-  --admin-surface-soft: light-dark(#f3f4f8, #15161c);
-  --admin-surface-raised: light-dark(#ffffff, #1d1e25);
-  --admin-border: var(--border);
-  --admin-accent: var(--accent);
-  --admin-accent-strong: var(--accent);
-  --admin-accent-soft: var(--selected);
-  --admin-text: var(--ink);
-  --admin-muted: var(--muted);
-  --admin-danger: var(--error);
-}
+/* Admin-specific tokens are owned by admin.css. */
 .admin-page .admin-topbar {
-  background: color-mix(in srgb, var(--panel) 96%, transparent);
-  border-color: var(--border);
+  background: color-mix(in srgb, var(--admin-surface, var(--panel)) 96%, transparent);
+  border-color: var(--admin-border, var(--border));
 }
 .admin-page .admin-sidebar {
-  background: var(--panel);
-  border-color: var(--border);
+  background: var(--admin-surface, var(--panel));
+  border-color: var(--admin-border, var(--border));
 }
 .admin-page .admin-card,
 .admin-page .admin-metric,

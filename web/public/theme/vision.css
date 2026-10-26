@@ -1,7 +1,7 @@
 /* Serula adaptation of Vision UI's palette and surface language.
  * Reference: Creative Tim / Simmmple, Vision UI Dashboard React (MIT).
  * License: /licenses/vision-ui-MIT.txt. Fonts: /fonts/plus-jakarta-sans/OFL.txt.
- * Loaded after component CSS so presentation has one final set of shared tokens. */
+ * Shared theme tokens are owned by tokens.css; this file provides visual components and font setup. */
 @font-face {
   font-family:"Plus Jakarta Sans";font-style:normal;font-weight:200 800;font-display:swap;
   src:url('/fonts/plus-jakarta-sans/latin-ext.woff2') format('woff2');
@@ -176,13 +176,7 @@ label{color:var(--muted)}
 .support-chat-message{background:var(--panel-raised);border-color:var(--border)}
 .support-chat-message.from-user{background:var(--selected)}
 
-/* Admin, mobile admin, account and authentication share the same tokens. */
-.admin-page {
-  --admin-surface:var(--panel);--admin-surface-soft:var(--panel-soft);--admin-surface-raised:var(--panel-raised);
-  --admin-border:var(--border);--admin-accent:var(--accent);--admin-accent-strong:var(--accent);
-  --admin-accent-soft:var(--selected);--admin-text:var(--ink);--admin-muted:var(--muted);--admin-danger:var(--error);
-  background:transparent;color:var(--ink);
-}
+/* Admin palette tokens are owned by admin.css. */
 .admin-topbar{height:76px;background:transparent;border:0;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:none;padding:0 28px}
 .admin-brand strong{font-size:21px;font-weight:800}.admin-brand img{width:38px;height:38px}
 .admin-shell{grid-template-columns:245px minmax(0,1fr);min-height:calc(100dvh - 76px)}

@@ -8,7 +8,6 @@ import { placementBounds, selectionBounds, type GeometryEdit } from '../geometry
 import { moveDelta, resizeEdit, rotationEdit, screenTransform, pinchCamera, type Camera } from '../geometry/gestures';
 import { documentPlacements, placementKey, type CopyRef } from '../geometry/placements';
 import { displayLength, unitScale, type DisplayUnit } from '../units';
-import './Workspace.css';
 import { coordinateGrid } from '../geometry/grid';
 
 type Gesture = {
