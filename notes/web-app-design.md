@@ -25,7 +25,7 @@ This document authorizes no deployment, domain purchase, or external messages. I
 
 Implementation updates from the owner: the brand is always lowercase `sparrow`; contact remains explicitly unconfigured for this prototype. Live search should show intermediate layouts with overlap regions in red, with a `Live / Checked` toggle. Only independently checked results have export authority.
 
-Additional lower-priority scope requested by the owner: dynamic dark mode; all datasets in the main and gardeyn benchmark collections; a shape library covering those datasets; and resizing shapes in that library. Library normalization is **per dataset**, preserving relative part sizes within each dataset. The chosen initial target median is 2,500 mm², calculated over distinct part types; benchmark loading itself retains original coordinates and demand.
+Additional lower-priority scope requested by the owner: all datasets in the main and gardeyn benchmark collections; a shape library covering those datasets; and resizing shapes in that library. Library normalization is **per dataset**, preserving relative part sizes within each dataset. The chosen initial target median is 2,500 mm², calculated over distinct part types; benchmark loading itself retains original coordinates and demand.
 
 Thread-count update from the owner: cap both automatic and manual settings at **3 solver threads**; the algorithm regresses beyond that.
 
@@ -125,7 +125,6 @@ Use this desktop layout at widths of at least 1100 px:
 ```
 
 - Header 56 px, sidebar 280 px, status bar at least 48 px. Drawing fills the remaining area; lists scroll independently.
-- Light theme only initially. Background `#f5f6f8`, panels white, text `#18212f`, muted text `#596579`, separators `#dde2e9`, accent `#176b58`, error `#b42318`.
 - Use the system sans-serif font, 14 px body, 12 px secondary labels, 20 px page title. Numeric results use tabular digits. Use 8 px spacing increments, 8 px control corners, and 36 px minimum desktop control height.
 - Parts use a stable muted color per part type with a darker outline. Selection has a stronger outline and handles; color alone never identifies selection or errors.
 - Show physical dimensions on the material. The screen grid is optional and never changes precision or silently snaps imports.
@@ -263,7 +262,7 @@ Implement later under `web/`, with its own npm package and Rust bridge crate. Ke
 | Choice | Purpose |
 | --- | --- |
 | React + TypeScript, built with Vite | Conventional component UI, checked message/data types, static production output. |
-| Plain CSS and native form controls | Implement the specified visual design without a theme framework. |
+| Plain CSS and native form controls | Implement the specified visual design with native controls. |
 | Browser SVG rendering + Pointer Events | Sharp outlines, selection, pan/zoom, and small drawing tools. No full CAD or scene framework. |
 | `wasm-bindgen` and `wasm-pack` | Compile and expose the Rust bridge to a worker. |
 | `dxf-parser` | Read DXF entities; app code still assembles/validates contours. |
