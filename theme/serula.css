@@ -1,4 +1,5 @@
 @import "./serula-surfaces.css";
+@import "./serula-workspace.css";
 /* Serula Studio theme — adapted from the clean, neutral dashboard principles of Studio Admin.
    Kept framework-free for the existing React + Vite application. */
 :root {
