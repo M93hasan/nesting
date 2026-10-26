@@ -172,8 +172,9 @@ a { text-underline-offset:3px; }
   backdrop-filter:blur(14px);
 }
 .admin-page .admin-sidebar {
-  background:var(--panel);
+  background:color-mix(in srgb,var(--panel) 92%,transparent);
   border-color:var(--border);
+  backdrop-filter:blur(14px);
 }
 .admin-page .admin-card,
 .admin-page .admin-metric,
