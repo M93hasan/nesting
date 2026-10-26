@@ -560,7 +560,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         const content=reply.bundle.dxf;
         const fileName=`${exportAd}.dxf`;
         const sourceFileName=doc.parts.find(part=>part.source.format==='dxf'||part.source.format==='plt')?.source.fileName??doc.name;
-        const projectJson=JSON.stringify({...doc,...(result?{placements:result.placements,result}:{}),schemaVersion:1,revision,serulaCloud:{label:CLOUD_SAVE_NAME,ui:{theme,unit}}});
+        const projectJson=JSON.stringify({...doc,...(result?{placements:result.placements,result}:{}),schemaVersion:1,revision,serulaCloud:{label:CLOUD_SAVE_NAME,ui:{unit}}});
         await authorizeExport(doc.name,sourceFileName,fileName,content,projectJson);
         download(fileName,content,'application/dxf');setDownloadedResult(true);setExported({document:doc,result});return true;
       }
