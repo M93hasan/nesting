@@ -5,24 +5,6 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Serula Nesting - Google ile giriş</title>
   <link rel="icon" type="image/svg+xml" href="/serula-logo.svg">
-  <script>
-    (() => {
-      let theme = 'dark';
-      try {
-        const saved = localStorage.getItem('serula-theme');
-        if (saved === 'light' || saved === 'dark') theme = saved;
-        else if (saved === 'system') theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      } catch {}
-      document.documentElement.dataset.theme = theme;
-      try {
-        if (localStorage.getItem('serula-theme') === 'system') {
-          matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
-            document.documentElement.dataset.theme = event.matches ? 'dark' : 'light';
-          });
-        }
-      } catch {}
-    })();
-  </script>
   <link rel="stylesheet" href="/theme/index.css">
 </head>
 <body>
