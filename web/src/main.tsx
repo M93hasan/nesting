@@ -1,7 +1,6 @@
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import Admin from './Admin';
-import './theme/index.css';
 import {AdminGate,UserGate} from './AuthGate';
 import {loadCatalog} from './datasets';
 import { prepareIsolation } from './isolation';
