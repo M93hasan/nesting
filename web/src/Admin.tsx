@@ -1,6 +1,7 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
 import packageInfo from '../package.json';
 import {LanguageSelect,localeTag,useI18n} from './i18n';
+import ThemeToggle from './components/ThemeToggle';
 
 type Section='overview'|'users'|'messages'|'roles'|'user-settings'|'defaults'|'history'|'logs'|'system';
 
