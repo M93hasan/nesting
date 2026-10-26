@@ -357,6 +357,7 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
   if(auth!=='allowed'){
     return <div className={adminPageClass}><main className="admin-main" style={{maxWidth:560,margin:'10vh auto'}}>
       <section className="admin-card">
+        <div className="auth-card-tools"><ThemeToggle/></div>
         <h1>Serula Yönetim</h1>
         <p>{auth==='denied'?signedEmail+' hesabının yönetici yetkisi yok.':'Yönetim paneline yalnızca yetkili Google hesabı ile giriş yapılabilir.'}</p>
         <div ref={googleButton} style={{marginTop:20}} />
@@ -367,7 +368,7 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
   return <div className={adminPageClass}>
     <header className="admin-topbar">
       <div className="admin-brand"><img src={import.meta.env.BASE_URL+'serula-logo.svg'} alt="" /><div><strong>Serula</strong><span>Yönetim Paneli</span></div></div>
-      <div className="admin-top-actions"><LanguageSelect compact/>{localDevelopment&&<span className="admin-badge">Yerel test</span>}<span className="admin-version">v{packageInfo.version}</span><a className="admin-workspace-link" href="/settings.html">Ayarlar</a><a className="admin-workspace-link" href={import.meta.env.BASE_URL}>Çalışma alanına dön</a></div>
+      <div className="admin-top-actions"><LanguageSelect compact/><ThemeToggle/>{localDevelopment&&<span className="admin-badge">Yerel test</span>}<span className="admin-version">v{packageInfo.version}</span><a className="admin-workspace-link" href="/settings.html">Ayarlar</a><a className="admin-workspace-link" href={import.meta.env.BASE_URL}>Çalışma alanına dön</a></div>
     </header>
 
     <div className="admin-shell">
