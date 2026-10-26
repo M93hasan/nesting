@@ -146,7 +146,7 @@ export default function Workspace({ document: doc, result, live, selected, selec
     const position = moved.get(key) ?? drawing.position, [x0, y0, x1, y1] = drawing.box;
     const fill = outlines ? '#ffffff' : colors[index % colors.length], fillOpacity = outlines ? .1 : 1;
     const stroke = outlines ? (active ? 'var(--accent)' : 'var(--muted)') : active ? 'var(--ink)' :
-      `light-dark(#64748b, color-mix(in srgb, ${colors[index % colors.length]} 60%, white))`;
+      '#64748b';
     const strokeWidth = outlines ? (active ? 1.5 : 1) : (active ? 3 : 2);
     const opacity = selected.length && !active ? .5 : 1;
     const transform = `translate(${position[0]} ${-position[1]-drawing.sheetOffset}) rotate(${-drawing.angleDeg}) scale(${drawing.mirrorX?-1:1} ${drawing.mirrorY?1:-1})`;
