@@ -328,3 +328,117 @@ body {
   .canvas-wrap { border-radius:12px; }
   .statusbar { min-height:56px; padding:9px 12px; border-radius:12px; }
 }
+
+
+/* Stronger visible product redesign: intentional contrast, framed workspace and clearer hierarchy. */
+:root {
+  --page: light-dark(#f0f4fb, #0a1020);
+  --panel: light-dark(#ffffff, #111a2b);
+  --panel-soft: light-dark(#e7eef9, #0d1729);
+  --panel-raised: light-dark(#ffffff, #17243b);
+  --ink: light-dark(#17243c, #edf3ff);
+  --muted: light-dark(#667793, #9aabc7);
+  --border: light-dark(#d4deed, #293956);
+}
+:root[data-theme="light"] {
+  --page:#f0f4fb; --panel:#fff; --panel-soft:#e7eef9; --panel-raised:#fff;
+  --ink:#17243c; --muted:#667793; --secondary:#667793; --border:#d4deed;
+}
+:root[data-theme="dark"] {
+  --page:#0a1020; --panel:#111a2b; --panel-soft:#0d1729; --panel-raised:#17243b;
+  --ink:#edf3ff; --muted:#9aabc7; --secondary:#9aabc7; --border:#293956;
+}
+body {
+  background:
+    radial-gradient(ellipse at 8% 0%, light-dark(#d5e3ff 0%, #18294a 0%, transparent 43%), transparent 45%),
+    radial-gradient(ellipse at 100% 12%, light-dark(#e4e8ff 0%, #211f49 0%, transparent 35%), transparent 38%),
+    var(--page);
+}
+.header {
+  min-height:68px;
+  padding-inline:24px;
+  border-bottom:1px solid var(--border);
+  background:color-mix(in srgb,var(--panel) 88%,transparent);
+  box-shadow:0 8px 30px light-dark(#1d37620d,#00000030);
+  backdrop-filter:blur(18px) saturate(145%);
+}
+.brand { font-size:22px; font-weight:760; letter-spacing:-.055em; }
+.main-workspace { gap:14px; padding:14px; border:0; }
+.sidebar,.parts-sidebar,.settings-sidebar {
+  border:1px solid var(--border);
+  border-radius:16px;
+  box-shadow:0 10px 28px light-dark(#1b37620b,#00000028);
+  overflow:hidden;
+}
+.panel-title { padding:17px 18px 14px; }
+.panel-title h2 { font-size:13px; font-weight:750; letter-spacing:.01em; }
+.parts-list { padding:0 8px; }
+.part-row { margin:3px 0; padding:8px 10px; border:1px solid transparent; border-left:3px solid transparent; border-radius:10px; }
+.part-row.selected {
+  border-color:color-mix(in srgb,var(--accent) 25%,var(--border));
+  border-left-color:var(--accent);
+  background:var(--selected);
+}
+.canvas-wrap {
+  border:1px solid var(--border);
+  border-radius:16px;
+  overflow:hidden;
+  box-shadow:inset 0 1px 0 light-dark(#ffffffcc,#ffffff08),0 12px 32px light-dark(#1b37620c,#00000025);
+  background-color:var(--panel-soft);
+}
+.canvas-wrap>.canvas-tools {
+  border:1px solid var(--border);
+  border-radius:13px;
+  padding:5px;
+  background:color-mix(in srgb,var(--panel) 94%,transparent);
+  box-shadow:0 10px 28px light-dark(#1b37621a,#00000045);
+  backdrop-filter:blur(14px);
+}
+.statusbar,.result-details {
+  border:1px solid var(--border);
+  border-radius:14px;
+  background:var(--panel);
+  box-shadow:0 8px 24px light-dark(#1b37620a,#00000025);
+}
+.statusbar { margin:0 14px 14px; padding:12px 18px; }
+.auth-screen {
+  background:
+    radial-gradient(ellipse at 14% 8%,light-dark(#d2e1ffb8,#192b4caa),transparent 44%),
+    radial-gradient(ellipse at 90% 85%,light-dark(#e2e7ff99,#211f49aa),transparent 38%),
+    var(--page);
+}
+.auth-card {
+  border:1px solid var(--border);
+  border-radius:24px;
+  padding:32px;
+  background:color-mix(in srgb,var(--panel) 96%,transparent);
+  box-shadow:0 26px 80px light-dark(#203c681c,#00000050);
+}
+.admin-page .admin-topbar,.admin-page .admin-sidebar {
+  background:color-mix(in srgb,var(--panel) 91%,transparent);
+  border-color:var(--border);
+  backdrop-filter:blur(16px);
+}
+.admin-page .admin-card,.admin-page .admin-metric,.admin-page .admin-section,.admin-page .admin-panel {
+  border:1px solid var(--border);
+  border-radius:16px;
+  box-shadow:0 10px 28px light-dark(#1b37620a,#00000030);
+}
+#root button:not(:disabled) { transition:transform .16s ease,background-color .16s ease,border-color .16s ease,box-shadow .16s ease; }
+#root button:not(.primary):not(:disabled):hover { transform:translateY(-1px); }
+#root :is(button.primary,.primary,.download-button,.run-button) {
+  background:linear-gradient(135deg,#4779ff,#315efb)!important;
+  border-color:transparent!important;
+  color:#fff!important;
+  box-shadow:0 6px 18px light-dark(#315efb30,#00000038)!important;
+}
+#root :is(button.primary,.primary,.download-button,.run-button):hover:enabled {
+  background:linear-gradient(135deg,#3769f1,#244de0)!important;
+  box-shadow:0 8px 22px light-dark(#315efb40,#00000048)!important;
+}
+@media (max-width:760px) {
+  .main-workspace { padding:7px; gap:7px; }
+  .sidebar,.parts-sidebar,.settings-sidebar { border-radius:12px; }
+  .statusbar { margin:0 7px 7px; padding:9px 12px; }
+  .auth-card { padding:22px; border-radius:18px; }
+}
