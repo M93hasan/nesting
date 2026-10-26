@@ -975,7 +975,7 @@ small,.muted{color:var(--muted)}
 #root .result-mode button[aria-pressed=true]:hover:enabled,
 #root .canvas-tools button[aria-pressed=true]:hover:enabled{background:var(--brand-gradient-hover)!important}
 
-#root :is(.header nav .nav-action,.header nav .theme-toggle,.panel-title button,.part-select,.text-button):hover:enabled {
+#root :is(.header nav .nav-action,.panel-title button,.part-select,.text-button):hover:enabled {
   background:var(--hover)!important;color:var(--ink)!important;box-shadow:none!important;
 }
 #root button.part-select[aria-pressed=true]{background:transparent!important;color:var(--ink)!important;border-color:transparent!important;box-shadow:none!important}
@@ -1145,7 +1145,7 @@ label{color:var(--muted)}
   .statusbar{border-radius:16px;padding:10px;gap:8px;min-height:0;bottom:8px}
   .run-controls{width:auto}.metrics strong{font-size:16px}.metrics{gap:12px}
   #root button,#root a.button{min-height:44px}
-  .header nav .theme-toggle{width:44px}.statusbar>.run-status{font-size:10px}
+  .statusbar>.run-status{font-size:10px}
   .modal,.auth-card{border-radius:20px}.modal{padding:20px}
 }
 @media(prefers-reduced-motion:reduce){
@@ -1521,10 +1521,6 @@ body :where(*):not(:where(svg, svg *)) {
 .appearance-color>input[type=color]::-webkit-color-swatch-wrapper{padding:3px}
 .appearance-color>input[type=color]::-webkit-color-swatch{border:0;border-radius:5px}
 .appearance-color output{color:var(--muted);font-variant-numeric:tabular-nums;direction:ltr}
-.appearance-presets{display:flex;flex-wrap:wrap;gap:10px;margin:0;padding:12px;border:1px solid var(--border);border-radius:14px}
-.appearance-presets legend{padding:0 5px;color:var(--muted)}
-.appearance-presets button{display:flex;align-items:center;gap:9px;min-height:44px}
-#root .appearance-presets button[aria-pressed=true]{border-color:var(--accent)!important;outline:1px solid var(--accent);outline-offset:1px}
 .appearance-swatch{display:grid;place-items:center;width:28px;height:28px;border-radius:7px;border:1px solid var(--hover-border)}
 .appearance-swatch>span{display:block;width:16px;height:16px;border-radius:4px;border:1px solid var(--hover-border)}
 .appearance-sample{padding:24px;border:1px solid var(--border);border-radius:16px}
@@ -1534,15 +1530,6 @@ body :where(*):not(:where(svg, svg *)) {
 .appearance-preview-status{color:var(--accent)}
 .appearance-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px}
 @media(max-width:699px){.appearance-color-grid{grid-template-columns:minmax(0,1fr)}.appearance-actions button{min-height:44px}.appearance-sample{padding:12px}}
-
-
-
-
-.button-style-editor select,
-
-
-
-.custom-css-editor>p{color:var(--muted);line-height:1.6}
 
 
 
@@ -1975,14 +1962,6 @@ a { text-underline-offset: 3px; }
 #root .cad-snapping > div {
   border-radius: var(--lg-radius-floating);
 }
-
-/* Appearance editor: keep the real color controls native and give the form a calm hierarchy. */
-#root .appearance-settings,
-#root .button-style-editor,
-#root .custom-css-editor,
-#root .appearance-presets {
-  border-color: var(--border);
-}
 #root .appearance-color,
 #root 
 #root .appearance-color:focus-within {
@@ -1992,10 +1971,6 @@ a { text-underline-offset: 3px; }
 #root .appearance-sample,
 #root .appearance-sample > div {
   border-color: var(--lg-glass-border);
-}
-#root .appearance-presets button[aria-pressed=true] {
-  background: var(--selected);
-  border-color: var(--accent);
 }
 
 /* Narrow screens: tool groups remain usable and never demand glass blur for contrast. */
@@ -2014,16 +1989,6 @@ a { text-underline-offset: 3px; }
     min-height: 42px;
   }
 }
-
-
-/* Phase 5: accessibility and regression safeguards for the added controls. */
-#root .admin-sidebar nav button:focus-visible,
-#root .canvas-tools button:focus-visible,
-#root .appearance-presets button:focus-visible,
-#root .appearance-color :is(input, button):focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
 @media (prefers-reduced-motion: reduce) {
   #root .admin-sidebar nav button,
   #root .admin-page :is(.admin-metric, .admin-card, .admin-user-row),
@@ -2033,20 +1998,8 @@ a { text-underline-offset: 3px; }
   }
 }
 @media (prefers-contrast: more) {
-  #root .admin-sidebar nav button,
-  #root .canvas-tools button,
-  #root .appearance-presets button,
-  #root .appearance-color {
-    border-color: var(--ink);
-  }
 }
 @media (forced-colors: active) {
-  #root .admin-sidebar nav button:focus-visible,
-  #root .canvas-tools button:focus-visible,
-  #root .appearance-presets button:focus-visible,
-  #root .appearance-color :is(input, button):focus-visible {
-    outline: 2px solid Highlight;
-  }
 }
 
 
@@ -2092,17 +2045,6 @@ a { text-underline-offset: 3px; }
 #root :is(button.primary, .primary, .user-panel .button):not(:disabled):hover {
   filter: brightness(1.06);
   box-shadow: inset 0 1px 0 #ffffff66, 0 8px 24px var(--lg-primary-glow);
-}
-#root :is(.admin-topbar, .admin-sidebar, .admin-card, .admin-metric, .admin-user-row,
-  .admin-table, .admin-security-note, .admin-panel, .admin-section, .modal,
-  .appearance-settings, .button-style-editor, .custom-css-editor, .appearance-presets,
-  .result-details, .settings, .part-settings, .panel-title, .result-mode) {
-  border-color: var(--lg-glass-border);
-  background-color: var(--lg-surface);
-  -webkit-backdrop-filter: blur(var(--lg-glass-blur)) saturate(1.12);
-  backdrop-filter: blur(var(--lg-glass-blur)) saturate(1.12);
-  box-shadow: 0 8px 26px color-mix(in srgb, var(--ink) 7%, transparent),
-    inset 0 1px 0 color-mix(in srgb, white 12%, transparent);
 }
 #root .admin-sidebar { background: var(--lg-surface-raised); }
 #root .admin-page .admin-card,
