@@ -9,7 +9,9 @@ Serula Nesting Pro; rulo ve plaka malzemelerdeki parçaları gerçek konturları
 
 ## Görsel ve video
 
-Canlı arayüzü doğrudan [serula.site](https://serula.site/) adresinden açabilirsiniz. Depoda henüz doğrulanmış bir uygulama ekran görüntüsü bulunmadığından, README'de bozuk veya temsili bir ekran görüntüsü göstermiyoruz.
+![Serula Nesting Studio tanıtım görseli](web/public/sparrow-studio-social.png)
+
+Canlı uygulamayı [serula.site](https://serula.site/) adresinden açabilirsiniz.
 
 ### Uygulama tanıtım videosu
 
