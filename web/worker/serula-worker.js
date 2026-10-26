@@ -432,6 +432,18 @@ async function handleApi(request,env){
     await audit(env,'password_changed',{actorType:'user',actorUserId:reset.user_id,targetUserId:reset.user_id});
     return json({ok:true});
   }
+  if(path==='/api/auth/change-password'&&request.method==='POST'){
+    const user=await sessionUser(request,env);
+    if(!user)return json({error:'Parola değiştirmek için giriş yapmalısınız.'},401);
+    const data=await body(request),currentPassword=String(data.currentPassword||''),newPassword=String(data.newPassword||'');
+    if(!passwordOk(newPassword))return json({error:'Yeni parola en az 8 karakter olmalı.'},400);
+    const stored=await env.DB.prepare('SELECT password_hash FROM users WHERE id=?').bind(user.id).first();
+    if(!stored?.password_hash||!await verifyPassword(currentPassword,stored.password_hash))return json({error:'Mevcut parola hatalı.'},400);
+    await env.DB.prepare('UPDATE users SET password_hash=? WHERE id=?').bind(await hashPassword(newPassword),user.id).run();
+    await env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(user.id).run();
+    await audit(env,'password_changed',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:'Kullanıcı ayarlardan parolasını değiştirdi'});
+    return json({ok:true},200,{'set-cookie':cookie(await makeSession(user.id,env))});
+  }
   if(path==='/api/preferences'&&request.method==='GET'){
     const user=await sessionUser(request,env);if(!user)return json({locale:null},401);
     const row=await env.DB.prepare('SELECT locale FROM user_preferences WHERE user_id=?').bind(user.id).first();

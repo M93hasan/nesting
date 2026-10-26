@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#121421"><title>Serula · Ayarlar</title>
+<link rel="stylesheet" href="/theme/index.css">
+<style>
+:root{color-scheme:dark}body{margin:0;background:var(--appearance-background,#121421);color:#f4f6fb;font:15px/1.5 Inter,ui-sans-serif,system-ui,sans-serif}
+main{max-width:900px;margin:auto;padding:32px 20px 64px}.top{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:28px}.brand{font-size:20px;font-weight:750}.back{color:#c8d5ff;text-decoration:none}.intro h1{font-size:clamp(30px,5vw,42px);letter-spacing:-.04em;margin:8px 0}.intro p,.muted{color:#aeb8cc}.card{margin-top:18px;padding:22px;border:1px solid #ffffff1c;border-radius:18px;background:var(--appearance-panel,#242935)}.card h2{font-size:18px;margin:0 0 6px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:15px;margin-top:18px}label{display:grid;gap:7px;color:#cbd3e2;font-size:13px}input,select{width:100%;box-sizing:border-box;background:#10131d;color:#f4f6fb;border:1px solid #ffffff2a;border-radius:10px;padding:11px;font:inherit}button,.button{display:inline-flex;align-items:center;justify-content:center;border:1px solid #ffffff28;border-radius:10px;padding:10px 14px;background:#ffffff10;color:#fff;text-decoration:none;font:inherit;font-weight:650;cursor:pointer}.primary{background:#dce5ff;color:#161b2a;border-color:transparent}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}.notice{min-height:1.4em;color:#b8e7c5;font-size:13px}.hint{font-size:12px;color:#aeb8cc;margin-top:10px}
+</style>
+</head>
+<body><main>
+<header class="top"><div class="brand">Serula <span class="muted">/ Ayarlar</span></div><a class="back" href="/">← Çalışma alanına dön</a></header>
+<section class="intro"><div class="muted">Kişisel tercihler</div><h1>Ayarlar</h1><p>Görünüm ve yeni çalışmalar için varsayılan değerleri buradan belirleyin. Bu tercihler bu tarayıcıda saklanır.</p></section>
+<section class="card"><h2>Görünüm ve birimler</h2><p class="muted">Serula'nın görünümünü ve ölçü birimini seçin.</p><div class="grid">
+<label>Tema<select id="theme"><option value="dark">Koyu</option><option value="light">Açık</option><option value="system">Sistem</option></select></label>
+<label>Ölçü birimi<select id="units"><option value="mm">Milimetre (mm)</option><option value="in">İnç (in)</option></select></label>
+</div></section>
+<section class="card"><h2>Yeni çalışmaların varsayılanları</h2><p class="muted">Yeni proje açıldığında başlangıçta kullanılacak değerler.</p><div class="grid">
+<label>Malzeme tipi<select id="materialType"><option value="roll">Rulo</option><option value="sheet">Plaka</option></select></label>
+<label>Malzeme genişliği (mm)<input id="materialWidthMm" type="number" min="1" max="100000" step="1"></label>
+<label>Parçalar arası boşluk (mm)<input id="clearanceMm" type="number" min="0" max="1000" step="0.1"></label>
+<label>Yerleştirme süresi<select id="timeLimitSeconds"><option value="10">10 saniye</option><option value="30">30 saniye</option><option value="60">1 dakika</option><option value="120">2 dakika</option><option value="300">5 dakika</option><option value="600">10 dakika</option></select></label>
+<label>Solver profili<select id="solverPreset"><option value="standard">Standart</option><option value="fast">Hızlı</option></select></label>
+<label>Benzer parçaları grupla<select id="groupSimilarParts"><option value="true">Açık</option><option value="false">Kapalı</option></select></label>
+</div><div class="actions"><button class="primary" id="save">Ayarları kaydet</button><button id="reset">Varsayılanlara dön</button></div><p id="notice" class="notice" role="status"></p><p class="hint">Kaydedilen varsayılanlar bu tarayıcıdaki yeni çalışmalar içindir; mevcut açık projenin değerlerini değiştirmez.</p></section>
+<section class="card"><h2>Parola</h2><p class="muted">Mevcut parolanızı doğrulayarak yeni bir parola belirleyin. En az 8 karakter kullanın.</p><form id="passwordForm"><div class="grid"><label>Mevcut parola<input id="currentPassword" type="password" autocomplete="current-password" required></label><label>Yeni parola<input id="newPassword" type="password" minlength="8" autocomplete="new-password" required></label><label>Yeni parola (tekrar)<input id="confirmPassword" type="password" minlength="8" autocomplete="new-password" required></label></div><div class="actions"><button class="primary" id="changePassword" type="submit">Parolayı değiştir</button></div></form><p id="passwordNotice" class="notice" role="status"></p></section>
+</main>
+<script>
+const defaults={materialType:'roll',materialWidthMm:1400,clearanceMm:0,timeLimitSeconds:30,solverPreset:'standard',groupSimilarParts:true};
+const $=id=>document.getElementById(id);
+function load(){let saved={};try{saved=JSON.parse(localStorage.getItem('serula-default-settings')||'{}')}catch{};const values={...defaults,...saved};$('theme').value=localStorage.getItem('serula-theme')||'dark';$('units').value=localStorage.getItem('serula-units')||'mm';for(const key of Object.keys(defaults))$(key).value=String(values[key]);}
+$('save').addEventListener('click',()=>{const width=Number($('materialWidthMm').value),clearance=Number($('clearanceMm').value);if(!Number.isFinite(width)||width<1||width>100000||!Number.isFinite(clearance)||clearance<0||clearance>1000){$('notice').textContent='Genişlik ve boşluk değerlerini kontrol edin.';return;}localStorage.setItem('serula-theme',$('theme').value);localStorage.setItem('serula-units',$('units').value);const settings={materialType:$('materialType').value,materialWidthMm:width,clearanceMm:clearance,timeLimitSeconds:Number($('timeLimitSeconds').value),solverPreset:$('solverPreset').value,groupSimilarParts:$('groupSimilarParts').value==='true'};localStorage.setItem('serula-default-settings',JSON.stringify(settings));$('notice').textContent='Tercihler bu tarayıcıya kaydedildi. Yeni çalışma varsayılanlarının uygulamaya bağlanması için ana uygulama entegrasyonu gerekir.';});
+$('reset').addEventListener('click',()=>{localStorage.removeItem('serula-default-settings');localStorage.setItem('serula-theme','dark');localStorage.setItem('serula-units','mm');load();$('notice').textContent='Varsayılan tercihler geri yüklendi.';});
+$('passwordForm').addEventListener('submit',async event=>{event.preventDefault();const currentPassword=$('currentPassword').value,newPassword=$('newPassword').value,confirmPassword=$('confirmPassword').value;const notice=$('passwordNotice');if(newPassword!==confirmPassword){notice.textContent='Yeni parolalar birbiriyle eşleşmiyor.';return;}if(newPassword.length<8){notice.textContent='Yeni parola en az 8 karakter olmalı.';return;}const button=$('changePassword');button.disabled=true;notice.textContent='Parola güncelleniyor…';try{const response=await fetch('/api/auth/change-password',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({currentPassword,newPassword})});const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||'Parola değiştirilemedi.');$('currentPassword').value='';$('newPassword').value='';$('confirmPassword').value='';notice.textContent='Parolanız başarıyla değiştirildi.';}catch(error){notice.textContent=error instanceof Error?error.message:String(error);}finally{button.disabled=false;}});
+load();
+</script></body></html>
