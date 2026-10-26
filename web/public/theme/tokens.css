@@ -1,8 +1,4 @@
-/* Serula unified theme: legacy user overrides, shared design tokens, and Liquid Glass layer. */
-
-/* Kept separate from layout/component styles so the visual system has one explicit owner. */
-
-/* Removed unused legacy .user-panel button/select styles; no app markup references these selectors. */
+/* Single owner for shared design tokens, theme overrides and Liquid Glass refinements. */
 
 /* Serula premium theme — Linear-inspired surfaces, without changing application behavior. */
 :root {
