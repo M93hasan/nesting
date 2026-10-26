@@ -1,4 +1,5 @@
 import { createRoot } from 'react-dom/client';
+import '../../theme/serula.css';
 import App from './App';
 import Admin from './Admin';
 import {AdminGate,UserGate} from './AuthGate';
