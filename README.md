@@ -9,11 +9,9 @@ Serula Nesting Pro; rulo ve plaka malzemelerdeki parçaları gerçek konturları
 
 ## Görsel ve video
 
-### Uygulama ekran görüntüsü
+![Serula Nesting Studio tanıtım görseli](web/public/sparrow-studio-social.png)
 
-Aşağıdaki görseli depoya `web/public/media/re.png` adıyla ekleyin.
-
-![Serula Nesting Pro uygulama ekran görüntüsü](web/public/media/re.png)
+Canlı uygulamayı [serula.site](https://serula.site/) adresinden açabilirsiniz.
 
 ### Uygulama tanıtım videosu
 
@@ -26,7 +24,6 @@ Aşağıdaki görseli depoya `web/public/media/re.png` adıyla ekleyin.
 
 Videonun MP4 kopyası depoda `web/public/media/ve.mp4` adıyla tutulur. GitHub README içinde MP4'ün doğrudan oynatımı her yerde desteklenmediğinden, YouTube bağlantısı da eklenmiştir.
 
-> **Dosyaları nereye koymalısınız?** GitHub deposunda `web/public/media/` klasörünü açın ve dosyaları tam olarak `re.png` ve `ve.mp4` adlarıyla yükleyin. Görsel için PNG veya JPG kullanabilirsiniz; bu README'deki bağlantı `re.png` adını bekler. Video MP4 biçiminde olmalıdır. Dosyalar yüklenmeden görsel/video bağlantıları görüntülenmez.
 
 ## Serula ne işe yarar?
 
