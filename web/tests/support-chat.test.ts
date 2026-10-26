@@ -6,7 +6,7 @@ const admin=readFileSync(new URL('../src/Admin.tsx',import.meta.url),'utf8');
 const app=readFileSync(new URL('../src/App.tsx',import.meta.url),'utf8');
 const main=readFileSync(new URL('../src/main.tsx',import.meta.url),'utf8');
 const supportChat=readFileSync(new URL('../src/components/SupportChat.tsx',import.meta.url),'utf8');
-const adminCss=readFileSync(new URL('../public/theme/admin.css',import.meta.url),'utf8');
+const adminCss=readFileSync(new URL('../public/theme/theme.css',import.meta.url),'utf8');
 const authCss=readFileSync(new URL('../public/theme/auth.css',import.meta.url),'utf8');
 
 test('persistent live support schema and APIs stay wired',()=>{
