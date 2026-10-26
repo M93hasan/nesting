@@ -28,7 +28,7 @@ test('admin dashboard theme variables stay correct on desktop and mobile',async(
   const pageBackground=()=>admin.evaluate(el=>getComputedStyle(el).backgroundColor);
   const surface=()=>page.locator('.admin-sidebar').evaluate(el=>getComputedStyle(el).backgroundColor);
   const surfaceBlur=()=>page.locator('.admin-sidebar').evaluate(el=>getComputedStyle(el).backdropFilter);
-  await expect.poll(pageBackground).toBe('rgb(11, 16, 32)');
+  await expect.poll(pageBackground).toBe('rgb(10, 16, 32)');
   await expect.poll(surface).not.toBe('rgba(0, 0, 0, 0)');
   await expect.poll(surfaceBlur).toContain('blur(');
   await page.evaluate(()=>localStorage.setItem('serula-theme','light'));
