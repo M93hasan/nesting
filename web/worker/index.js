@@ -75,7 +75,7 @@ const passwordOk=p=>typeof p==='string'&&p.length>=8&&p.length<=200;
 function googleLoginPage(){return `<!doctype html>
 <html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Serula - Google ile giriş</title>
-<style>body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#f5f6f8;color:#1f2937}.card{width:min(92vw,380px);background:#fff;border:1px solid #e5e7eb;border-radius:20px;padding:28px;box-shadow:0 18px 50px rgba(0,0,0,.08);text-align:center}.logo{width:72px;height:72px;margin-bottom:12px}.google{display:flex;justify-content:center;margin:22px 0}.error{color:#b91c1c;min-height:22px}.back{display:inline-block;margin-top:8px;color:#374151;text-decoration:none}</style>
+
 <script src="https://accounts.google.com/gsi/client" async defer></script></head>
 <body><main class="card"><img class="logo" src="/serula-logo.svg" alt=""><h1>Serula Nesting</h1><p>Google hesabınızla güvenli şekilde giriş yapın.</p><div id="google" class="google"></div><p id="error" class="error"></p><a class="back" href="/">Geri dön</a></main>
 <script>
