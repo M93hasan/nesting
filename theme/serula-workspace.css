@@ -1,0 +1,102 @@
+/* Workspace surface pass: layout and control styling only; geometry/canvas behavior stays in React. */
+.app {
+  min-height: 100vh;
+  color: var(--serula-text);
+  background: var(--serula-bg);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+  padding: 16px clamp(16px, 2.5vw, 32px);
+  background: var(--serula-surface);
+  border-bottom: 1px solid var(--serula-border);
+}
+.brand-block { min-width: 220px; }
+.brand, .serula-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--serula-text);
+  text-decoration: none;
+}
+.serula-brand img { width: 30px; height: 30px; object-fit: contain; }
+.serula-brand strong { font-size: 1rem; font-weight: 750; letter-spacing: -.035em; }
+.serula-brand span { color: var(--serula-text-muted); font-size: .78rem; }
+.tagline { margin: 5px 0 0; color: var(--serula-text-muted); font-size: .82rem; }
+.header-primary { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.project-status { display: inline-flex; align-items: center; gap: 7px; color: var(--serula-text-muted); font-size: .78rem; }
+.project-status[data-save-state="saved"] { color: #15803d; }
+.project-status[data-save-state="error"], .project-status[data-save-state="unsaved"] { color: #b91c1c; }
+.header nav { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.app button {
+  border: 1px solid var(--serula-border);
+  border-radius: 9px;
+  padding: 8px 12px;
+  min-height: 36px;
+  background: var(--serula-surface);
+  color: var(--serula-text);
+  font-weight: 600;
+  cursor: pointer;
+}
+.app button:hover:not(:disabled) { background: var(--serula-surface-muted); border-color: #c5cbd5; }
+.app button:disabled { opacity: .52; cursor: not-allowed; }
+.app button.primary, .app .run-button, .app .download-button {
+  color: #fff;
+  background: var(--serula-accent);
+  border-color: var(--serula-accent);
+}
+.app button.primary:hover:not(:disabled), .app .run-button:hover:not(:disabled), .app .download-button:hover:not(:disabled) {
+  color: #fff; background: var(--serula-accent-hover); border-color: var(--serula-accent-hover);
+}
+.app input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.app select, .app textarea {
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid var(--serula-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: var(--serula-text);
+  background: var(--serula-surface);
+}
+.app input:focus-visible, .app select:focus-visible, .app textarea:focus-visible, .app button:focus-visible {
+  outline: 2px solid var(--serula-focus);
+  outline-offset: 2px;
+}
+.main-workspace { min-width: 0; }
+.panel-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.panel-title h2, .panel-title h3 { margin: 0; font-size: .95rem; font-weight: 700; letter-spacing: -.02em; }
+.panel-title-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+.drawing-panel, .material-panel, .part-settings, .settings.material-settings {
+  min-width: 0;
+  border-color: var(--serula-border);
+  border-radius: var(--serula-radius-md);
+}
+.canvas-wrap { min-width: 0; overflow: hidden; border: 1px solid var(--serula-border); border-radius: var(--serula-radius-md); background: #fff; }
+.canvas-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 9px 12px; border-bottom: 1px solid var(--serula-border); background: #fff; }
+.canvas-wrap svg { touch-action: none; }
+.app .danger-button { color: #b91c1c; border-color: #fecaca; background: #fff; }
+.app .danger-button:hover:not(:disabled) { background: #fef2f2; border-color: #fca5a5; }
+.app .text-button { border-color: transparent; background: transparent; }
+.app .history-tab, .app .test-dxf-tab { background: var(--serula-surface-muted); }
+.app dialog, .app [role="dialog"] { border-color: var(--serula-border); border-radius: 16px; box-shadow: 0 24px 70px rgb(15 23 42 / 18%); }
+@media (max-width: 900px) {
+  .header { align-items: flex-start; }
+  .header nav { width: 100%; }
+  .header-primary { flex: 1 1 280px; }
+}
+@media (max-width: 560px) {
+  .header { padding: 13px 12px; gap: 12px; }
+  .brand-block { min-width: 0; width: 100%; }
+  .header-primary { width: 100%; gap: 7px; }
+  .header nav { gap: 6px; }
+  .header nav button { flex: 1 1 auto; }
+  .tagline { font-size: .76rem; }
+  .project-status { font-size: .72rem; }
+  .panel-title { align-items: flex-start; }
+  .panel-title-actions { justify-content: flex-end; }
+}
