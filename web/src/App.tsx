@@ -23,7 +23,7 @@ import {isEditableTarget,preparationShortcut} from './geometry/gestures';
 import {applySeriesMultiplier,copyRefsFor,documentPlacements,duplicateCopies,maxSeriesMultiplier,mirrorPlacements,removeCopies,rotatePlacements,rotateToNextOrientation,setPlacementAngles,movePlacements,placementLayoutsEqual,syncQuantity,updatePlacements,withDocumentPlacements,type CopyRef} from './geometry/placements';
 import {LanguageSelect} from './i18n';
 
-const emptyProject=(name='Adsız proje'):Document=>({name,parts:[],settings:{...DEFAULT_SETTINGS}});
+const emptyProject=(name='Adsız proje'):Document=>{let saved:Partial<Document['settings']>={};try{const raw=localStorage.getItem('serula-default-settings');if(raw)saved=JSON.parse(raw) as Partial<Document['settings']>;}catch{/* Tarayıcı depolaması yoksa uygulamanın varsayılanları kullanılır. */}return {name,parts:[],settings:{...DEFAULT_SETTINGS,...saved}};};
 const CLOUD_SAVE_NAME='Serula Nesting En Temiz Hali';
 type ProjectSwitch={document:Document;result?:Result;warnings?:string[];saved?:boolean;nest?:boolean};
 const DEFAULT_ROTATIONS:RotationRule={kind:'discrete',degrees:[0,180]};
