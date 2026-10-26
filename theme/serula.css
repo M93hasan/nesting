@@ -199,3 +199,16 @@ select, textarea {
     to { opacity: 1; transform: translateY(0) scale(1); }
   }
 }
+
+
+/* Match glass tint to the system theme until the user makes an explicit choice. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --serula-glass-bg: rgb(25 28 35 / 84%);
+    --serula-glass-border: rgb(255 255 255 / 12%);
+    --serula-glass-shadow: 0 22px 64px rgb(0 0 0 / 32%), inset 0 1px 0 rgb(255 255 255 / 7%);
+  }
+}
+:root[data-theme="dark"] .auth-screen .auth-card {
+  background: var(--serula-glass-bg);
+}
