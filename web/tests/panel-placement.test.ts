@@ -3,7 +3,7 @@ import {expect,test} from 'vitest';
 
 test('rotation stays in Material and Layout while part properties stay inside Parts',()=>{
   const app=readFileSync(new URL('../src/App.tsx',import.meta.url),'utf8');
-  const styles=readFileSync(new URL('../public/theme/base.css',import.meta.url),'utf8');
+  const styles=readFileSync(new URL('../public/theme/theme.css',import.meta.url),'utf8');
 
   const partsStart=app.indexOf('<aside id="parts-settings"');
   const clearAll=app.indexOf('className="danger-button clear-all-parts"',partsStart);
