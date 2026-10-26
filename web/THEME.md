@@ -12,3 +12,5 @@ The Cloudflare deployment workflow watches changes under `web/**`. When only fil
 - Workspace follow-up: consistent import, run, and export button sizing; clearer left-panel action grouping; tighter material settings spacing and responsive footer wrapping.
 
 - The empty-canvas DXF import action is capped at 220px to match the compact workspace action hierarchy.
+
+- Narrow-phone pass: responsive header, workspace, result metrics, and export actions are stacked at widths of 420px and below.
