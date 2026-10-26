@@ -1,21 +1,17 @@
 import {readFileSync} from 'node:fs';
 import {expect,test} from 'vitest';
 
-test('unified theme is the single imported theme layer',()=>{
+test('legacy theme styles are no longer loaded by application pages',()=>{
   const entry=readFileSync(new URL('../index.html',import.meta.url),'utf8');
-  const main=readFileSync(new URL('../src/main.tsx',import.meta.url),'utf8');
-  const theme=readFileSync(new URL('../public/theme/index.css',import.meta.url),'utf8');
-  expect(entry).toContain('href="/theme/index.css"');
-  expect(main).not.toMatch(/import\s+['"].*\.css['"]/);
-  expect(theme).toContain("@import './theme.css'");
-  expect(entry).not.toContain("import './user-theme.css'");
-  expect(entry).not.toContain("import './premium-theme.css'");
-  expect(entry).not.toContain("import './liquid-glass.css'");
   const googleLogin=readFileSync(new URL('../public/google-login.html',import.meta.url),'utf8');
-  expect(googleLogin).toContain('href="/theme/index.css"');
-  expect(googleLogin).not.toContain('google-login.css');
-  expect(readFileSync(new URL('../public/theme/theme.css',import.meta.url),'utf8')).toContain('body:has(> .card) .card');
-  expect(readFileSync(new URL('../bridge.html',import.meta.url),'utf8')).toContain('href="/theme/index.css"');
+  const settings=readFileSync(new URL('../public/settings.html',import.meta.url),'utf8');
+  const actions=readFileSync(new URL('../public/actions.html',import.meta.url),'utf8');
+  const bridge=readFileSync(new URL('../bridge.html',import.meta.url),'utf8');
+  for(const page of [entry,googleLogin,settings,actions,bridge]){
+    expect(page).not.toContain('/theme/index.css');
+  }
+  expect(settings).not.toContain('<style>');
+  expect(actions).not.toContain('<style>');
 });
 
 test('Liquid Glass is limited to navigation and floating controls with accessible fallbacks',()=>{
