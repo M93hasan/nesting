@@ -12,7 +12,7 @@ test('unified theme is the single imported theme layer',()=>{
   expect(entry).not.toContain("import './premium-theme.css'");
   expect(entry).not.toContain("import './liquid-glass.css'");
   expect(readFileSync(new URL('../public/google-login.html',import.meta.url),'utf8')).toContain('href="/theme/google-login.css"');
-  expect(readFileSync(new URL('../bridge.html',import.meta.url),'utf8')).toContain('href="/theme/base.css"');
+  expect(readFileSync(new URL('../bridge.html',import.meta.url),'utf8')).toContain('href="/theme/index.css"');
 });
 
 test('Liquid Glass is limited to navigation and floating controls with accessible fallbacks',()=>{
