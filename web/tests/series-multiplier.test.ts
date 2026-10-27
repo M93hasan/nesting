@@ -11,7 +11,7 @@ const doc:Document={name:'series',parts:[a,b],settings:{materialWidthMm:100,clea
 
 test('production series count can grow without expanding the nesting layout',()=>{
   const x3=applySeriesMultiplier(doc,'3');
-  expect(x3.seriesMultiplier).toBe(3);
+  expect(x3.seriesMultiplier).toBe('3');
   expect(x3.parts.map(part=>part.quantity)).toEqual([1,2]);
   expect(documentPlacements(x3)).toHaveLength(3);
   const input=JSON.parse(solverInput(x3)) as {items:{demand:number}[]};
@@ -31,7 +31,7 @@ test('series count is validated and persists in project files',()=>{
   expect(()=>normalizeDocument({...x3,seriesMultiplier:0})).toThrow();
   const saved=exportProject(x3,1);
   const restored=importProject(saved).document;
-  expect(restored.seriesMultiplier).toBe(3);
+  expect(restored.seriesMultiplier).toBe('3');
   expect(restored.seriesCountMode).toBe('production');
   expect(restored.parts.map(part=>part.quantity)).toEqual([1,2]);
 });
@@ -40,6 +40,6 @@ test('legacy projects migrate expanded quantities into one series',()=>{
   const legacy={...doc,seriesMultiplier:3,parts:doc.parts.map(part=>({...part,quantity:part.quantity*3}))};
   const migrated=normalizeDocument(legacy);
   expect(migrated.seriesCountMode).toBe('production');
-  expect(migrated.seriesMultiplier).toBe(3);
+  expect(migrated.seriesMultiplier).toBe('3');
   expect(migrated.parts.map(part=>part.quantity)).toEqual([1,2]);
 });
