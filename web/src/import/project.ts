@@ -8,7 +8,7 @@ export function importProject(text:string):ImportReview {
   const data=JSON.parse(text) as Project;
   if(!data||data.schemaVersion!==1)throw Error('Unsupported project schema version. This app reads version 1 only.');
   if(!Number.isSafeInteger(data.revision)||data.revision<0)throw Error('Invalid project revision.');
-  const document=normalizeDocument({name:data.name,parts:data.parts,settings:data.settings,placements:data.placements,seriesMultiplier:data.seriesMultiplier},true);
+  const document=normalizeDocument({name:data.name,parts:data.parts,settings:data.settings,placements:data.placements,seriesMultiplier:data.seriesMultiplier,seriesCountMode:data.seriesCountMode},true);
   const warnings:string[]=[];let result:Result|undefined;
   if(data.result!==undefined) {
     try {
