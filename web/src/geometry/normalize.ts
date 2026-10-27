@@ -77,11 +77,13 @@ export function normalizeDocument(doc: Document, allowEmpty=false): Document {
   if (!s || !Number.isFinite(s.materialWidthMm) || s.materialWidthMm <= 0 || s.materialWidthMm > LIMITS.extent || !Number.isFinite(s.clearanceMm) || s.clearanceMm < 0 || s.clearanceMm >= s.materialWidthMm || (s.timeLimitSeconds!==null && ![10,30,60,120,300,600].includes(s.timeLimitSeconds))) throw Error('Invalid material width, clearance, or run duration.');
   if(s.solverPreset!==undefined&&!['standard','fast'].includes(s.solverPreset))throw Error('Invalid solver preset.');
   if(s.groupSimilarParts!==undefined&&typeof s.groupSimilarParts!=='boolean')throw Error('Invalid similar-part grouping setting.');
-  const seriesMultiplier=doc.seriesMultiplier??1;
-  if(!Number.isSafeInteger(seriesMultiplier)||seriesMultiplier<1)throw Error('Series multiplier must be a positive safe integer.');
-  // Projects saved by older versions expanded every part quantity by the series
-  // count. Migrate those files once to the new model: one layout, many production runs.
-  const legacyMultiplier=doc.seriesCountMode==='production'?1:seriesMultiplier;
+  const seriesMultiplierText=String(doc.seriesMultiplier??1);
+  if(!/^[1-9][0-9]*$/.test(seriesMultiplierText))throw Error('Series multiplier must be a positive whole number.');
+  // Older saved projects stored a small numeric multiplier and expanded every
+  // part quantity. Migrate them once; new production counts are arbitrary-length
+  // decimal strings and do not affect layout size.
+  const legacyMultiplier=doc.seriesCountMode==='production'?1:Number(seriesMultiplierText);
+  if(doc.seriesCountMode!=='production'&&!Number.isSafeInteger(legacyMultiplier))throw Error('Invalid legacy series multiplier.');
   const parts = doc.parts.map(part => normalizePart(legacyMultiplier>1
     ? {...part,quantity:part.quantity/legacyMultiplier}
     : part));
@@ -112,5 +114,5 @@ export function normalizeDocument(doc: Document, allowEmpty=false): Document {
       seen.add(key);
     }
   }
-  return { ...doc, parts, placements: inputPlacements, seriesCountMode:'production' };
+  return { ...doc, seriesMultiplier:seriesMultiplierText==='1'?undefined:seriesMultiplierText, parts, placements: inputPlacements, seriesCountMode:'production' };
 }
