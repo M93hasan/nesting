@@ -31,7 +31,7 @@ export function importProject(text:string):ImportReview {
 }
 
 export function exportProject(document:Document,revision:number,result?:Result):string {
-  const doc=normalizeDocument({name:document.name,parts:document.parts,settings:document.settings,placements:document.placements,seriesMultiplier:document.seriesMultiplier},true);
+  const doc=normalizeDocument({name:document.name,parts:document.parts,settings:document.settings,placements:document.placements,seriesMultiplier:document.seriesMultiplier,seriesCountMode:document.seriesCountMode},true);
   if(!Number.isSafeInteger(revision)||revision<0)throw Error('Invalid project revision.');
   if(result&&result.documentRevision!==revision)throw Error('The result belongs to an older document.');
   if(result) {
