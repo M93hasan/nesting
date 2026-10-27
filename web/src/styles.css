@@ -489,3 +489,113 @@ html[dir="rtl"] body{direction:rtl}html[dir="rtl"] .workspace-svg,html[dir="rtl"
 .group-similar-option>input.checkbox-wrapper-25[type=checkbox]:checked{background-position:0 0,35px 0;padding-left:25px;padding-right:0}
 .group-similar-option>input.checkbox-wrapper-25[type=checkbox]:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 .group-similar-option>input.checkbox-wrapper-25[type=checkbox]:disabled{cursor:not-allowed;opacity:.55}
+
+
+/* About dialog: balanced horizontal dashboard layout instead of a long
+   vertical stack. Keep preferences and downloads in clear side-by-side cards. */
+.modal:has(.about-layout) {
+  width: min(900px, calc(100vw - 40px));
+  max-width: 900px;
+  gap: 18px;
+  padding: 28px;
+}
+.modal:has(.about-layout) > h2:first-child {
+  margin: 0;
+  font-size: 19px;
+  letter-spacing: -.025em;
+}
+.about-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(250px, .92fr);
+  grid-template-areas:
+    "overview preferences"
+    "overview download"
+    "overview bridge";
+  gap: 14px;
+  align-items: stretch;
+}
+.about-layout > section { min-width: 0; }
+.about-overview {
+  grid-area: overview;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--panel) 90%, var(--accent) 10%);
+}
+.about-kicker {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: .13em;
+}
+.about-overview h2 { margin: 0; font-size: clamp(22px, 3vw, 30px); letter-spacing: -.045em; }
+.about-overview p { margin: 0; line-height: 1.6; }
+.about-developer {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: auto !important;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  width: 100%;
+}
+.about-developer strong { font-size: 11px; color: var(--muted); font-weight: 600; }
+.about-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel);
+}
+.about-preferences { grid-area: preferences; }
+.about-download { grid-area: download; }
+.about-bridge { grid-area: bridge; }
+.about-card h3 { margin: 0; font-size: 14px; letter-spacing: -.01em; }
+.about-card p { margin: 0; line-height: 1.5; }
+.about-card label { display: grid; grid-template-columns: 1fr minmax(115px, 48%); align-items: center; gap: 10px; }
+.about-card label select { min-width: 0; width: 100%; }
+.about-card .language-select { grid-template-columns: 1fr minmax(115px, 48%); }
+.about-card-heading { display: flex; align-items: center; gap: 11px; }
+.about-card-heading > div { min-width: 0; }
+.about-card-heading p { color: var(--muted); font-size: 12px; margin-top: 3px; }
+.about-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: var(--selected);
+  color: var(--accent);
+  font-size: 22px;
+}
+.about-download .download-button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 13px;
+  text-decoration: none;
+}
+.about-file-note { font-size: 11px; overflow-wrap: anywhere; }
+.about-bridge > a { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: auto; font-weight: 650; text-decoration: none; }
+.about-bridge > a:hover { text-decoration: underline; }
+.modal:has(.about-layout) .modal-actions { margin-top: 0; }
+@media (max-width: 680px) {
+  .modal:has(.about-layout) { width: calc(100vw - 20px); padding: 16px; max-height: 94dvh; }
+  .about-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "overview" "preferences" "download" "bridge";
+  }
+  .about-overview { padding: 18px; }
+}
