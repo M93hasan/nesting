@@ -18,11 +18,12 @@ test('production series count can grow without expanding the nesting layout',()=
   expect(input.items).toHaveLength(3);
   expect(input.items.every(item=>item.demand===1)).toBe(true);
 
-  const huge=applySeriesMultiplier(x3,1_000_000_000);
-  expect(huge.seriesMultiplier).toBe(1_000_000_000);
+  const hugeCount='12345678901234567890123456789012345678901234567890';
+  const huge=applySeriesMultiplier(x3,hugeCount);
+  expect(huge.seriesMultiplier).toBe(hugeCount);
   expect(huge.parts.map(part=>part.quantity)).toEqual([1,2]);
   expect(documentPlacements(huge)).toHaveLength(3);
-  expect(()=>applySeriesMultiplier(doc,Number.MAX_SAFE_INTEGER+1)).toThrow();
+  expect(()=>applySeriesMultiplier(doc,'0')).toThrow();
 });
 
 test('series count is validated and persists in project files',()=>{
