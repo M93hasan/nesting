@@ -23,3 +23,5 @@ The Cloudflare deployment workflow watches changes under `web/**`. When only fil
 - Empty-canvas DXF import button width is explicitly capped at 220px, with a viewport-aware max-width for narrow screens.
 
 - Selective Liquid Glass is limited to dialogs, authentication cards, and the admin top bar. Canvas and dense editing controls stay opaque for legibility and performance; a non-blurred fallback and reduced-motion-safe entry animation are provided.
+
+- Workspace button placement restored to the existing layout; theme styling and application behavior are unchanged.
