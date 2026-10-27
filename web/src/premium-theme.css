@@ -188,3 +188,116 @@ a { text-underline-offset: 3px; }
   transform: none !important;
   flex: 0 0 18px;
 }
+
+
+/* Shadcn Dashboard-inspired refinement for Serula.
+   Presentation only: no application state, routes, auth, or geometry behavior changes. */
+:root {
+  --radius-card: 12px;
+  --radius-control: 9px;
+  --surface-shadow: 0 1px 2px rgb(0 0 0 / 0.035);
+}
+:root[data-theme="light"] {
+  --page: #f7f8fa;
+  --panel: #ffffff;
+  --panel-soft: #f3f4f8;
+  --panel-raised: #ffffff;
+  --ink: #15161c;
+  --muted: #777d89;
+  --border: #e1e5eb;
+  --accent: #5e6ad2;
+  --accent-hover: #4c58bf;
+  --hover: #f3f4f8;
+  --hover-border: #a0a3ad;
+  --selected: #eef0ff;
+  --secondary: #777d89;
+}
+:root[data-theme="dark"] {
+  --page: #101114;
+  --panel: #191a20;
+  --panel-soft: #15161c;
+  --panel-raised: #15161c;
+  --ink: #f7f8fa;
+  --muted: #a3a3a3;
+  --border: #303238;
+  --accent: #a0a3ad;
+  --accent-hover: #ffffff;
+  --hover: #22232a;
+  --hover-border: #484b5d;
+  --selected: #27283b;
+  --secondary: #a3a3a3;
+}
+:root[data-theme="system"] {
+  color-scheme: light dark;
+}
+:root[data-theme="system"] {
+  --page: light-dark(#f7f8fa, #101114);
+  --panel: light-dark(#ffffff, #191a20);
+  --panel-soft: light-dark(#f3f4f8, #15161c);
+  --panel-raised: light-dark(#ffffff, #15161c);
+  --ink: light-dark(#15161c, #f7f8fa);
+  --muted: light-dark(#777d89, #a3a3a3);
+  --border: light-dark(#e1e5eb, #303238);
+  --accent: light-dark(#5e6ad2, #a0a3ad);
+  --accent-hover: light-dark(#4c58bf, #ffffff);
+  --hover: light-dark(#f3f4f8, #22232a);
+  --hover-border: light-dark(#a0a3ad, #484b5d);
+  --selected: light-dark(#eef0ff, #27283b);
+  --secondary: light-dark(#777d89, #a3a3a3);
+}
+body {
+  background: var(--page);
+  color: var(--ink);
+}
+.header,
+.admin-page .admin-topbar {
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  border-color: var(--border);
+  box-shadow: none;
+  backdrop-filter: blur(18px);
+}
+#root :is(.admin-card, .admin-metric, .admin-panel, .admin-section, .auth-card) {
+  border-color: var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--surface-shadow);
+}
+#root :is(input:not([type=checkbox]):not([type=radio]):not([type=file]), select, textarea) {
+  background-color: var(--panel);
+  color: var(--ink);
+  border-color: var(--border);
+  border-radius: var(--radius-control);
+  box-shadow: none;
+}
+#root :is(input:not([type=checkbox]):not([type=radio]):not([type=file]), select, textarea):focus {
+  border-color: var(--accent);
+  outline: 2px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  outline-offset: 1px;
+}
+#root .admin-sidebar nav button.active {
+  border-radius: 8px;
+  background: var(--selected) !important;
+  color: var(--ink) !important;
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+#root .admin-page .primary,
+#root .user-panel .button {
+  background: var(--ink);
+  color: var(--page);
+  border-color: var(--ink);
+  box-shadow: none;
+}
+#root .admin-page .primary:hover:enabled,
+#root .user-panel .button:hover:enabled {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+#root .user-panel .button::before {
+  background: var(--accent-hover);
+}
+#root :is(button, .admin-card, .admin-metric, .auth-card) {
+  transition: background-color .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease;
+}
+@media (max-width: 760px) {
+  .admin-shell { grid-template-columns: minmax(0, 1fr); }
+  .admin-main { padding: 18px 14px; }
+}
