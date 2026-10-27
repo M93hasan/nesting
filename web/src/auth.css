@@ -47,3 +47,53 @@
 #serula-account-slot .auth-account-dropdown .auth-account-meta{color:var(--muted,#657080)}
 #serula-account-slot .auth-account-dropdown button{position:relative;z-index:1}
 @media(max-width:760px){#serula-account-slot .auth-account-dropdown{z-index:1002;top:64px;right:12px}}
+
+
+/* Definitive profile menu fix: target the exact header control and lift the
+   opened popover out of header/panel stacking and clipping contexts. */
+#serula-account-slot > details > summary {
+  position: relative !important;
+  z-index: 2147483647 !important;
+  color: var(--ink, #18212f) !important;
+  isolation: isolate;
+}
+#serula-account-slot > details[open] {
+  position: static !important;
+  z-index: 2147483646 !important;
+  overflow: visible !important;
+}
+#serula-account-slot > details[open] > .auth-account-dropdown {
+  position: fixed !important;
+  top: 64px !important;
+  right: 16px !important;
+  left: auto !important;
+  z-index: 2147483647 !important;
+  display: grid !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  width: min(320px, calc(100vw - 24px)) !important;
+  max-height: calc(100dvh - 84px) !important;
+  overflow-y: auto !important;
+  color: var(--ink, #18212f) !important;
+  background: var(--panel, #fff) !important;
+  border: 1px solid var(--border, #dfe3ea) !important;
+  box-shadow: 0 18px 48px rgba(0,0,0,.28) !important;
+  isolation: isolate;
+}
+#serula-account-slot > details[open] > .auth-account-dropdown > strong,
+#serula-account-slot > details[open] > .auth-account-dropdown > small,
+#serula-account-slot > details[open] > .auth-account-dropdown .auth-account-meta,
+#serula-account-slot > details[open] > .auth-account-dropdown label,
+#serula-account-slot > details[open] > .auth-account-dropdown select,
+#serula-account-slot > details[open] > .auth-account-dropdown button {
+  position: relative !important;
+  z-index: 1 !important;
+  color: var(--ink, #18212f) !important;
+}
+#serula-account-slot > details[open] > .auth-account-dropdown > small,
+#serula-account-slot > details[open] > .auth-account-dropdown .auth-account-meta {
+  color: var(--muted, #657080) !important;
+}
+#serula-account-slot > details[open] > .auth-account-dropdown button.danger-button {
+  color: #fff !important;
+}
