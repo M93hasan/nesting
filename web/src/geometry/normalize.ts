@@ -79,13 +79,24 @@ export function normalizeDocument(doc: Document, allowEmpty=false): Document {
   if(s.groupSimilarParts!==undefined&&typeof s.groupSimilarParts!=='boolean')throw Error('Invalid similar-part grouping setting.');
   const seriesMultiplier=doc.seriesMultiplier??1;
   if(!Number.isSafeInteger(seriesMultiplier)||seriesMultiplier<1)throw Error('Series multiplier must be a positive safe integer.');
-  const parts = doc.parts.map(normalizePart);
+  // Projects saved by older versions expanded every part quantity by the series
+  // count. Migrate those files once to the new model: one layout, many production runs.
+  const legacyMultiplier=doc.seriesCountMode==='production'?1:seriesMultiplier;
+  const parts = doc.parts.map(part => normalizePart(legacyMultiplier>1
+    ? {...part,quantity:part.quantity/legacyMultiplier}
+    : part));
   if (new Set(parts.map(p=>p.id)).size !== parts.length) throw Error('Part IDs must be unique.');
   if (parts.reduce((n,p)=>n+p.quantity,0) > LIMITS.copies || parts.reduce((n,p)=>n+p.quantity*(p.outer.length+p.holes.reduce((m,h)=>m+h.length,0)),0) > LIMITS.verticesTotal) throw Error('Project exceeds 500 copies or 100,000 demanded vertices.');
-  if (doc.placements !== undefined) {
-    if (!Array.isArray(doc.placements)) throw Error('Placements must be an array.');
+  const inputPlacements=doc.placements!==undefined && legacyMultiplier>1
+    ? doc.placements.filter(placement => {
+        const part=parts.find(item=>item.id===placement?.partId);
+        return !!part && Number.isInteger(placement?.copyIndex) && placement.copyIndex>=0 && placement.copyIndex<part.quantity;
+      })
+    : doc.placements;
+  if (inputPlacements !== undefined) {
+    if (!Array.isArray(inputPlacements)) throw Error('Placements must be an array.');
     const ids = new Set(parts.map(p=>p.id)), seen = new Set<string>();
-    for (const placement of doc.placements as Placement[]) {
+    for (const placement of inputPlacements as Placement[]) {
       if (!placement || typeof placement.partId !== 'string' || !ids.has(placement.partId)
         || !Number.isInteger(placement.copyIndex) || placement.copyIndex < 0
         || !Number.isFinite(placement.xMm) || !Number.isFinite(placement.yMm)
@@ -100,5 +111,5 @@ export function normalizeDocument(doc: Document, allowEmpty=false): Document {
       seen.add(key);
     }
   }
-  return { ...doc, parts };
+  return { ...doc, parts, placements: inputPlacements, seriesCountMode:'production' };
 }
