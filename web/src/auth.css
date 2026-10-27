@@ -97,3 +97,32 @@
 #serula-account-slot > details[open] > .auth-account-dropdown button.danger-button {
   color: #fff !important;
 }
+
+
+/* Keep the open profile menu above the entire workspace, including the
+   material/layout sidebar. The header blur creates a containing/stacking
+   context, so disable it only while the profile details are open. */
+.app > .header:has(#serula-account-slot > details[open]) {
+  position: relative !important;
+  z-index: 2147483000 !important;
+  overflow: visible !important;
+  isolation: auto !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+.app > .header:has(#serula-account-slot > details[open]) #serula-account-slot {
+  position: relative !important;
+  z-index: 2147483001 !important;
+  overflow: visible !important;
+}
+.app > .header:has(#serula-account-slot > details[open]) #serula-account-slot > details[open] > .auth-account-dropdown {
+  position: fixed !important;
+  top: 64px !important;
+  right: 16px !important;
+  z-index: 2147483007 !important;
+  transform: none !important;
+}
+.app > .main-workspace > .material-panel {
+  position: relative;
+  z-index: 1;
+}
