@@ -87,6 +87,7 @@ export function normalizeDocument(doc: Document, allowEmpty=false): Document {
     : part));
   if (new Set(parts.map(p=>p.id)).size !== parts.length) throw Error('Part IDs must be unique.');
   if (parts.reduce((n,p)=>n+p.quantity,0) > LIMITS.copies || parts.reduce((n,p)=>n+p.quantity*(p.outer.length+p.holes.reduce((m,h)=>m+h.length,0)),0) > LIMITS.verticesTotal) throw Error('Project exceeds 500 copies or 100,000 demanded vertices.');
+  if(doc.placements!==undefined&&!Array.isArray(doc.placements))throw Error('Placements must be an array.');
   const inputPlacements=doc.placements!==undefined && legacyMultiplier>1
     ? doc.placements.filter(placement => {
         const part=parts.find(item=>item.id===placement?.partId);
