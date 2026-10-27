@@ -32,3 +32,18 @@
 }
 
 .auth-card input:not([type=checkbox]):not([type=radio]){background:light-dark(#f1efff,#29253d);border:none;border-radius:1rem;color:light-dark(#5a4be7,#c7c0ff);box-shadow:0 .3rem light-dark(#dcd5f5,#191625);padding:.85rem .95rem}.auth-card input:focus{outline:2px solid #8a7bff;outline-offset:2px}
+
+/* Fix: keep the profile popover above page panels and give every item a readable foreground. */
+#serula-account-slot{position:relative;z-index:1000;isolation:isolate;overflow:visible}
+#serula-account-slot .auth-account-menu{position:relative;z-index:1000;overflow:visible}
+#serula-account-slot .auth-account-menu[open]{z-index:1001}
+#serula-account-slot .auth-account-dropdown{z-index:1002;isolation:isolate;opacity:1;visibility:visible;color:var(--ink,#18212f);background:var(--panel,#fff);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);}
+#serula-account-slot .auth-account-dropdown>strong,
+#serula-account-slot .auth-account-dropdown>small,
+#serula-account-slot .auth-account-dropdown .auth-account-meta,
+#serula-account-slot .auth-account-dropdown label,
+#serula-account-slot .auth-account-dropdown select{position:relative;z-index:1;color:var(--ink,#18212f)}
+#serula-account-slot .auth-account-dropdown>small,
+#serula-account-slot .auth-account-dropdown .auth-account-meta{color:var(--muted,#657080)}
+#serula-account-slot .auth-account-dropdown button{position:relative;z-index:1}
+@media(max-width:760px){#serula-account-slot .auth-account-dropdown{z-index:1002;top:64px;right:12px}}
