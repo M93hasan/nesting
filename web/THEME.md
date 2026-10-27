@@ -21,3 +21,5 @@ The Cloudflare deployment workflow watches changes under `web/**`. When only fil
 - Follow-up verification fix: admin sign-in/loading cards expose the same persisted light/dark theme toggle; empty-canvas DXF button and wrapper both have explicit 220px width constraints.
 
 - Empty-canvas DXF import button width is explicitly capped at 220px, with a viewport-aware max-width for narrow screens.
+
+- Selective Liquid Glass is limited to dialogs, authentication cards, and the admin top bar. Canvas and dense editing controls stay opaque for legibility and performance; a non-blurred fallback and reduced-motion-safe entry animation are provided.
