@@ -10,7 +10,7 @@ const b={...newPart([[0,0],[20,0],[20,5],[0,5]],'B'),id:'b',quantity:2};
 const doc:Document={name:'series',parts:[a,b],settings:{materialWidthMm:100,clearanceMm:0,timeLimitSeconds:30}};
 
 test('production series count can grow without expanding the nesting layout',()=>{
-  const x3=applySeriesMultiplier(doc,3);
+  const x3=applySeriesMultiplier(doc,'3');
   expect(x3.seriesMultiplier).toBe(3);
   expect(x3.parts.map(part=>part.quantity)).toEqual([1,2]);
   expect(documentPlacements(x3)).toHaveLength(3);
@@ -27,7 +27,7 @@ test('production series count can grow without expanding the nesting layout',()=
 });
 
 test('series count is validated and persists in project files',()=>{
-  const x3=applySeriesMultiplier(doc,3);
+  const x3=applySeriesMultiplier(doc,'3');
   expect(()=>normalizeDocument({...x3,seriesMultiplier:0})).toThrow();
   const saved=exportProject(x3,1);
   const restored=importProject(saved).document;
