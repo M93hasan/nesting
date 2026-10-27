@@ -106,3 +106,5 @@ python3 web/scripts/generate-notices.py --check
 ```
 
 See [the notices audit](../notes/notices-audit.md) for exact upstream packaging gaps and source availability. The public sparrow-studio repository contains the application and WASM bridge; exact upstream dependency sources are linked in the notices. Preserve the notice files when publishing, and verify their deployed relative links.
+
+<!-- Production redeploy trigger after restoring the 24-10 release; application files remain unchanged. -->
