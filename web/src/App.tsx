@@ -184,7 +184,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     const value=Number(raw);
     if(value===seriesMultiplier)return;
     if(!Number.isSafeInteger(value)||value<1){setError('Seri adedi 1 veya daha büyük bir tam sayı olmalıdır.');return;}
-    try{commit(applySeriesMultiplier(doc,value),true,'series-multiplier',true)}
+    try{commit(applySeriesMultiplier(doc,value),false,'series-multiplier')}
     catch(error){setError(error instanceof Error?error.message:String(error))}
   };
   const canvasDocument=useMemo(()=>visibleResult?{...doc,placements:visibleResult.placements}:doc,[doc,visibleResult]);
@@ -242,9 +242,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     if(!placementLayoutsEqual(doc,next)) setDoc(next);
   },[running,result,doc]);
   useEffect(()=>{if(!running&&result)setResultMode('checked');},[running,result]);
-  function commit(next:Document,geometry=true,field?:string,preserveSeries=false) {
-    const quantityStructureChanged=next.parts.length!==doc.parts.length||next.parts.some((part,index)=>doc.parts[index]?.id!==part.id||doc.parts[index]?.quantity!==part.quantity);
-    if(!preserveSeries&&quantityStructureChanged&&(doc.seriesMultiplier??1)!==1)next={...next,seriesMultiplier:undefined};
+  function commit(next:Document,geometry=true,field?:string) {
     const parts=new Map(next.parts.map(part=>[part.id,part]));
     const placements=next.placements?.filter(copy=>parts.has(copy.partId)&&copy.copyIndex<(Number.isInteger(parts.get(copy.partId)!.quantity)?Math.max(0,parts.get(copy.partId)!.quantity):1));
     let canonical:Document;
