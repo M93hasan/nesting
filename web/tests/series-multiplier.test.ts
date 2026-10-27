@@ -31,5 +31,14 @@ test('series count is validated and persists in project files',()=>{
   const saved=exportProject(x3,1);
   const restored=importProject(saved).document;
   expect(restored.seriesMultiplier).toBe(3);
+  expect(restored.seriesCountMode).toBe('production');
   expect(restored.parts.map(part=>part.quantity)).toEqual([1,2]);
+});
+
+test('legacy projects migrate expanded quantities into one series',()=>{
+  const legacy={...doc,seriesMultiplier:3,parts:doc.parts.map(part=>({...part,quantity:part.quantity*3}))};
+  const migrated=normalizeDocument(legacy);
+  expect(migrated.seriesCountMode).toBe('production');
+  expect(migrated.seriesMultiplier).toBe(3);
+  expect(migrated.parts.map(part=>part.quantity)).toEqual([1,2]);
 });
