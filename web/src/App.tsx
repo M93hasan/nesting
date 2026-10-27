@@ -176,15 +176,14 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const showingLive=resultMode==='live'&&!!live;
   const selected=useMemo(()=>[...new Set([...selectedCopies.map(copy=>copy.partId),...unusedSelection])],[selectedCopies,unusedSelection]);
   const visibleResult=showingLive?live?.result:result;
-  const seriesMultiplier=doc.seriesMultiplier??1;
+  const seriesMultiplier=String(doc.seriesMultiplier??1);
   const finishSeriesEdit=()=>{
     const raw=(seriesDraft??String(seriesMultiplier)).trim();
     setSeriesDraft(undefined);
     if(!/^\d+$/.test(raw))return;
-    const value=Number(raw);
-    if(value===seriesMultiplier)return;
-    if(!Number.isSafeInteger(value)||value<1){setError('Seri adedi 1 veya daha büyük bir tam sayı olmalıdır.');return;}
-    try{commit(applySeriesMultiplier(doc,value),false,'series-multiplier')}
+    if(!/^[1-9][0-9]*$/.test(raw)){setError('Seri adedi 1 veya daha büyük bir tam sayı olmalıdır.');return;}
+    if(raw===seriesMultiplier)return;
+    try{commit(applySeriesMultiplier(doc,raw),false,'series-multiplier')}
     catch(error){setError(error instanceof Error?error.message:String(error))}
   };
   const canvasDocument=useMemo(()=>visibleResult?{...doc,placements:visibleResult.placements}:doc,[doc,visibleResult]);
