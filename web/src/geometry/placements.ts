@@ -166,7 +166,7 @@ export function syncQuantity(document: Document): Document {
 /** The nesting engine places one series only; this value records production runs. */
 export function applySeriesMultiplier(document:Document,next:number):Document {
   if(!Number.isSafeInteger(next)||next<1)throw Error('Seri adedi 1 veya daha büyük bir tam sayı olmalıdır.');
-  return {...document,seriesMultiplier:next===1?undefined:next};
+  return {...document,seriesMultiplier:next===1?undefined:next,seriesCountMode:'production'};
 }
 
 export function samePlacement(a: Placement | undefined, b: Placement | undefined): boolean {
