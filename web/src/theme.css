@@ -332,9 +332,17 @@ body { background: var(--page); color: var(--ink); }
     border-right: 1px solid var(--border);
   }
   :root #root .app > .header .serula-brand img { width: 35px; height: 35px; }
-  :root #root .app > .header .serula-brand strong { font-size: 16px; letter-spacing: -.04em; }
-  :root #root .app > .header .serula-brand > span { font-size: 10px; }
-  :root #root .app > .header .tagline { margin: 0 0 0 45px; font-size: 10px; }
+  :root #root .app > .header .serula-brand {
+    display: grid;
+    grid-template-columns: 35px minmax(0, 1fr);
+    grid-template-rows: 20px 16px;
+    column-gap: 10px;
+    align-items: center;
+  }
+  :root #root .app > .header .serula-brand img { grid-row: 1 / 3; }
+  :root #root .app > .header .serula-brand strong { font-size: 16px; letter-spacing: -.04em; white-space: nowrap; }
+  :root #root .app > .header .serula-brand > span { font-size: 10px; white-space: nowrap; }
+  :root #root .app > .header .tagline { display: none; }
   :root #root .app > .header nav { gap: 6px; margin-left: auto; flex-wrap: nowrap; }
   :root #root .app > .header nav :is(a, button) { min-height: 36px; padding: 7px 10px; }
   :root #root .app > .main-workspace {
