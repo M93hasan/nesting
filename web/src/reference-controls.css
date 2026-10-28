@@ -1,6 +1,6 @@
 /* Adapted from the seven control examples supplied in butonlar.zip.
    Geometry, names, validation and event handlers belong to the existing app. */
-:root{--control-violet:light-dark(#5d41de,#c9bcff);--control-violet-soft:light-dark(#5e41de18,#5e41de33);--control-violet-hover:light-dark(#5e41de2b,#5e41de4d)}
+
 .control-sr-only{position:absolute!important;width:1px!important;height:1px!important;margin:-1px!important;padding:0!important;overflow:hidden!important;clip-path:inset(50%)!important;white-space:nowrap!important;border:0!important}
 
 /* Rocket launch. The gradient and icon movement come from the supplied example. */
@@ -19,7 +19,7 @@
 /* Settings pill. */
 :root #root button.reference-settings,:root #root summary.reference-settings{
   display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:6px 12px;min-height:36px;
-  border:1px solid transparent!important;border-radius:20px;background:var(--control-violet-soft)!important;
+  border:1px solid transparent!important;border-radius:var(--radius-button);background:var(--control-violet-soft)!important;
   color:var(--control-violet)!important;box-shadow:none!important;cursor:pointer;letter-spacing:.015em;
 }
 :root #root button.reference-settings:hover:enabled,:root #root summary.reference-settings:hover{background:var(--control-violet-hover)!important;color:var(--control-violet)!important}
@@ -38,7 +38,7 @@
    using the same violet family while keeping transfer colors independent. */
 :root #root .download-button:not(.corel-transfer-button):not(.rdworks-transfer-button),
 :root #root a.about-download-button{
-  display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:16px;
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:var(--radius-button);
   background:linear-gradient(120deg,#674bcf,#44358b)!important;color:#fff!important;
   border:1px solid #a38bd955!important;box-shadow:0 4px 12px #1c10352a!important;
 }
@@ -52,7 +52,7 @@
 :root #root .rotation-choice .row-actions{gap:7px}
 :root #root .rotation-choice .row-actions button{
   display:flex;align-items:center;justify-content:center;min-height:42px;min-width:0;
-  padding:7px 5px;border-radius:30px;border:1px solid #8f9092!important;
+  padding:7px 5px;border-radius:var(--radius-button);border:1px solid #8f9092!important;
   background:linear-gradient(to top,#d8d9db 0%,#fff 80%,#fdfdfd 100%)!important;
   color:#54565a!important;font-size:12px;font-weight:650;text-shadow:0 1px #fff!important;
   box-shadow:inset 0 1px 0 #fff,0 2px 4px #01051b18!important;

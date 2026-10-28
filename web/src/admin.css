@@ -184,7 +184,7 @@
   filter:drop-shadow(0 2px 4px rgba(0,0,0,.08));
   flex:0 0 auto;
 }
-.switch:focus-within{outline:2px solid var(--admin-accent);outline-offset:3px;border-radius:var(--button-height)}
+.switch:focus-within{outline:2px solid var(--admin-accent);outline-offset:3px;border-radius:var(--radius-button)}
 .switch input{
   position:absolute;
   width:1px!important;
@@ -203,7 +203,7 @@
   inset:0;
   background:light-dark(#e6ebef,#303943);
   border:1px solid var(--admin-border);
-  border-radius:var(--button-height);
+  border-radius:var(--radius-button);
   transition:all .3s ease;
   cursor:pointer;
   overflow:hidden;
@@ -278,7 +278,7 @@
 .admin-conversation-list{border-right:1px solid var(--admin-border);background:var(--admin-surface);overflow:auto}
 .admin-conversation-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 12px;border-bottom:1px solid var(--admin-border);position:sticky;top:0;background:var(--admin-surface);z-index:1}
 .admin-conversation-head button{min-height:30px;padding:4px 9px!important}
-.admin-conversation-list>button{width:100%;display:grid!important;gap:3px!important;text-align:left!important;padding:11px 12px!important;border:0!important;border-bottom:1px solid var(--admin-border)!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;transform:none!important}
+.admin-conversation-list>button{width:100%;display:grid!important;gap:3px!important;text-align:left!important;padding:11px 12px!important;border:0!important;border-bottom:1px solid var(--admin-border)!important;border-radius:var(--radius-button)!important;background:transparent!important;box-shadow:none!important;transform:none!important}
 .admin-conversation-list>button:hover{background:var(--hover)!important}
 .admin-conversation-list>button.active{background:var(--admin-accent-soft)!important}
 .admin-conversation-name{min-width:0}.admin-conversation-name strong{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

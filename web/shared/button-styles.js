@@ -49,7 +49,8 @@ export function parseButtonStyles(value) {
 }
 export function buttonStylesheet(styles) {
   return BUTTON_TARGETS.flatMap(([id,,selector])=>Object.entries(styles?.[id]||{}).map(([state,css])=>{
-    const declarations=validateButtonCss(css).split(';').filter(s=>s.trim()).map(s=>s.replace(/\s*!important\s*$/i,'')+' !important').join(';');
+    // Geometry is shared by every button; keep saved color/state overrides intact.
+    const declarations=validateButtonCss(css).split(';').filter(s=>s.trim()&&!/^\s*border-radius\s*:/i.test(s)).map(s=>s.replace(/\s*!important\s*$/i,'')+' !important').join(';');
     const suffix=state==='hover'?':hover:not(:disabled)':state==='disabled'?':disabled':'';
     return ':root #root '+selector+suffix+'{'+declarations+'}';
   })).join('\n');
