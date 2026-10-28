@@ -31,7 +31,7 @@
   .auth-login-header{min-height:42px;padding:4px 8px}
 }
 
-.auth-card input:not([type=checkbox]):not([type=radio]){background:light-dark(#f1efff,#29253d);border:none;border-radius:1rem;color:light-dark(#5a4be7,#c7c0ff);box-shadow:0 .3rem light-dark(#dcd5f5,#191625);padding:.85rem .95rem}.auth-card input:focus{outline:2px solid #8a7bff;outline-offset:2px}
+.auth-card input:not([type=checkbox]):not([type=radio]){background:var(--panel-soft);border:1px solid var(--border);border-radius:var(--radius-control);color:var(--ink);box-shadow:none;padding:.85rem .95rem}.auth-card input:focus{outline:2px solid var(--accent);outline-offset:2px}
 
 /* Fix: keep the profile popover above page panels and give every item a readable foreground. */
 #serula-account-slot{position:relative;z-index:1000;isolation:isolate;overflow:visible}
