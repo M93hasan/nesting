@@ -81,7 +81,7 @@ jobs:
           npm install --global @lhci/cli@0.15.x
           npm run preview -- --port 4173 > /tmp/serula-preview.log 2>&1 &
           curl --fail --retry 20 --retry-delay 1 --retry-connrefused http://127.0.0.1:4173/ > /dev/null
-          CHROME_PATH="$(node -p "require('@playwright/test').chromium.executablePath()")" lhci collect --url=http://127.0.0.1:4173/ --numberOfRuns=3
+          lhci collect --url=http://127.0.0.1:4173/ --numberOfRuns=3
           node <<'NODE'
           const fs = require('node:fs');
           const names = fs.readdirSync('.lighthouseci').filter(name => /^lhr-.*\.json$/.test(name));
