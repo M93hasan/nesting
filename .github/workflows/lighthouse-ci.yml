@@ -30,11 +30,26 @@ jobs:
       - name: Run Lighthouse against production
         run: lhci collect --url=https://serula.site --numberOfRuns=3
 
+      - name: Verify and summarize all three reports
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const reports = fs.readdirSync('.lighthouseci').filter(name => /^lhr-.*\.json$/.test(name));
+          if (reports.length !== 3) throw Error(`Expected 3 Lighthouse reports, found ${reports.length}`);
+          for (const [index, name] of reports.sort().entries()) {
+            const report = JSON.parse(fs.readFileSync(`.lighthouseci/${name}`, 'utf8'));
+            const scores = ['performance', 'accessibility', 'best-practices', 'seo']
+              .map(category => `${category}: ${Math.round(report.categories[category].score * 100)}`);
+            console.log(`Run ${index + 1}: ${scores.join(', ')}`);
+          }
+          NODE
+
       - name: Upload Lighthouse reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: serula-lighthouse-reports
           path: .lighthouseci/
-          if-no-files-found: warn
+          if-no-files-found: error
+          include-hidden-files: true
           retention-days: 14
