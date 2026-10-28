@@ -67,3 +67,39 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Browser theme regression tests
         run: npx playwright test tests/premium-theme.spec.ts --project=chromium
+      - name: Upload visual review screenshots
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: serula-theme-screenshots
+          path: web/test-results/**/*.png
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Lighthouse on built application preview
+        if: github.event_name == 'pull_request'
+        run: |
+          npm install --global @lhci/cli@0.15.x
+          npm run preview -- --port 4173 > /tmp/serula-preview.log 2>&1 &
+          curl --fail --retry 20 --retry-delay 1 --retry-connrefused http://127.0.0.1:4173/ > /dev/null
+          CHROME_PATH="$(node -p "require('@playwright/test').chromium.executablePath()")" lhci collect --url=http://127.0.0.1:4173/ --numberOfRuns=3
+          node <<'NODE'
+          const fs = require('node:fs');
+          const names = fs.readdirSync('.lighthouseci').filter(name => /^lhr-.*\.json$/.test(name));
+          if (names.length !== 3) throw Error(`Expected three preview reports, found ${names.length}`);
+          for (const [index, name] of names.sort().entries()) {
+            const report = JSON.parse(fs.readFileSync(`.lighthouseci/${name}`, 'utf8'));
+            if (report.audits['http-status-code']?.score !== 1 || !report.finalDisplayedUrl?.startsWith('http://127.0.0.1:4173/')) {
+              throw Error(`Run ${index + 1} measured an error page or unexpected URL`);
+            }
+            console.log(`Preview run ${index + 1}: ${['performance','accessibility','best-practices','seo'].map(category => `${category} ${Math.round(report.categories[category].score * 100)}`).join(', ')}`);
+          }
+          NODE
+      - name: Upload preview Lighthouse reports
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: serula-preview-lighthouse-reports
+          path: web/.lighthouseci/
+          if-no-files-found: warn
+          include-hidden-files: true
+          retention-days: 14

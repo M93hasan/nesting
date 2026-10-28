@@ -14,7 +14,7 @@ test('Google login follows saved appearance and system preference',async({page})
   await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
 });
 
-test('admin dashboard theme variables stay correct on desktop and mobile',async({page})=>{
+test('admin dashboard shares neutral surfaces and actions on desktop and mobile',async({page},testInfo)=>{
   await page.route('**/api/auth/admin-me',route=>route.fulfill({
     status:200,
     contentType:'application/json',
@@ -27,29 +27,36 @@ test('admin dashboard theme variables stay correct on desktop and mobile',async(
   await expect(admin).toBeVisible();
   const pageBackground=()=>admin.evaluate(el=>getComputedStyle(el).backgroundColor);
   const surface=()=>page.locator('.admin-sidebar').evaluate(el=>getComputedStyle(el).backgroundColor);
-  await expect.poll(pageBackground).toBe('rgb(16, 17, 20)');
-  await expect.poll(surface).toBe('rgb(25, 26, 32)');
+  await expect.poll(pageBackground).toBe('rgb(12, 13, 15)');
+  await expect.poll(surface).toBe('rgb(23, 24, 27)');
+  await page.screenshot({path:testInfo.outputPath('admin-dark.png')});
   await page.evaluate(()=>localStorage.setItem('serula-theme','light'));
   await page.reload();
   await expect(admin).toBeVisible();
-  await expect.poll(pageBackground).toBe('rgb(247, 248, 250)');
+  await expect.poll(pageBackground).toBe('rgb(250, 250, 250)');
   await expect.poll(surface).toBe('rgb(255, 255, 255)');
+  await page.screenshot({path:testInfo.outputPath('admin-light.png')});
   await page.setViewportSize({width:390,height:844});
   await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.screenshot({path:testInfo.outputPath('admin-mobile.png')});
 });
 
-test('studio buttons share one radius and About stays readable on narrow screens',async({page})=>{
+test('studio buttons share one radius and About stays readable on narrow screens',async({page},testInfo)=>{
   await page.goto('/');
   const radius=await page.locator('.header nav button').first().evaluate(element=>getComputedStyle(element).borderRadius);
   expect(radius).toBe('9px');
   for(const selector of ['.add-shape button','.statusbar button','.auth-login-header']){
     await expect(page.locator(selector).first()).toHaveCSS('border-radius',radius);
   }
+  await expect(page.locator('.run-controls .reference-launch')).toHaveCSS('background-color','rgb(24, 24, 27)');
+  await page.screenshot({path:testInfo.outputPath('studio-light.png')});
   await page.getByRole('button',{name:'Serula Nesting Hakkında'}).click();
   await expect(page.locator('.about-layout')).toHaveCSS('grid-template-areas','"overview overview" "preferences download" "bridge bridge"');
+  await page.screenshot({path:testInfo.outputPath('about-desktop.png')});
   await page.setViewportSize({width:390,height:844});
   await expect(page.locator('.about-layout')).toHaveCSS('grid-template-areas','"overview" "preferences" "download" "bridge"');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.screenshot({path:testInfo.outputPath('about-mobile.png')});
 });
 
 test('account menu stays opaque and keeps its account actions',async({page})=>{
@@ -62,6 +69,8 @@ test('account menu stays opaque and keeps its account actions',async({page})=>{
   await expect(dropdown).toContainText('5 hak kaldı');
   await expect(dropdown.getByRole('button',{name:'Çıkış yap'})).toBeVisible();
   await expect(dropdown.locator('select')).toHaveCount(1);
+  const languages=await dropdown.locator('select option').allTextContents();
+  for(const label of ['Türkçe','English','العربية','فارسی'])expect(languages.some(option=>option.includes(label))).toBe(true);
   expect(await dropdown.evaluate(element=>getComputedStyle(element).backgroundColor)).toMatch(/^rgb\(/);
   await page.setViewportSize({width:390,height:844});
   await expect(dropdown).toBeVisible();

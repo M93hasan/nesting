@@ -1,46 +1,51 @@
-/* Shared Serula design tokens. Keep page, studio, account and admin in sync. */
+/* Serula design system: page, studio, account and admin use these tokens. */
 :root {
   color-scheme: light dark;
   --font-ui: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-size-ui: 14px;
   --font-weight-ui: 400;
+  --space-unit: 4px;
   --radius-button: 9px;
   --radius-control: 9px;
   --radius-card: 12px;
-  --surface-shadow: 0 1px 2px rgb(0 0 0 / 0.035);
-  --page: light-dark(#f7f8fa, #101114);
-  --panel: light-dark(#ffffff, #191a20);
-  --panel-soft: light-dark(#f3f4f8, #15161c);
-  --panel-raised: light-dark(#ffffff, #15161c);
+  --surface-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+  --page: light-dark(#fafafa, #0c0d0f);
+  --panel: light-dark(#ffffff, #17181b);
+  --panel-soft: light-dark(#f7f7f8, #202125);
+  --panel-raised: light-dark(#ffffff, #202125);
   --card-surface: var(--panel);
-  --ink: light-dark(#15161c, #f7f8fa);
-  --muted: light-dark(#777d89, #a3a3a3);
-  --border: light-dark(#e1e5eb, #303238);
-  --accent: light-dark(#5e6ad2, #a0a3ad);
-  --accent-hover: light-dark(#4c58bf, #ffffff);
-  --hover: light-dark(#f3f4f8, #22232a);
-  --hover-border: light-dark(#a0a3ad, #484b5d);
-  --selected: light-dark(#eef0ff, #27283b);
-  --secondary: light-dark(#777d89, #a3a3a3);
-  --error: light-dark(#c23d4b, #ff9aa5);
+  --ink: light-dark(#18181b, #f4f4f5);
+  --muted: light-dark(#64656c, #a1a1aa);
+  --border: light-dark(#e4e4e7, #36363c);
+  --primary: light-dark(#18181b, #f4f4f5);
+  --primary-ink: light-dark(#ffffff, #18181b);
+  --primary-hover: light-dark(#34343a, #dedee2);
+  --accent: light-dark(#29292e, #e4e4e7);
+  --accent-hover: var(--primary-hover);
+  --hover: light-dark(#f4f4f5, #28282d);
+  --hover-border: light-dark(#a1a1aa, #71717a);
+  --selected: light-dark(#f0f0f2, #303035);
+  --secondary: var(--muted);
+  --error: light-dark(#b42332, #ff9da5);
   --error-bg: light-dark(#fff0f1, #3b2227);
   --success: light-dark(#08784c, #5ed8ab);
-  --success-soft: light-dark(#e7f7ef, #102e32);
-  --danger-soft: light-dark(#fff0f3, #321e34);
-  --material-fill: light-dark(#f8f5ef, #161b20);
-  --brand-gradient: linear-gradient(135deg, #6875e8, #555fc5);
-  --brand-gradient-hover: linear-gradient(135deg, #5966d8, #454fb0);
+  --success-soft: light-dark(#e7f7ef, #102e25);
+  --danger-soft: light-dark(#fff0f3, #321e24);
+  --material-fill: var(--panel-soft);
+  /* Compatibility names used by the older controls. */
+  --brand-gradient: var(--primary);
+  --brand-gradient-hover: var(--primary-hover);
   --control-violet: var(--accent);
   --control-violet-soft: var(--selected);
   --control-violet-hover: var(--hover);
-  --ui-violet: #5e6ad2;
-  --ui-violet-2: #818cf8;
-  --ui-violet-dark: #4c58bf;
+  --ui-violet: var(--accent);
+  --ui-violet-2: var(--muted);
+  --ui-violet-dark: var(--accent);
   --ui-lavender: var(--selected);
   --ui-lavender-2: var(--hover);
   --ui-input: var(--panel);
   --ui-input-shadow: var(--border);
-  --ui-danger: #c23d4b;
+  --ui-danger: var(--error);
   font: var(--font-weight-ui) var(--font-size-ui)/1.5 var(--font-ui);
   color: var(--ink);
   background: var(--page);
@@ -48,6 +53,7 @@
 :root[data-theme="light"] { color-scheme: light; }
 :root[data-theme="dark"] { color-scheme: dark; }
 :root[data-theme="system"] { color-scheme: light dark; }
+body { background: var(--page); color: var(--ink); }
 
 /* The common geometry also covers icon, destructive, auth and admin buttons. */
 :root #root button,
@@ -74,6 +80,75 @@
 :root #root .auth-account-menu { z-index: 120; }
 :root #root .admin-page { background: var(--page); }
 :root #root .admin-sidebar { background: var(--panel); }
+:root #root .admin-page {
+  --admin-surface: var(--panel);
+  --admin-surface-soft: var(--panel-soft);
+  --admin-surface-raised: var(--panel-raised);
+  --admin-border: var(--border);
+  --admin-accent: var(--accent);
+  --admin-accent-strong: var(--accent);
+  --admin-accent-soft: var(--selected);
+  --admin-text: var(--ink);
+  --admin-muted: var(--muted);
+  --admin-danger: var(--error);
+}
+:root #root .admin-topbar { background: var(--panel); border-color: var(--border); box-shadow: none; }
+:root #root .admin-page :is(.admin-card, .admin-metric, .admin-user-row) {
+  border-color: var(--border);
+  border-radius: var(--radius-card);
+  background: var(--panel);
+  box-shadow: var(--surface-shadow);
+}
+:root #root .admin-page :is(.admin-security-note, .admin-selected-user, .admin-table-head) {
+  background: var(--panel-soft);
+  border-color: var(--border);
+}
+:root #root .admin-page .admin-sidebar nav button.active {
+  background: var(--selected) !important;
+  color: var(--ink) !important;
+  border-color: var(--border) !important;
+  box-shadow: none !important;
+}
+:root #root .admin-page .primary,
+:root #root .admin-page .primary:hover:enabled {
+  background: var(--primary) !important;
+  color: var(--primary-ink) !important;
+  border-color: var(--primary) !important;
+  box-shadow: none !important;
+}
+:root #root .admin-page .primary:hover:enabled {
+  background: var(--primary-hover) !important;
+  border-color: var(--primary-hover) !important;
+}
+:root #root .admin-page .admin-notice,
+:root #root .admin-page .admin-support-box { background: var(--selected); border-color: var(--border); }
+:root #root .admin-page .switch input:checked + .slider {
+  background: var(--primary);
+  border-color: var(--primary);
+  box-shadow: none;
+}
+:root #root .admin-page .admin-connection { color: var(--ink); }
+:root #root :is(.primary, .download-button, .run-controls .run-button, .add-shape > button:last-child),
+:root #root #serula-account-slot > button.auth-login-header {
+  background: var(--primary) !important;
+  color: var(--primary-ink) !important;
+  border-color: var(--primary) !important;
+  box-shadow: none !important;
+}
+:root #root :is(.primary, .download-button, .run-controls .run-button, .add-shape > button:last-child):hover:enabled,
+:root #root #serula-account-slot > button.auth-login-header:hover:enabled {
+  background: var(--primary-hover) !important;
+  color: var(--primary-ink) !important;
+  border-color: var(--primary-hover) !important;
+}
+:root #root .auth-card input:not([type=checkbox]):not([type=radio]) {
+  background: var(--panel-soft);
+  color: var(--ink);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  box-shadow: none;
+}
+:root #root .auth-card input:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
 :root #root .auth-google-button {
   display: inline-flex;
   justify-content: center;
@@ -91,6 +166,32 @@
   border-color: var(--hover-border) !important;
 }
 :root #root .auth-google-button svg { flex: none; }
+
+/* Shared component states and the one button geometry rule. */
+:root #root :is(button, a.button, a.about-download-button) {
+  font-family: var(--font-ui);
+  border-radius: var(--radius-button) !important;
+}
+:root #root :is(button, a.button):disabled { opacity: .5; cursor: not-allowed; }
+:root #root :is(button, a.button):focus-visible,
+:root #root :is(input, select, textarea):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+:root #root :is(.header, .sidebar, .material-panel, .drawing-panel, .statusbar, .modal, .auth-card, .auth-account-dropdown) {
+  border-color: var(--border);
+  background: var(--panel);
+  box-shadow: var(--surface-shadow);
+}
+:root #root .header { backdrop-filter: none; }
+:root #root .auth-account-menu > summary { background: var(--panel); border-color: var(--border); box-shadow: none; }
+:root #root .auth-account-menu > summary:hover { background: var(--hover); border-color: var(--hover-border); }
+:root #root .glass-select > select:not([multiple]) { background: var(--panel) !important; border-radius: var(--radius-control) !important; }
+:root #root .glass-choices { background: var(--panel); border-radius: var(--radius-control); }
+:root #root .glass-glider { border-radius: calc(var(--radius-control) - 3px); }
+:root #root .rotation-choice .row-actions button[aria-pressed=true] {
+  background: var(--primary) !important;
+  color: var(--primary-ink) !important;
+  border-color: var(--primary) !important;
+}
+#root input[type=checkbox], #root input[type=radio] { accent-color: var(--primary); }
 
 /* The About overview reads across the dialog instead of stretching down its side. */
 :root #root .about-layout {
