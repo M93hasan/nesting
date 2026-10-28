@@ -29,6 +29,8 @@ if (!/^\d+\.\d+\.\d+$/.test(version)) failures.push(`package.json version "${ver
 
 for (const workerPath of [join(webRoot, 'worker', 'serula-worker.js'), join(webRoot, 'worker', 'index.js')]) {
   const source = readFileSync(workerPath, 'utf8');
+  // The legacy entry point must only forward to the canonical Worker.
+  if (workerPath.endsWith('/index.js') && /^\s*(?:\/\/[^\n]*\n)*export \{default\} from '\.\/serula-worker\.js';\s*$/.test(source)) continue;
   if (!source.includes("import packageInfo from '../package.json';"))
     failures.push(`${workerPath}: version must be imported from package.json`);
   if (!source.includes('const APP_VERSION=String(packageInfo.version);'))
