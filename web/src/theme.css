@@ -237,3 +237,210 @@ body { background: var(--page); color: var(--ink); }
     color: var(--ink);
   }
 }
+
+/* Dashboard shell: quiet borders and one continuous navigation rail. */
+:root #root .studio-canvas-heading {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 68px;
+  padding: 12px 22px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+:root #root .studio-canvas-heading > div { min-width: 0; }
+:root #root .studio-canvas-eyebrow {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .1em;
+}
+:root #root .studio-canvas-heading h1 {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -.035em;
+}
+:root #root .studio-canvas-context {
+  max-width: 330px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: right;
+}
+:root #root .app :is(.panel-title h2, .material-panel h2) {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+}
+:root #root .app .panel-title h2 > span {
+  background: var(--panel-soft);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
+}
+:root #root .app .material-panel .settings label { font-size: 12px; font-weight: 550; }
+:root #root .app .material-panel :is(input, select) { min-height: 40px; }
+:root #root .app .empty-project {
+  width: min(360px, calc(100% - 40px));
+  padding: 28px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  box-shadow: 0 12px 32px rgb(0 0 0 / .07);
+}
+:root #root .app .empty-project h2 { font-size: 16px; }
+:root #root .app .empty-project p { font-size: 13px; line-height: 1.55; }
+:root #root .app .material-width-band rect { fill: var(--ink); opacity: .025; }
+:root #root .app .material-width-band path { stroke: var(--muted); stroke-width: 1; }
+:root #root .app .coordinate-grid .minor { opacity: .05; }
+:root #root .app .coordinate-grid .major { opacity: .11; }
+
+@media (min-width: 1100px) {
+  :root #root .app {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    min-height: 640px;
+    padding: 0;
+    gap: 0;
+    background: var(--page);
+  }
+  :root #root .app > .header {
+    height: 68px;
+    min-height: 68px;
+    flex-wrap: nowrap;
+    gap: 18px;
+    padding: 0 22px 0 0;
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
+    background: var(--panel);
+    box-shadow: none;
+  }
+  :root #root .app > .header .brand-block {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-self: stretch;
+    flex: 0 0 250px;
+    width: 250px;
+    padding: 6px 17px;
+    border-right: 1px solid var(--border);
+  }
+  :root #root .app > .header .serula-brand img { width: 35px; height: 35px; }
+  :root #root .app > .header .serula-brand strong { font-size: 16px; letter-spacing: -.04em; }
+  :root #root .app > .header .serula-brand > span { font-size: 10px; }
+  :root #root .app > .header .tagline { margin: 0 0 0 45px; font-size: 10px; }
+  :root #root .app > .header nav { gap: 6px; margin-left: auto; flex-wrap: nowrap; }
+  :root #root .app > .header nav :is(a, button) { min-height: 36px; padding: 7px 10px; }
+  :root #root .app > .main-workspace {
+    display: grid;
+    grid-template-columns: 250px minmax(0, 1fr) 294px;
+    flex: 1;
+    min-height: 0;
+    gap: 0;
+    border: 0;
+  }
+  :root #root .app .sidebar {
+    width: auto;
+    min-width: 0;
+    margin: 0;
+    overflow-x: hidden;
+    border: 0;
+    border-right: 1px solid var(--border);
+    border-radius: 0;
+    background: var(--panel);
+    box-shadow: none;
+  }
+  :root #root .app .sidebar > .panel-title,
+  :root #root .app .material-panel > .panel-title { min-height: 68px; padding: 17px 18px; border-bottom: 1px solid var(--border); }
+  :root #root .app .sidebar .add-shape { padding: 16px 18px 8px; }
+  :root #root .app .sidebar .history { padding: 12px 18px; }
+  :root #root .app .sidebar .clear-all-parts { margin: 0 18px; }
+  :root #root .app .drawing-panel {
+    min-width: 0;
+    overflow: hidden;
+    border: 0;
+    border-right: 1px solid var(--border);
+    border-radius: 0;
+    background: var(--panel-soft);
+    box-shadow: none;
+  }
+  :root #root .app .material-panel {
+    width: auto;
+    min-width: 0;
+    margin: 0;
+    overflow-y: auto;
+    border: 0;
+    border-radius: 0;
+    background: var(--panel);
+    box-shadow: none;
+  }
+  :root #root .app .material-panel .settings { padding: 18px; }
+  :root #root .app > .statusbar {
+    min-height: 72px;
+    gap: 16px;
+    padding: 10px 20px;
+    border: 0;
+    border-top: 1px solid var(--border);
+    border-radius: 0;
+    background: var(--panel);
+    box-shadow: none;
+  }
+  :root #root .app .run-controls { width: 230px; }
+}
+
+@media (min-width: 1100px) and (max-width: 1300px) {
+  :root #root .app > .header .brand-block { flex-basis: 224px; width: 224px; }
+  :root #root .app > .main-workspace { grid-template-columns: 224px minmax(0, 1fr) 270px; }
+  :root #root .app .run-controls { width: 204px; }
+  :root #root .studio-canvas-context { display: none; }
+}
+
+/* The admin page uses the same integrated rail and top bar. */
+@media (min-width: 1001px) {
+  :root #root .admin-page:not(.admin-mobile-page) .admin-topbar {
+    height: 68px;
+    padding: 0 24px 0 0;
+    border-bottom: 1px solid var(--border);
+  }
+  :root #root .admin-page:not(.admin-mobile-page) .admin-brand {
+    align-self: stretch;
+    flex: 0 0 250px;
+    padding: 9px 18px;
+    border-right: 1px solid var(--border);
+  }
+  :root #root .admin-page:not(.admin-mobile-page) .admin-shell {
+    max-width: none;
+    grid-template-columns: 250px minmax(0, 1fr);
+    min-height: calc(100dvh - 68px);
+  }
+  :root #root .admin-page:not(.admin-mobile-page) .admin-sidebar {
+    position: sticky;
+    top: 68px;
+    height: calc(100dvh - 68px);
+    max-height: none;
+    margin: 0;
+    padding: 16px 10px;
+    border: 0;
+    border-right: 1px solid var(--border);
+    border-radius: 0;
+    background: var(--panel);
+    box-shadow: none;
+  }
+  :root #root .admin-page:not(.admin-mobile-page) .admin-main { max-width: none; padding: 24px 28px; }
+}
+
+@media (max-width: 1099px) {
+  :root #root .app .studio-canvas-heading { min-height: 58px; padding: 10px 16px; }
+  :root #root .studio-canvas-context { display: none; }
+}
+@media (max-width: 699px) {
+  :root #root .app .studio-canvas-heading { min-height: 54px; padding: 9px 14px; }
+  :root #root .studio-canvas-heading h1 { font-size: 16px; }
+  :root #root .studio-canvas-eyebrow { font-size: 9px; }
+}

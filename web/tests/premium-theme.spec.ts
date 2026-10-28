@@ -26,6 +26,7 @@ test('admin dashboard shares neutral surfaces and actions on desktop and mobile'
   const admin=page.locator('.admin-page');
   await expect(admin).toBeVisible();
   await expect(admin).not.toHaveClass(/admin-mobile-page/);
+  await expect(page.locator('.admin-sidebar')).toHaveCSS('border-radius','0px');
   const pageBackground=()=>admin.evaluate(el=>getComputedStyle(el).backgroundColor);
   const surface=()=>page.locator('.admin-sidebar').evaluate(el=>getComputedStyle(el).backgroundColor);
   await expect.poll(pageBackground).toBe('rgb(12, 13, 15)');
@@ -51,15 +52,22 @@ test('admin dashboard shares neutral surfaces and actions on desktop and mobile'
 });
 
 test('studio buttons share one radius and About stays readable on narrow screens',async({page},testInfo)=>{
-  await page.addInitScript(()=>localStorage.setItem('serula-theme','light'));
+  await page.setViewportSize({width:1440,height:900});
   await page.goto('/');
+  await expect(page.locator('html')).toHaveAttribute('data-theme','light');
+  await expect(page.locator('.studio-canvas-heading h1')).toHaveText('Çalışma alanı');
+  await expect(page.locator('.main-workspace')).toHaveCSS('display','grid');
+  await expect(page.locator('.sidebar')).toHaveCSS('border-radius','0px');
+  const rail=await page.locator('.sidebar').boundingBox();
+  const brand=await page.locator('.brand-block').boundingBox();
+  expect(rail?.width).toBe(brand?.width);
   const radius=await page.locator('.header nav button').first().evaluate(element=>getComputedStyle(element).borderRadius);
   expect(radius).toBe('9px');
   for(const selector of ['.add-shape button','.statusbar button','.auth-login-header']){
     await expect(page.locator(selector).first()).toHaveCSS('border-radius',radius);
   }
   await expect(page.locator('.run-controls .reference-launch')).toHaveCSS('background-color','rgb(24, 24, 27)');
-  await page.screenshot({path:testInfo.outputPath('studio-light.png')});
+  await page.screenshot({path:testInfo.outputPath('studio-dashboard-light.png')});
   await page.getByRole('button',{name:'Serula Nesting Hakkında'}).click();
   await expect(page.locator('.about-layout')).toHaveCSS('grid-template-areas','"overview overview" "preferences download" "bridge bridge"');
   await page.screenshot({path:testInfo.outputPath('about-desktop.png')});
