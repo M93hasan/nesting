@@ -22,9 +22,10 @@ test('admin dashboard shares neutral surfaces and actions on desktop and mobile'
   }));
   await page.addInitScript(()=>{if(!localStorage.getItem('serula-theme'))localStorage.setItem('serula-theme','dark');});
   await page.setViewportSize({width:1280,height:800});
-  await page.goto('/admin2');
+  await page.goto('/admin');
   const admin=page.locator('.admin-page');
   await expect(admin).toBeVisible();
+  await expect(admin).not.toHaveClass(/admin-mobile-page/);
   const pageBackground=()=>admin.evaluate(el=>getComputedStyle(el).backgroundColor);
   const surface=()=>page.locator('.admin-sidebar').evaluate(el=>getComputedStyle(el).backgroundColor);
   await expect.poll(pageBackground).toBe('rgb(12, 13, 15)');
@@ -35,13 +36,22 @@ test('admin dashboard shares neutral surfaces and actions on desktop and mobile'
   await expect(admin).toBeVisible();
   await expect.poll(pageBackground).toBe('rgb(250, 250, 250)');
   await expect.poll(surface).toBe('rgb(255, 255, 255)');
+  const metric=page.locator('.admin-metric').first();
+  const icon=metric.locator('.admin-metric-icon');
+  const cardRight=await metric.evaluate(el=>el.getBoundingClientRect().right);
+  const iconRight=await icon.evaluate(el=>el.getBoundingClientRect().right);
+  expect(cardRight-iconRight).toBeLessThan(28);
   await page.screenshot({path:testInfo.outputPath('admin-light.png')});
   await page.setViewportSize({width:390,height:844});
+  await page.goto('/admin2');
+  await expect(admin).toHaveClass(/admin-mobile-page/);
   await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await expect(page.locator('.admin-workspace-link')).toHaveCSS('font-size','0px');
   await page.screenshot({path:testInfo.outputPath('admin-mobile.png')});
 });
 
 test('studio buttons share one radius and About stays readable on narrow screens',async({page},testInfo)=>{
+  await page.addInitScript(()=>localStorage.setItem('serula-theme','light'));
   await page.goto('/');
   const radius=await page.locator('.header nav button').first().evaluate(element=>getComputedStyle(element).borderRadius);
   expect(radius).toBe('9px');

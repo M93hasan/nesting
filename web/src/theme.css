@@ -99,6 +99,18 @@ body { background: var(--page); color: var(--ink); }
   background: var(--panel);
   box-shadow: var(--surface-shadow);
 }
+:root #root .admin-page .admin-metric .admin-metric-icon {
+  position: absolute;
+  top: 17px;
+  right: 17px;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: var(--ink);
+  background: var(--selected);
+}
 :root #root .admin-page :is(.admin-security-note, .admin-selected-user, .admin-table-head) {
   background: var(--panel-soft);
   border-color: var(--border);
@@ -207,5 +219,21 @@ body { background: var(--page); color: var(--ink); }
   :root #root .about-layout {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas: "overview" "preferences" "download" "bridge";
+  }
+}
+@media (max-width: 760px) {
+  :root #root .admin-page .admin-metric .admin-metric-icon {
+    top: 12px; right: 12px; width: 31px; height: 31px;
+  }
+}
+@media (max-width: 420px) {
+  :root #root .admin-mobile-page .admin-workspace-link {
+    font-size: 0 !important;
+    white-space: nowrap;
+  }
+  :root #root .admin-mobile-page .admin-workspace-link::after {
+    content: 'Uygulama';
+    font-size: 11px;
+    color: var(--ink);
   }
 }

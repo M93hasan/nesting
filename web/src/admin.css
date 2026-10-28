@@ -322,6 +322,5 @@
 @media(max-width:420px){
   .admin-mobile-page .admin-brand span{display:none}
   .admin-mobile-page .admin-workspace-link{font-size:0}
-  .admin-mobile-page .admin-workspace-link::after{content:'Uygulama';font-size:11px}
   .admin-mobile-page .admin-user-actions button{flex-basis:100%}
 }
