@@ -4,7 +4,7 @@
   min-height:44px!important;
   padding:10px 14px!important;
   border:1px solid var(--border)!important;
-  border-radius:10px!important;
+  border-radius:var(--radius-button)!important;
   background:var(--panel)!important;
   color:var(--ink)!important;
   font:600 12px/1.4 var(--font-ui)!important;

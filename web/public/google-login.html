@@ -30,7 +30,7 @@
     .card{width:min(100%,400px);background:light-dark(#fff,#191a20);border:1px solid light-dark(#e1e5eb,#303238);border-radius:18px;padding:34px;box-shadow:0 24px 72px #10111416;text-align:center}
     img{width:72px;height:72px}h1{font-size:24px;letter-spacing:-.7px;margin:14px 0 8px;font-weight:650}
     p{color:light-dark(#777d89,#a0a3ad);margin:0 0 18px}
-    #google{min-height:44px;display:flex;justify-content:center;align-items:center;margin:20px 0}
+    #google{min-height:44px;display:flex;justify-content:center;align-items:center;margin:20px 0;border-radius:9px;overflow:hidden}
     #status{min-height:22px;font-size:13px;color:light-dark(#777d89,#a0a3ad)}.error{color:light-dark(#c23d4b,#ff9aa5)!important}
     a{display:inline-block;margin-top:10px;color:light-dark(#5e6ad2,#9aa3ff);text-decoration:none}
     a:hover{text-decoration:underline}
@@ -96,7 +96,7 @@ async function handleCredential(response){
 async function start(){
   try{
     if(await cleanIsolation()){
-      location.replace('/google-login.html?clean=1');
+      location.replace('/google-login.html?clean=1&locale='+encodeURIComponent(selectedLocale));
       return;
     }
     const configResponse=await fetch('/api/auth/google-config',{credentials:'same-origin',cache:'no-store'});
@@ -116,7 +116,7 @@ async function start(){
       theme:'outline',
       size:'large',
       text:'continue_with',
-      shape:'pill',
+      shape:'rectangular',
       width:300,
       locale:selectedLocale
     });

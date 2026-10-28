@@ -37,3 +37,44 @@ test('admin dashboard theme variables stay correct on desktop and mobile',async(
   await page.setViewportSize({width:390,height:844});
   await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
+
+test('studio buttons share one radius and About stays readable on narrow screens',async({page})=>{
+  await page.goto('/');
+  const radius=await page.locator('.header nav button').first().evaluate(element=>getComputedStyle(element).borderRadius);
+  expect(radius).toBe('9px');
+  for(const selector of ['.add-shape button','.statusbar button','.auth-login-header']){
+    await expect(page.locator(selector).first()).toHaveCSS('border-radius',radius);
+  }
+  await page.getByRole('button',{name:'Serula Nesting Hakkında'}).click();
+  await expect(page.locator('.about-layout')).toHaveCSS('grid-template-areas','"overview overview" "preferences download" "bridge bridge"');
+  await page.setViewportSize({width:390,height:844});
+  await expect(page.locator('.about-layout')).toHaveCSS('grid-template-areas','"overview" "preferences" "download" "bridge"');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+});
+
+test('account menu stays opaque and keeps its account actions',async({page})=>{
+  await page.route('**/api/auth/me',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({user:{id:1,email:'member@example.test',name:'Test Member',role:'user',credits:5,unlimited:false}})}));
+  await page.goto('/');
+  await page.locator('#serula-account-slot > details > summary').click();
+  const dropdown=page.locator('#serula-account-slot .auth-account-dropdown');
+  await expect(dropdown).toBeVisible();
+  await expect(dropdown).toContainText('member@example.test');
+  await expect(dropdown).toContainText('5 hak kaldı');
+  await expect(dropdown.getByRole('button',{name:'Çıkış yap'})).toBeVisible();
+  await expect(dropdown.locator('select')).toHaveCount(1);
+  expect(await dropdown.evaluate(element=>getComputedStyle(element).backgroundColor)).toMatch(/^rgb\(/);
+  await page.setViewportSize({width:390,height:844});
+  await expect(dropdown).toBeVisible();
+});
+
+test('Google sign-in keeps the credential callback and locale',async({page})=>{
+  let posted='';
+  await page.route('**/api/auth/google-config',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({clientId:'test-client'})}));
+  await page.route('**/api/auth/google',async route=>{posted=route.request().postData()||'';await route.fulfill({contentType:'application/json',body:'{"user":{}}'});});
+  await page.route('https://accounts.google.com/gsi/client**',route=>route.fulfill({contentType:'application/javascript',body:'window.google={accounts:{id:{initialize(options){window.testGoogleCallback=options.callback},renderButton(parent,options){parent.dataset.shape=options.shape;parent.textContent="Google"}}}};'}));
+  await page.goto('/google-login.html?locale=en');
+  await expect(page.locator('#google')).toHaveAttribute('data-shape','rectangular');
+  await page.evaluate(()=>((window as unknown as {testGoogleCallback:(value:{credential:string})=>void}).testGoogleCallback)({credential:'test-token'}));
+  await page.waitForURL('/?google=ok');
+  expect(JSON.parse(posted)).toEqual({credential:'test-token',locale:'en'});
+});

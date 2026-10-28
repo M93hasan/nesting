@@ -1,0 +1,110 @@
+/* Shared Serula design tokens. Keep page, studio, account and admin in sync. */
+:root {
+  color-scheme: light dark;
+  --font-ui: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-size-ui: 14px;
+  --font-weight-ui: 400;
+  --radius-button: 9px;
+  --radius-control: 9px;
+  --radius-card: 12px;
+  --surface-shadow: 0 1px 2px rgb(0 0 0 / 0.035);
+  --page: light-dark(#f7f8fa, #101114);
+  --panel: light-dark(#ffffff, #191a20);
+  --panel-soft: light-dark(#f3f4f8, #15161c);
+  --panel-raised: light-dark(#ffffff, #15161c);
+  --card-surface: var(--panel);
+  --ink: light-dark(#15161c, #f7f8fa);
+  --muted: light-dark(#777d89, #a3a3a3);
+  --border: light-dark(#e1e5eb, #303238);
+  --accent: light-dark(#5e6ad2, #a0a3ad);
+  --accent-hover: light-dark(#4c58bf, #ffffff);
+  --hover: light-dark(#f3f4f8, #22232a);
+  --hover-border: light-dark(#a0a3ad, #484b5d);
+  --selected: light-dark(#eef0ff, #27283b);
+  --secondary: light-dark(#777d89, #a3a3a3);
+  --error: light-dark(#c23d4b, #ff9aa5);
+  --error-bg: light-dark(#fff0f1, #3b2227);
+  --success: light-dark(#08784c, #5ed8ab);
+  --success-soft: light-dark(#e7f7ef, #102e32);
+  --danger-soft: light-dark(#fff0f3, #321e34);
+  --material-fill: light-dark(#f8f5ef, #161b20);
+  --brand-gradient: linear-gradient(135deg, #6875e8, #555fc5);
+  --brand-gradient-hover: linear-gradient(135deg, #5966d8, #454fb0);
+  --control-violet: var(--accent);
+  --control-violet-soft: var(--selected);
+  --control-violet-hover: var(--hover);
+  --ui-violet: #5e6ad2;
+  --ui-violet-2: #818cf8;
+  --ui-violet-dark: #4c58bf;
+  --ui-lavender: var(--selected);
+  --ui-lavender-2: var(--hover);
+  --ui-input: var(--panel);
+  --ui-input-shadow: var(--border);
+  --ui-danger: #c23d4b;
+  font: var(--font-weight-ui) var(--font-size-ui)/1.5 var(--font-ui);
+  color: var(--ink);
+  background: var(--page);
+}
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
+:root[data-theme="system"] { color-scheme: light dark; }
+
+/* The common geometry also covers icon, destructive, auth and admin buttons. */
+:root #root button,
+:root #root a.button,
+:root #root a.about-download-button,
+:root #root a.admin-workspace-link {
+  border-radius: var(--radius-button) !important;
+}
+:root #root button:focus-visible,
+:root #root a:focus-visible,
+:root #root summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+:root #root .auth-account-dropdown {
+  z-index: 120;
+  isolation: isolate;
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: 0 18px 42px rgb(0 0 0 / 0.18);
+}
+:root #root .auth-account-dropdown :is(strong, small, span, label) { color: inherit; }
+:root #root .auth-account-dropdown .auth-account-meta { color: var(--muted); }
+:root #root .auth-account-menu { z-index: 120; }
+:root #root .admin-page { background: var(--page); }
+:root #root .admin-sidebar { background: var(--panel); }
+:root #root .auth-google-button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  background: var(--panel) !important;
+  color: var(--ink) !important;
+  border: 1px solid var(--border) !important;
+  font-weight: 600;
+}
+:root #root .auth-google-button:hover:not(:disabled) {
+  background: var(--hover) !important;
+  border-color: var(--hover-border) !important;
+}
+:root #root .auth-google-button svg { flex: none; }
+
+/* The About overview reads across the dialog instead of stretching down its side. */
+:root #root .about-layout {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-areas: "overview overview" "preferences download" "bridge bridge";
+  align-items: start;
+}
+:root #root .about-overview { gap: 8px; padding: 20px; }
+:root #root .about-developer { margin-top: 4px !important; }
+
+@media (max-width: 680px) {
+  :root #root .modal:has(.about-layout) { width: calc(100vw - 20px); }
+  :root #root .about-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "overview" "preferences" "download" "bridge";
+  }
+}

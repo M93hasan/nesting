@@ -1,18 +1,2 @@
-/* One text size and weight for the studio, account dialogs and administration.
- * Keep SVG drawing coordinates and explicitly sized icons independent. */
-:root {
-  --font-size-ui: 12px;
-  --font-weight-ui: 500;
-}
-
-html,
-body,
-body :where(*):not(:where(svg, svg *)) {
-  font-size: var(--font-size-ui) !important;
-  font-weight: var(--font-weight-ui) !important;
-}
-
-.coordinate-rulers text {
-  font-size: var(--font-size-ui) !important;
-  font-weight: var(--font-weight-ui) !important;
-}
+/* Honor the type hierarchy set by components; the family and base live in theme.css. */
+body { font-family: var(--font-ui); }

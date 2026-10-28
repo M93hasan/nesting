@@ -16,6 +16,7 @@ describe('scoped button styles',()=>{
   it('drops empty overrides and preserves compound selectors',()=>{
     expect(parseButtonStyles({corel:{normal:''}})).toEqual({});
     expect(buttonStylesheet({download:{normal:'color: red !important;'}})).toBe(':root #root .download-control .download-button{color: red !important}');
+    expect(buttonStylesheet({download:{normal:'border-radius: 99px; color: red;'}})).toBe(':root #root .download-control .download-button{ color: red !important}');
   });
 });
 
