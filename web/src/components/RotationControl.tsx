@@ -9,7 +9,7 @@ const same=(rule:RotationRule,degrees:number[]|'free')=>{
 };
 
 export default function RotationControl({rule,mixed,disabled,required=false,onChange}:{rule:RotationRule;mixed:boolean;disabled:boolean;required?:boolean;onChange:(rule:RotationRule)=>void}) {
-  return <div className="rotation-choice" role="group" aria-label="İzin verilen dönüşler" aria-required={required}>
+  return <div className="rotation-choice" role="group" aria-label={required?'İzin verilen dönüşler, zorunlu':'İzin verilen dönüşler'}>
     <span>İzin verilen dönüşler{required&&<> <strong aria-hidden="true">*</strong></>}</span>
     <div className="row-actions">
       <button type="button" aria-pressed={!mixed&&same(rule,[0])} disabled={disabled} onClick={()=>onChange({kind:'discrete',degrees:[0]})}>0°</button>
