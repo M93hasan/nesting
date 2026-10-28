@@ -227,11 +227,11 @@ body { background: var(--page); color: var(--ink); }
   }
 }
 @media (max-width: 420px) {
-  :root #root .admin-mobile-page .admin-workspace-link {
+  :root #root .admin-page.admin-mobile-page a.admin-workspace-link {
     font-size: 0 !important;
     white-space: nowrap;
   }
-  :root #root .admin-mobile-page .admin-workspace-link::after {
+  :root #root .admin-page.admin-mobile-page a.admin-workspace-link::after {
     content: 'Uygulama';
     font-size: 11px;
     color: var(--ink);
