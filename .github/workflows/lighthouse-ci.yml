@@ -1,0 +1,40 @@
+name: Serula Lighthouse CI
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: serula-lighthouse-{{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lighthouse:
+    name: Audit live Serula website
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Lighthouse CI
+        run: npm install --global @lhci/cli@0.15.x
+
+      - name: Run Lighthouse against production
+        run: lhci collect --url=https://serula.site --numberOfRuns=3
+
+      - name: Upload Lighthouse reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: serula-lighthouse-reports
+          path: .lighthouseci/
+          if-no-files-found: warn
+          retention-days: 14
