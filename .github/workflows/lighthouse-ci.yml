@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: serula-lighthouse-{{ github.ref }}
+  group: serula-lighthouse-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
