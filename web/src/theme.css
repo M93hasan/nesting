@@ -54,7 +54,7 @@
   --radius-control: var(--radius-inputs);
   --radius-card: var(--radius-cards);
   --surface-shadow: var(--shadow-subtle);
-  --page: light-dark(var(--color-fog-white), #101114);
+  --page: light-dark(var(--color-paper-white), #101114);
   --panel: light-dark(var(--color-paper-white), #1b1d21);
   --panel-soft: light-dark(var(--color-mist-gray), #25272c);
   --panel-raised: light-dark(var(--color-paper-white), #25272c);
@@ -496,4 +496,76 @@ body { background: var(--page); color: var(--ink); }
   :root #root .app .studio-canvas-heading { min-height: 54px; padding: 9px 14px; }
   :root #root .studio-canvas-heading h1 { font-size: 16px; }
   :root #root .studio-canvas-eyebrow { font-size: 9px; }
+}
+
+/* Steep editorial application — preserve the Serula CAD workspace geometry.
+   The 1200px marketing page and 80px hero spacing do NOT constrain the editor. */
+:root #root .studio-canvas-heading h1 {
+  font-family: var(--font-signifier);
+  font-size: clamp(22px, 2vw, 26px);
+  font-weight: 400;
+  line-height: var(--leading-heading-sm);
+  letter-spacing: var(--tracking-heading-sm);
+}
+:root #root .app :is(.panel-title h2, .material-panel h2) {
+  font-family: var(--font-sohne);
+  font-weight: 500;
+  letter-spacing: -0.009em;
+}
+:root #root .studio-canvas-eyebrow {
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--color-ash-gray);
+}
+:root #root .app .empty-project {
+  border-radius: var(--radius-cards);
+  box-shadow: none;
+  background: var(--panel-soft);
+  padding: var(--spacing-24);
+}
+:root #root .app .empty-project h2,
+:root #root .about-overview h2 {
+  font-family: var(--font-signifier);
+  font-weight: 400;
+  letter-spacing: var(--tracking-heading-sm);
+}
+:root #root :is(.auth-card, .modal, .auth-account-dropdown) {
+  border-radius: var(--radius-elevatedcards);
+  box-shadow: var(--shadow-subtle-2);
+}
+:root #root .auth-account-dropdown { box-shadow: var(--shadow-subtle-2); }
+:root #root :is(.admin-card, .admin-metric, .admin-user-row, .about-card) {
+  border-radius: var(--radius-cards);
+  box-shadow: none;
+}
+:root #root .admin-page :is(.admin-card, .admin-metric, .admin-user-row) {
+  background: var(--panel-soft);
+  box-shadow: none;
+}
+/* Avoid forcing pill geometry on circular icon-only controls or controls with
+   a required rectangular selection shape. Existing button focus states remain. */
+:root #root .app :is(.add-shape > button, .run-controls .run-button, .download-button) {
+  padding-inline: max(12px, var(--spacing-16));
+}
+:root #root :is(.app, .admin-page) :is(input:not([type=checkbox]):not([type=radio]), select, textarea) {
+  border-radius: var(--radius-inputs);
+}
+:root[data-theme="light"] #root .app .drawing-panel {
+  background: var(--surface-canvas);
+}
+:root[data-theme="light"] #root .app .material-panel,
+:root[data-theme="light"] #root .app .sidebar {
+  background: var(--surface-section-fog);
+}
+:root[data-theme="light"] #root .app .studio-canvas-heading,
+:root[data-theme="light"] #root .app > .header,
+:root[data-theme="light"] #root .app > .statusbar {
+  background: var(--surface-canvas);
+}
+@media (max-width: 699px) {
+  :root #root .studio-canvas-heading h1 {
+    font-size: 20px;
+    line-height: 1.2;
+  }
+  :root #root .app .empty-project { padding: var(--spacing-16); }
 }
