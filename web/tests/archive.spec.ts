@@ -1,24 +1,31 @@
 import {test,expect} from '@playwright/test';
-import {readFile} from 'node:fs/promises';
-import {workshop} from './project-helpers';
 
-function entries(data:Buffer) {
-  const files=new Map<string,string>();let offset=0;
-  while(data.readUInt32LE(offset)===0x04034b50){
-    const size=data.readUInt32LE(offset+18),length=data.readUInt16LE(offset+26),extra=data.readUInt16LE(offset+28),start=offset+30+length+extra;
-    files.set(data.subarray(offset+30,offset+30+length).toString(),data.subarray(start,start+size).toString());offset=start+size;
-  }
-  return files;
-}
-test('project and checked result ZIP downloads include runnable CLI input',async({page},info)=>{
-  await page.goto('/');await workshop(page);
-  await page.getByLabel('Quantity for Shield').fill('0');
-  let pending=page.waitForEvent('download');
-  await page.getByRole('button',{name:'Export project',exact:true}).click();let download=await pending;
-  const path=info.outputPath('project.zip');await download.saveAs(path);let files=entries(await readFile(path));
-  const project=JSON.parse(files.get('project.sparrow-project.json')!),instance=JSON.parse(files.get('cli.json')!);
-  expect(project.parts).toHaveLength(4);expect(instance.items).toHaveLength(3);expect(instance.items.map((item:{id:number})=>item.id)).toEqual([0,1,2]);expect(files.has('layout.svg')).toBe(false);
-  await page.getByRole('button',{name:'Nest parts',exact:true}).click();await page.getByRole('button',{name:'Best valid solution',exact:true}).click({timeout:20000});await page.getByRole('button',{name:'Stop',exact:true}).click();
-  pending=page.waitForEvent('download');await page.getByRole('button',{name:'Export project',exact:true}).click();download=await pending;
-  await download.saveAs(path);files=entries(await readFile(path));expect(files.get('layout.svg')).toContain('viewBox=');expect(files.get('layout.dxf')).toContain('ENTITIES');expect(files.get('README.txt')).toContain('hole');
+// The production isolation service worker intercepts same-origin API calls;
+// Playwright page.route only sees network requests when it is blocked.
+test.use({serviceWorkers:'block'});
+
+// Serula no longer offers Sparrow CLI ZIP export. Verify the supported DXF
+// flow does not download or charge an unauthenticated visitor.
+test('DXF export requires authorization and never downloads after a 401 response',async({page})=>{
+  let authorizationRequests=0;
+  await page.route('**/api/export/authorize',async route=>{
+    authorizationRequests++;
+    await route.fulfill({status:401,contentType:'application/json',body:JSON.stringify({error:'DXF indirmek için giriş yapmalısınız.'})});
+  });
+  await page.goto('/');
+  await expect(page.locator('#root .app')).toBeVisible();
+  await page.getByRole('button',{name:'Şekil çiz'}).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByRole('button',{name:'Şekil ekle',exact:true}).click();
+  await expect(page.locator('.part-row')).toHaveCount(1,{timeout:20000});
+  await expect(page.getByRole('button',{name:'DXF İndir',exact:true})).toBeEnabled();
+  const download=page.waitForEvent('download',{timeout:4000}).then(()=>true,()=>false);
+  await page.getByRole('button',{name:'DXF İndir',exact:true}).click();
+  await expect.poll(async()=>{
+    if(authorizationRequests)return 'authorized';
+    const banner=(await page.locator('.error-banner').allTextContents()).join(' | ');
+    return banner?`export-error: ${banner}`:'waiting';
+  },{timeout:10000,message:'DXF export must reach authorization or report a geometry error'}).toBe('authorized');
+  await expect(page.locator('.error-banner')).toContainText('DXF indirmek için giriş yapmalısınız.');
+  expect(await download).toBe(false);
 });
