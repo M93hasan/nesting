@@ -27,7 +27,10 @@ test('JavaScript-disabled visitors receive the explicit application requirement'
   try{
     const page=await context.newPage();
     await page.goto('/');
-    await expect(page.locator('noscript')).toContainText('Serula Nesting kullanmak için JavaScript etkin olmalıdır.');
+    // Chromium exposes noscript markup in page.content(), but Playwright's
+    // locator text extraction can return empty in a no-JS browsing context.
+    await expect(page.locator('noscript')).toHaveCount(1);
+    expect(await page.content()).toContain('<noscript>Serula Nesting kullanmak için JavaScript etkin olmalıdır.</noscript>');
     await expect(page.locator('#root .app')).toHaveCount(0);
   }finally{await context.close();}
 });
