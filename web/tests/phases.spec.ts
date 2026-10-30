@@ -51,7 +51,7 @@ test('bounded nesting finishes with a validated best solution',async({page})=>{
   await expect(page.getByRole('status')).toContainText('Complete',{timeout:65_000});
   await expect(page.getByRole('button',{name:'En iyi geçerli yerleşim',exact:true})).toBeEnabled();
   await expect(page.locator('.metrics')).not.toContainText('Malzeme verimliliği —');
-  await expect(page.locator('.metrics')).toContainText(/Malzeme verimliliği\\s+\\d/);
+  await expect(page.locator('.metrics')).toContainText(/Malzeme verimliliği\s+\d/);
 });
 
 test('solver exposes exploration phase while searching',async({page})=>{
