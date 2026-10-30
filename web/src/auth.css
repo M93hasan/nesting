@@ -227,3 +227,76 @@
 #root .auth-card form>button {min-height:46px;padding:10px 20px;border-radius:9999px!important;background:var(--primary,#17191c);color:var(--primary-ink,#fff);border:1px solid var(--primary,#17191c);font-weight:500;box-shadow:none}
 #root .auth-card .auth-google-button {min-height:46px;width:100%;padding:10px 20px;border:1px solid var(--ink,#17191c)!important;border-radius:9999px!important;background:transparent!important;color:var(--ink,#17191c)!important;box-shadow:none!important;font-weight:450}
 #root .auth-card .auth-google-button:hover {background:var(--panel-soft,#f2f2f3)!important}
+
+/* Uiverse Priyanshu02020-inspired login card, recolored for Steep.
+   Scoped to auth-card only; keeps the existing React inputs and Google flow. */
+#root .auth-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  width: min(430px, 100%);
+  padding: 28px;
+  border: 1px solid var(--border, #ececec);
+  border-radius: var(--radius-cards, 24px);
+  background: var(--panel, #fff);
+  box-shadow: var(--shadow-subtle-2, 0 8px 40px rgb(0 0 0 / .1));
+}
+#root .auth-card::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -100%;
+  background: conic-gradient(from 45deg, transparent 73%, var(--color-blush-peach, #fbe1d1) 84%, transparent 100%);
+  animation: serula-auth-spin 4s ease-in-out infinite;
+  pointer-events: none;
+}
+#root .auth-card::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 1px;
+  border-radius: calc(var(--radius-cards, 24px) - 1px);
+  background: var(--panel, #fff);
+  pointer-events: none;
+}
+@keyframes serula-auth-spin { to { transform: rotate(360deg); } }
+#root .auth-card :is(h1,h2) {
+  color: var(--ink, #17191c);
+  font-family: var(--font-signifier, Georgia, serif);
+  font-weight: 400;
+  letter-spacing: -.02em;
+}
+#root .auth-card label {
+  color: var(--ink, #17191c);
+}
+#root .auth-card input:not([type=checkbox]):not([type=radio]) {
+  width: 100%;
+  border: 1px solid var(--border, #ececec);
+  border-radius: var(--radius-inputs, 16px);
+  background: var(--panel-soft, #f2f2f3);
+  color: var(--ink, #17191c);
+  padding: 12px 14px;
+  box-shadow: none;
+}
+#root .auth-card input:focus-visible {
+  outline: 2px solid var(--color-sienna-brown, #5d2a1a);
+  outline-offset: 2px;
+}
+#root .auth-card form > button:hover:enabled {
+  background: var(--primary-hover, #363940);
+  border-color: var(--primary-hover, #363940);
+}
+#root .auth-card .auth-google-button svg {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+}
+#root .auth-card .auth-tabs button,
+#root .auth-card .auth-google-button,
+#root .auth-card form > button {
+  transition: background-color .2s ease, border-color .2s ease, color .2s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  #root .auth-card::before { animation: none; }
+  #root .auth-card :is(button,input) { transition: none; }
+}
