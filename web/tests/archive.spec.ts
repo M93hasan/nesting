@@ -16,7 +16,11 @@ test('DXF export requires authorization and never downloads after a 401 response
   await expect(page.locator('.part-row')).toHaveCount(1,{timeout:20000});
   const download=page.waitForEvent('download',{timeout:4000}).then(()=>true,()=>false);
   await page.getByRole('button',{name:'DXF İndir',exact:true}).click();
-  await expect.poll(()=>authorizationRequests).toBe(1);
+  await expect.poll(async()=>{
+    if(authorizationRequests)return 'authorized';
+    const banner=(await page.locator('.error-banner').allTextContents()).join(' | ');
+    return banner?`export-error: ${banner}`:'waiting';
+  },{timeout:10000,message:'DXF export must reach authorization or report a geometry error'}).toBe('authorized');
   await expect(page.getByText('DXF indirmek için giriş yapmalısınız.',{exact:false}).first()).toBeVisible();
   expect(await download).toBe(false);
 });
