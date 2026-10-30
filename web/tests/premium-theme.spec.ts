@@ -1,5 +1,9 @@
 import {test,expect} from '@playwright/test';
 
+// UI and mocked-auth regressions must not involve the isolation worker's
+// asynchronous registration or reload; worker isolation is tested separately.
+test.use({serviceWorkers:'block'});
+
 test('Google login follows saved appearance and system preference',async({page})=>{
   await page.emulateMedia({colorScheme:'dark'});
   await page.addInitScript(()=>{
