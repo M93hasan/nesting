@@ -1,3 +1,4 @@
+import {hashPassword,verifyPassword} from './passwords.js';
 import {parseButtonStyles,validateCustomCss} from '../shared/button-styles.js';
 import packageInfo from '../package.json';
 const GOOGLE_CLIENT_ID='207092733568-2h2751l65c8cbnb3o6qfpvl4uug9f975.apps.googleusercontent.com';
@@ -11,26 +12,6 @@ const unb64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
 const hex=bytes=>Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
 const randomToken=()=>hex(crypto.getRandomValues(new Uint8Array(32)));
 async function sha256(text){return hex(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text))))}
-async function hashPassword(password,salt=crypto.getRandomValues(new Uint8Array(16)),iterations=210000){
-  const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(password),'PBKDF2',false,['deriveBits']);
-  const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations},key,256);
-  return `pbkdf2_sha256$${iterations}$${b64(salt)}$${b64(new Uint8Array(bits))}`;
-}
-async function verifyPassword(password,stored){
-  try{
-    const parts=String(stored||'').trim().split(String.fromCharCode(36));
-    const kind=parts[0],it=parts[1],saltB64=parts[2],digestB64=parts[3];
-    const iterations=Number(it);
-    if(kind!=='pbkdf2_sha256'||!Number.isInteger(iterations)||iterations<1||!saltB64||!digestB64)return false;
-    const salt=unb64(saltB64),expected=unb64(digestB64);
-    const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(String(password)),'PBKDF2',false,['deriveBits']);
-    const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations},key,expected.length*8);
-    const actual=new Uint8Array(bits);
-    if(actual.length!==expected.length)return false;
-    let diff=0;for(let i=0;i<actual.length;i++)diff|=actual[i]^expected[i];
-    return diff===0;
-  }catch{return false}
-}
 function cookieToken(request){
   const match=request.headers.get('cookie')?.match(/(?:^|;\s*)serula_session=([^;]+)/);
   return match?decodeURIComponent(match[1]):'';
@@ -50,6 +31,18 @@ async function cleanupExpiredHistory(env){
 }
 async function ensureSchema(env){
   await env.DB.batch([
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT NOT NULL UNIQUE COLLATE NOCASE,
+      name TEXT NOT NULL DEFAULT '',
+      password_hash TEXT,
+      google_id TEXT UNIQUE,
+      role TEXT NOT NULL DEFAULT 'user',
+      nesting_credits INTEGER NOT NULL DEFAULT 5 CHECK(nesting_credits>=0),
+      unlimited INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      last_login_at TEXT
+    )`),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS sessions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
@@ -144,6 +137,14 @@ async function ensureSchema(env){
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )`),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_export_files_user_created ON export_files(user_id,id DESC)'),
+    env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS serula_export_charge_v1
+      BEFORE INSERT ON export_files BEGIN
+        SELECT CASE WHEN NOT EXISTS(SELECT 1 FROM users WHERE id=NEW.user_id AND (unlimited=1 OR nesting_credits>0))
+          THEN RAISE(ABORT,'serula_no_credits') END;
+        INSERT INTO nesting_history(user_id,project_name,source_file_name,used_credit)
+          SELECT id,NEW.project_name,NEW.source_file_name,CASE WHEN unlimited=1 THEN 0 ELSE 1 END FROM users WHERE id=NEW.user_id;
+        UPDATE users SET nesting_credits=nesting_credits-1 WHERE id=NEW.user_id AND unlimited=0;
+      END`),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS export_file_chunks (
       export_id INTEGER NOT NULL,
       kind TEXT NOT NULL CHECK(kind IN ('dxf','project')),
@@ -468,18 +469,8 @@ async function handleApi(request,env){
     return json({ok:true,id:Number(result.meta.last_row_id)});
   }
   if(path==='/api/nesting/start'&&request.method==='POST'){
-    const user=await sessionUser(request,env);if(!user)return json({error:'Nesting için giriş yapmalısınız.'},401);
-    if(licenseExpired(user))return json({error:'Lisans süreniz doldu. Devam etmek için yöneticinizden lisans süresini uzatmasını isteyin.'},403);
-    if(!user.unlimited){
-      const updated=await env.DB.prepare('UPDATE users SET nesting_credits=nesting_credits-1 WHERE id=? AND nesting_credits>0').bind(user.id).run();
-      if(!updated.meta.changes)return json({error:'Nesting hakkınız kalmadı.'},402);
-    }
-    const data=await body(request);
-    await env.DB.prepare('INSERT INTO nesting_history(user_id,project_name,source_file_name,used_credit) VALUES(?,?,?,?)')
-      .bind(user.id,String(data.projectName||'').slice(0,200),String(data.sourceFileName||'').slice(0,255),user.unlimited?0:1).run();
-    const fresh=await env.DB.prepare('SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,l.started_at license_started_at,l.expires_at license_expires_at FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.id=?').bind(user.id).first();
-    await audit(env,'nesting_start',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:String(data.projectName||'')});
-    return json({ok:true,user:publicUser(fresh)});
+    // Nesting is a free local preview; only a persisted export consumes a credit.
+    return json({error:'Bu uç nokta kaldırıldı. Haklar yalnızca DXF dışa aktarımında kullanılır.'},410);
   }
   if(path==='/api/project/autosave'&&request.method==='PUT'){
     const user=await sessionUser(request,env);if(!user)return json({error:'Bulut kayıt için giriş yapmalısınız.'},401);
@@ -524,30 +515,21 @@ async function handleApi(request,env){
     const encodedDxf=encodeExportChunks(dxf),encodedProject=encodeExportChunks(projectJson);
     if(encodedDxf.byteSize>10*1024*1024)return json({error:'DXF dosyası bulut kaydı için 10 MiB sınırını aşıyor.'},413);
     if(encodedProject.byteSize>12*1024*1024)return json({error:'Proje kaydı bulut için 12 MiB sınırını aşıyor.'},413);
-    let charged=false,historyId=0,exportId=0;
+    // A random safe integer lets every insert share the same ID in one D1
+    // transaction. The database trigger checks/debits credits and writes history.
+    const bytes=crypto.getRandomValues(new Uint32Array(2));
+    const exportId=(bytes[0]&0x1fffff)*4294967296+bytes[1]||1;
     try{
-      if(!user.unlimited){
-        const updated=await env.DB.prepare('UPDATE users SET nesting_credits=nesting_credits-1 WHERE id=? AND nesting_credits>0').bind(user.id).run();
-        if(!updated.meta.changes)return json({error:'Nesting hakkınız kalmadı. Admin yeni hak verebilir.'},402);
-        charged=true;
-      }
-      const history=await env.DB.prepare('INSERT INTO nesting_history(user_id,project_name,source_file_name,used_credit) VALUES(?,?,?,?)')
-        .bind(user.id,projectName,sourceFileName,user.unlimited?0:1).run();
-      historyId=Number(history.meta.last_row_id);
-      const saved=await env.DB.prepare('INSERT INTO export_files(user_id,project_name,source_file_name,file_name,dxf_text,project_json,byte_size) VALUES(?,?,?,?,?,?,?)')
-        .bind(user.id,projectName,sourceFileName,fileName,'',null,encodedDxf.byteSize).run();
-      exportId=Number(saved.meta.last_row_id);
-      const statements=[
+      await env.DB.batch([
+        env.DB.prepare('INSERT INTO export_files(id,user_id,project_name,source_file_name,file_name,dxf_text,project_json,byte_size) VALUES(?,?,?,?,?,?,?,?)')
+          .bind(exportId,user.id,projectName,sourceFileName,fileName,'',null,encodedDxf.byteSize),
         ...encodedDxf.chunks.map((chunk,index)=>env.DB.prepare('INSERT INTO export_file_chunks(export_id,kind,chunk_index,data) VALUES(?,?,?,?)').bind(exportId,'dxf',index,chunk)),
         ...encodedProject.chunks.map((chunk,index)=>env.DB.prepare('INSERT INTO export_file_chunks(export_id,kind,chunk_index,data) VALUES(?,?,?,?)').bind(exportId,'project',index,chunk))
-      ];
-      if(statements.length)await env.DB.batch(statements);
+      ]);
     }catch(error){
-      try{if(exportId)await env.DB.prepare('DELETE FROM export_files WHERE id=? AND user_id=?').bind(exportId,user.id).run()}catch{}
-      try{if(historyId)await env.DB.prepare('DELETE FROM nesting_history WHERE id=? AND user_id=?').bind(historyId,user.id).run()}catch{}
-      try{if(charged)await env.DB.prepare('UPDATE users SET nesting_credits=nesting_credits+1 WHERE id=?').bind(user.id).run()}catch{}
+      if(String(error).includes('serula_no_credits'))return json({error:'Nesting hakkınız kalmadı. Admin yeni hak verebilir.'},402);
       await audit(env,'export_save_failed',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:fileName,success:false});
-      return json({error:'DXF buluta kaydedilemedi. Lütfen yeniden deneyin.'},500);
+      return json({error:'DXF buluta kaydedilemedi. Hak düşülmedi. Lütfen yeniden deneyin.'},500);
     }
     const fresh=await env.DB.prepare('SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,l.started_at license_started_at,l.expires_at license_expires_at FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.id=?').bind(user.id).first();
     await audit(env,'export_saved',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:fileName});
@@ -556,7 +538,7 @@ async function handleApi(request,env){
   if(path==='/api/exports'&&request.method==='GET'){
     const user=await sessionUser(request,env);if(!user)return json({error:'Geçmişi görmek için giriş yapmalısınız.'},401);
     const rows=await env.DB.prepare(`SELECT id,project_name,source_file_name,file_name,byte_size,created_at
-      FROM export_files WHERE user_id=? ORDER BY id DESC LIMIT 200`).bind(user.id).all();
+      FROM export_files WHERE user_id=? ORDER BY created_at DESC,id DESC LIMIT 200`).bind(user.id).all();
     return json({items:rows.results.map(row=>({id:Number(row.id),projectName:row.project_name||'',sourceFileName:row.source_file_name||'',fileName:row.file_name||'',byteSize:Number(row.byte_size||0),createdAt:row.created_at}))});
   }
   const exportFileMatch=path.match(/^\/api\/exports\/(\d+)$/);
