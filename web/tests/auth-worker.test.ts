@@ -77,6 +77,30 @@ describe('Worker accounts and credit transactions',()=>{
     for(const table of ['nesting_history','export_files','export_file_chunks'])expect(env.sqlite.prepare(`SELECT count(*) n FROM ${table}`).get()?.n).toBe(0);
     env.sqlite.close();
   });
+  it('rejects invalid and oversized exports without charging credits',async()=>{
+    const env=database(),cookie=await account(env);
+    expect((await call(env,'/api/export/authorize',{...payload,dxf:''},cookie)).status).toBe(400);
+    expect((await call(env,'/api/export/authorize',{...payload,dxf:'X'.repeat(10*1024*1024+1)},cookie)).status).toBe(413);
+    expect(env.sqlite.prepare('SELECT nesting_credits FROM users').get()?.nesting_credits).toBe(5);
+    expect(env.sqlite.prepare('SELECT count(*) n FROM export_files').get()?.n).toBe(0);
+    expect(env.sqlite.prepare('SELECT count(*) n FROM nesting_history').get()?.n).toBe(0);
+    env.sqlite.close();
+  });
+  it('recovers from failed chunk storage and charges once on successful retry',async()=>{
+    const env=database(),cookie=await account(env);env.fail();
+    const largeDxf='0\\nSECTION\\n'+('LINE\\n'.repeat(60000))+'0\\nEOF';
+    expect((await call(env,'/api/export/authorize',{...payload,dxf:largeDxf},cookie)).status).toBe(500);
+    expect(env.sqlite.prepare('SELECT nesting_credits FROM users').get()?.nesting_credits).toBe(5);
+    const retry=await call(env,'/api/export/authorize',{...payload,dxf:largeDxf},cookie);
+    expect(retry.status).toBe(200);
+    const {exportId}=await retry.json();
+    expect((await (await call(env,`/api/exports/${exportId}`,undefined,cookie)).text())).toBe(largeDxf);
+    expect(env.sqlite.prepare('SELECT nesting_credits FROM users').get()?.nesting_credits).toBe(4);
+    expect(env.sqlite.prepare('SELECT count(*) n FROM export_files').get()?.n).toBe(1);
+    expect(env.sqlite.prepare('SELECT sum(used_credit) n FROM nesting_history').get()?.n).toBe(1);
+    expect(env.sqlite.prepare('SELECT count(*) n FROM export_file_chunks').get()?.n).toBeGreaterThan(1);
+    env.sqlite.close();
+  });
   it('leaves unlimited users uncharged and protects exports/admin APIs',async()=>{
     const env=database(),cookie=await account(env);
     env.sqlite.exec('UPDATE users SET unlimited=1,nesting_credits=0');
