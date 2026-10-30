@@ -1,4 +1,5 @@
 import {hashPassword,verifyPassword} from './passwords.js';
+import {otpCode,otpDigest,sendOtpEmail} from './email-otp.js';
 import {parseButtonStyles,validateCustomCss} from '../shared/button-styles.js';
 import packageInfo from '../package.json';
 const GOOGLE_CLIENT_ID='207092733568-2h2751l65c8cbnb3o6qfpvl4uug9f975.apps.googleusercontent.com';
@@ -43,6 +44,7 @@ async function ensureSchema(env){
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       last_login_at TEXT
     )`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS pending_email_signups (email TEXT PRIMARY KEY COLLATE NOCASE, name TEXT NOT NULL, password_hash TEXT NOT NULL, locale TEXT NOT NULL, code_hash TEXT NOT NULL, expires_at TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, sent_at TEXT NOT NULL)`),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS sessions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
@@ -384,11 +386,30 @@ async function handleApi(request,env){
     const data=await body(request),email=String(data.email||'').trim().toLowerCase(),name=String(data.name||'').trim().slice(0,120),password=String(data.password||''),locale=cleanLocale(data.locale);
     if(!validEmail(email)||!passwordOk(password))return json({error:'Geçerli e-posta ve en az 8 karakter parola gerekli.'},400);
     if(await env.DB.prepare('SELECT id FROM users WHERE email=?').bind(email).first())return json({error:'Bu e-posta zaten kayıtlı.'},409);
-    const result=await env.DB.prepare(`INSERT INTO users(email,name,password_hash,role,nesting_credits,unlimited,last_login_at)
-      VALUES(?,?,?,'user',5,0,CURRENT_TIMESTAMP)`).bind(email,name,await hashPassword(password)).run();
-    const userId=Number(result.meta.last_row_id);
-    await env.DB.prepare(`INSERT INTO user_preferences(user_id,locale,updated_at) VALUES(?,?,CURRENT_TIMESTAMP)
-      ON CONFLICT(user_id) DO UPDATE SET locale=excluded.locale,updated_at=CURRENT_TIMESTAMP`).bind(userId,locale).run();
+    if(!env.RESEND_API_KEY||!env.OTP_FROM_EMAIL||!env.OTP_PEPPER)return json({error:'E-posta doğrulaması henüz yapılandırılmadı.'},503);
+    const previous=await env.DB.prepare('SELECT sent_at FROM pending_email_signups WHERE email=?').bind(email).first();
+    if(previous&&Date.now()-Date.parse(previous.sent_at)<60000)return json({error:'Yeniden kod göndermek için 60 saniye bekleyin.'},429);
+    const code=otpCode(),codeHash=await otpDigest(email,code,env.OTP_PEPPER),passwordHash=await hashPassword(password);
+    try{await sendOtpEmail(env,email,code);}catch{return json({error:'E-posta gönderilemedi. Tekrar deneyin.'},502);}
+    await env.DB.prepare(`INSERT INTO pending_email_signups(email,name,password_hash,locale,code_hash,expires_at,attempts,sent_at)
+      VALUES(?,?,?,?,?,datetime('now','+5 minutes'),0,?)
+      ON CONFLICT(email) DO UPDATE SET name=excluded.name,password_hash=excluded.password_hash,locale=excluded.locale,code_hash=excluded.code_hash,expires_at=excluded.expires_at,attempts=0,sent_at=excluded.sent_at`)
+      .bind(email,name,passwordHash,locale,codeHash,new Date().toISOString()).run();
+    return json({verificationRequired:true,email},202);
+  }
+  if(path==='/api/auth/verify-email'&&request.method==='POST'){
+    const data=await body(request),email=String(data.email||'').trim().toLowerCase(),code=String(data.code||'');
+    if(!validEmail(email)||!/^[0-9]{4}$/.test(code))return json({error:'Dört haneli kod girin.'},400);
+    const entry=await env.DB.prepare("SELECT * FROM pending_email_signups WHERE email=? AND expires_at>datetime('now') AND attempts<5").bind(email).first();
+    if(!entry)return json({error:'Kod süresi dolmuş veya deneme hakkı bitmiş.'},400);
+    await env.DB.prepare('UPDATE pending_email_signups SET attempts=attempts+1 WHERE email=?').bind(email).run();
+    if(!await secureEqual(await otpDigest(email,code,env.OTP_PEPPER),entry.code_hash))return json({error:'Kod hatalı.'},400);
+    if(await env.DB.prepare('SELECT id FROM users WHERE email=?').bind(email).first())return json({error:'E-posta zaten kayıtlı.'},409);
+    const created=await env.DB.prepare(`INSERT INTO users(email,name,password_hash,role,nesting_credits,unlimited,last_login_at) VALUES(?,?,?,'user',5,0,CURRENT_TIMESTAMP)`)
+      .bind(email,entry.name,entry.password_hash).run();
+    const userId=Number(created.meta.last_row_id);
+    await env.DB.prepare('INSERT INTO user_preferences(user_id,locale,updated_at) VALUES(?,?,CURRENT_TIMESTAMP)').bind(userId,entry.locale).run();
+    await env.DB.prepare('DELETE FROM pending_email_signups WHERE email=?').bind(email).run();
     const user=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,l.started_at license_started_at,l.expires_at license_expires_at
       FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.id=?`).bind(userId).first();
     return json({user:publicUser(user)},201,{'set-cookie':cookie(await makeSession(user.id,env))});
