@@ -7,12 +7,13 @@ test('rotation stays in Material and Layout while part properties stay inside Pa
 
   const partsStart=app.indexOf('<aside id="parts-settings"');
   const clearAll=app.indexOf('className="danger-button clear-all-parts"',partsStart);
-  const properties=app.indexOf('className="part-properties-inline"',partsStart);
+  const properties=app.slice(partsStart).search(/className="[^"]*\bpart-properties-inline\b[^"]*"/);
+  const propertiesPosition=properties<0?-1:partsStart+properties;
   const drawing=app.indexOf('<section className="drawing-panel">',partsStart);
   expect(partsStart).toBeGreaterThanOrEqual(0);
   expect(clearAll).toBeGreaterThan(partsStart);
-  expect(properties).toBeGreaterThan(clearAll);
-  expect(drawing).toBeGreaterThan(properties);
+  expect(propertiesPosition).toBeGreaterThan(clearAll);
+  expect(drawing).toBeGreaterThan(propertiesPosition);
 
   const materialStart=app.indexOf('<aside className="material-panel" aria-label="Malzeme ve Yerleşim">');
   const rotation=app.indexOf('<RotationControl',materialStart);
