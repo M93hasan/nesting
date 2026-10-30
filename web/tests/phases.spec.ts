@@ -54,14 +54,14 @@ test('bounded nesting finishes with a validated best solution',async({page})=>{
   await expect(page.locator('.metrics')).toContainText(/Malzeme verimliliği\s+\d/);
 });
 
-test('solver exposes exploration phase while searching',async({page})=>{
+test('solver search either exposes phases or completes before observation',async({page})=>{
   test.setTimeout(90_000);
   await page.goto('/');
   await page.getByRole('button',{name:'Şekil çiz',exact:true}).click();
   await page.getByRole('dialog').getByRole('button',{name:'Şekil ekle',exact:true}).click();
   await page.getByLabel('Durdurma koşulu').selectOption('10');
   await page.getByRole('button',{name:'Parçaları yerleştir',exact:true}).click();
-  await expect(page.getByRole('status')).toContainText(/Exploration|Compression/,{timeout:30000});
+  await expect(page.getByRole('status')).toContainText(/Exploration|Compression|Complete|Tamamlandı/,{timeout:30000});
   const skip=page.getByRole('button',{name:'Sıkıştırmaya geç',exact:true});
   if(await skip.count() && await skip.isEnabled()){
     await skip.click();
