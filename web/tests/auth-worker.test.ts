@@ -111,6 +111,24 @@ describe('Worker accounts and credit transactions',()=>{
     expect((await call(env,'/api/nesting/start',{},cookie)).status).toBe(410);
     env.sqlite.close();
   });
+  it('blocks protected example DXF assets until user permission is granted',async()=>{
+    let assetReads=0;
+    const env={...database(),ASSETS:{fetch:async()=>{assetReads++;return new Response('DXF DATA',{status:200})}}};
+    const file='/examples/test%20klasoru%20dxf/test.dxf';
+    const get=(path:string,cookie='')=>worker.fetch(new Request('https://serula.site'+path,{headers:cookie?{cookie}:{}}),env);
+    expect((await get(file)).status).toBe(403);
+    expect(assetReads).toBe(0);
+    const cookie=await account(env);
+    expect((await get(file,cookie)).status).toBe(403);
+    expect((await get('/examples/test%20klasoru%20dxf/not-allowed.dxf',cookie)).status).toBe(403);
+    expect(assetReads).toBe(0);
+    env.sqlite.exec('INSERT INTO user_features(user_id,test_dxf_enabled) SELECT id,1 FROM users');
+    const allowed=await get(file,cookie);
+    expect(allowed.status).toBe(200);
+    expect(await allowed.text()).toBe('DXF DATA');
+    expect(assetReads).toBe(1);
+    env.sqlite.close();
+  });
   it('applies the baseline migration twice without changing existing accounts',async()=>{
     const env=database();
     const migration=readFileSync(new URL('../migrations/0001_accounts_and_exports.sql',import.meta.url),'utf8');
