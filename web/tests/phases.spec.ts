@@ -1,3 +1,4 @@
+import {workshop} from './project-helpers';
 import {readDiagnostics} from './diagnostics-helpers';
 import {test,expect} from '@playwright/test';
 
@@ -5,7 +6,8 @@ for(const threads of [1,2])test(`skip exploration in the existing runtime (${thr
   const context=await browser.newContext({serviceWorkers:'allow'});
   const page=await context.newPage();
   await page.goto('/');
-  await expect(page.locator('.part-row')).toHaveCount(50);
+  await workshop(page);
+  await expect(page.locator('.part-row')).toHaveCount(4);
   await page.locator('.solver-options>summary').click();
   await page.getByRole('combobox',{name:'Solver threads',exact:true}).selectOption(String(threads));
   await page.getByLabel('Stop condition').selectOption('10');
@@ -35,7 +37,8 @@ for(const threads of [1,2])test(`skip exploration in the existing runtime (${thr
 });
 
 for(const action of ['natural','stop'] as const)test(`${action} phase transition`,async({page},testInfo)=>{
-  await page.goto('/');await expect(page.locator('.part-row')).toHaveCount(50);
+  await page.goto('/');
+  await workshop(page);await expect(page.locator('.part-row')).toHaveCount(4);
   await page.getByLabel('Stop condition').selectOption(action==='natural'?'10':'60');
   await page.getByRole('button',{name:'Nest parts',exact:true}).click();
   const skip=page.getByRole('button',{name:'Skip to compression',exact:true});
@@ -57,7 +60,8 @@ test('without shared memory the run transitions naturally and Skip is unavailabl
   const context=await browser.newContext({serviceWorkers:'block'});
   try {
     const page=await context.newPage();await page.goto('/');
-    await expect(page.locator('.part-row')).toHaveCount(50);
+  await workshop(page);
+    await expect(page.locator('.part-row')).toHaveCount(4);
     await page.getByLabel('Stop condition').selectOption('10');
     await page.getByRole('button',{name:'Nest parts',exact:true}).click();
     await expect(page.getByRole('status')).toContainText('Exploration',{timeout:20000});
