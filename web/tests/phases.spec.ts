@@ -36,4 +36,38 @@ test('nesting run exposes the stop control',async({page})=>{
   const stop=page.getByRole('button',{name:'Durdur',exact:true});
   await expect(stop).toBeVisible({timeout:20000});
   await stop.click();
+  await expect(page.getByRole('status')).toContainText('Stopped',{timeout:15000});
+  await expect(page.getByRole('button',{name:'Durdur',exact:true})).toHaveCount(0);
+});
+
+test('bounded nesting finishes with a validated best solution',async({page})=>{
+  test.setTimeout(90_000);
+  await page.goto('/');
+  await page.getByRole('button',{name:'Şekil çiz',exact:true}).click();
+  await page.getByRole('dialog').getByRole('button',{name:'Şekil ekle',exact:true}).click();
+  await expect(page.locator('.part-row')).toHaveCount(1);
+  await page.getByLabel('Durdurma koşulu').selectOption('10');
+  await page.getByRole('button',{name:'Parçaları yerleştir',exact:true}).click();
+  await expect(page.getByRole('status')).toContainText('Complete',{timeout:65_000});
+  await expect(page.getByRole('button',{name:'En iyi geçerli yerleşim',exact:true})).toBeEnabled();
+  await expect(page.locator('.metrics')).not.toContainText('Malzeme verimliliği —');
+  await expect(page.locator('.metrics')).toContainText(/Malzeme verimliliği\\s+\\d/);
+});
+
+test('solver exposes exploration phase while searching',async({page})=>{
+  test.setTimeout(90_000);
+  await page.goto('/');
+  await page.getByRole('button',{name:'Şekil çiz',exact:true}).click();
+  await page.getByRole('dialog').getByRole('button',{name:'Şekil ekle',exact:true}).click();
+  await page.getByLabel('Durdurma koşulu').selectOption('10');
+  await page.getByRole('button',{name:'Parçaları yerleştir',exact:true}).click();
+  await expect(page.getByRole('status')).toContainText(/Exploration|Compression/,{timeout:30000});
+  const skip=page.getByRole('button',{name:'Sıkıştırmaya geç',exact:true});
+  if(await skip.count() && await skip.isEnabled()){
+    await skip.click();
+    await expect(page.getByRole('status')).toContainText(/Compression|Geçiliyor|Complete/,{timeout:20000});
+  }
+  const stop=page.getByRole('button',{name:'Durdur',exact:true});
+  if(await stop.isVisible())await stop.click();
+  await expect(page.getByRole('status')).toContainText(/Stopped|Complete/,{timeout:15000});
 });
