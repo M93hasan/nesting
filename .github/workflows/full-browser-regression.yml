@@ -1,0 +1,75 @@
+name: Full Serula browser regression
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/full-browser-regression.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: full-browser-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit --no-fund
+      - name: Check prebuilt WASM
+        id: wasm
+        shell: bash
+        run: |
+          ready=true
+          expected="$(node scripts/wasm-fingerprint.mjs)"
+          actual="$(cat wasm/prebuilt.sha256 2>/dev/null || true)"
+          if [ "$expected" != "$actual" ]; then ready=false; fi
+          for dir in wasm/pkg wasm/pkg-threads wasm/pkg-nosimd wasm/pkg-threads-nosimd; do
+            if [ ! -d "$dir" ] || ! find "$dir" -maxdepth 1 -name '*.wasm' -print -quit | grep -q .; then
+              ready=false
+              break
+            fi
+          done
+          echo "ready=$ready" >> "$GITHUB_OUTPUT"
+      - name: Install Rust toolchain
+        if: steps.wasm.outputs.ready != 'true'
+        run: rustup toolchain install nightly-2026-08-30 --profile minimal --component rust-src --target wasm32-unknown-unknown
+      - name: Install wasm-pack
+        if: steps.wasm.outputs.ready != 'true'
+        run: npm install --global wasm-pack@0.15.0
+      - name: Build missing WASM packages
+        if: steps.wasm.outputs.ready != 'true'
+        run: |
+          npm run wasm:build
+          node scripts/wasm-fingerprint.mjs > wasm/prebuilt.sha256
+      - name: Build production preview
+        run: npm run build
+      - name: Unit and Worker SQLite regression tests
+        run: npm test
+      - name: Install browser engines
+        run: npx playwright install --with-deps chromium firefox webkit
+      - name: Run full browser suite
+        run: npx playwright test --reporter=line
+      - name: Upload browser test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-serula-browser-regression
+          path: |
+            web/test-results/
+            web/playwright-report/
+          if-no-files-found: warn
+          retention-days: 14
