@@ -5,6 +5,7 @@ on:
   pull_request:
     paths:
       - '.github/workflows/full-browser-regression.yml'
+      - 'web/tests/**'
 
 permissions:
   contents: read
@@ -61,8 +62,10 @@ jobs:
         run: npm test
       - name: Install browser engines
         run: npx playwright install --with-deps chromium firefox webkit
+      - name: Run corrected browser smoke tests first
+        run: npx playwright test tests/analytics.spec.ts tests/archive.spec.ts tests/discovery.spec.ts --project=chromium --reporter=line --max-failures=1
       - name: Run full browser suite
-        run: npx playwright test --reporter=line
+        run: npx playwright test --reporter=line --max-failures=10
       - name: Upload browser test results
         if: always()
         uses: actions/upload-artifact@v4
