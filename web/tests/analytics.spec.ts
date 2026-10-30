@@ -1,22 +1,22 @@
 import {test,expect} from '@playwright/test';
 
 test.use({serviceWorkers:'block'});
-// Drain proxy handlers before the request fixture disposes their responses.
 test.afterEach(async({page})=>{await page.unrouteAll({behavior:'wait'});});
-test('analytics loads only on the public domain with the supplied token',async({page,request})=>{
+
+test('analytics beacon only loads on the Serula production domain with the configured token',async({page,request})=>{
   let beacons=0;
   await page.route('https://static.cloudflareinsights.com/beacon.min.js',async route=>{
     beacons++;
-    await route.fulfill({contentType:'application/javascript',headers:{'access-control-allow-origin':'*'},body:'window.beaconLoaded = true;'});
+    await route.fulfill({contentType:'application/javascript',headers:{'access-control-allow-origin':'*'},body:'window.beaconLoaded=true;'});
   });
   await page.goto('/');
-  await expect(page.locator('.project-menu>summary')).toBeVisible();
+  await expect(page.locator('#root .app')).toBeVisible();
   expect(beacons).toBe(0);
-  await page.route('https://sparrowstudio.app/**',async route=>{
+  await page.route('https://serula.site/**',async route=>{
     const url=new URL(route.request().url());
     await route.fulfill({response:await request.get(`http://127.0.0.1:4173${url.pathname}${url.search}`)});
   });
-  await page.goto('https://sparrowstudio.app/');
+  await page.goto('https://serula.site/');
   await expect.poll(()=>beacons).toBe(1);
   await page.waitForFunction(()=>Reflect.get(window,'beaconLoaded')===true);
   const beacon=page.locator('script[data-cf-beacon]');
