@@ -126,3 +126,177 @@
   position: relative;
   z-index: 1;
 }
+
+/* Steep-inspired OTP verification, scoped to avoid altering existing auth forms.
+   Adapted from the Uiverse example by reshades. */
+#root .serula-otp-form {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: min(100%, 340px);
+  padding: 28px 20px;
+  margin-inline: auto;
+  overflow: hidden;
+  border: 1px solid var(--border, #ececec);
+  border-radius: var(--radius-cards, 24px);
+  background: var(--panel, #ffffff);
+  color: var(--ink, #17191c);
+  box-shadow: var(--shadow-subtle, 0 4px 30px rgb(0 0 0 / .08));
+}
+#root .serula-otp-form > *:not(.serula-otp-glow) { position: relative; z-index: 1; }
+#root .serula-otp-form .serula-otp-title {
+  margin: 0;
+  font-family: var(--font-signifier, Georgia, serif);
+  font-weight: 400;
+  font-size: 26px;
+  color: var(--ink, #17191c);
+}
+#root .serula-otp-form .serula-otp-hint {
+  margin: 0;
+  text-align: center;
+  font-size: 14px;
+  color: var(--muted, #777b86);
+}
+#root .serula-otp-form .serula-otp-inputs {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+#root .serula-otp-form .serula-otp-input {
+  box-sizing: border-box;
+  width: 48px;
+  height: 54px;
+  padding: 0;
+  text-align: center;
+  font: 500 22px/1 var(--font-ui, system-ui, sans-serif);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink, #17191c);
+  background: var(--panel-soft, #f2f2f3);
+  border: 1px solid var(--border, #ececec);
+  border-radius: var(--radius-inputs, 16px);
+  outline: none;
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+#root .serula-otp-form .serula-otp-input:focus-visible {
+  border-color: var(--color-sienna-brown, #5d2a1a);
+  outline: 2px solid var(--color-sienna-brown, #5d2a1a);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgb(251 225 209 / .55);
+}
+#root .serula-otp-form .serula-otp-input:disabled { opacity: .55; }
+#root .serula-otp-form .serula-otp-submit {
+  min-height: 42px;
+  padding: 8px 24px;
+  border-radius: var(--radius-buttons, 9999px);
+  background: var(--primary, #17191c);
+  color: var(--primary-ink, #ffffff);
+  border: 1px solid var(--primary, #17191c);
+}
+#root .serula-otp-form .serula-otp-glow {
+  position: absolute;
+  z-index: 0;
+  width: 170px;
+  height: 110px;
+  top: 0;
+  left: 50%;
+  border-radius: 50%;
+  transform: translateX(-50%);
+  background: var(--color-blush-peach, #fbe1d1);
+  filter: blur(44px);
+  opacity: .45;
+  pointer-events: none;
+  animation: serula-otp-float 3s ease-in-out infinite;
+}
+@keyframes serula-otp-float {
+  0%, 100% { translate: 0 -20px; }
+  50% { translate: 0 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #root .serula-otp-form .serula-otp-glow { animation: none; }
+  #root .serula-otp-form .serula-otp-input { transition: none; }
+}
+
+/* Steep-inspired authentication buttons; visual changes only. */
+#root .auth-card .auth-tabs {gap:8px;padding:4px;border-radius:9999px;background:var(--panel-soft,#f2f2f3)}
+#root .auth-card .auth-tabs button {min-height:42px;border-radius:9999px!important;background:transparent;color:var(--ink,#17191c);font-weight:450;box-shadow:none}
+#root .auth-card .auth-tabs button.active {background:var(--panel,#fff);border:1px solid var(--border,#ececec);font-weight:500}
+#root .auth-card form>button {min-height:46px;padding:10px 20px;border-radius:9999px!important;background:var(--primary,#17191c);color:var(--primary-ink,#fff);border:1px solid var(--primary,#17191c);font-weight:500;box-shadow:none}
+#root .auth-card .auth-google-button {min-height:46px;width:100%;padding:10px 20px;border:1px solid var(--ink,#17191c)!important;border-radius:9999px!important;background:transparent!important;color:var(--ink,#17191c)!important;box-shadow:none!important;font-weight:450}
+#root .auth-card .auth-google-button:hover {background:var(--panel-soft,#f2f2f3)!important}
+
+/* Uiverse Priyanshu02020-inspired login card, recolored for Steep.
+   Scoped to auth-card only; keeps the existing React inputs and Google flow. */
+#root .auth-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  width: min(430px, 100%);
+  padding: 28px;
+  border: 1px solid var(--border, #ececec);
+  border-radius: var(--radius-cards, 24px);
+  background: var(--panel, #fff);
+  box-shadow: var(--shadow-subtle-2, 0 8px 40px rgb(0 0 0 / .1));
+}
+#root .auth-card::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -100%;
+  background: conic-gradient(from 45deg, transparent 73%, var(--color-blush-peach, #fbe1d1) 84%, transparent 100%);
+  animation: serula-auth-spin 4s ease-in-out infinite;
+  pointer-events: none;
+}
+#root .auth-card::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 1px;
+  border-radius: calc(var(--radius-cards, 24px) - 1px);
+  background: var(--panel, #fff);
+  pointer-events: none;
+}
+@keyframes serula-auth-spin { to { transform: rotate(360deg); } }
+#root .auth-card :is(h1,h2) {
+  color: var(--ink, #17191c);
+  font-family: var(--font-signifier, Georgia, serif);
+  font-weight: 400;
+  letter-spacing: -.02em;
+}
+#root .auth-card label {
+  color: var(--ink, #17191c);
+}
+#root .auth-card input:not([type=checkbox]):not([type=radio]) {
+  width: 100%;
+  border: 1px solid var(--border, #ececec);
+  border-radius: var(--radius-inputs, 16px);
+  background: var(--panel-soft, #f2f2f3);
+  color: var(--ink, #17191c);
+  padding: 12px 14px;
+  box-shadow: none;
+}
+#root .auth-card input:focus-visible {
+  outline: 2px solid var(--color-sienna-brown, #5d2a1a);
+  outline-offset: 2px;
+}
+#root .auth-card form > button:hover:enabled {
+  background: var(--primary-hover, #363940);
+  border-color: var(--primary-hover, #363940);
+}
+#root .auth-card .auth-google-button svg {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+}
+#root .auth-card .auth-tabs button,
+#root .auth-card .auth-google-button,
+#root .auth-card form > button {
+  transition: background-color .2s ease, border-color .2s ease, color .2s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  #root .auth-card::before { animation: none; }
+  #root .auth-card :is(button,input) { transition: none; }
+}
