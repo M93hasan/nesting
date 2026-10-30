@@ -15,20 +15,37 @@ concurrency:
 
 jobs:
   lighthouse:
-    name: Audit live Serula website
+    name: Audit built Serula preview
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: web
     steps:
+      - uses: actions/checkout@v4
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit --no-fund
+
+      - name: Build application
+        run: npm run build
 
       - name: Install Lighthouse CI
         run: npm install --global @lhci/cli@0.15.x
 
-      - name: Run Lighthouse against production
-        run: lhci collect --url=https://serula.site --numberOfRuns=3
+      - name: Start local production build preview
+        run: |
+          npm run preview -- --port 4173 > /tmp/serula-lighthouse-preview.log 2>&1 &
+          curl --fail --retry 20 --retry-delay 1 --retry-connrefused http://127.0.0.1:4173/ > /dev/null
+
+      - name: Run Lighthouse against built preview
+        run: lhci collect --url=http://127.0.0.1:4173/ --numberOfRuns=3
 
       - name: Verify and summarize all three reports
         run: |
@@ -40,9 +57,9 @@ jobs:
           for (const [index, name] of reports.sort().entries()) {
             const report = JSON.parse(fs.readFileSync(`.lighthouseci/${name}`, 'utf8'));
             const status = report.audits['http-status-code'];
-            if (status?.score !== 1) {
+            if (status?.score !== 1 || !report.finalDisplayedUrl?.startsWith('http://127.0.0.1:4173/')) {
               invalid = true;
-              console.error(`Run ${index + 1} did not measure the application: HTTP ${status?.displayValue ?? 'unknown'}. Cloudflare or the origin may have returned an error page.`);
+              console.error(`Run ${index + 1} did not measure the local production build: HTTP ${status?.displayValue ?? 'unknown'}, URL ${report.finalDisplayedUrl ?? 'unknown'}.`);
               continue;
             }
             const scores = ['performance', 'accessibility', 'best-practices', 'seo']
@@ -56,8 +73,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: serula-lighthouse-reports
-          path: .lighthouseci/
+          name: serula-preview-lighthouse-reports
+          path: web/.lighthouseci/
           if-no-files-found: error
           include-hidden-files: true
           retention-days: 14
