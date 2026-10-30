@@ -565,3 +565,34 @@ html[dir="rtl"] body{direction:rtl}html[dir="rtl"] .workspace-svg,html[dir="rtl"
   }
   .about-overview { padding: 18px; }
 }
+
+/* PR #102: collapsible Part Properties below the delete-all button. */
+.sidebar>.part-properties-disclosure{
+  margin:0 16px 14px;
+  width:calc(100% - 32px);
+  border:1px solid var(--border);
+  border-radius:12px;
+  overflow:hidden;
+}
+.part-properties-disclosure>summary{
+  display:flex;
+  align-items:center;
+  min-height:42px;
+  padding:10px 12px;
+  cursor:pointer;
+  color:var(--ink);
+  font-size:13px;
+  font-weight:650;
+  list-style:none;
+}
+.part-properties-disclosure>summary::-webkit-details-marker{display:none}
+.part-properties-disclosure>summary::after{
+  content:'▾';
+  margin-left:auto;
+  color:var(--muted);
+  transition:transform .16s ease;
+}
+.part-properties-disclosure:not([open])>summary::after{transform:rotate(-90deg)}
+.part-properties-disclosure[open]>summary{border-bottom:1px solid var(--border)}
+.part-properties-disclosure .part-settings{margin:0;padding:12px;border:0}
+@media(prefers-reduced-motion:reduce){.part-properties-disclosure>summary::after{transition:none}}
