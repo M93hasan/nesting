@@ -219,3 +219,11 @@
   #root .serula-otp-form .serula-otp-glow { animation: none; }
   #root .serula-otp-form .serula-otp-input { transition: none; }
 }
+
+/* Steep-inspired authentication buttons; visual changes only. */
+#root .auth-card .auth-tabs {gap:8px;padding:4px;border-radius:9999px;background:var(--panel-soft,#f2f2f3)}
+#root .auth-card .auth-tabs button {min-height:42px;border-radius:9999px!important;background:transparent;color:var(--ink,#17191c);font-weight:450;box-shadow:none}
+#root .auth-card .auth-tabs button.active {background:var(--panel,#fff);border:1px solid var(--border,#ececec);font-weight:500}
+#root .auth-card form>button {min-height:46px;padding:10px 20px;border-radius:9999px!important;background:var(--primary,#17191c);color:var(--primary-ink,#fff);border:1px solid var(--primary,#17191c);font-weight:500;box-shadow:none}
+#root .auth-card .auth-google-button {min-height:46px;width:100%;padding:10px 20px;border:1px solid var(--ink,#17191c)!important;border-radius:9999px!important;background:transparent!important;color:var(--ink,#17191c)!important;box-shadow:none!important;font-weight:450}
+#root .auth-card .auth-google-button:hover {background:var(--panel-soft,#f2f2f3)!important}
