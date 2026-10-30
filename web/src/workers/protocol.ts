@@ -15,10 +15,10 @@ export type Placement = { item_id: number; transformation: { reflected?: boolean
 export type SolverMessage = Identity & (
   | { type: 'ready'; threads: number; solverBinary: SolverBinary; simd: boolean; canSkip: boolean; fallbackReason?: string }
   | { type: 'phase'; phase: string; workers: number; initializationMs: number }
-  | (({ type:'candidate' }|{ type:'live' }) & { sequence:number; report:string; elapsedMs:number;
+  | (({ type:'candidate' }|{ type:'live' }) & { sequence:number; report:string; elapsedMs:number; attempt?:number; attemptSeed?:string;
       solution: { strip_width: number; layout: { placed_items: Placement[] } } })
   | { type: 'solver-log'; line:string; timestamp:number }
-  | { type:'run-input'; input:string; seed:string; seconds:number|null; clearance:number; preset:string; threads:number; solverBinary:SolverBinary }
+  | { type:'run-input'; input:string; seed:string; seconds:number|null; clearance:number; preset:string; threads:number; solverBinary:SolverBinary; attempt?:number; attempts?:number }
   | { type:'configuration'; configuration:string }
   | { type: 'finished' }
   | { type: 'error'; message: string }
