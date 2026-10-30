@@ -39,7 +39,7 @@ self.onmessage = async ({ data }: MessageEvent<Start | {type:'preload';threads:n
       const attempt=attempts[index];
       // Preserve a stop signal received between quality attempts. Reset only the
       // previous phase-transition sentinel before continuing a new attempt.
-      if(control && index>0 && Atomics.load(control,0)===1)break;
+      if(control && index>0 && Atomics.load(control,0)===1){send({type:'finished'});break;}
       if(control){
         if(index===0)Atomics.store(control,0,0);
         else Atomics.compareExchange(control,0,-1,0);
