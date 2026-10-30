@@ -1,3 +1,0 @@
-Serula Nesting v0.1.11
-Deploy marker: 2026-10-17
-Feature: CorelDRAW bridge (16 Oct backport)
