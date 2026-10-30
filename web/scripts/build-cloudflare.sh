@@ -24,3 +24,7 @@ done
 echo "Using verified prebuilt WASM packages; Rust/WASM compilation skipped."
 npm run typecheck
 npx vite build
+
+# Stamp the actual Cloudflare build checkout rather than shipping the stale static marker.
+build_sha="$(git rev-parse --verify HEAD)"
+printf 'Git commit: %s\n' "$build_sha" > dist/deploy-version.txt
