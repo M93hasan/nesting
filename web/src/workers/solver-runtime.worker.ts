@@ -37,7 +37,13 @@ self.onmessage = async ({ data }: MessageEvent<Start | {type:'preload';threads:n
     let globalSequence=0,elapsedOffsetMs=0;
     for(let index=0;index<attempts.length;index++){
       const attempt=attempts[index];
-      if(control)Atomics.store(control,0,0);
+      // Preserve a stop signal received between quality attempts. Reset only the
+      // previous phase-transition sentinel before continuing a new attempt.
+      if(control && index>0 && Atomics.load(control,0)===1)break;
+      if(control){
+        if(index===0)Atomics.store(control,0,0);
+        else Atomics.compareExchange(control,0,-1,0);
+      }
       send({type:'run-input',input,seed:attempt.seed,seconds:attempt.seconds,clearance,preset,threads:wasm.thread_count(),solverBinary,attempt:index+1,attempts:attempts.length});
       if(attempts.length>1)send({type:'solver-log',line:`Quality start ${index+1}/${attempts.length}: seed ${attempt.seed}, budget ${attempt.seconds}s.`,timestamp:Date.now()});
       const started=performance.now();
