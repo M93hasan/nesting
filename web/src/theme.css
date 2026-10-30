@@ -569,3 +569,18 @@ body { background: var(--page); color: var(--ink); }
   }
   :root #root .app .empty-project { padding: var(--spacing-16); }
 }
+
+/* CorelDRAW transfer: green action, isolated from DXF and other buttons. */
+:root #root .app button.corel-transfer-button:not(:disabled) {
+  background: #18864b !important;
+  border-color: #18864b !important;
+  color: #ffffff !important;
+}
+:root #root .app button.corel-transfer-button:not(:disabled):hover {
+  background: #126b3c !important;
+  border-color: #126b3c !important;
+  color: #ffffff !important;
+}
+:root #root .app button.corel-transfer-button:focus-visible {
+  outline-color: #18864b;
+}
