@@ -107,6 +107,7 @@ export default function ThemeDesigner(){
   const [inspect,setInspect]=useState(false);
   const [moveMode,setMoveMode]=useState(false);
   const [cssDeclaration,setCssDeclaration]=useState('');
+  const cssTyping=useRef(false);
   const [iconText,setIconText]=useState('');
   const [hovered,setHovered]=useState<HTMLElement|null>(null);
   const [selected,setSelected]=useState<HTMLElement|null>(null);
@@ -155,6 +156,7 @@ export default function ThemeDesigner(){
       const text=element.textContent?.trim()||'';
       setPaint({color:toHex(style.color),background:toHex(style.backgroundColor),size:parseFloat(style.fontSize)||14,radius:parseFloat(style.borderRadius)||0,shadow:0,text});
       setNotice('Öğe seçildi. Düzenleme formu açıldı.');
+      cssTyping.current=false;
       setCssDeclaration(['color','background-color','font-size','border-radius','box-shadow','width','height','padding','filter','opacity','transition','translate'].map(name=>name+': '+style.getPropertyValue(name).trim()+';').join('\n'));
       setIconText('');
       window.requestAnimationFrame(()=>{
@@ -220,6 +222,13 @@ export default function ThemeDesigner(){
     setElementEdits(prev=>({...prev,[selector]:{...prev[selector],selector,styles:{...prev[selector]?.styles,...styles}}}));
     setNotice(Object.keys(styles).length+' CSS özelliği uygulandı. Değişiklikleri korumak için Kaydet düğmesine bas.');
   };
+  useEffect(()=>{
+    if(!cssTyping.current||!selected)return;
+    const timer=window.setTimeout(()=>applySelectedCss(),250);
+    return()=>window.clearTimeout(timer);
+    // Only user edits to the CSS textarea trigger the live application.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[cssDeclaration]);
   const addIcon=()=>{if(!selected||!selected.matches('button,a,[role="button"]')||!iconText.trim())return;let icon=selected.querySelector<HTMLElement>('[data-serula-icon]');if(!icon){icon=document.createElement('span');icon.dataset.serulaIcon='true';icon.setAttribute('aria-hidden','true');icon.style.marginInlineEnd='6px';selected.prepend(icon)}icon.textContent=iconText.slice(0,4);setNotice('Simge önizlemede eklendi; kalıcı öğe ekleme altyapısı henüz tamamlanmadı.')};
   const changeSelected=(property:'color'|'background'|'size'|'radius'|'shadow'|'text',value:string|number)=>{
     if(!selected)return;
@@ -360,7 +369,7 @@ export default function ThemeDesigner(){
         <label>Gölge <input type="range" min="0" max="35" value={paint.shadow} onChange={e=>changeSelected('shadow',Number(e.target.value))}/><output>{paint.shadow}px</output></label>
         {!selected.matches('input,textarea,select,[contenteditable]')&&<label>Metin <textarea rows={2} value={paint.text} onChange={e=>changeSelected('text',e.target.value)}/></label>}
         {selected.matches('[data-serula-preview-only="true"]')&&<button type="button" onClick={removeButton}>Eklenen butonu sil</button>}
-        <label>Mevcut CSS ve düzenleme<textarea rows={10} spellCheck={false} aria-label="Seçili öğenin CSS kodu" value={cssDeclaration} onChange={e=>{setCssDeclaration(e.target.value)}}/></label><button type="button" onClick={applySelectedCss}>CSS uygula ve anında göster</button>{notice&&<small role="status" aria-live="polite">{notice}</small>}
+        <label>Mevcut CSS ve düzenleme<textarea rows={10} spellCheck={false} aria-label="Seçili öğenin CSS kodu" value={cssDeclaration} onChange={e=>{cssTyping.current=true;setCssDeclaration(e.target.value)}}/></label><button type="button" onClick={applySelectedCss}>CSS uygula ve anında göster</button>{notice&&<small role="status" aria-live="polite">{notice}</small>}
         <label>İkon / logo simgesi<input type="text" maxLength={4} value={iconText} placeholder="★" onChange={e=>setIconText(e.target.value)}/></label><button type="button" onClick={addIcon}>Butona simge ekle (önizleme)</button>
         <small>Ölçüler, gölge, efekt, boşluk ve konum CSS alanından düzenlenebilir. Seçili öğeyi ok tuşlarıyla 1 piksel, Shift + ok ile 10 piksel taşıyabilirsin. Taşıma modu seçili öğeyi sürükler; bazı duyarlı düzenlerde yerleşim değişebilir.</small>
       </section>}
