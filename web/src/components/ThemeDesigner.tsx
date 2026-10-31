@@ -25,7 +25,7 @@ function restoreEdit(edit:ElementEdit){
   try{el=document.querySelector<HTMLElement>(edit.selector)}catch{return}
   if(!el||el.closest('.serula-designer-root'))return;
   for(const [name,value] of Object.entries(edit.styles))
-    if(['color','background-color','font-size','border-radius','box-shadow'].includes(name)&&typeof value==='string'&&value.length<120)el.style.setProperty(name,value,'important');
+    if(['color','background-color','font-size','border-radius','box-shadow','width','height','translate','filter','opacity','transition','padding'].includes(name)&&typeof value==='string'&&value.length<120)el.style.setProperty(name,value,'important');
   if(typeof edit.text==='string'&&edit.text.length<500&&!el.matches('input,textarea,select,[contenteditable]')){
     const node=Array.from(el.childNodes).find(n=>n.nodeType===Node.TEXT_NODE);
     if(node)node.textContent=edit.text;
@@ -71,6 +71,10 @@ export default function ThemeDesigner(){
     return ()=>{delete root.dataset.serulaDesigner;for(const name of ['--color-ink-black','--color-paper-white','--color-mist-gray','--color-fog-white','--color-sienna-brown','--color-blush-peach','--font-sohne','--font-signifier','--radius-buttons','--radius-cards','--shadow-subtle'])root.style.removeProperty(name);};
   },[draft,enabled]);
   const [inspect,setInspect]=useState(false);
+  const [moveMode,setMoveMode]=useState(false);
+  const [cssDeclaration,setCssDeclaration]=useState('');
+  const [iconText,setIconText]=useState('');
+  const [hovered,setHovered]=useState<HTMLElement|null>(null);
   const [selected,setSelected]=useState<HTMLElement|null>(null);
   const [paint,setPaint]=useState({color:'#172a35',background:'#ffffff',size:14,radius:12,shadow:0,text:''});
   const [customCss,setCustomCss]=useState(()=>{try{return localStorage.getItem(cssKey)||''}catch{return ''}});
@@ -117,6 +121,8 @@ export default function ThemeDesigner(){
       const text=element.textContent?.trim()||'';
       setPaint({color:toHex(style.color),background:toHex(style.backgroundColor),size:parseFloat(style.fontSize)||14,radius:parseFloat(style.borderRadius)||0,shadow:0,text});
       setNotice('Öğe seçildi. Düzenleme formu açıldı.');
+      setCssDeclaration(['color','background-color','font-size','border-radius','box-shadow','width','height','padding','filter','opacity','transition','translate'].map(name=>name+': '+style.getPropertyValue(name).trim()+';').join('\n'));
+      setIconText('');
       window.requestAnimationFrame(()=>{
         const panel=document.getElementById('serula-designer-panel');
         const form=panel?.querySelector<HTMLElement>('[aria-label="Seçili öğeyi düzenle"]');
@@ -124,10 +130,15 @@ export default function ThemeDesigner(){
       });
       // Keep selection mode on so the next item can be selected without reopening the panel.
     };
+    const hover=(event:PointerEvent)=>{const source=event.target;if(!(source instanceof Element)||source.closest('.serula-designer-root'))return;const el=source.closest<HTMLElement>('button,a,[role="button"],input,label,h1,h2,h3,p,section,article,div') || source as HTMLElement;setHovered(previous=>{if(previous!==el)previous?.removeAttribute('data-serula-hover');return el});el.setAttribute('data-serula-hover','true')};
+    document.addEventListener('pointermove',hover,{passive:true});
     document.addEventListener('click',handle,true);
-    return()=>document.removeEventListener('click',handle,true);
+    return()=>{document.removeEventListener('pointermove',hover);document.removeEventListener('click',handle,true);document.querySelectorAll('[data-serula-hover]').forEach(el=>el.removeAttribute('data-serula-hover'))};
   },[inspect,open]);
   useEffect(()=>()=>{selected?.removeAttribute('data-serula-selected')},[selected]);
+  useEffect(()=>{if(!moveMode||!selected||!open)return;let dragging=false,startX=0,startY=0,baseX=0,baseY=0;const down=(e:PointerEvent)=>{if(!(e.target instanceof Node)||!selected.contains(e.target))return;e.preventDefault();e.stopImmediatePropagation();dragging=true;startX=e.clientX;startY=e.clientY;const xy=(selected.style.translate||'0px 0px').match(/(-?\\d+(?:\\.\\d+)?)px\\s+(-?\\d+(?:\\.\\d+)?)px/);baseX=Number(xy?.[1]||0);baseY=Number(xy?.[2]||0)};const move=(e:PointerEvent)=>{if(!dragging)return;e.preventDefault();selected.style.setProperty('translate',`${Math.round(baseX+e.clientX-startX)}px ${Math.round(baseY+e.clientY-startY)}px`,'important')};const up=()=>{if(!dragging)return;dragging=false;const selector=selectorFor(selected);setElementEdits(prev=>({...prev,[selector]:{selector,styles:{...prev[selector]?.styles,translate:selected.style.translate},text:prev[selector]?.text}}))};document.addEventListener('pointerdown',down,true);document.addEventListener('pointermove',move,true);document.addEventListener('pointerup',up,true);return()=>{document.removeEventListener('pointerdown',down,true);document.removeEventListener('pointermove',move,true);document.removeEventListener('pointerup',up,true)}},[moveMode,selected,open]);
+  const applySelectedCss=()=>{if(!selected)return;const allowed=new Set(['color','background-color','font-size','border-radius','box-shadow','width','height','padding','filter','opacity','transition','translate']);const styles:Record<string,string>={};for(const line of cssDeclaration.split('\n')){if(!line.trim())continue;const match=line.match(/^\\s*([a-z-]+)\\s*:\\s*([^;{}]+)\\s*;?\\s*$/i);if(!match||!allowed.has(match[1])||match[2].length>160||/url\\s*\\(|expression\\s*\\(|@import/i.test(match[2])){setNotice('CSS hatası: yalnızca izin verilen görsel özellikler ve basit değerler kullanılabilir.');return;}styles[match[1]]=match[2].trim()}for(const [name,value] of Object.entries(styles))selected.style.setProperty(name,value,'important');const selector=selectorFor(selected);setElementEdits(prev=>({...prev,[selector]:{...prev[selector],selector,styles:{...prev[selector]?.styles,...styles}}}));setNotice('CSS anında uygulandı. Kalıcı taslak için Kaydet düğmesine bas.')};
+  const addIcon=()=>{if(!selected||!selected.matches('button,a,[role="button"]')||!iconText.trim())return;let icon=selected.querySelector<HTMLElement>('[data-serula-icon]');if(!icon){icon=document.createElement('span');icon.dataset.serulaIcon='true';icon.setAttribute('aria-hidden','true');icon.style.marginInlineEnd='6px';selected.prepend(icon)}icon.textContent=iconText.slice(0,4);setNotice('Simge önizlemede eklendi; kalıcı öğe ekleme altyapısı henüz tamamlanmadı.')};
   const changeSelected=(property:'color'|'background'|'size'|'radius'|'shadow'|'text',value:string|number)=>{
     if(!selected)return;
     setPaint(p=>({...p,[property]:value}));
@@ -214,7 +225,7 @@ export default function ThemeDesigner(){
       if(!valid(theme))problems.push('Geçerli tema kaydı bulunamadı. Önce Kaydet düğmesine bas.');
       if(!edits||typeof edits!=='object'||Array.isArray(edits))problems.push('Öğe düzenlemeleri geçersiz.');
       else{
-        const names=new Set(['color','background-color','font-size','border-radius','box-shadow']);
+        const names=new Set(['color','background-color','font-size','border-radius','box-shadow','width','height','translate','filter','opacity','transition','padding']);
         for(const [selector,edit] of Object.entries(edits)){
           if(!edit||selector.length>500||selector!==edit.selector||!edit.styles||typeof edit.styles!=='object'){
             problems.push('Geçersiz öğe seçicisi var.');break;
@@ -240,7 +251,7 @@ export default function ThemeDesigner(){
       <header><strong>Serula Tasarım Atölyesi</strong><button type="button" onClick={()=>setOpen(false)} aria-label="Tema tasarımcısını kapat">×</button></header>
 <div className="serula-designer-savebar" aria-label="Tasarım kaydetme işlemleri"><button type="button" onClick={save}>Kaydet</button><button type="button" onClick={exportDraft} title="Kaydedilmiş taslağı JSON dosyası olarak indirir; canlı yayına göndermez.">Yayın paketini indir</button><button type="button" onClick={checkPublishReadiness}>Yayın ön kontrolü</button><button type="button" disabled title="Güvenli yayınlama akışı henüz bağlı değil; canlı siteye değişiklik gönderilmez.">Kaydet ve Yayınla</button><small>Yayınlama henüz etkin değil.</small></div>
       <p>Değişiklikleri sayfanın üzerinde anında gör. Bu ekran yalnızca tasarım dalında çalışır.</p>
-      <div className="serula-designer-actions"><button type="button" onClick={()=>setInspect(i=>!i)}>{inspect?'Seçimi iptal et':'✥ Ekrandan öğe seç'}</button></div>
+      <div className="serula-designer-actions"><button type="button" onClick={()=>{setInspect(i=>!i);setMoveMode(false)}}>{inspect?'Seçimi iptal et':'✥ Ekrandan öğe seç'}</button>{selected&&<button type="button" onClick={()=>{setMoveMode(v=>!v);setInspect(false)}}>{moveMode?'Taşımayı bitir':'↔ Seçili öğeyi taşı'}</button>}</div>
       {inspect&&<p role="status">Seçim modu açık. Ekrandaki butona veya başka bir öğeye tıkla; işlem çalışmadan düzenleme paneli açılacak.</p>}
       {selected&&<section className="serula-inspector" aria-label="Seçili öğeyi düzenle">
         <strong>Seçili öğe: {selected.tagName.toLowerCase()}</strong>
@@ -251,7 +262,9 @@ export default function ThemeDesigner(){
         <label>Gölge <input type="range" min="0" max="35" value={paint.shadow} onChange={e=>changeSelected('shadow',Number(e.target.value))}/><output>{paint.shadow}px</output></label>
         {!selected.matches('input,textarea,select,[contenteditable]')&&<label>Metin <textarea rows={2} value={paint.text} onChange={e=>changeSelected('text',e.target.value)}/></label>}
         {selected.matches('[data-serula-preview-only="true"]')&&<button type="button" onClick={removeButton}>Eklenen butonu sil</button>}
-        <small>Kaydet ile öğeye özel stiller ve metin tarayıcıya saklanır. Dinamik ekran değişiklikleri bazı seçimleri etkileyebilir.</small>
+        <label>Mevcut CSS ve düzenleme<textarea rows={10} spellCheck={false} aria-label="Seçili öğenin CSS kodu" value={cssDeclaration} onChange={e=>{setCssDeclaration(e.target.value)}}/></label><button type="button" onClick={applySelectedCss}>CSS uygula ve anında göster</button>
+        <label>İkon / logo simgesi<input type="text" maxLength={4} value={iconText} placeholder="★" onChange={e=>setIconText(e.target.value)}/></label><button type="button" onClick={addIcon}>Butona simge ekle (önizleme)</button>
+        <small>Ölçüler, gölge, efekt, boşluk ve konum CSS alanından düzenlenebilir. Taşıma modu seçili öğeyi sürükler; bazı duyarlı düzenlerde yerleşim değişebilir.</small>
       </section>}
       <section className="serula-inspector" aria-label="Yeni buton oluştur">
         <strong>+ Buton ekle</strong>
