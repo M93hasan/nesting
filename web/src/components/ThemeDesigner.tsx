@@ -205,6 +205,30 @@ export default function ThemeDesigner(){
       setNotice('Kaydedilmiş tasarım paketi indirildi. Bu işlem canlı siteye yayın yapmaz.');
     }catch{setNotice('Tasarım paketi oluşturulamadı. Önce Kaydet düğmesini kullan.');}
   };
+  const checkPublishReadiness=()=>{
+    try{
+      const theme=JSON.parse(localStorage.getItem(key)||'null');
+      const edits=JSON.parse(localStorage.getItem(editsKey)||'{}') as Record<string,ElementEdit>;
+      const css=localStorage.getItem(cssKey)||'';
+      const problems:string[]=[];
+      if(!valid(theme))problems.push('Geçerli tema kaydı bulunamadı. Önce Kaydet düğmesine bas.');
+      if(!edits||typeof edits!=='object'||Array.isArray(edits))problems.push('Öğe düzenlemeleri geçersiz.');
+      else{
+        const names=new Set(['color','background-color','font-size','border-radius','box-shadow']);
+        for(const [selector,edit] of Object.entries(edits)){
+          if(!edit||selector.length>500||selector!==edit.selector||!edit.styles||typeof edit.styles!=='object'){
+            problems.push('Geçersiz öğe seçicisi var.');break;
+          }
+          if(Object.entries(edit.styles).some(([name,value])=>!names.has(name)||typeof value!=='string'||value.length>120)){
+            problems.push('İzin verilen tasarım özellikleri dışında stil bulundu.');break;
+          }
+        }
+      }
+      if(css.trim())problems.push('Serbest CSS, otomatik yayın için henüz güvenli biçimde doğrulanamıyor.');
+      problems.push('Sunucu doğrulaması, yönetici kimlik kontrolü ve geri alma altyapısı henüz bağlı değil.');
+      setNotice('Yayın ön kontrolü: '+problems.join(' '));
+    }catch{setNotice('Yayın ön kontrolü başarısız. Önce taslağını Kaydet ile sakla.');}
+  };
   const reset=()=>{setDraft(defaults);setEnabled(false);setElementEdits({});setCustomCss('');
     try{localStorage.removeItem(key);localStorage.removeItem(editsKey);localStorage.removeItem(cssKey);}catch{/* storage unavailable */}
     document.getElementById('serula-design-css-preview')?.remove();
@@ -214,7 +238,7 @@ export default function ThemeDesigner(){
     <button type="button" className="serula-designer-launch" onClick={()=>setOpen(o=>!o)} aria-expanded={open} aria-controls="serula-designer-panel">🎨 Tema Tasarımcısı</button>
     {open&&<aside id="serula-designer-panel" className="serula-designer-panel" aria-label="Serula tema tasarımcısı">
       <header><strong>Serula Tasarım Atölyesi</strong><button type="button" onClick={()=>setOpen(false)} aria-label="Tema tasarımcısını kapat">×</button></header>
-<div className="serula-designer-savebar" aria-label="Tasarım kaydetme işlemleri"><button type="button" onClick={save}>Kaydet</button><button type="button" onClick={exportDraft} title="Kaydedilmiş taslağı JSON dosyası olarak indirir; canlı yayına göndermez.">Yayın paketini indir</button><button type="button" disabled title="Güvenli yayınlama akışı henüz bağlı değil; canlı siteye değişiklik gönderilmez.">Kaydet ve Yayınla</button><small>Yayınlama henüz etkin değil.</small></div>
+<div className="serula-designer-savebar" aria-label="Tasarım kaydetme işlemleri"><button type="button" onClick={save}>Kaydet</button><button type="button" onClick={exportDraft} title="Kaydedilmiş taslağı JSON dosyası olarak indirir; canlı yayına göndermez.">Yayın paketini indir</button><button type="button" onClick={checkPublishReadiness}>Yayın ön kontrolü</button><button type="button" disabled title="Güvenli yayınlama akışı henüz bağlı değil; canlı siteye değişiklik gönderilmez.">Kaydet ve Yayınla</button><small>Yayınlama henüz etkin değil.</small></div>
       <p>Değişiklikleri sayfanın üzerinde anında gör. Bu ekran yalnızca tasarım dalında çalışır.</p>
       <div className="serula-designer-actions"><button type="button" onClick={()=>setInspect(i=>!i)}>{inspect?'Seçimi iptal et':'✥ Ekrandan öğe seç'}</button></div>
       {inspect&&<p role="status">Seçim modu açık. Ekrandaki butona veya başka bir öğeye tıkla; işlem çalışmadan düzenleme paneli açılacak.</p>}
