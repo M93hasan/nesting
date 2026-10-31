@@ -39,3 +39,18 @@ test('similar-shape grouping uses a clear native checkbox and supports toggling'
   await checkbox.uncheck();
   await expect(checkbox).not.toBeChecked();
 });
+
+test('studio stays within the viewport at phone, tablet and desktop widths',async({page})=>{
+  for(const width of [390,768,1440]){
+    await page.setViewportSize({width,height:900});
+    await page.goto('/');
+    await expect(page.locator('.main-workspace')).toBeAttached();
+    await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    const transfer=page.locator('.corel-transfer-button');
+    await expect(transfer).toBeAttached();
+    await expect(transfer).toContainText("CorelDRAW'a Aktar");
+    const dimensions=await transfer.evaluate(el=>({width:el.getBoundingClientRect().width,height:el.getBoundingClientRect().height}));
+    expect(dimensions.width).toBeGreaterThan(0);
+    expect(dimensions.height).toBeGreaterThan(0);
+  }
+});
