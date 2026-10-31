@@ -149,7 +149,7 @@ export default function ThemeDesigner(){
       const value=trimmed.slice(colon+1).trim().replace(/;+\s*$/,'').trim();
       if(!allowed.has(name)){setNotice('CSS satır '+(index+1)+': '+name+' bu önizlemede desteklenmiyor.');return;}
       if(!value)continue;
-      if(value.length>200||/url\\s*\\(|expression\\s*\\(|@import|[{}]/i.test(value)){setNotice('CSS satır '+(index+1)+': desteklenmeyen CSS değeri.');return;}
+      if(value.length>200||/url\s*\(|expression\s*\(|@import|[{}]/i.test(value)){setNotice('CSS satır '+(index+1)+': desteklenmeyen CSS değeri.');return;}
       styles[name]=value;
     }
     if(!Object.keys(styles).length){setNotice('Uygulanabilecek CSS değeri bulunamadı. Önce bir özelliği değiştir.');return;}
