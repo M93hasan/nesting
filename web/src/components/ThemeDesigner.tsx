@@ -181,7 +181,7 @@ export default function ThemeDesigner(){
       if(event.target instanceof HTMLElement&&event.target.closest('input,textarea,select,[contenteditable="true"]'))return;
       event.preventDefault();
       const previous=selected.style.getPropertyValue('translate');
-      const match=previous.match(/(-?\\d+(?:\\.\\d+)?)px\\s+(-?\\d+(?:\\.\\d+)?)px/);
+      const match=previous.match(/(-?\d+(?:\.\d+)?)px\s+(-?\d+(?:\.\d+)?)px/);
       const x=Number(match?.[1]||0),y=Number(match?.[2]||0),step=event.shiftKey?10:1;
       const nx=x+(event.key==='ArrowRight'?step:event.key==='ArrowLeft'?-step:0);
       const ny=y+(event.key==='ArrowDown'?step:event.key==='ArrowUp'?-step:0);
