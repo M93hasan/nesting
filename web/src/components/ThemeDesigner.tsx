@@ -137,7 +137,27 @@ export default function ThemeDesigner(){
   },[inspect,open]);
   useEffect(()=>()=>{selected?.removeAttribute('data-serula-selected')},[selected]);
   useEffect(()=>{if(!moveMode||!selected||!open)return;let dragging=false,startX=0,startY=0,baseX=0,baseY=0;const down=(e:PointerEvent)=>{if(!(e.target instanceof Node)||!selected.contains(e.target))return;e.preventDefault();e.stopImmediatePropagation();dragging=true;startX=e.clientX;startY=e.clientY;const xy=(selected.style.translate||'0px 0px').match(/(-?\d+(?:\.\d+)?)px\s+(-?\d+(?:\.\d+)?)px/);baseX=Number(xy?.[1]||0);baseY=Number(xy?.[2]||0)};const move=(e:PointerEvent)=>{if(!dragging)return;e.preventDefault();selected.style.setProperty('translate',`${Math.round(baseX+e.clientX-startX)}px ${Math.round(baseY+e.clientY-startY)}px`,'important')};const up=()=>{if(!dragging)return;dragging=false;const selector=selectorFor(selected);setElementEdits(prev=>({...prev,[selector]:{selector,styles:{...prev[selector]?.styles,translate:selected.style.translate},text:prev[selector]?.text}}))};document.addEventListener('pointerdown',down,true);document.addEventListener('pointermove',move,true);document.addEventListener('pointerup',up,true);return()=>{document.removeEventListener('pointerdown',down,true);document.removeEventListener('pointermove',move,true);document.removeEventListener('pointerup',up,true)}},[moveMode,selected,open]);
-  const applySelectedCss=()=>{if(!selected)return;const allowed=new Set(['color','background-color','font-size','border-radius','box-shadow','width','height','padding','filter','opacity','transition','translate']);const styles:Record<string,string>={};for(const line of cssDeclaration.split('\n')){if(!line.trim())continue;const match=line.match(/^\s*([a-z-]+)\s*:\s*([^;{}]+)\s*;?\s*$/i);if(!match||!allowed.has(match[1])||match[2].length>160||/url\s*\(|expression\s*\(|@import/i.test(match[2])){setNotice('CSS hatası: yalnızca izin verilen görsel özellikler ve basit değerler kullanılabilir.');return;}styles[match[1]]=match[2].trim()}for(const [name,value] of Object.entries(styles))selected.style.setProperty(name,value,'important');const selector=selectorFor(selected);setElementEdits(prev=>({...prev,[selector]:{...prev[selector],selector,styles:{...prev[selector]?.styles,...styles}}}));setNotice('CSS anında uygulandı. Kalıcı taslak için Kaydet düğmesine bas.')};
+  const applySelectedCss=()=>{
+    if(!selected||!selected.isConnected){setNotice('Öğe seçimi kayboldu. Lütfen düzenlemek istediğin öğeyi tekrar seç.');return;}
+    const allowed=new Set(['color','background-color','font-size','border-radius','box-shadow','width','height','padding','margin','display','gap','border','border-color','border-width','border-style','font-weight','font-family','letter-spacing','line-height','text-align','transform','filter','opacity','transition','translate']);
+    const styles:Record<string,string>={};
+    for(const [index,line] of cssDeclaration.split('\\n').entries()){
+      const trimmed=line.trim();if(!trimmed||trimmed.startsWith('/*')||trimmed.startsWith('*'))continue;
+      const colon=trimmed.indexOf(':');
+      if(colon<1){setNotice('CSS satır '+(index+1)+': özellik ve değer arasında iki nokta olmalı.');return;}
+      const name=trimmed.slice(0,colon).trim().toLowerCase();
+      const value=trimmed.slice(colon+1).trim().replace(/;+\\s*$/,'').trim();
+      if(!allowed.has(name)){setNotice('CSS satır '+(index+1)+': '+name+' bu önizlemede desteklenmiyor.');return;}
+      if(!value)continue;
+      if(value.length>200||/url\\s*\\(|expression\\s*\\(|@import|[{}]/i.test(value)){setNotice('CSS satır '+(index+1)+': desteklenmeyen CSS değeri.');return;}
+      styles[name]=value;
+    }
+    if(!Object.keys(styles).length){setNotice('Uygulanabilecek CSS değeri bulunamadı. Önce bir özelliği değiştir.');return;}
+    for(const [name,value] of Object.entries(styles))selected.style.setProperty(name,value,'important');
+    const selector=selectorFor(selected);
+    setElementEdits(prev=>({...prev,[selector]:{...prev[selector],selector,styles:{...prev[selector]?.styles,...styles}}}));
+    setNotice(Object.keys(styles).length+' CSS özelliği uygulandı. Değişiklikleri korumak için Kaydet düğmesine bas.');
+  };
   const addIcon=()=>{if(!selected||!selected.matches('button,a,[role="button"]')||!iconText.trim())return;let icon=selected.querySelector<HTMLElement>('[data-serula-icon]');if(!icon){icon=document.createElement('span');icon.dataset.serulaIcon='true';icon.setAttribute('aria-hidden','true');icon.style.marginInlineEnd='6px';selected.prepend(icon)}icon.textContent=iconText.slice(0,4);setNotice('Simge önizlemede eklendi; kalıcı öğe ekleme altyapısı henüz tamamlanmadı.')};
   const changeSelected=(property:'color'|'background'|'size'|'radius'|'shadow'|'text',value:string|number)=>{
     if(!selected)return;
@@ -262,7 +282,7 @@ export default function ThemeDesigner(){
         <label>Gölge <input type="range" min="0" max="35" value={paint.shadow} onChange={e=>changeSelected('shadow',Number(e.target.value))}/><output>{paint.shadow}px</output></label>
         {!selected.matches('input,textarea,select,[contenteditable]')&&<label>Metin <textarea rows={2} value={paint.text} onChange={e=>changeSelected('text',e.target.value)}/></label>}
         {selected.matches('[data-serula-preview-only="true"]')&&<button type="button" onClick={removeButton}>Eklenen butonu sil</button>}
-        <label>Mevcut CSS ve düzenleme<textarea rows={10} spellCheck={false} aria-label="Seçili öğenin CSS kodu" value={cssDeclaration} onChange={e=>{setCssDeclaration(e.target.value)}}/></label><button type="button" onClick={applySelectedCss}>CSS uygula ve anında göster</button>
+        <label>Mevcut CSS ve düzenleme<textarea rows={10} spellCheck={false} aria-label="Seçili öğenin CSS kodu" value={cssDeclaration} onChange={e=>{setCssDeclaration(e.target.value)}}/></label><button type="button" onClick={applySelectedCss}>CSS uygula ve anında göster</button>{notice&&<small role="status" aria-live="polite">{notice}</small>}
         <label>İkon / logo simgesi<input type="text" maxLength={4} value={iconText} placeholder="★" onChange={e=>setIconText(e.target.value)}/></label><button type="button" onClick={addIcon}>Butona simge ekle (önizleme)</button>
         <small>Ölçüler, gölge, efekt, boşluk ve konum CSS alanından düzenlenebilir. Taşıma modu seçili öğeyi sürükler; bazı duyarlı düzenlerde yerleşim değişebilir.</small>
       </section>}
