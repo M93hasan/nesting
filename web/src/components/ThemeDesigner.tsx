@@ -4,6 +4,34 @@ import './ThemeDesigner.css';
 type Design={accent:string;ink:string;paper:string;surface:string;radius:number;cardRadius:number;shadow:number;font:string};
 const defaults:Design={accent:'#286a75',ink:'#172a35',paper:'#f7f9fa',surface:'#edf2f4',radius:12,cardRadius:16,shadow:12,font:'system'};
 const key='serula-design-preview-v1';
+const editsKey='serula-element-edits-v1';
+const cssKey='serula-custom-css-v1';
+type ElementEdit={selector:string;styles:Record<string,string>;text?:string};
+function selectorFor(element:HTMLElement){
+  const parts:string[]=[];
+  let node:Element|null=element;
+  while(node&&node.tagName!=='HTML'){
+    if(node.id&&/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(node.id)){parts.unshift('#'+node.id);break;}
+    const parent:Element|null=node.parentElement;
+    const siblings=parent?Array.from(parent.children).filter(child=>child.tagName===node!.tagName):[];
+    parts.unshift(node.tagName.toLowerCase()+':nth-of-type('+(siblings.indexOf(node)+1)+')');
+    node=parent;
+  }
+  return parts.join(' > ');
+}
+function restoreEdit(edit:ElementEdit){
+  if(!edit||typeof edit.selector!=='string'||!edit.styles)return;
+  let el:HTMLElement|null=null;
+  try{el=document.querySelector<HTMLElement>(edit.selector)}catch{return}
+  if(!el||el.closest('.serula-designer-root'))return;
+  for(const [name,value] of Object.entries(edit.styles))
+    if(['color','background-color','font-size','border-radius','box-shadow'].includes(name)&&typeof value==='string'&&value.length<120)el.style.setProperty(name,value,'important');
+  if(typeof edit.text==='string'&&edit.text.length<500&&!el.matches('input,textarea,select,[contenteditable]')){
+    const node=Array.from(el.childNodes).find(n=>n.nodeType===Node.TEXT_NODE);
+    if(node)node.textContent=edit.text;
+    else if(!el.children.length)el.textContent=edit.text;
+  }
+}
 const fonts:Record<string,string>={
   system:'system-ui, -apple-system, "Segoe UI", sans-serif',
   inter:'Inter, system-ui, sans-serif',
@@ -45,7 +73,26 @@ export default function ThemeDesigner(){
   const [inspect,setInspect]=useState(false);
   const [selected,setSelected]=useState<HTMLElement|null>(null);
   const [paint,setPaint]=useState({color:'#172a35',background:'#ffffff',size:14,radius:12,shadow:0,text:''});
-  const [customCss,setCustomCss]=useState('');
+  const [customCss,setCustomCss]=useState(()=>{try{return localStorage.getItem(cssKey)||''}catch{return ''}});
+  const [elementEdits,setElementEdits]=useState<Record<string,ElementEdit>>(()=>{try{
+    const value=JSON.parse(localStorage.getItem(editsKey)||'{}');
+    return value&&typeof value==='object'&&!Array.isArray(value)?value:{};
+  }catch{return {}}});
+  useEffect(()=>{
+    const restore=()=>{
+      for(const item of Object.values(elementEdits))restoreEdit(item);
+      if(customCss){
+        let style=document.getElementById('serula-design-css-preview') as HTMLStyleElement|null;
+        if(!style){style=document.createElement('style');style.id='serula-design-css-preview';document.head.append(style)}
+        style.textContent=customCss;
+      }
+    };
+    const a=window.setTimeout(restore,100);
+    const b=window.setTimeout(restore,1200);
+    return()=>{clearTimeout(a);clearTimeout(b)};
+    // Restore saved browser draft on mount only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[]);
   const [buttonLabel,setButtonLabel]=useState('Yeni buton');
   const [buttonColor,setButtonColor]=useState('#286a75');
   const [buttonTextColor,setButtonTextColor]=useState('#ffffff');
@@ -79,6 +126,14 @@ export default function ThemeDesigner(){
   const changeSelected=(property:'color'|'background'|'size'|'radius'|'shadow'|'text',value:string|number)=>{
     if(!selected)return;
     setPaint(p=>({...p,[property]:value}));
+    const selector=selectorFor(selected);
+    setElementEdits(prev=>{
+      const existing=prev[selector]||{selector,styles:{}};
+      const styles={...existing.styles};
+      const names:Record<string,string>={color:'color',background:'background-color',size:'font-size',radius:'border-radius',shadow:'box-shadow'};
+      if(property!=='text')styles[names[property]]=property==='size'||property==='radius'?value+'px':property==='shadow'?(Number(value)?'0 4px '+value+'px #0003':'none'):String(value);
+      return {...prev,[selector]:{...existing,styles,...(property==='text'?{text:String(value)}:{})}};
+    });
     if(property==='text'){
       // Text is intentionally limited to leaf elements so React-controlled controls are never replaced.
       if(!selected.matches('input,textarea,select,[contenteditable]')){const textNode=Array.from(selected.childNodes).find(node=>node.nodeType===Node.TEXT_NODE);if(textNode)textNode.textContent=String(value);else if(selected.children.length===0)selected.textContent=String(value);}
@@ -119,8 +174,17 @@ export default function ThemeDesigner(){
     sheet.textContent=customCss;
   };
   const change=<K extends keyof Design>(name:K,value:Design[K])=>{setDraft(prev=>({...prev,[name]:value}));setEnabled(true)};
-  const save=()=>{try{localStorage.setItem(key,JSON.stringify(draft));setNotice('Genel tema ayarları bu tarayıcıya kaydedildi. Öğeye özel düzenlemeler geçici.');}catch{setNotice('Tarayıcı kaydetmeye izin vermedi.');}};
-  const reset=()=>{setDraft(defaults);setEnabled(false);try{localStorage.removeItem(key);}catch{/* storage unavailable */}};
+  const save=()=>{try{
+    localStorage.setItem(key,JSON.stringify(draft));
+    localStorage.setItem(editsKey,JSON.stringify(elementEdits));
+    localStorage.setItem(cssKey,customCss);
+    setNotice('Tema, öğe metinleri, stiller ve CSS tarayıcı taslağına kaydedildi.');
+  }catch{setNotice('Tarayıcı kaydetmeye izin vermedi.');}};
+  const reset=()=>{setDraft(defaults);setEnabled(false);setElementEdits({});setCustomCss('');
+    try{localStorage.removeItem(key);localStorage.removeItem(editsKey);localStorage.removeItem(cssKey);}catch{/* storage unavailable */}
+    document.getElementById('serula-design-css-preview')?.remove();
+    setNotice('Taslak sıfırlandı. Öğeleri sıfırlamak için sayfayı yenile.');
+  };
   return <div className="serula-designer-root">
     <button type="button" className="serula-designer-launch" onClick={()=>setOpen(o=>!o)} aria-expanded={open} aria-controls="serula-designer-panel">🎨 Tema Tasarımcısı</button>
     {open&&<aside id="serula-designer-panel" className="serula-designer-panel" aria-label="Serula tema tasarımcısı">
@@ -148,7 +212,7 @@ export default function ThemeDesigner(){
         <label>Gölge <input type="range" min="0" max="35" value={paint.shadow} onChange={e=>changeSelected('shadow',Number(e.target.value))}/><output>{paint.shadow}px</output></label>
         {!selected.matches('input,textarea,select,[contenteditable]')&&<label>Metin <textarea rows={2} value={paint.text} onChange={e=>changeSelected('text',e.target.value)}/></label>}
         {selected.matches('[data-serula-preview-only="true"]')&&<button type="button" onClick={removeButton}>Eklenen butonu sil</button>}
-        <small>Seçilen öğe üzerindeki değişiklikler geçici önizlemedir; React ekranı yenilenince sıfırlanabilir.</small>
+        <small>Kaydet ile öğeye özel stiller ve metin tarayıcıya saklanır. Dinamik ekran değişiklikleri bazı seçimleri etkileyebilir.</small>
       </section>}
       <details className="serula-css-editor"><summary>Gelişmiş CSS düzenle</summary><textarea aria-label="Önizleme CSS kodu" rows={5} value={customCss} onChange={e=>setCustomCss(e.target.value)} placeholder=".app .sidebar { background: #f1f4f6; }"/><button type="button" onClick={applyCss}>CSS'yi önizle</button><small>CSS yalnızca bu tarayıcıda uygulanır; güvenmediğin kodu yapıştırma.</small></details>
       <div className="serula-designer-fields">
@@ -157,7 +221,7 @@ export default function ThemeDesigner(){
       {([['radius','Buton köşeleri'],['cardRadius','Panel köşeleri'],['shadow','Gölge yumuşaklığı']] as const).map(([name,label])=><label key={name}>{label}<input type="range" min="0" max={name==='shadow'?40:32} value={draft[name]} onChange={e=>change(name,Number(e.target.value))}/><output>{draft[name]} px</output></label>)}
       </div>
       <div className="serula-designer-actions"><button type="button" onClick={()=>setEnabled(s=>!s)}>{enabled?'Önizlemeyi kapat':'Önizlemeyi aç'}</button><button type="button" onClick={reset}>Sıfırla</button></div>
-      <small>Kaydet, taslağı yalnızca bu tarayıcıda saklar. Kaydet ve Yayınla, güvenli onay ve yayınlama altyapısı bağlanana kadar devre dışıdır; canlı siteye hiçbir değişiklik gönderilmez.</small>
+      <small>Kaydet, tema ve öğe değişikliklerini yalnızca bu tarayıcıda saklar. Kaydet ve Yayınla, güvenli onay ve yayınlama altyapısı bağlanana kadar devre dışıdır; canlı siteye hiçbir değişiklik gönderilmez.</small>
     </aside>}
   </div>;
 }
