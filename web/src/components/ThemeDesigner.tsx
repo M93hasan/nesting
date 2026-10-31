@@ -170,7 +170,7 @@ export default function ThemeDesigner(){
     return()=>{document.removeEventListener('pointermove',hover);document.removeEventListener('click',handle,true);document.querySelectorAll('[data-serula-hover]').forEach(el=>el.removeAttribute('data-serula-hover'))};
   },[inspect,open]);
   useEffect(()=>()=>{selected?.removeAttribute('data-serula-selected')},[selected]);
-  useEffect(()=>{if(!moveMode||!selected||!open)return;let dragging=false,startX=0,startY=0,baseX=0,baseY=0;const down=(e:PointerEvent)=>{if(!(e.target instanceof Node)||!selected.contains(e.target))return;e.preventDefault();e.stopImmediatePropagation();dragging=true;startX=e.clientX;startY=e.clientY;const xy=(selected.style.translate||'0px 0px').match(/(-?\d+(?:\.\d+)?)px\s+(-?\d+(?:\.\d+)?)px/);baseX=Number(xy?.[1]||0);baseY=Number(xy?.[2]||0)};const move=(e:PointerEvent)=>{if(!dragging)return;e.preventDefault();selected.style.setProperty('translate',`${Math.round(baseX+e.clientX-startX)}px ${Math.round(baseY+e.clientY-startY)}px`,'important')};const up=()=>{if(!dragging)return;dragging=false;const selector=selectorFor(selected);setElementEdits(prev=>({...prev,[selector]:{selector,styles:{...prev[selector]?.styles,translate:selected.style.translate},text:prev[selector]?.text}}))};document.addEventListener('pointerdown',down,true);document.addEventListener('pointermove',move,true);document.addEventListener('pointerup',up,true);return()=>{document.removeEventListener('pointerdown',down,true);document.removeEventListener('pointermove',move,true);document.removeEventListener('pointerup',up,true)}},[moveMode,selected,open]);
+  useEffect(()=>{if(!moveMode||!selected||!open)return;let dragging=false,startX=0,startY=0,baseX=0,baseY=0;const down=(e:PointerEvent)=>{if(!(e.target instanceof Node)||!selected.contains(e.target))return;e.preventDefault();e.stopImmediatePropagation();dragging=true;startX=e.clientX;startY=e.clientY;const xy=(selected.style.translate||'0px 0px').match(/(-?\d+(?:\.\d+)?)px\s+(-?\d+(?:\.\d+)?)px/);baseX=Number(xy?.[1]||0);baseY=Number(xy?.[2]||0)};const move=(e:PointerEvent)=>{if(!dragging)return;e.preventDefault();selected.style.setProperty('translate',`${Math.round(baseX+e.clientX-startX)}px ${Math.round(baseY+e.clientY-startY)}px`,'important')};const up=()=>{if(!dragging)return;dragging=false;const moved=selected;const previous=`${baseX}px ${baseY}px`;const next=moved.style.translate;recordChange(()=>moved.style.setProperty('translate',previous,'important'),()=>moved.style.setProperty('translate',next,'important'));const selector=selectorFor(selected);setElementEdits(prev=>({...prev,[selector]:{selector,styles:{...prev[selector]?.styles,translate:selected.style.translate},text:prev[selector]?.text}}))};document.addEventListener('pointerdown',down,true);document.addEventListener('pointermove',move,true);document.addEventListener('pointerup',up,true);return()=>{document.removeEventListener('pointerdown',down,true);document.removeEventListener('pointermove',move,true);document.removeEventListener('pointerup',up,true)}},[moveMode,selected,open]);
   useEffect(()=>{
     if(!open||!selected||!selected.isConnected)return;
     const onKey=(event:KeyboardEvent)=>{
@@ -233,6 +233,16 @@ export default function ThemeDesigner(){
       return {...prev,[selector]:{...existing,styles,...(property==='text'?{text:String(value)}:{})}};
     });
     if(property==='text'){
+      const element=selected;
+      const before=paint.text;
+      const after=String(value);
+      const setText=(text:string)=>{
+        if(element.matches('input,textarea,select,[contenteditable]'))return;
+        const node=Array.from(element.childNodes).find(node=>node.nodeType===Node.TEXT_NODE);
+        if(node)node.textContent=text;else if(!element.children.length)element.textContent=text;
+        setPaint(p=>({...p,text}));
+      };
+      recordChange(()=>setText(before),()=>setText(after));
       // Text is intentionally limited to leaf elements so React-controlled controls are never replaced.
       if(!selected.matches('input,textarea,select,[contenteditable]')){const textNode=Array.from(selected.childNodes).find(node=>node.nodeType===Node.TEXT_NODE);if(textNode)textNode.textContent=String(value);else if(selected.children.length===0)selected.textContent=String(value);}
       return;
