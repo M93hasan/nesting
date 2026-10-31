@@ -185,6 +185,26 @@ export default function ThemeDesigner(){
     localStorage.setItem(cssKey,customCss);
     setNotice('Tema, öğe metinleri, stiller ve CSS tarayıcı taslağına kaydedildi.');
   }catch{setNotice('Tarayıcı kaydetmeye izin vermedi.');}};
+  const exportDraft=()=>{
+    try{
+      // Export only the explicitly saved browser draft, never unsaved changes.
+      const savedTheme=JSON.parse(localStorage.getItem(key)||'null');
+      const savedEdits=JSON.parse(localStorage.getItem(editsKey)||'{}');
+      const savedCss=localStorage.getItem(cssKey)||'';
+      if(!valid(savedTheme)) {setNotice('Önce Kaydet düğmesiyle geçerli bir tema taslağı oluştur.');return;}
+      const documentData={format:'serula-design-draft',version:1,createdAt:new Date().toISOString(),source:'serula-design',theme:savedTheme,elementEdits:savedEdits,css:savedCss};
+      const blob=new Blob([JSON.stringify(documentData,null,2)],{type:'application/json'});
+      const url=URL.createObjectURL(blob);
+      const link=document.createElement('a');
+      link.href=url;
+      link.download='serula-tasarim-taslagi.json';
+      document.body.append(link);
+      link.click();
+      link.remove();
+      window.setTimeout(()=>URL.revokeObjectURL(url),1500);
+      setNotice('Kaydedilmiş tasarım paketi indirildi. Bu işlem canlı siteye yayın yapmaz.');
+    }catch{setNotice('Tasarım paketi oluşturulamadı. Önce Kaydet düğmesini kullan.');}
+  };
   const reset=()=>{setDraft(defaults);setEnabled(false);setElementEdits({});setCustomCss('');
     try{localStorage.removeItem(key);localStorage.removeItem(editsKey);localStorage.removeItem(cssKey);}catch{/* storage unavailable */}
     document.getElementById('serula-design-css-preview')?.remove();
@@ -194,7 +214,7 @@ export default function ThemeDesigner(){
     <button type="button" className="serula-designer-launch" onClick={()=>setOpen(o=>!o)} aria-expanded={open} aria-controls="serula-designer-panel">🎨 Tema Tasarımcısı</button>
     {open&&<aside id="serula-designer-panel" className="serula-designer-panel" aria-label="Serula tema tasarımcısı">
       <header><strong>Serula Tasarım Atölyesi</strong><button type="button" onClick={()=>setOpen(false)} aria-label="Tema tasarımcısını kapat">×</button></header>
-<div className="serula-designer-savebar" aria-label="Tasarım kaydetme işlemleri"><button type="button" onClick={save}>Kaydet</button><button type="button" disabled title="Güvenli yayınlama akışı henüz bağlı değil; canlı siteye değişiklik gönderilmez.">Kaydet ve Yayınla</button><small>Yayınlama henüz etkin değil.</small></div>
+<div className="serula-designer-savebar" aria-label="Tasarım kaydetme işlemleri"><button type="button" onClick={save}>Kaydet</button><button type="button" onClick={exportDraft} title="Kaydedilmiş taslağı JSON dosyası olarak indirir; canlı yayına göndermez.">Yayın paketini indir</button><button type="button" disabled title="Güvenli yayınlama akışı henüz bağlı değil; canlı siteye değişiklik gönderilmez.">Kaydet ve Yayınla</button><small>Yayınlama henüz etkin değil.</small></div>
       <p>Değişiklikleri sayfanın üzerinde anında gör. Bu ekran yalnızca tasarım dalında çalışır.</p>
       <div className="serula-designer-actions"><button type="button" onClick={()=>setInspect(i=>!i)}>{inspect?'Seçimi iptal et':'✥ Ekrandan öğe seç'}</button></div>
       {inspect&&<p role="status">Seçim modu açık. Ekrandaki butona veya başka bir öğeye tıkla; işlem çalışmadan düzenleme paneli açılacak.</p>}
