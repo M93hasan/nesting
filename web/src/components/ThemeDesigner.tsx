@@ -1,4 +1,4 @@
-import {useEffect,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import './ThemeDesigner.css';
 
 type Design={accent:string;ink:string;paper:string;surface:string;radius:number;cardRadius:number;shadow:number;font:string};
@@ -49,6 +49,40 @@ function initial():Design{
   return defaults;
 }
 export default function ThemeDesigner(){
+  const history=useRef<Array<{undo:()=>void;redo:()=>void}>>([]);
+  const historyIndex=useRef(0);
+  const [,setHistoryVersion]=useState(0);
+  const recordChange=(undo:()=>void,redo:()=>void)=>{
+    history.current=history.current.slice(0,historyIndex.current);
+    history.current.push({undo,redo});
+    if(history.current.length>100)history.current.shift();
+    historyIndex.current=history.current.length;
+    setHistoryVersion(v=>v+1);
+  };
+  const undo=()=>{
+    if(historyIndex.current===0)return;
+    history.current[--historyIndex.current].undo();
+    setHistoryVersion(v=>v+1);
+    setNotice('Son işlem geri alındı.');
+  };
+  const redo=()=>{
+    if(historyIndex.current===history.current.length)return;
+    history.current[historyIndex.current++].redo();
+    setHistoryVersion(v=>v+1);
+    setNotice('İşlem yeniden uygulandı.');
+  };
+  useEffect(()=>{
+    const onKey=(event:KeyboardEvent)=>{
+      if(!open||!(event.ctrlKey||event.metaKey)||event.altKey)return;
+      const target=event.target;
+      if(target instanceof HTMLElement&&target.closest('input,textarea,[contenteditable="true"]'))return;
+      const k=event.key.toLowerCase();
+      if(k==='z'){event.preventDefault();if(event.shiftKey)redo();else undo();}
+      else if(k==='y'){event.preventDefault();redo();}
+    };
+    document.addEventListener('keydown',onKey);
+    return()=>document.removeEventListener('keydown',onKey);
+  });
   const [open,setOpen]=useState(false);
   const [enabled,setEnabled]=useState(false);
   const [draft,setDraft]=useState<Design>(initial);
@@ -153,6 +187,12 @@ export default function ThemeDesigner(){
       styles[name]=value;
     }
     if(!Object.keys(styles).length){setNotice('Uygulanabilecek CSS değeri bulunamadı. Önce bir özelliği değiştir.');return;}
+    const element=selected;
+    const before=Object.fromEntries(Object.keys(styles).map(name=>[name,[element.style.getPropertyValue(name),element.style.getPropertyPriority(name)]])) as Record<string,string[]>;
+    recordChange(
+      ()=>{for(const [name,[value,priority]] of Object.entries(before)){if(value)element.style.setProperty(name,value,priority);else element.style.removeProperty(name)}},
+      ()=>{for(const [name,value] of Object.entries(styles))element.style.setProperty(name,value,'important')}
+    );
     for(const [name,value] of Object.entries(styles))selected.style.setProperty(name,value,'important');
     const selector=selectorFor(selected);
     setElementEdits(prev=>({...prev,[selector]:{...prev[selector],selector,styles:{...prev[selector]?.styles,...styles}}}));
@@ -209,7 +249,12 @@ export default function ThemeDesigner(){
     if(!sheet){sheet=document.createElement('style');sheet.id='serula-design-css-preview';document.head.append(sheet)}
     sheet.textContent=customCss;
   };
-  const change=<K extends keyof Design>(name:K,value:Design[K])=>{setDraft(prev=>({...prev,[name]:value}));setEnabled(true)};
+  const change=<K extends keyof Design>(name:K,value:Design[K])=>{
+    const previous=draft;
+    const next={...draft,[name]:value};
+    recordChange(()=>setDraft(previous),()=>setDraft(next));
+    setDraft(next);setEnabled(true);
+  };
   const save=()=>{try{
     localStorage.setItem(key,JSON.stringify(draft));
     localStorage.setItem(editsKey,JSON.stringify(elementEdits));
@@ -270,7 +315,7 @@ export default function ThemeDesigner(){
     <button type="button" className="serula-designer-launch" onClick={()=>setOpen(o=>!o)} aria-expanded={open} aria-controls="serula-designer-panel">🎨 Tema Tasarımcısı</button>
     {open&&<aside id="serula-designer-panel" className="serula-designer-panel" aria-label="Serula tema tasarımcısı">
       <header><strong>Serula Tasarım Atölyesi</strong><button type="button" onClick={()=>setOpen(false)} aria-label="Tema tasarımcısını kapat">×</button></header>
-<div className="serula-designer-savebar" aria-label="Tasarım kaydetme işlemleri"><button type="button" onClick={save}>Kaydet</button><button type="button" onClick={reset}>Değişiklikleri Sıfırla</button><button type="button" onClick={exportDraft} title="Kaydedilmiş taslağı JSON dosyası olarak indirir; canlı yayına göndermez.">Yayın paketini indir</button><button type="button" onClick={checkPublishReadiness}>Yayın ön kontrolü</button><button type="button" disabled title="Güvenli yayınlama akışı henüz bağlı değil; canlı siteye değişiklik gönderilmez.">Kaydet ve Yayınla</button><small>Yayınlama henüz etkin değil.</small></div>
+<div className="serula-designer-savebar" aria-label="Tasarım kaydetme işlemleri"><button type="button" onClick={save}>Kaydet</button><button type="button" onClick={reset}>Değişiklikleri Sıfırla</button><button type="button" onClick={undo} disabled={historyIndex.current===0}>↶ Geri Al</button><button type="button" onClick={redo} disabled={historyIndex.current===history.current.length}>↷ Yeniden Yap</button><button type="button" onClick={exportDraft} title="Kaydedilmiş taslağı JSON dosyası olarak indirir; canlı yayına göndermez.">Yayın paketini indir</button><button type="button" onClick={checkPublishReadiness}>Yayın ön kontrolü</button><button type="button" disabled title="Güvenli yayınlama akışı henüz bağlı değil; canlı siteye değişiklik gönderilmez.">Kaydet ve Yayınla</button><small>Yayınlama henüz etkin değil.</small></div>
       <p>Değişiklikleri sayfanın üzerinde anında gör. Bu ekran yalnızca tasarım dalında çalışır.</p>
       <div className="serula-designer-actions"><button type="button" onClick={()=>{setInspect(i=>!i);setMoveMode(false)}}>{inspect?'Seçimi iptal et':'✥ Ekrandan öğe seç'}</button>{selected&&<button type="button" onClick={()=>{setMoveMode(v=>!v);setInspect(false)}}>{moveMode?'Taşımayı bitir':'↔ Seçili öğeyi taşı'}</button>}</div>
       {inspect&&<p role="status">Seçim modu açık. Ekrandaki butona veya başka bir öğeye tıkla; işlem çalışmadan düzenleme paneli açılacak.</p>}
