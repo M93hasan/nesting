@@ -1,0 +1,14 @@
+.serula-designer-root{position:fixed;bottom:72px;right:18px;z-index:300;font:14px/1.45 system-ui,sans-serif;color:#14212c}
+#root .serula-designer-launch{background:#172a35!important;color:white!important;border:1px solid #39515f!important;border-radius:12px!important;padding:12px 18px!important;box-shadow:0 8px 24px #0003!important;cursor:pointer}
+.serula-designer-panel{position:absolute;right:0;bottom:58px;width:min(360px,calc(100vw - 30px));max-height:min(76vh,670px);overflow:auto;background:#fff;color:#14212c;border:1px solid #cfd8dd;border-radius:18px;padding:17px;box-shadow:0 18px 60px #0004}
+.serula-designer-panel header{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:17px}
+#root .serula-designer-panel button{color:#14212c;background:#ecf2f4;border:1px solid #d9e2e7;border-radius:9px!important;padding:8px;cursor:pointer}
+.serula-designer-panel p,.serula-designer-panel small{color:#51616b}
+.serula-designer-fields{display:grid;gap:10px;margin:14px 0}
+.serula-designer-fields label{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:8px}
+.serula-designer-fields label:has(select),.serula-designer-fields label:has(input[type=range]){grid-template-columns:1fr auto}
+.serula-designer-fields input[type=color]{width:42px;height:32px;border:0;padding:0;cursor:pointer}
+.serula-designer-fields output{font-size:12px;font-variant-numeric:tabular-nums}
+.serula-designer-fields select{max-width:165px}
+.serula-designer-actions{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+@media(max-width:540px){.serula-designer-root{bottom:82px;right:10px}}
