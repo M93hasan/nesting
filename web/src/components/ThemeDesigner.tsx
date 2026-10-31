@@ -125,6 +125,7 @@ export default function ThemeDesigner(){
     <button type="button" className="serula-designer-launch" onClick={()=>setOpen(o=>!o)} aria-expanded={open} aria-controls="serula-designer-panel">🎨 Tema Tasarımcısı</button>
     {open&&<aside id="serula-designer-panel" className="serula-designer-panel" aria-label="Serula tema tasarımcısı">
       <header><strong>Serula Tasarım Atölyesi</strong><button type="button" onClick={()=>setOpen(false)} aria-label="Tema tasarımcısını kapat">×</button></header>
+<div className="serula-designer-savebar" aria-label="Tasarım kaydetme işlemleri"><button type="button" onClick={save}>Kaydet</button><button type="button" disabled title="Güvenli yayınlama akışı henüz bağlı değil; canlı siteye değişiklik gönderilmez.">Kaydet ve Yayınla</button><small>Yayınlama henüz etkin değil.</small></div>
       <p>Değişiklikleri sayfanın üzerinde anında gör. Bu ekran yalnızca tasarım dalında çalışır.</p>
       <div className="serula-designer-actions"><button type="button" onClick={()=>setInspect(i=>!i)}>{inspect?'Seçimi iptal et':'✥ Ekrandan öğe seç'}</button></div>
       {inspect&&<p role="status">Seçim modu açık. Ekrandaki butona veya başka bir öğeye tıkla; işlem çalışmadan düzenleme paneli açılacak.</p>}
@@ -155,7 +156,7 @@ export default function ThemeDesigner(){
       <label>Yazı tipi<select value={draft.font} onChange={e=>change('font',e.target.value)}><option value="system">Sistem (modern)</option><option value="inter">Inter</option><option value="geometric">Geometrik</option><option value="classic">Klasik</option></select></label>
       {([['radius','Buton köşeleri'],['cardRadius','Panel köşeleri'],['shadow','Gölge yumuşaklığı']] as const).map(([name,label])=><label key={name}>{label}<input type="range" min="0" max={name==='shadow'?40:32} value={draft[name]} onChange={e=>change(name,Number(e.target.value))}/><output>{draft[name]} px</output></label>)}
       </div>
-      <div className="serula-designer-actions"><button type="button" onClick={()=>setEnabled(s=>!s)}>{enabled?'Önizlemeyi kapat':'Önizlemeyi aç'}</button><button type="button" onClick={save}>Kaydet</button><button type="button" disabled title="Güvenli yayınlama akışı henüz bağlı değil; canlı siteye değişiklik gönderilmez.">Kaydet ve Yayınla</button><button type="button" onClick={reset}>Sıfırla</button></div>
+      <div className="serula-designer-actions"><button type="button" onClick={()=>setEnabled(s=>!s)}>{enabled?'Önizlemeyi kapat':'Önizlemeyi aç'}</button><button type="button" onClick={reset}>Sıfırla</button></div>
       <small>Kaydet, taslağı yalnızca bu tarayıcıda saklar. Kaydet ve Yayınla, güvenli onay ve yayınlama altyapısı bağlanana kadar devre dışıdır; canlı siteye hiçbir değişiklik gönderilmez.</small>
     </aside>}
   </div>;
