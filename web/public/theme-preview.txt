@@ -1,0 +1,2 @@
+Serula Theme Lab — isolated preview build from serula-design.
+This file is not part of the production main branch.
