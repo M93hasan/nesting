@@ -111,7 +111,7 @@ export default function ThemeDesigner(){
       element.setAttribute('data-serula-selected','true');
       const style=getComputedStyle(element);
       const toHex=(value:string)=>{
-        const parts=value.match(/rgba?\\(\\s*(\\d+)[,\\s]+(\\d+)[,\\s]+(\\d+)/i);
+        const parts=value.match(/rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/i);
         return parts?'#'+parts.slice(1,4).map(n=>Number(n).toString(16).padStart(2,'0')).join(''):'#ffffff';
       };
       const text=element.textContent?.trim()||'';
