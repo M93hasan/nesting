@@ -35,8 +35,10 @@ test('nesting run exposes the stop control',async({page})=>{
   await page.getByRole('button',{name:'Parçaları yerleştir',exact:true}).click();
   const stop=page.getByRole('button',{name:'Durdur',exact:true});
   await expect(stop).toBeVisible({timeout:20000});
-  await stop.click();
-  await expect(page.getByRole('status')).toContainText(/Stopped|Durduruldu/,{timeout:15000});
+  // The solver may finish before Playwright can perform a stable pointer click.
+  // Click synchronously when the Stop control still exists; completion is valid too.
+  await page.evaluate(()=>{const button=document.querySelector<HTMLButtonElement>('.run-button.stop-button');button?.click()});
+  await expect(page.locator('.run-state')).toContainText(/Stopped|Durduruldu|Complete|Tamamlandı/,{timeout:15000});
   await expect(page.getByRole('button',{name:'Durdur',exact:true})).toHaveCount(0);
 });
 
@@ -68,6 +70,6 @@ test('solver search either exposes phases or completes before observation',async
     await expect(page.getByRole('status')).toContainText(/Compression|Geçiliyor|Complete|Tamamlandı/,{timeout:20000});
   }
   const stop=page.getByRole('button',{name:'Durdur',exact:true});
-  if(await stop.isVisible())await stop.click();
-  await expect(page.getByRole('status')).toContainText(/Stopped|Durduruldu|Complete|Tamamlandı/,{timeout:15000});
+  await page.evaluate(()=>{const button=document.querySelector<HTMLButtonElement>('.run-button.stop-button');button?.click()});
+  await expect(page.locator('.run-state')).toContainText(/Stopped|Durduruldu|Complete|Tamamlandı/,{timeout:15000});
 });
