@@ -116,7 +116,12 @@ export default function ThemeDesigner(){
       };
       const text=element.textContent?.trim()||'';
       setPaint({color:toHex(style.color),background:toHex(style.backgroundColor),size:parseFloat(style.fontSize)||14,radius:parseFloat(style.borderRadius)||0,shadow:0,text});
-      setNotice('Öğe seçildi. Ayarları aşağıdan değiştirebilirsin.');
+      setNotice('Öğe seçildi. Düzenleme formu açıldı.');
+      window.requestAnimationFrame(()=>{
+        const panel=document.getElementById('serula-designer-panel');
+        const form=panel?.querySelector<HTMLElement>('[aria-label="Seçili öğeyi düzenle"]');
+        if(panel&&form)panel.scrollTo({top:Math.max(0,form.offsetTop-115),behavior:'smooth'});
+      });
       // Keep selection mode on so the next item can be selected without reopening the panel.
     };
     document.addEventListener('click',handle,true);
@@ -193,16 +198,6 @@ export default function ThemeDesigner(){
       <p>Değişiklikleri sayfanın üzerinde anında gör. Bu ekran yalnızca tasarım dalında çalışır.</p>
       <div className="serula-designer-actions"><button type="button" onClick={()=>setInspect(i=>!i)}>{inspect?'Seçimi iptal et':'✥ Ekrandan öğe seç'}</button></div>
       {inspect&&<p role="status">Seçim modu açık. Ekrandaki butona veya başka bir öğeye tıkla; işlem çalışmadan düzenleme paneli açılacak.</p>}
-      <section className="serula-inspector" aria-label="Yeni buton oluştur">
-        <strong>+ Buton ekle</strong>
-        <label>Buton metni <input aria-label="Yeni buton metni" type="text" maxLength={80} value={buttonLabel} onChange={e=>setButtonLabel(e.target.value)}/></label>
-        <label>Buton rengi <input aria-label="Yeni buton rengi" type="color" value={buttonColor} onChange={e=>setButtonColor(e.target.value)}/></label>
-        <label>Yazı rengi <input aria-label="Yeni buton yazı rengi" type="color" value={buttonTextColor} onChange={e=>setButtonTextColor(e.target.value)}/></label>
-        <label>Köşeler <input aria-label="Yeni buton köşeleri" type="range" min="0" max="40" value={buttonRadius} onChange={e=>setButtonRadius(Number(e.target.value))}/><output>{buttonRadius}px</output></label>
-        <button type="button" onClick={addButton}>+ Seçili panele buton ekle</button>
-        <small>Eklenen buton görsel örnektir, herhangi bir API veya uygulama işlemi çalıştırmaz.</small>
-      </section>
-      {notice&&<p role="status">{notice}</p>}
       {selected&&<section className="serula-inspector" aria-label="Seçili öğeyi düzenle">
         <strong>Seçili öğe: {selected.tagName.toLowerCase()}</strong>
         <label>Yazı rengi <input aria-label="Seçili yazı rengi" type="color" value={paint.color} onChange={e=>changeSelected('color',e.target.value)}/></label>
@@ -214,6 +209,16 @@ export default function ThemeDesigner(){
         {selected.matches('[data-serula-preview-only="true"]')&&<button type="button" onClick={removeButton}>Eklenen butonu sil</button>}
         <small>Kaydet ile öğeye özel stiller ve metin tarayıcıya saklanır. Dinamik ekran değişiklikleri bazı seçimleri etkileyebilir.</small>
       </section>}
+      <section className="serula-inspector" aria-label="Yeni buton oluştur">
+        <strong>+ Buton ekle</strong>
+        <label>Buton metni <input aria-label="Yeni buton metni" type="text" maxLength={80} value={buttonLabel} onChange={e=>setButtonLabel(e.target.value)}/></label>
+        <label>Buton rengi <input aria-label="Yeni buton rengi" type="color" value={buttonColor} onChange={e=>setButtonColor(e.target.value)}/></label>
+        <label>Yazı rengi <input aria-label="Yeni buton yazı rengi" type="color" value={buttonTextColor} onChange={e=>setButtonTextColor(e.target.value)}/></label>
+        <label>Köşeler <input aria-label="Yeni buton köşeleri" type="range" min="0" max="40" value={buttonRadius} onChange={e=>setButtonRadius(Number(e.target.value))}/><output>{buttonRadius}px</output></label>
+        <button type="button" onClick={addButton}>+ Seçili panele buton ekle</button>
+        <small>Eklenen buton görsel örnektir, herhangi bir API veya uygulama işlemi çalıştırmaz.</small>
+      </section>
+      {notice&&<p role="status">{notice}</p>}
       <details className="serula-css-editor"><summary>Gelişmiş CSS düzenle</summary><textarea aria-label="Önizleme CSS kodu" rows={5} value={customCss} onChange={e=>setCustomCss(e.target.value)} placeholder=".app .sidebar { background: #f1f4f6; }"/><button type="button" onClick={applyCss}>CSS'yi önizle</button><small>CSS yalnızca bu tarayıcıda uygulanır; güvenmediğin kodu yapıştırma.</small></details>
       <div className="serula-designer-fields">
       {([['accent','Vurgu rengi'],['ink','Yazı / ana buton'],['paper','Arka plan'],['surface','Panel yüzeyi']] as const).map(([name,label])=><label key={name}>{label}<input type="color" value={draft[name]} onChange={e=>change(name,e.target.value)}/><output>{draft[name]}</output></label>)}
