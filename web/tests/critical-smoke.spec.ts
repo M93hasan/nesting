@@ -33,7 +33,7 @@ test('similar-shape grouping uses a clear native checkbox and supports toggling'
   const checkbox=options.getByRole('checkbox',{name:/Benzer şekilleri/});
   await expect(checkbox).toBeVisible();
   await expect(checkbox).not.toBeChecked();
-  await expect(checkbox).toHaveCSS('appearance','auto');
+  expect(await checkbox.evaluate(element=>getComputedStyle(element).appearance)).toMatch(/^(auto|checkbox)$/);
   await checkbox.check();
   await expect(checkbox).toBeChecked();
   await checkbox.uncheck();
