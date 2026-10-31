@@ -25,3 +25,17 @@ test('studio has no horizontal overflow at phone width',async({page})=>{
   await expect(page.locator('#parts-settings')).toBeAttached();
   await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
+
+test('similar-shape grouping uses a clear native checkbox and supports toggling',async({page})=>{
+  await page.goto('/');
+  const options=page.locator('.solver-options');
+  await options.locator('summary').click();
+  const checkbox=options.getByRole('checkbox',{name:/Benzer şekilleri/});
+  await expect(checkbox).toBeVisible();
+  await expect(checkbox).not.toBeChecked();
+  expect(await checkbox.evaluate(element=>getComputedStyle(element).appearance)).toMatch(/^(auto|checkbox)$/);
+  await checkbox.check();
+  await expect(checkbox).toBeChecked();
+  await checkbox.uncheck();
+  await expect(checkbox).not.toBeChecked();
+});
