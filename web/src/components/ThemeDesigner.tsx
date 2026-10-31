@@ -141,12 +141,12 @@ export default function ThemeDesigner(){
     if(!selected||!selected.isConnected){setNotice('Öğe seçimi kayboldu. Lütfen düzenlemek istediğin öğeyi tekrar seç.');return;}
     const allowed=new Set(['color','background-color','font-size','border-radius','box-shadow','width','height','padding','margin','display','gap','border','border-color','border-width','border-style','font-weight','font-family','letter-spacing','line-height','text-align','transform','filter','opacity','transition','translate']);
     const styles:Record<string,string>={};
-    for(const [index,line] of cssDeclaration.split('\\n').entries()){
+    for(const [index,line] of cssDeclaration.split('\n').entries()){
       const trimmed=line.trim();if(!trimmed||trimmed.startsWith('/*')||trimmed.startsWith('*'))continue;
       const colon=trimmed.indexOf(':');
       if(colon<1){setNotice('CSS satır '+(index+1)+': özellik ve değer arasında iki nokta olmalı.');return;}
       const name=trimmed.slice(0,colon).trim().toLowerCase();
-      const value=trimmed.slice(colon+1).trim().replace(/;+\\s*$/,'').trim();
+      const value=trimmed.slice(colon+1).trim().replace(/;+\s*$/,'').trim();
       if(!allowed.has(name)){setNotice('CSS satır '+(index+1)+': '+name+' bu önizlemede desteklenmiyor.');return;}
       if(!value)continue;
       if(value.length>200||/url\\s*\\(|expression\\s*\\(|@import|[{}]/i.test(value)){setNotice('CSS satır '+(index+1)+': desteklenmeyen CSS değeri.');return;}
