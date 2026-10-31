@@ -3,6 +3,7 @@ import packageInfo from '../package.json';
 import {readRecovery,saveRecovery} from './storage/recovery';
 import {useDismissibleMenu} from './components/useDismissibleMenu';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import {useThemePreference} from './theme-preference';
 import { DEFAULT_SETTINGS, rotationSummary, type Document, type Part, type Point, type Result, type RotationRule } from './model';
 import { bounds } from './geometry/normalize';
 import { netArea } from './geometry/validate';
@@ -48,8 +49,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const [resultMode,setResultMode]=useState<'live'|'checked'>('live');
   const [threads,setThreads]=useState(0);
   const [sizeValid,setSizeValid]=useState(true),[downloadedResult,setDownloadedResult]=useState(false),[seriesDraft,setSeriesDraft]=useState<string>();
-  const [theme,setTheme]=useState<'system'|'light'|'dark'>(()=>{try{const saved=localStorage.getItem('serula-theme');return saved==='light'||saved==='dark'||saved==='system'?saved:'light';}catch{return 'light';}});
-  useEffect(()=>{document.documentElement.dataset.theme=theme;try{localStorage.setItem('serula-theme',theme);}catch{/* The theme still works when storage is unavailable. */}},[theme]);
+  const [theme,setTheme]=useThemePreference();
   const [unit,setUnit]=useState<DisplayUnit>(()=>{try{return localStorage.getItem('serula-units')==='in'?'in':'mm';}catch{return 'mm';}});
   useEffect(()=>{try{localStorage.setItem('serula-units',unit);}catch{/* Görüntü birimleri work without persistence. */}},[unit]);
   const factor=unitScale(unit),length=(mm:number)=>(mm/factor).toLocaleString(undefined,{maximumFractionDigits:unit==='mm'?2:4});
