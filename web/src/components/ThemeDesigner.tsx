@@ -100,7 +100,7 @@ export default function ThemeDesigner(){
     region.append(button);
     setSelected(previous=>{previous?.removeAttribute('data-serula-selected');return button;});
     button.setAttribute('data-serula-selected','true');
-    setPaint({color:buttonTextColor,background:buttonColor,size:14,radius:buttonRadius,shadow:0,text:button.textContent});
+    setPaint({color:buttonTextColor,background:buttonColor,size:14,radius:buttonRadius,shadow:0,text:button.textContent||''});
     setNotice('Önizleme butonu eklendi. Kaynak koda ve işlevlere henüz eklenmedi.');
   };
   const removeButton=()=>{
