@@ -171,6 +171,28 @@ export default function ThemeDesigner(){
   },[inspect,open]);
   useEffect(()=>()=>{selected?.removeAttribute('data-serula-selected')},[selected]);
   useEffect(()=>{if(!moveMode||!selected||!open)return;let dragging=false,startX=0,startY=0,baseX=0,baseY=0;const down=(e:PointerEvent)=>{if(!(e.target instanceof Node)||!selected.contains(e.target))return;e.preventDefault();e.stopImmediatePropagation();dragging=true;startX=e.clientX;startY=e.clientY;const xy=(selected.style.translate||'0px 0px').match(/(-?\d+(?:\.\d+)?)px\s+(-?\d+(?:\.\d+)?)px/);baseX=Number(xy?.[1]||0);baseY=Number(xy?.[2]||0)};const move=(e:PointerEvent)=>{if(!dragging)return;e.preventDefault();selected.style.setProperty('translate',`${Math.round(baseX+e.clientX-startX)}px ${Math.round(baseY+e.clientY-startY)}px`,'important')};const up=()=>{if(!dragging)return;dragging=false;const selector=selectorFor(selected);setElementEdits(prev=>({...prev,[selector]:{selector,styles:{...prev[selector]?.styles,translate:selected.style.translate},text:prev[selector]?.text}}))};document.addEventListener('pointerdown',down,true);document.addEventListener('pointermove',move,true);document.addEventListener('pointerup',up,true);return()=>{document.removeEventListener('pointerdown',down,true);document.removeEventListener('pointermove',move,true);document.removeEventListener('pointerup',up,true)}},[moveMode,selected,open]);
+  useEffect(()=>{
+    if(!open||!selected||!selected.isConnected)return;
+    const onKey=(event:KeyboardEvent)=>{
+      if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key))return;
+      if(event.ctrlKey||event.metaKey||event.altKey)return;
+      if(event.target instanceof HTMLElement&&event.target.closest('input,textarea,select,[contenteditable="true"]'))return;
+      event.preventDefault();
+      const previous=selected.style.getPropertyValue('translate');
+      const match=previous.match(/(-?\\d+(?:\\.\\d+)?)px\\s+(-?\\d+(?:\\.\\d+)?)px/);
+      const x=Number(match?.[1]||0),y=Number(match?.[2]||0),step=event.shiftKey?10:1;
+      const nx=x+(event.key==='ArrowRight'?step:event.key==='ArrowLeft'?-step:0);
+      const ny=y+(event.key==='ArrowDown'?step:event.key==='ArrowUp'?-step:0);
+      const next=`${nx}px ${ny}px`;
+      const element=selected;
+      recordChange(()=>{if(previous)element.style.setProperty('translate',previous,'important');else element.style.removeProperty('translate')},()=>element.style.setProperty('translate',next,'important'));
+      element.style.setProperty('translate',next,'important');
+      const selector=selectorFor(element);
+      setElementEdits(prev=>({...prev,[selector]:{selector,styles:{...prev[selector]?.styles,translate:next},text:prev[selector]?.text}}));
+    };
+    document.addEventListener('keydown',onKey);
+    return()=>document.removeEventListener('keydown',onKey);
+  });
   const applySelectedCss=()=>{
     if(!selected||!selected.isConnected){setNotice('Öğe seçimi kayboldu. Lütfen düzenlemek istediğin öğeyi tekrar seç.');return;}
     const allowed=new Set(['color','background-color','font-size','border-radius','box-shadow','width','height','padding','margin','display','gap','border','border-color','border-width','border-style','font-weight','font-family','letter-spacing','line-height','text-align','transform','filter','opacity','transition','translate']);
@@ -330,7 +352,7 @@ export default function ThemeDesigner(){
         {selected.matches('[data-serula-preview-only="true"]')&&<button type="button" onClick={removeButton}>Eklenen butonu sil</button>}
         <label>Mevcut CSS ve düzenleme<textarea rows={10} spellCheck={false} aria-label="Seçili öğenin CSS kodu" value={cssDeclaration} onChange={e=>{setCssDeclaration(e.target.value)}}/></label><button type="button" onClick={applySelectedCss}>CSS uygula ve anında göster</button>{notice&&<small role="status" aria-live="polite">{notice}</small>}
         <label>İkon / logo simgesi<input type="text" maxLength={4} value={iconText} placeholder="★" onChange={e=>setIconText(e.target.value)}/></label><button type="button" onClick={addIcon}>Butona simge ekle (önizleme)</button>
-        <small>Ölçüler, gölge, efekt, boşluk ve konum CSS alanından düzenlenebilir. Taşıma modu seçili öğeyi sürükler; bazı duyarlı düzenlerde yerleşim değişebilir.</small>
+        <small>Ölçüler, gölge, efekt, boşluk ve konum CSS alanından düzenlenebilir. Seçili öğeyi ok tuşlarıyla 1 piksel, Shift + ok ile 10 piksel taşıyabilirsin. Taşıma modu seçili öğeyi sürükler; bazı duyarlı düzenlerde yerleşim değişebilir.</small>
       </section>}
       <section className="serula-inspector" aria-label="Yeni buton oluştur">
         <strong>+ Buton ekle</strong>
