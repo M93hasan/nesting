@@ -54,19 +54,23 @@ export default function ThemeDesigner(){
   useEffect(()=>{
     if(!inspect||!open)return;
     const handle=(e:MouseEvent)=>{
-      const target=e.target;
-      if(!(target instanceof HTMLElement)||target.closest('.serula-designer-root'))return;
+      const source=e.target;
+      if(!(source instanceof Element)||source.closest('.serula-designer-root'))return;
+      // In edit mode, consume real button actions before the application's handlers run.
       e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
-      const element=target.closest<HTMLElement>('button, a')||target.closest<HTMLElement>('h1, h2, h3, p, label, span, section, article, aside, header, footer, div')||target;
+      const element=source.closest<HTMLElement>('button, a, [role="button"]')||source.closest<HTMLElement>('h1,h2,h3,p,label,span,section,article,aside,header,footer,div')||(source instanceof HTMLElement?source:source.parentElement);
+      if(!element)return;
       setSelected(previous=>{previous?.removeAttribute('data-serula-selected');return element;});
       element.setAttribute('data-serula-selected','true');
       const style=getComputedStyle(element);
       const toHex=(value:string)=>{
-        const nums=value.match(/[\\d.]+/g)?.slice(0,3).map(Number)||[];
-        return nums.length===3?'#'+nums.map(n=>Math.max(0,Math.min(255,Math.round(n))).toString(16).padStart(2,'0')).join(''):'#ffffff';
+        const parts=value.match(/rgba?\\(\\s*(\\d+)[,\\s]+(\\d+)[,\\s]+(\\d+)/i);
+        return parts?'#'+parts.slice(1,4).map(n=>Number(n).toString(16).padStart(2,'0')).join(''):'#ffffff';
       };
-      setPaint({color:toHex(style.color),background:toHex(style.backgroundColor),size:parseFloat(style.fontSize)||14,radius:parseFloat(style.borderRadius)||0,shadow:0,text:element.children.length===0?(element.textContent||'').trim():''});
-      setInspect(false);
+      const text=element.textContent?.trim()||'';
+      setPaint({color:toHex(style.color),background:toHex(style.backgroundColor),size:parseFloat(style.fontSize)||14,radius:parseFloat(style.borderRadius)||0,shadow:0,text});
+      setNotice('Öğe seçildi. Ayarları aşağıdan değiştirebilirsin.');
+      // Keep selection mode on so the next item can be selected without reopening the panel.
     };
     document.addEventListener('click',handle,true);
     return()=>document.removeEventListener('click',handle,true);
@@ -77,7 +81,7 @@ export default function ThemeDesigner(){
     setPaint(p=>({...p,[property]:value}));
     if(property==='text'){
       // Text is intentionally limited to leaf elements so React-controlled controls are never replaced.
-      if(selected.children.length===0&&!selected.matches('input,textarea,select,[contenteditable]'))selected.textContent=String(value);
+      if(!selected.matches('input,textarea,select,[contenteditable]')){const textNode=Array.from(selected.childNodes).find(node=>node.nodeType===Node.TEXT_NODE);if(textNode)textNode.textContent=String(value);else if(selected.children.length===0)selected.textContent=String(value);}
       return;
     }
     const styles:Record<string,string>={color:'color',background:'background-color',size:'font-size',radius:'border-radius',shadow:'box-shadow'};
@@ -123,7 +127,7 @@ export default function ThemeDesigner(){
       <header><strong>Serula Tasarım Atölyesi</strong><button type="button" onClick={()=>setOpen(false)} aria-label="Tema tasarımcısını kapat">×</button></header>
       <p>Değişiklikleri sayfanın üzerinde anında gör. Bu ekran yalnızca tasarım dalında çalışır.</p>
       <div className="serula-designer-actions"><button type="button" onClick={()=>setInspect(i=>!i)}>{inspect?'Seçimi iptal et':'✥ Ekrandan öğe seç'}</button></div>
-      {inspect&&<p role="status">Düzenlemek istediğin metne, butona veya panele tıkla. Tıklama uygulamadaki işlemi başlatmaz.</p>}
+      {inspect&&<p role="status">Seçim modu açık. Ekrandaki butona veya başka bir öğeye tıkla; işlem çalışmadan düzenleme paneli açılacak.</p>}
       <section className="serula-inspector" aria-label="Yeni buton oluştur">
         <strong>+ Buton ekle</strong>
         <label>Buton metni <input aria-label="Yeni buton metni" type="text" maxLength={80} value={buttonLabel} onChange={e=>setButtonLabel(e.target.value)}/></label>
@@ -141,7 +145,7 @@ export default function ThemeDesigner(){
         <label>Yazı boyutu <input type="range" min="10" max="44" value={paint.size} onChange={e=>changeSelected('size',Number(e.target.value))}/><output>{Math.round(paint.size)}px</output></label>
         <label>Köşe yuvarlaklığı <input type="range" min="0" max="40" value={paint.radius} onChange={e=>changeSelected('radius',Number(e.target.value))}/><output>{Math.round(paint.radius)}px</output></label>
         <label>Gölge <input type="range" min="0" max="35" value={paint.shadow} onChange={e=>changeSelected('shadow',Number(e.target.value))}/><output>{paint.shadow}px</output></label>
-        {selected.children.length===0&&!selected.matches('input,textarea,select,[contenteditable]')&&<label>Metin <textarea rows={2} value={paint.text} onChange={e=>changeSelected('text',e.target.value)}/></label>}
+        {!selected.matches('input,textarea,select,[contenteditable]')&&<label>Metin <textarea rows={2} value={paint.text} onChange={e=>changeSelected('text',e.target.value)}/></label>}
         {selected.matches('[data-serula-preview-only="true"]')&&<button type="button" onClick={removeButton}>Eklenen butonu sil</button>}
         <small>Seçilen öğe üzerindeki değişiklikler geçici önizlemedir; React ekranı yenilenince sıfırlanabilir.</small>
       </section>}
