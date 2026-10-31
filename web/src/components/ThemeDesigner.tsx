@@ -42,6 +42,48 @@ export default function ThemeDesigner(){
     }
     return ()=>{delete root.dataset.serulaDesigner;for(const name of ['--color-ink-black','--color-paper-white','--color-mist-gray','--color-fog-white','--color-sienna-brown','--color-blush-peach','--font-sohne','--font-signifier','--radius-buttons','--radius-cards','--shadow-subtle'])root.style.removeProperty(name);};
   },[draft,enabled]);
+  const [inspect,setInspect]=useState(false);
+  const [selected,setSelected]=useState<HTMLElement|null>(null);
+  const [paint,setPaint]=useState({color:'#172a35',background:'#ffffff',size:14,radius:12,shadow:0,text:''});
+  const [customCss,setCustomCss]=useState('');
+  useEffect(()=>{
+    if(!inspect||!open)return;
+    const handle=(e:MouseEvent)=>{
+      const target=e.target;
+      if(!(target instanceof HTMLElement)||target.closest('.serula-designer-root'))return;
+      e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
+      const element=target.closest<HTMLElement>('button, a, h1, h2, h3, p, label, span, section, article, aside, header, footer, div')||target;
+      setSelected(previous=>{previous?.removeAttribute('data-serula-selected');return element;});
+      element.setAttribute('data-serula-selected','true');
+      const style=getComputedStyle(element);
+      const toHex=(value:string)=>{
+        const nums=value.match(/[\\d.]+/g)?.slice(0,3).map(Number)||[];
+        return nums.length===3?'#'+nums.map(n=>Math.max(0,Math.min(255,Math.round(n))).toString(16).padStart(2,'0')).join(''):'#ffffff';
+      };
+      setPaint({color:toHex(style.color),background:toHex(style.backgroundColor),size:parseFloat(style.fontSize)||14,radius:parseFloat(style.borderRadius)||0,shadow:0,text:element.children.length===0?(element.textContent||'').trim():''});
+      setInspect(false);
+    };
+    document.addEventListener('click',handle,true);
+    return()=>document.removeEventListener('click',handle,true);
+  },[inspect,open]);
+  useEffect(()=>()=>{selected?.removeAttribute('data-serula-selected')},[selected]);
+  const changeSelected=(property:'color'|'background'|'size'|'radius'|'shadow'|'text',value:string|number)=>{
+    if(!selected)return;
+    setPaint(p=>({...p,[property]:value}));
+    if(property==='text'){
+      // Text is intentionally limited to leaf elements so React-controlled controls are never replaced.
+      if(selected.children.length===0&&!selected.closest('button,input,textarea,select,[contenteditable]'))selected.textContent=String(value);
+      return;
+    }
+    const styles:Record<string,string>={color:'color',background:'background-color',size:'font-size',radius:'border-radius',shadow:'box-shadow'};
+    const cssValue=property==='size'||property==='radius'?value+'px':property==='shadow'?(Number(value)?'0 4px '+value+'px #0003':'none'):String(value);
+    selected.style.setProperty(styles[property],cssValue,'important');
+  };
+  const applyCss=()=>{
+    let sheet=document.getElementById('serula-design-css-preview') as HTMLStyleElement|null;
+    if(!sheet){sheet=document.createElement('style');sheet.id='serula-design-css-preview';document.head.append(sheet)}
+    sheet.textContent=customCss;
+  };
   const change=<K extends keyof Design>(name:K,value:Design[K])=>{setDraft(prev=>({...prev,[name]:value}));setEnabled(true)};
   const save=()=>{try{localStorage.setItem(key,JSON.stringify(draft));}catch{/* storage unavailable */}};
   const reset=()=>{setDraft(defaults);setEnabled(false);try{localStorage.removeItem(key);}catch{/* storage unavailable */}};
@@ -50,6 +92,19 @@ export default function ThemeDesigner(){
     {open&&<aside id="serula-designer-panel" className="serula-designer-panel" aria-label="Serula tema tasarımcısı">
       <header><strong>Serula Tasarım Atölyesi</strong><button type="button" onClick={()=>setOpen(false)} aria-label="Tema tasarımcısını kapat">×</button></header>
       <p>Değişiklikleri sayfanın üzerinde anında gör. Bu ekran yalnızca tasarım dalında çalışır.</p>
+      <div className="serula-designer-actions"><button type="button" onClick={()=>setInspect(i=>!i)}>{inspect?'Seçimi iptal et':'✥ Ekrandan öğe seç'}</button></div>
+      {inspect&&<p role="status">Düzenlemek istediğin metne, butona veya panele tıkla. Tıklama uygulamadaki işlemi başlatmaz.</p>}
+      {selected&&<section className="serula-inspector" aria-label="Seçili öğeyi düzenle">
+        <strong>Seçili öğe: {selected.tagName.toLowerCase()}</strong>
+        <label>Yazı rengi <input aria-label="Seçili yazı rengi" type="color" value={paint.color} onChange={e=>changeSelected('color',e.target.value)}/></label>
+        <label>Arka plan <input aria-label="Seçili arka plan" type="color" value={paint.background} onChange={e=>changeSelected('background',e.target.value)}/></label>
+        <label>Yazı boyutu <input type="range" min="10" max="44" value={paint.size} onChange={e=>changeSelected('size',Number(e.target.value))}/><output>{Math.round(paint.size)}px</output></label>
+        <label>Köşe yuvarlaklığı <input type="range" min="0" max="40" value={paint.radius} onChange={e=>changeSelected('radius',Number(e.target.value))}/><output>{Math.round(paint.radius)}px</output></label>
+        <label>Gölge <input type="range" min="0" max="35" value={paint.shadow} onChange={e=>changeSelected('shadow',Number(e.target.value))}/><output>{paint.shadow}px</output></label>
+        {selected.children.length===0&&!selected.closest('button,input,textarea,select,[contenteditable]')&&<label>Metin <textarea rows={2} value={paint.text} onChange={e=>changeSelected('text',e.target.value)}/></label>}
+        <small>Seçilen öğe üzerindeki değişiklikler geçici önizlemedir; React ekranı yenilenince sıfırlanabilir.</small>
+      </section>}
+      <details className="serula-css-editor"><summary>Gelişmiş CSS düzenle</summary><textarea aria-label="Önizleme CSS kodu" rows={5} value={customCss} onChange={e=>setCustomCss(e.target.value)} placeholder=".app .sidebar { background: #f1f4f6; }"/><button type="button" onClick={applyCss}>CSS'yi önizle</button><small>CSS yalnızca bu tarayıcıda uygulanır; güvenmediğin kodu yapıştırma.</small></details>
       <div className="serula-designer-fields">
       {([['accent','Vurgu rengi'],['ink','Yazı / ana buton'],['paper','Arka plan'],['surface','Panel yüzeyi']] as const).map(([name,label])=><label key={name}>{label}<input type="color" value={draft[name]} onChange={e=>change(name,e.target.value)}/><output>{draft[name]}</output></label>)}
       <label>Yazı tipi<select value={draft.font} onChange={e=>change('font',e.target.value)}><option value="system">Sistem (modern)</option><option value="inter">Inter</option><option value="geometric">Geometrik</option><option value="classic">Klasik</option></select></label>
