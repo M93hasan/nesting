@@ -33,13 +33,13 @@ test('admin dashboard shares neutral surfaces and actions on desktop and mobile'
   await expect(page.locator('.admin-sidebar')).toHaveCSS('border-radius','0px');
   const pageBackground=()=>admin.evaluate(el=>getComputedStyle(el).backgroundColor);
   const surface=()=>page.locator('.admin-sidebar').evaluate(el=>getComputedStyle(el).backgroundColor);
-  await expect.poll(pageBackground).toBe('rgb(12, 13, 15)');
-  await expect.poll(surface).toBe('rgb(23, 24, 27)');
+  await expect.poll(pageBackground).toBe('rgb(16, 17, 20)');
+  await expect.poll(surface).toBe('rgb(27, 29, 33)');
   await page.screenshot({path:testInfo.outputPath('admin-dark.png')});
   await page.evaluate(()=>localStorage.setItem('serula-theme','light'));
   await page.reload();
   await expect(admin).toBeVisible();
-  await expect.poll(pageBackground).toBe('rgb(250, 250, 250)');
+  await expect.poll(pageBackground).toBe('rgb(255, 255, 255)');
   await expect.poll(surface).toBe('rgb(255, 255, 255)');
   const metric=page.locator('.admin-metric').first();
   const icon=metric.locator('.admin-metric-icon');
@@ -66,11 +66,11 @@ test('studio buttons share one radius and About stays readable on narrow screens
   const brand=await page.locator('.brand-block').boundingBox();
   expect(rail?.width).toBe(brand?.width);
   const radius=await page.locator('.header nav button').first().evaluate(element=>getComputedStyle(element).borderRadius);
-  expect(radius).toBe('9px');
+  expect(radius).toBe('9999px');
   for(const selector of ['.add-shape button','.statusbar button','.auth-login-header']){
     await expect(page.locator(selector).first()).toHaveCSS('border-radius',radius);
   }
-  await expect(page.locator('.run-controls .reference-launch')).toHaveCSS('background-color','rgb(24, 24, 27)');
+  await expect(page.locator('.run-controls .reference-launch')).toHaveCSS('background-color','rgb(23, 25, 28)');
   await page.screenshot({path:testInfo.outputPath('studio-dashboard-light.png')});
   await page.getByRole('button',{name:'Serula Nesting Hakkında'}).click();
   await expect(page.locator('.about-layout')).toHaveCSS('grid-template-areas','"overview overview" "preferences download" "bridge bridge"');

@@ -1,30 +1,75 @@
 /* Serula design system: page, studio, account and admin use these tokens. */
 :root {
   color-scheme: light dark;
-  --font-ui: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  /* Steep / Refero design tokens (user-provided CSS Variables). */
+  --color-ink-black: #17191c;
+  --color-paper-white: #ffffff;
+  --color-mist-gray: #f2f2f3;
+  --color-fog-white: #fafafb;
+  --color-slate-gray: #777b86;
+  --color-ash-gray: #979799;
+  --color-smoke-gray: #a3a6af;
+  --color-blush-peach: #fbe1d1;
+  --color-sienna-brown: #5d2a1a;
+  --font-signifier: 'Signifier', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-sohne: 'Sohne', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --text-caption: 15px; --leading-caption: 1.5;
+  --text-body: 17px; --leading-body: 1.35;
+  --text-body-lg: 20px; --leading-body-lg: 1.35;
+  --text-subheading: 22px; --leading-subheading: 1.5;
+  --text-heading-sm: 26px; --leading-heading-sm: 1.18; --tracking-heading-sm: -0.23px;
+  --text-heading: 44px; --leading-heading: 1.3; --tracking-heading: -0.66px;
+  --text-heading-lg: 64px; --leading-heading-lg: 1.3; --tracking-heading-lg: -0.96px;
+  --text-display: 90px; --leading-display: 1.3; --tracking-display: -2.25px;
+  --font-weight-regular: 400; --font-weight-w430: 430; --font-weight-w450: 450;
+  --font-weight-w480: 480; --font-weight-medium: 500;
+  --spacing-unit: 4px;
+  --spacing-4: 4px; --spacing-8: 8px; --spacing-12: 12px;
+  --spacing-16: 16px; --spacing-20: 20px; --spacing-24: 24px;
+  --spacing-28: 28px; --spacing-32: 32px; --spacing-40: 40px;
+  --spacing-64: 64px; --spacing-80: 80px; --spacing-96: 96px;
+  --spacing-124: 124px; --spacing-128: 128px; --spacing-160: 160px;
+  --page-max-width: 1200px; --section-gap: 80px;
+  --card-padding: 20px; --element-gap: 8px;
+  --radius-sm: 0.01px; --radius-xl: 12px; --radius-2xl: 16px;
+  --radius-2xl-2: 20px; --radius-3xl: 24px;
+  --radius-cards: 24px; --radius-images: 12px;
+  --radius-inputs: 16px; --radius-buttons: 9999px;
+  --radius-smallcards: 16px; --radius-elevatedcards: 20px;
+  --shadow-subtle: oklab(0 0 0 / 0.05) 0px 0px 0px 1px, rgba(0,0,0,.08) 0px 4px 24px;
+  --shadow-subtle-2: oklab(0 0 0 / 0.05) 0px 0px 0px 1px, rgba(0,0,0,.1) 0px 8px 40px;
+  --shadow-subtle-3: rgba(4,23,43,.05) 0px 0px 0px 1px, rgba(0,0,0,.1) 0px 20px 25px -5px, rgba(0,0,0,.1) 0px 8px 10px -6px;
+  --surface-canvas: var(--color-paper-white);
+  --surface-card-mist: var(--color-mist-gray);
+  --surface-section-fog: var(--color-fog-white);
+  --surface-accent-blush: var(--color-blush-peach);
+  --surface-elevated-white: var(--color-paper-white);
+
+  /* Serula compatibility mappings retain automatic dark-mode contrast. */
+  --font-ui: var(--font-sohne);
   --font-size-ui: 14px;
-  --font-weight-ui: 400;
-  --space-unit: 4px;
-  --radius-button: 9px;
-  --radius-control: 9px;
-  --radius-card: 12px;
-  --surface-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
-  --page: light-dark(#fafafa, #0c0d0f);
-  --panel: light-dark(#ffffff, #17181b);
-  --panel-soft: light-dark(#f7f7f8, #202125);
-  --panel-raised: light-dark(#ffffff, #202125);
+  --font-weight-ui: var(--font-weight-regular);
+  --space-unit: var(--spacing-unit);
+  --radius-button: var(--radius-buttons);
+  --radius-control: var(--radius-inputs);
+  --radius-card: var(--radius-cards);
+  --surface-shadow: var(--shadow-subtle);
+  --page: light-dark(var(--color-paper-white), #101114);
+  --panel: light-dark(var(--color-paper-white), #1b1d21);
+  --panel-soft: light-dark(var(--color-mist-gray), #25272c);
+  --panel-raised: light-dark(var(--color-paper-white), #25272c);
   --card-surface: var(--panel);
-  --ink: light-dark(#18181b, #f4f4f5);
-  --muted: light-dark(#64656c, #a1a1aa);
-  --border: light-dark(#e4e4e7, #36363c);
-  --primary: light-dark(#18181b, #f4f4f5);
-  --primary-ink: light-dark(#ffffff, #18181b);
-  --primary-hover: light-dark(#34343a, #dedee2);
-  --accent: light-dark(#29292e, #e4e4e7);
+  --ink: light-dark(var(--color-ink-black), #f2f2f3);
+  --muted: light-dark(var(--color-slate-gray), #b1b3bc);
+  --border: light-dark(#e5e6e9, #393b41);
+  --primary: light-dark(var(--color-ink-black), #f2f2f3);
+  --primary-ink: light-dark(var(--color-paper-white), var(--color-ink-black));
+  --primary-hover: light-dark(#363940, #d6d7db);
+  --accent: light-dark(var(--color-sienna-brown), var(--color-blush-peach));
   --accent-hover: var(--primary-hover);
-  --hover: light-dark(#f4f4f5, #28282d);
-  --hover-border: light-dark(#a1a1aa, #71717a);
-  --selected: light-dark(#f0f0f2, #303035);
+  --hover: light-dark(var(--color-mist-gray), #32343a);
+  --hover-border: light-dark(var(--color-smoke-gray), #858894);
+  --selected: light-dark(var(--color-blush-peach), #45332f);
   --secondary: var(--muted);
   --error: light-dark(#b42332, #ff9da5);
   --error-bg: light-dark(#fff0f1, #3b2227);
@@ -451,4 +496,91 @@ body { background: var(--page); color: var(--ink); }
   :root #root .app .studio-canvas-heading { min-height: 54px; padding: 9px 14px; }
   :root #root .studio-canvas-heading h1 { font-size: 16px; }
   :root #root .studio-canvas-eyebrow { font-size: 9px; }
+}
+
+/* Steep editorial application — preserve the Serula CAD workspace geometry.
+   The 1200px marketing page and 80px hero spacing do NOT constrain the editor. */
+:root #root .studio-canvas-heading h1 {
+  font-family: var(--font-signifier);
+  font-size: clamp(22px, 2vw, 26px);
+  font-weight: 400;
+  line-height: var(--leading-heading-sm);
+  letter-spacing: var(--tracking-heading-sm);
+}
+:root #root .app :is(.panel-title h2, .material-panel h2) {
+  font-family: var(--font-sohne);
+  font-weight: 500;
+  letter-spacing: -0.009em;
+}
+:root #root .studio-canvas-eyebrow {
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--color-ash-gray);
+}
+:root #root .app .empty-project {
+  border-radius: var(--radius-cards);
+  box-shadow: none;
+  background: var(--panel-soft);
+  padding: var(--spacing-24);
+}
+:root #root .app .empty-project h2,
+:root #root .about-overview h2 {
+  font-family: var(--font-signifier);
+  font-weight: 400;
+  letter-spacing: var(--tracking-heading-sm);
+}
+:root #root :is(.auth-card, .modal, .auth-account-dropdown) {
+  border-radius: var(--radius-elevatedcards);
+  box-shadow: var(--shadow-subtle-2);
+}
+:root #root .auth-account-dropdown { box-shadow: var(--shadow-subtle-2); }
+:root #root :is(.admin-card, .admin-metric, .admin-user-row, .about-card) {
+  border-radius: var(--radius-cards);
+  box-shadow: none;
+}
+:root #root .admin-page :is(.admin-card, .admin-metric, .admin-user-row) {
+  background: var(--panel-soft);
+  box-shadow: none;
+}
+/* Avoid forcing pill geometry on circular icon-only controls or controls with
+   a required rectangular selection shape. Existing button focus states remain. */
+:root #root .app :is(.add-shape > button, .run-controls .run-button, .download-button) {
+  padding-inline: max(12px, var(--spacing-16));
+}
+:root #root :is(.app, .admin-page) :is(input:not([type=checkbox]):not([type=radio]), select, textarea) {
+  border-radius: var(--radius-inputs);
+}
+:root[data-theme="light"] #root .app .drawing-panel {
+  background: var(--surface-canvas);
+}
+:root[data-theme="light"] #root .app .material-panel,
+:root[data-theme="light"] #root .app .sidebar {
+  background: var(--surface-section-fog);
+}
+:root[data-theme="light"] #root .app .studio-canvas-heading,
+:root[data-theme="light"] #root .app > .header,
+:root[data-theme="light"] #root .app > .statusbar {
+  background: var(--surface-canvas);
+}
+@media (max-width: 699px) {
+  :root #root .studio-canvas-heading h1 {
+    font-size: 20px;
+    line-height: 1.2;
+  }
+  :root #root .app .empty-project { padding: var(--spacing-16); }
+}
+
+/* CorelDRAW transfer: green action, isolated from DXF and other buttons. */
+:root #root .app button.corel-transfer-button:not(:disabled) {
+  background: #18864b !important;
+  border-color: #18864b !important;
+  color: #ffffff !important;
+}
+:root #root .app button.corel-transfer-button:not(:disabled):hover {
+  background: #126b3c !important;
+  border-color: #126b3c !important;
+  color: #ffffff !important;
+}
+:root #root .app button.corel-transfer-button:focus-visible {
+  outline-color: #18864b;
 }
