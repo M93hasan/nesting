@@ -69,6 +69,8 @@ jobs:
         run: npx playwright install --with-deps chromium firefox webkit
       # The maintained Serula tests are the PR gate. Do not quietly treat
       # obsolete Sparrow-era UI scenarios as production regressions.
+      - name: Run modernized phase tests (Chromium, Firefox, WebKit)
+        run: npx playwright test tests/phases.spec.ts --reporter=line --max-failures=1
       - name: Run maintained Serula browser suite (Chromium, Firefox, WebKit)
         run: >-
           npx playwright test
