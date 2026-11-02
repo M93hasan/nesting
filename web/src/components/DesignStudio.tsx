@@ -1,4 +1,4 @@
-import {useEffect,useRef,useState,type MouseEvent} from 'react';
+import {useEffect,useRef,useState,type MouseEvent,type PointerEvent as ReactPointerEvent} from 'react';
 import {DESIGN_ZONES,cleanZoneStyles,renderZoneCss,type DesignZone,type ZoneStyle,type ZoneStyles} from './design-zone-styles';
 import './DesignStudio.css';
 import {DESIGN_COMPONENTS,canReorder} from './design-component-registry';
@@ -20,7 +20,7 @@ function validDraft(value:unknown):value is Design{
     &&(d.order===undefined||(Array.isArray(d.order)&&d.order.length===samples.length&&new Set(d.order).size===samples.length&&d.order[d.order.length-1]==='Birincil buton'&&d.order.every((name:unknown)=>typeof name==='string'&&isLayer(name))))
     &&(d.positions===undefined||(typeof d.positions==='object'&&d.positions!==null&&!Array.isArray(d.positions)&&Object.keys(d.positions).every(key=>isLayer(key)&&typeof d.positions?.[key]?.x==='number'&&Number.isInteger(d.positions[key].x)&&d.positions[key].x>=0&&d.positions[key].x<=80&&typeof d.positions[key].y==='number'&&Number.isInteger(d.positions[key].y)&&d.positions[key].y>=0&&d.positions[key].y<=80)))
     &&(d.workspaceOrder===undefined||(Array.isArray(d.workspaceOrder)&&d.workspaceOrder.length===3&&new Set(d.workspaceOrder).size===3&&['parts','canvas','material'].every(item=>d.workspaceOrder!.includes(item))))
-    &&(d.zoneStyles===undefined||(typeof d.zoneStyles==='object'&&d.zoneStyles!==null&&!Array.isArray(d.zoneStyles)&&Object.keys(d.zoneStyles).every(key=>DESIGN_ZONES.some(id=>id===key)&&Object.keys(d.zoneStyles?.[key as DesignZone]??{}).every(field=>['background','color','radius','spacing','fontSize','shadow','text'].includes(field))&&JSON.stringify(cleanZoneStyles({[key]:d.zoneStyles?.[key as DesignZone]}))!=='{}')))
+    &&(d.zoneStyles===undefined||(typeof d.zoneStyles==='object'&&d.zoneStyles!==null&&!Array.isArray(d.zoneStyles)&&Object.keys(d.zoneStyles).every(key=>DESIGN_ZONES.some(id=>id===key)&&Object.keys(d.zoneStyles?.[key as DesignZone]??{}).every(field=>['background','color','radius','spacing','fontSize','shadow','text','offsetX','offsetY'].includes(field))&&JSON.stringify(cleanZoneStyles({[key]:d.zoneStyles?.[key as DesignZone]}))!=='{}')))
     &&(d.hidden===undefined||(Array.isArray(d.hidden)&&d.hidden.length<=samples.length&&d.hidden.every((name:unknown)=>typeof name==='string'&&isLayer(name))))
     &&([['radius',0,32],['spacing',8,40],['fontSize',12,22]] as const).every(([key,min,max])=>typeof d[key]==='number'&&Number.isFinite(d[key])&&d[key]>=min&&d[key]<=max);
 }
@@ -41,6 +41,8 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
   const [sidebarTab,setSidebarTab]=useState<'layers'|'history'>('layers');
   const [showPublish,setShowPublish]=useState(false);
   const frameRef=useRef<HTMLIFrameElement|null>(null);
+  const buttonDragRef=useRef<{zone:DesignZone;pointerId:number;startX:number;startY:number;x:number;y:number}|null>(null);
+  const didDragRef=useRef(false);
   const [frameSize,setFrameSize]=useState({width:1100,height:680});
   const [zoom,setZoom]=useState(100);
   const deviceWidth=device==='desktop'?1440:device==='tablet'?768:390;
@@ -275,6 +277,53 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
       }
     }catch{setStorageError('Önizleme alanı seçilemedi.');}
   };
+  const draggableZones:DesignZone[]=['runButton','corelButton','downloadButton'];
+  const boundedOffset=(n:number)=>Math.max(-80,Math.min(80,Math.round(n)));
+  const hitZone=(event:ReactPointerEvent<HTMLDivElement>):DesignZone|null=>{
+    const iframe=frameRef.current,doc=iframe?.contentDocument;
+    if(!iframe||!doc)return null;
+    const rect=iframe.getBoundingClientRect();
+    const target=doc.elementFromPoint((event.clientX-rect.left)/previewScale,(event.clientY-rect.top)/previewScale);
+    const id=target?.closest('[data-design-zone]')?.getAttribute('data-design-zone');
+    return id&&DESIGN_ZONES.some(key=>key===id)?id as DesignZone:null;
+  };
+  const pointerDown=(event:ReactPointerEvent<HTMLDivElement>)=>{
+    if(event.button!==0)return;
+    const id=hitZone(event);
+    if(!id)return;
+    selectZone(id);
+    if(!draggableZones.includes(id))return;
+    const current=design.zoneStyles?.[id]??{};
+    buttonDragRef.current={zone:id,pointerId:event.pointerId,startX:event.clientX,startY:event.clientY,x:current.offsetX??0,y:current.offsetY??0};
+    didDragRef.current=false;
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+  const pointerMove=(event:ReactPointerEvent<HTMLDivElement>)=>{
+    const dragging=buttonDragRef.current;
+    if(!dragging||dragging.pointerId!==event.pointerId)return;
+    const x=boundedOffset(dragging.x+(event.clientX-dragging.startX)/previewScale);
+    const y=boundedOffset(dragging.y+(event.clientY-dragging.startY)/previewScale);
+    if(x!==dragging.x||y!==dragging.y)didDragRef.current=true;
+    const target=frameRef.current?.contentDocument?.querySelector<HTMLElement>('[data-design-zone="'+dragging.zone+'"]');
+    target?.style.setProperty('transform','translate('+x+'px,'+y+'px)','important');
+  };
+  const pointerUp=(event:ReactPointerEvent<HTMLDivElement>)=>{
+    const dragging=buttonDragRef.current;
+    if(!dragging||dragging.pointerId!==event.pointerId)return;
+    const x=boundedOffset(dragging.x+(event.clientX-dragging.startX)/previewScale);
+    const y=boundedOffset(dragging.y+(event.clientY-dragging.startY)/previewScale);
+    frameRef.current?.contentDocument?.querySelector<HTMLElement>('[data-design-zone="'+dragging.zone+'"]')?.style.removeProperty('transform');
+    buttonDragRef.current=null;
+    if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);
+    if(x!==dragging.x||y!==dragging.y){
+      apply({zoneStyles:{...design.zoneStyles,[dragging.zone]:{...design.zoneStyles?.[dragging.zone],offsetX:x,offsetY:y}}});
+    }
+  };
+  const pointerCancel=()=>{
+    const dragging=buttonDragRef.current;
+    if(dragging)frameRef.current?.contentDocument?.querySelector<HTMLElement>('[data-design-zone="'+dragging.zone+'"]')?.style.removeProperty('transform');
+    buttonDragRef.current=null;
+  };
   const zoneNames:Record<DesignZone,string>={header:'Üst menü',parts:'Parça paneli',canvas:'Çalışma alanı',material:'Malzeme ve ayarlar',actions:'Alt işlem çubuğu',runButton:'Yerleştir butonu',corelButton:'CorelDRAW butonu',downloadButton:'DXF indir butonu'};
   const shownZoneOrder:DesignZone[]=['header',...(workspaceOrder as DesignZone[]),'actions','runButton','corelButton','downloadButton'];
   const reset=()=>{
@@ -351,11 +400,11 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
             <div className="editor-frame-top"><span/><span/><span/><span className="editor-frame-url">serula.site / studio</span></div>
             <div className="editor-iframe-wrap">
               <iframe ref={frameRef} title="Gerçek Serula Nesting ekranı" src={import.meta.env.BASE_URL+'?design-preview=1'} tabIndex={-1} loading="eager" onLoad={()=>syncFramePreview()} style={{width:deviceWidth,height:Math.ceil(Math.max(680,frameSize.height/previewScale)),transform:'scale('+previewScale+')',transformOrigin:'top left'}}/>
-              <div className="editor-click-shield" role="button" tabIndex={0} aria-label="Önizlemeden bir öğe seç" onClick={selectAtPoint} onWheel={event=>{try{frameRef.current?.contentWindow?.scrollBy(0,event.deltaY/previewScale);}catch{}}} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();selectZone('canvas');}}}/>
+              <div className="editor-click-shield" role="button" tabIndex={0} aria-label="Önizlemeden bir öğe seç" onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerCancel} onClick={event=>{if(didDragRef.current){didDragRef.current=false;return;}selectAtPoint(event);}} onWheel={event=>{try{frameRef.current?.contentWindow?.scrollBy(0,event.deltaY/previewScale);}catch{}}} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();selectZone('canvas');}}}/>
             </div>
           </div>
         </div>
-        <div className="editor-stage-footer"><span><span className="editor-live-dot"/> Gerçek Serula ekranı · Güvenli seçim modu</span><span>Ekrana tıkla → sağdan düzenle. Canlı site değişmez.</span></div>
+        <div className="editor-stage-footer"><span><span className="editor-live-dot"/> Gerçek Serula ekranı · Güvenli seçim modu</span><span>Butonları ekranda sürükle veya sağdaki X/Y ayarlarını kullan. Canlı site değişmez.</span></div>
       </main>
       <aside className="editor-inspector" aria-label="Seçili öğe özellikleri">
         <div className="editor-inspector-head"><small>ÖZELLİKLER</small><strong>{zoneNames[selectedZone]}</strong><span>{selectedDetail?'Seçilen kontrol: '+selectedDetail:'Gerçek uygulama bileşeni'}</span></div>
@@ -364,6 +413,13 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
             <label className="editor-color-field"><span>Arka plan rengi</span><span className="editor-color-control"><input aria-label="Seçili öğe arka plan rengi" type="color" value={zoneStyle.background??design.panel} onChange={e=>changeZoneStyle('background',e.target.value)}/><code>{zoneStyle.background??design.panel}</code></span></label>
             <label className="editor-color-field"><span>Yazı rengi</span><span className="editor-color-control"><input aria-label="Seçili öğe yazı rengi" type="color" value={zoneStyle.color??'#222a36'} onChange={e=>changeZoneStyle('color',e.target.value)}/><code>{zoneStyle.color??'#222a36'}</code></span></label>
           </div>
+          {draggableZones.includes(selectedZone)&&<div className="editor-property-group">
+            <div className="editor-property-title">Buton konumu <span>↔</span></div>
+            <p className="editor-position-hint">Önizleme ekranında butonu fareyle sürükle; konumu en fazla 80 piksel değiştirilebilir.</p>
+            <label className="editor-slider-label"><span>Yatay (X)</span><output>{zoneStyle.offsetX??0} px</output><input type="range" min="-80" max="80" aria-label="Seçili buton yatay konumu" value={zoneStyle.offsetX??0} onChange={e=>changeZoneStyle('offsetX',Number(e.target.value))}/></label>
+            <label className="editor-slider-label"><span>Dikey (Y)</span><output>{zoneStyle.offsetY??0} px</output><input type="range" min="-80" max="80" aria-label="Seçili buton dikey konumu" value={zoneStyle.offsetY??0} onChange={e=>changeZoneStyle('offsetY',Number(e.target.value))}/></label>
+            <button type="button" onClick={()=>apply({zoneStyles:{...design.zoneStyles,[selectedZone]:{...zoneStyle,offsetX:0,offsetY:0}}})}>Buton konumunu sıfırla</button>
+          </div>}
           <div className="editor-property-group"><div className="editor-property-title">Boyut ve boşluk <span>▦</span></div>
             <label className="editor-slider-label"><span>İç boşluk</span><output>{zoneStyle.spacing??design.spacing} px</output><input aria-label="Seçili öğe iç boşluk" type="range" min="0" max="48" value={zoneStyle.spacing??design.spacing} onChange={e=>changeZoneStyle('spacing',Number(e.target.value))}/></label>
             <label className="editor-slider-label"><span>Köşe yuvarlaklığı</span><output>{zoneStyle.radius??design.radius} px</output><input aria-label="Seçili öğe köşe yarıçapı" type="range" min="0" max="32" value={zoneStyle.radius??design.radius} onChange={e=>changeZoneStyle('radius',Number(e.target.value))}/></label>
