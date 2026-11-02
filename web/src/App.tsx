@@ -675,7 +675,17 @@ export default function App({initialDocument=emptyProject(),initialError='',load
       actions:'.app > .statusbar',
       runButton:'.app .run-button.reference-launch',
       corelButton:'.app .download-button.corel-transfer-button',
-      downloadButton:'.app .export-actions .download-button:not(.corel-transfer-button)'
+      downloadButton:'.app .export-actions .download-button:not(.corel-transfer-button)',
+      brand:'.app .brand-block',
+      projectBar:'.app .header-primary.project-bar',
+      partsList:'.app .parts-list',
+      canvasHeading:'.app .studio-canvas-heading',
+      rotationSettings:'.app .material-rotation',
+      materialSettings:'.app .settings.material-settings',
+      runControls:'.app .run-controls',
+      exportActions:'.app .export-actions',
+      projectStatus:'.app .project-status',
+      partsTitle:'.app #parts-settings .panel-title'
     };
     for(const [id,selector] of Object.entries(selectors)){
       const element=document.querySelector<HTMLElement>(selector);
