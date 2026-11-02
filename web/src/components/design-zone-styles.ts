@@ -1,6 +1,6 @@
 // Only explicitly named structural UI zones can be styled by an admin design draft.
 // Never accept arbitrary selectors, HTML, or CSS from browser/server payloads.
-export const DESIGN_ZONES=['header','parts','canvas','material','actions'] as const;
+export const DESIGN_ZONES=['header','parts','canvas','material','actions','runButton','corelButton','downloadButton'] as const;
 export type DesignZone=typeof DESIGN_ZONES[number];
 export type ZoneStyle={background?:string;color?:string;radius?:number;spacing?:number;fontSize?:number;shadow?:number;text?:string};
 export type ZoneStyles=Partial<Record<DesignZone,ZoneStyle>>;
