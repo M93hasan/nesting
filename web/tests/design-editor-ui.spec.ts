@@ -65,6 +65,13 @@ test('admin opens full-screen editor, selects actual layer, changes styles and u
   await expect(page.frameLocator('iframe[title="Gerçek Serula Nesting ekranı"]').locator('.design-widget-heading')).toHaveCount(0);
   await page.getByRole('button',{name:'Mobil'}).click();
   await expect(page.locator('.editor-live-mobile')).toBeVisible();
+  await page.getByRole('button',{name:'Katman panelini gizle'}).click();
+  await expect(page.getByRole('complementary',{name:'Sayfalar ve katmanlar'})).toBeHidden();
+  await page.getByRole('button',{name:'Katman panelini göster'}).click();
+  await expect(page.getByRole('complementary',{name:'Sayfalar ve katmanlar'})).toBeVisible();
+  await page.getByRole('button',{name:'Önizlemeyi büyüt'}).click();
+  await expect(page.locator('.editor-stage-percent')).toContainText('90%');
+
 });
 
 test('palette components can be dropped on the real canvas and nudged by keyboard',async({page})=>{
