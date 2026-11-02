@@ -38,6 +38,7 @@ test.describe('real Puck visual builder',()=>{
     const source=page.getByTestId('drawer-item:Card');
     const target=page.frameLocator('iframe').locator('.puck-builder-page-content');
     await source.dragTo(target,{targetPosition:{x:110,y:220}});
+    console.log('PUCK_DND_DIAGNOSTIC',JSON.stringify({status:await page.locator('[role="status"]').allTextContents(),cardCount:await page.frameLocator('iframe').locator('.puck-builder-card').count(),dropTargets:await page.frameLocator('iframe').locator('[data-puck-dnd]').count(),storage:await page.evaluate(()=>localStorage.getItem('serula-puck-page-v1'))}));
     await expect.poll(async()=>page.evaluate(()=>JSON.parse(localStorage.getItem('serula-puck-page-v1')??'null')?.content?.length ?? 0),{timeout:10000}).toBe(before+1);
   });
   test('failed editor import shows recovery controls, not a blank app',async({page})=>{
