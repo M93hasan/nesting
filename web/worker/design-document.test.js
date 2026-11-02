@@ -32,7 +32,8 @@ describe('isolated design document validation',()=>{
     expect(parseDesignPayload(payload({downloadButton:{offsetX:60,offsetY:-40}})).design.zoneStyles.downloadButton).toEqual({offsetX:60,offsetY:-40});
     expect(()=>parseDesignPayload(payload({downloadButton:{offsetX:81}}))).toThrow();
     expect(()=>parseDesignPayload(payload({downloadButton:{offsetY:-81}}))).toThrow();
-    expect(()=>parseDesignPayload(payload({canvas:{offsetX:20}}))).toThrow();
+    expect(parseDesignPayload(payload({canvas:{offsetX:20,offsetY:-100}})).design.zoneStyles.canvas).toEqual({offsetX:20,offsetY:-100});
+    expect(()=>parseDesignPayload(payload({canvas:{offsetX:161}}))).toThrow();
     expect(()=>parseDesignPayload(payload({runButton:{offsetX:2.5}}))).toThrow();
   });
   it('accepts addable components and rejects executable HTML, external links and duplicate IDs',()=>{
