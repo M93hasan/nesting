@@ -424,8 +424,8 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
     if(dragging)frameRef.current?.contentDocument?.querySelector<HTMLElement>('[data-design-zone="'+dragging.zone+'"]')?.style.removeProperty('transform');
     buttonDragRef.current=null;
   };
-  const zoneNames:Record<DesignZone,string>={header:'Üst menü',parts:'Parça paneli',canvas:'Çalışma alanı',material:'Malzeme ve ayarlar',actions:'Alt işlem çubuğu',runButton:'Yerleştir butonu',corelButton:'CorelDRAW butonu',downloadButton:'DXF indir butonu'};
-  const shownZoneOrder:DesignZone[]=['header',...(workspaceOrder as DesignZone[]),'actions','runButton','corelButton','downloadButton'];
+  const zoneNames:Record<DesignZone,string>={header:'Üst menü',parts:'Parça paneli',canvas:'Çalışma alanı',material:'Malzeme ve ayarlar',actions:'Alt işlem çubuğu',runButton:'Yerleştir butonu',corelButton:'CorelDRAW butonu',downloadButton:'DXF indir butonu',brand:'Marka alanı',projectBar:'Proje menüsü',partsList:'Parça listesi',canvasHeading:'Çalışma başlığı',rotationSettings:'Dönüş ayarları',materialSettings:'Malzeme ayarları',runControls:'Yerleştirme işlemleri',exportActions:'Dışa aktarma alanı',projectStatus:'Kayıt durumu',partsTitle:'Parça paneli başlığı'};
+  const shownZoneOrder:DesignZone[]=['header',...(workspaceOrder as DesignZone[]),'actions','runButton','corelButton','downloadButton','brand','projectBar','partsList','canvasHeading','rotationSettings','materialSettings','runControls','exportActions','projectStatus','partsTitle'];
   const reset=()=>{
     if(!window.confirm('Kaydedilmemiş değişiklikler silinsin ve son kaydedilen taslak geri yüklensin mi?'))return;
     const lastSaved=loadDraft();
@@ -578,7 +578,7 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
             <label className="editor-slider-label"><span>Köşe yuvarlaklığı</span><output>{zoneStyle.radius??design.radius} px</output><input aria-label="Seçili öğe köşe yarıçapı" type="range" min="0" max="32" value={zoneStyle.radius??design.radius} onChange={e=>changeZoneStyle('radius',Number(e.target.value))}/></label>
           </div>
           <div className="editor-property-group"><div className="editor-property-title">Tipografi <span>𝘼</span></div>
-            {selectedZone!=='actions'&&<label className="editor-text-field">Bölüm başlığı / metni<input type="text" aria-label="Seçili bölüm başlığı" maxLength={80} value={zoneStyle.text??''} placeholder={zoneNames[selectedZone]} onChange={e=>changeZoneStyle('text',e.target.value)}/></label>}
+            {['header','parts','canvas','material','runButton','corelButton','downloadButton'].includes(selectedZone)&&<label className="editor-text-field">Bölüm başlığı / metni<input type="text" aria-label="Seçili bölüm başlığı" maxLength={80} value={zoneStyle.text??''} placeholder={zoneNames[selectedZone]} onChange={e=>changeZoneStyle('text',e.target.value)}/></label>}
 
             <label className="editor-slider-label"><span>Yazı boyutu</span><output>{zoneStyle.fontSize??design.fontSize} px</output><input aria-label="Seçili öğe yazı boyutu" type="range" min="11" max="24" value={zoneStyle.fontSize??design.fontSize} onChange={e=>changeZoneStyle('fontSize',Number(e.target.value))}/></label>
           </div>
