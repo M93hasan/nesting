@@ -32,3 +32,24 @@ test('Nesting does not fetch or apply retired published visual designs',async({p
   await expect(page.locator('.main-workspace > #parts-settings')).toBeVisible();
   await expect(page.locator('.main-workspace > .material-panel')).toBeVisible();
 });
+
+test('only obsolete editor browser drafts are cleared, unrelated project storage stays untouched',async({page})=>{
+  await page.addInitScript(()=>{
+    localStorage.setItem('serula-puck-page-v1','old puck draft');
+    localStorage.setItem('serula-puck-real-nesting-v1','old connected draft');
+    localStorage.setItem('serula-design-studio-draft-v1','old design draft');
+    localStorage.setItem('serula-design-studio-live-preview-v1','old preview');
+    localStorage.setItem('serula-project-data-safety-test','preserve');
+  });
+  await page.goto('/');
+  await expect(page.locator('.app')).toBeVisible();
+  const values=await page.evaluate(()=>({
+    removed:[
+      'serula-puck-page-v1','serula-puck-real-nesting-v1',
+      'serula-design-studio-draft-v1','serula-design-studio-live-preview-v1'
+    ].map(k=>localStorage.getItem(k)),
+    preserved:localStorage.getItem('serula-project-data-safety-test')
+  }));
+  expect(values.removed).toEqual([null,null,null,null]);
+  expect(values.preserved).toBe('preserve');
+});
