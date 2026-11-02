@@ -61,3 +61,20 @@ test('admin opens full-screen editor, selects actual layer, changes styles and u
   await page.getByRole('button',{name:'Mobil'}).click();
   await expect(page.locator('.editor-live-mobile')).toBeVisible();
 });
+
+test('palette components can be dropped on the real canvas and nudged by keyboard',async({page})=>{
+  await page.route('**/api/auth/admin-me',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({user:{id:1,email:'qa@example.test',role:'admin',credits:0,unlimited:true}})}));
+  await page.route('**/api/admin/design/versions',r=>r.fulfill({status:200,contentType:'application/json',body:'{"versions":[]}'}));
+  await page.route('**/api/admin/design/publications',r=>r.fulfill({status:200,contentType:'application/json',body:'{"publications":[]}'}));
+  await page.goto('/admin');
+  await page.getByRole('button',{name:/Görünüm/}).click();
+  await page.getByRole('button',{name:'Tasarım Editörünü Aç'}).click();
+  await page.getByRole('button',{name:'Ekle',exact:true}).click();
+  await page.getByRole('button',{name:'+ Başlık'}).dragTo(page.getByRole('button',{name:'Önizlemeden bir öğe seç'}));
+  await expect(page.frameLocator('iframe[title="Gerçek Serula Nesting ekranı"]').locator('.design-widget-heading')).toHaveCount(1);
+  await page.locator('.editor-layer-tree').getByRole('button',{name:'Öğe: Yeni başlık'}).click();
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('slider',{name:'Bileşen Yatay konum'})).toHaveValue('1');
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(page.getByRole('slider',{name:'Bileşen Yatay konum'})).toHaveValue('0');
+});
