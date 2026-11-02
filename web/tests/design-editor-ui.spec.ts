@@ -20,6 +20,10 @@ test('admin opens full-screen editor, selects actual layer, changes styles and u
   await page.getByRole('textbox',{name:'Seçili bölüm başlığı'}).fill('DXF KAYDET');
   await expect(page.getByRole('textbox',{name:'Seçili bölüm başlığı'})).toHaveValue('DXF KAYDET');
   await expect(page.frameLocator('iframe[title="Gerçek Serula Nesting ekranı"]').locator('.export-actions .download-button:not(.corel-transfer-button)')).toContainText('DXF KAYDET');
+  await page.getByRole('slider',{name:'Seçili buton yatay konumu'}).fill('55');
+  await expect(page.frameLocator('iframe[title="Gerçek Serula Nesting ekranı"]').locator('[data-design-zone="downloadButton"]')).toHaveCSS('transform','matrix(1, 0, 0, 1, 55, 0)');
+  await page.getByRole('button',{name:'Geri al'}).click();
+  await expect(page.getByRole('slider',{name:'Seçili buton yatay konumu'})).toHaveValue('0');
   await page.getByRole('button',{name:'Mobil'}).click();
   await expect(page.locator('.editor-live-mobile')).toBeVisible();
 });
