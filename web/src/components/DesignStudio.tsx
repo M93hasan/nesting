@@ -285,7 +285,7 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
               onDragOver={event=>{if(workspaceDragging&&['parts','canvas','material'].includes(id))event.preventDefault();}}
               onDrop={event=>{event.preventDefault();if(workspaceDragging&&['parts','canvas','material'].includes(id))reorderWorkspace(workspaceDragging,id);setWorkspaceDragging(null);}}
               onDragEnd={()=>setWorkspaceDragging(null)}>
-              <button type="button" className="editor-layer-select" onClick={()=>selectZone(id)} aria-pressed={selectedZone===id}><span className="editor-layer-icon">{id==='canvas'?'▧':id==='header'?'☰':id==='actions'?'▱':'▤'}</span>{zoneNames[id]}</button>
+              <button type="button" className="editor-layer-select" aria-label={zoneNames[id]} onClick={()=>selectZone(id)} aria-pressed={selectedZone===id}><span className="editor-layer-icon">{id==='canvas'?'▧':id==='header'?'☰':id==='actions'?'▱':'▤'}</span>{zoneNames[id]}</button>
               {['parts','canvas','material'].includes(id)&&<div className="editor-layer-order">
                 <button type="button" aria-label={zoneNames[id]+' sola taşı'} disabled={workspaceOrder.indexOf(id)===0} onClick={()=>shiftWorkspace(id,-1)}>‹</button>
                 <button type="button" aria-label={zoneNames[id]+' sağa taşı'} disabled={workspaceOrder.indexOf(id)===2} onClick={()=>shiftWorkspace(id,1)}>›</button>
@@ -306,7 +306,7 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
         <div className="editor-stage-toolbar">
           <div className="editor-crumb"><span>Nesting Studio</span><span aria-hidden="true">›</span><strong>{zoneNames[selectedZone]}</strong></div>
           <div className="editor-viewport-controls" role="group" aria-label="Ekran boyutu">
-            {(['desktop','tablet','mobile'] as const).map(item=><button type="button" key={item} aria-pressed={device===item} onClick={()=>setDevice(item)}>{({desktop:'▭ Masaüstü',tablet:'▯ Tablet',mobile:'▮ Mobil'} as const)[item]}</button>)}
+            {(['desktop','tablet','mobile'] as const).map(item=><button type="button" key={item} aria-label={({desktop:"Masaüstü",tablet:"Tablet",mobile:"Mobil"} as const)[item]} aria-pressed={device===item} onClick={()=>setDevice(item)}>{({desktop:'▭ Masaüstü',tablet:'▯ Tablet',mobile:'▮ Mobil'} as const)[item]}</button>)}
           </div>
           <div className="editor-stage-percent">{device==='desktop'?'100%':device==='tablet'?'768 px':'390 px'}</div>
         </div>
