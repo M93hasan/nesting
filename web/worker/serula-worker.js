@@ -336,7 +336,7 @@ async function handleApi(request,env){
     const row=await env.DB.prepare("SELECT value_json FROM system_settings WHERE key='design_published_v1'").first();
     let published=null;
     try{if(row)published=parseDesignPayload(JSON.parse(row.value_json));}catch{}
-    return json({published},{headers:{'cache-control':'no-store'}});
+    return json({published});
   }
   // Design drafts and immutable revisions are isolated from the live appearance setting.
   if(path.startsWith('/api/admin/design/')){
