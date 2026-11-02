@@ -27,5 +27,13 @@ describe('isolated design document validation',()=>{
     expect(parseDesignPayload({format:'serula-design-v1',design:{...design,zoneStyles:{downloadButton:{text:'DXF KAYDET'}}}}).design.zoneStyles.downloadButton.text).toBe('DXF KAYDET');
     expect(()=>parseDesignPayload({format:'serula-design-v1',design:{...design,zoneStyles:{downloadButton:{text:'<script>'}}}})).toThrow();
   });
+  it('accepts bounded action positions but rejects panel and oversized offsets',()=>{
+    const payload=(zoneStyles)=>({format:'serula-design-v1',design:{...design,zoneStyles}});
+    expect(parseDesignPayload(payload({downloadButton:{offsetX:60,offsetY:-40}})).design.zoneStyles.downloadButton).toEqual({offsetX:60,offsetY:-40});
+    expect(()=>parseDesignPayload(payload({downloadButton:{offsetX:81}}))).toThrow();
+    expect(()=>parseDesignPayload(payload({downloadButton:{offsetY:-81}}))).toThrow();
+    expect(()=>parseDesignPayload(payload({canvas:{offsetX:20}}))).toThrow();
+    expect(()=>parseDesignPayload(payload({runButton:{offsetX:2.5}}))).toThrow();
+  });
   it('rejects unknown format',()=>expect(()=>parseDesignPayload({format:'other',design})).toThrow());
 });
