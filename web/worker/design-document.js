@@ -1,7 +1,7 @@
 // Versioned, allowlisted Serula design drafts. Never accepts executable markup or styles.
 const COLOR=/^#[0-9a-f]{6}$/i;
 const LABELS=['Başlık','Ana panel','Birincil buton'];
-const EXACT=['background','panel','accent','radius','spacing','fontSize','heading','hidden','order','positions','workspaceOrder'];
+const EXACT=['background','panel','accent','radius','spacing','fontSize','heading','hidden','order','positions','workspaceOrder','zoneStyles'];
 const has=(obj,key)=>Object.prototype.hasOwnProperty.call(obj,key);
 export function parseDesignDocument(input){
   if(!input||typeof input!=='object'||Array.isArray(input))throw new Error('Tasarım nesnesi gerekli.');
@@ -37,6 +37,25 @@ export function parseDesignDocument(input){
     const allowed=['parts','canvas','material'];
     if(!Array.isArray(input.workspaceOrder)||input.workspaceOrder.length!==allowed.length||new Set(input.workspaceOrder).size!==allowed.length||!allowed.every(id=>input.workspaceOrder.includes(id)))throw new Error('Geçersiz gerçek panel sırası.');
     output.workspaceOrder=[...input.workspaceOrder];
+  }
+  if(has(input,'zoneStyles')){
+    const zones=['header','parts','canvas','material','actions'];
+    const allowed=['background','color','radius','spacing','fontSize','shadow'];
+    if(!input.zoneStyles||typeof input.zoneStyles!=='object'||Array.isArray(input.zoneStyles)||Object.keys(input.zoneStyles).some(id=>!zones.includes(id)))throw new Error('Geçersiz bileşen kimliği.');
+    output.zoneStyles={};
+    for(const [id,style] of Object.entries(input.zoneStyles)){
+      if(!style||typeof style!=='object'||Array.isArray(style)||Object.keys(style).some(key=>!allowed.includes(key)))throw new Error('İzin verilmeyen özellik.');
+      const cleaned={};
+      for(const key of ['background','color'])if(Object.prototype.hasOwnProperty.call(style,key)){
+        if(typeof style[key]!=='string'||!COLOR.test(style[key]))throw new Error('Geçersiz bileşen rengi.');
+        cleaned[key]=style[key].toLowerCase();
+      }
+      for(const [key,min,max] of [['radius',0,32],['spacing',0,48],['fontSize',11,24],['shadow',0,32]])if(Object.prototype.hasOwnProperty.call(style,key)){
+        if(!Number.isInteger(style[key])||style[key]<min||style[key]>max)throw new Error('Geçersiz bileşen ölçüsü.');
+        cleaned[key]=style[key];
+      }
+      output.zoneStyles[id]=cleaned;
+    }
   }
   return output;
 }
