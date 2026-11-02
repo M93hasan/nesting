@@ -3,6 +3,7 @@ import packageInfo from '../package.json';
 import {LanguageSelect,localeTag,useI18n} from './i18n';
 import AppearanceSettings from './components/AppearanceSettings';
 import DesignStudio from './components/DesignStudio';
+import PuckEditorBoundary,{PuckLoadingFallback} from './components/PuckEditorBoundary';
 const PuckDesignStudio=lazy(()=>import('./components/PuckDesignStudio'));
 
 type Section='overview'|'users'|'messages'|'roles'|'user-settings'|'defaults'|'appearance'|'history'|'logs'|'system';
@@ -370,7 +371,7 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
       </section>
     </main></div>;
   }
-  if(puckStudioOpen&&section==='appearance')return <Suspense fallback={<p role="status">Puck Editörü açılıyor…</p>}><PuckDesignStudio onClose={()=>setPuckStudioOpen(false)}/></Suspense>;
+  if(puckStudioOpen&&section==='appearance')return <PuckEditorBoundary onClose={()=>setPuckStudioOpen(false)} onLegacy={()=>{setPuckStudioOpen(false);setDesignStudioOpen(true)}}><Suspense fallback={<PuckLoadingFallback onClose={()=>setPuckStudioOpen(false)}/>}><PuckDesignStudio onClose={()=>setPuckStudioOpen(false)}/></Suspense></PuckEditorBoundary>;
   if(designStudioOpen&&section==='appearance')return <DesignStudio onClose={()=>setDesignStudioOpen(false)}/>;
   return <div className={adminPageClass}>
     <header className="admin-topbar">
