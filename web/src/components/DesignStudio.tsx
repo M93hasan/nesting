@@ -48,9 +48,11 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
   const customDragRef=useRef<{id:string;pointerId:number;startX:number;startY:number;x:number;y:number}|null>(null);
   const didDragRef=useRef(false);
   const [frameSize,setFrameSize]=useState({width:1100,height:680});
-  const [zoom,setZoom]=useState(100);
+  const [zoom,setZoom]=useState(80);
+  const [leftOpen,setLeftOpen]=useState(true);
+  const [rightOpen,setRightOpen]=useState(true);
   const deviceWidth=device==='desktop'?1440:device==='tablet'?768:390;
-  const previewScale=Math.min(1,frameSize.width/deviceWidth)*(zoom/100);
+  const previewScale=zoom/100;
   useEffect(()=>{
     const el=frameRef.current?.parentElement;if(!el)return;
     const update=()=>setFrameSize({width:el.clientWidth,height:el.clientHeight});
@@ -463,7 +465,7 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
       <button type="button" disabled={serverBusy||!rollbackId} onClick={()=>void changePublication('rollback')}>Önceki yayına dön</button>
     </section>}
     {(storageError||serverMessage||saved)&&<div className="editor-notice" role="status">{storageError||serverMessage||(saved?'Tarayıcı taslağı kaydedildi.':'')}</div>}
-    <div className="editor-main">
+    <div className={"editor-main"+(leftOpen?"":" editor-hide-left")+(rightOpen?"":" editor-hide-right")}>
       <aside className="editor-sidebar" aria-label="Sayfalar ve katmanlar">
         <div className="editor-sidebar-tabs" role="group" aria-label="Sol panel görünümü">
           <button type="button" aria-pressed={sidebarTab==='layers'} onClick={()=>setSidebarTab('layers')}>Katmanlar</button>
@@ -521,14 +523,15 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
       </aside>
       <main className="editor-stage-area">
         <div className="editor-stage-toolbar">
+          <button type="button" className="editor-pane-toggle" aria-label={leftOpen?'Katman panelini gizle':'Katman panelini göster'} onClick={()=>setLeftOpen(v=>!v)}>☰</button>
           <div className="editor-crumb"><span>Nesting Studio</span><span aria-hidden="true">›</span><strong>{zoneNames[selectedZone]}</strong></div>
           <div className="editor-viewport-controls" role="group" aria-label="Ekran boyutu">
             {(['desktop','tablet','mobile'] as const).map(item=><button type="button" key={item} aria-label={({desktop:"Masaüstü",tablet:"Tablet",mobile:"Mobil"} as const)[item]} aria-pressed={device===item} onClick={()=>setDevice(item)}>{({desktop:'▭ Masaüstü',tablet:'▯ Tablet',mobile:'▮ Mobil'} as const)[item]}</button>)}
           </div>
-          <div className="editor-stage-percent"><button type="button" aria-label="Önizlemeyi küçült" disabled={zoom<=50} onClick={()=>setZoom(v=>Math.max(50,v-25))}>−</button><span>{Math.round(previewScale*100)+'% · '+deviceWidth+' px'}</span><button type="button" aria-label="Önizlemeyi büyüt" disabled={zoom>=150} onClick={()=>setZoom(v=>Math.min(150,v+25))}>+</button><button type="button" onClick={()=>setZoom(100)}>Sığdır</button></div>
+          <button type="button" className="editor-pane-toggle" aria-label={rightOpen?'Özellik panelini gizle':'Özellik panelini göster'} onClick={()=>setRightOpen(v=>!v)}>▤</button><div className="editor-stage-percent"><button type="button" aria-label="Önizlemeyi küçült" disabled={zoom<=30} onClick={()=>setZoom(v=>Math.max(30,v-10))}>−</button><span>{Math.round(previewScale*100)+'% · '+deviceWidth+' px'}</span><button type="button" aria-label="Önizlemeyi büyüt" disabled={zoom>=200} onClick={()=>setZoom(v=>Math.min(200,v+10))}>+</button><button type="button" onClick={()=>{const scroller=frameRef.current?.closest('.editor-stage-area')?.querySelector('.editor-stage-scroller');const width=scroller?.clientWidth??760;setZoom(Math.max(30,Math.min(100,Math.floor((width-48)/deviceWidth*100))));}}>Sığdır</button></div>
         </div>
         <div className="editor-stage-scroller">
-          <div className={'editor-live-surface editor-live-'+device}>
+          <div className={'editor-live-surface editor-live-'+device} style={{width:Math.ceil(deviceWidth*previewScale),minWidth:Math.ceil(deviceWidth*previewScale),maxWidth:'none',height:760,flex:'none'}}>
             <div className="editor-frame-top"><span/><span/><span/><span className="editor-frame-url">serula.site / studio</span></div>
             <div className="editor-iframe-wrap">
               <iframe ref={frameRef} title="Gerçek Serula Nesting ekranı" src={import.meta.env.BASE_URL+'?design-preview=1'} tabIndex={-1} loading="eager" onLoad={()=>syncFramePreview()} style={{width:deviceWidth,height:Math.ceil(Math.max(680,frameSize.height/previewScale)),transform:'scale('+previewScale+')',transformOrigin:'top left'}}/>
