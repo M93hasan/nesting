@@ -35,5 +35,15 @@ describe('isolated design document validation',()=>{
     expect(()=>parseDesignPayload(payload({canvas:{offsetX:20}}))).toThrow();
     expect(()=>parseDesignPayload(payload({runButton:{offsetX:2.5}}))).toThrow();
   });
+  it('accepts addable components and rejects executable HTML, external links and duplicate IDs',()=>{
+    const block={id:'widget-aaaa1111',kind:'button',region:'canvas',text:'Hizli baglanti',href:'/admin',fontSize:16,padding:12,x:20,y:0,devices:['desktop','mobile']};
+    const input=(blocks)=>({format:'serula-design-v1',design:{...design,blocks}});
+    expect(parseDesignPayload(input([block])).design.blocks).toEqual([block]);
+    expect(()=>parseDesignPayload(input([{...block,href:'javascript:alert(1)'}]))).toThrow();
+    expect(()=>parseDesignPayload(input([{...block,text:'<script>'}]))).toThrow();
+    expect(()=>parseDesignPayload(input([{...block,x:1000}]))).toThrow();
+    expect(()=>parseDesignPayload(input([block,block]))).toThrow();
+    expect(()=>parseDesignPayload(input([{...block,unknownStyle:'position:fixed'}]))).toThrow();
+  });
   it('rejects unknown format',()=>expect(()=>parseDesignPayload({format:'other',design})).toThrow());
 });
