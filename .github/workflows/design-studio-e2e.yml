@@ -26,4 +26,4 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npx vitest run --config vitest.design.config.ts
       - run: npm run build
-      - run: npx playwright test tests/design-publication.spec.ts --project=chromium
+      - run: npx playwright test tests/design-publication.spec.ts tests/design-editor-ui.spec.ts --project=chromium
