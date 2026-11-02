@@ -17,6 +17,13 @@ test('admin opens full-screen editor, selects actual layer, changes styles and u
   await page.getByRole('button',{name:'Geri al'}).click();
   await expect(page.getByRole('slider',{name:'Seçili öğe köşe yarıçapı'})).toHaveValue('12');
   await page.getByRole('button',{name:'DXF indir butonu',exact:true}).click();
+  // Visual designs override the default pill radius, including after undo.
+  const styledButton=page.frameLocator('iframe[title="Gerçek Serula Nesting ekranı"]').locator('[data-design-zone="downloadButton"]');
+  await expect(styledButton).toHaveCSS('border-radius','12px');
+  await page.getByRole('slider',{name:'Seçili öğe köşe yarıçapı'}).fill('24');
+  await expect(styledButton).toHaveCSS('border-radius','24px');
+  await page.getByRole('button',{name:'Geri al'}).click();
+  await expect(styledButton).toHaveCSS('border-radius','12px');
   await page.getByRole('textbox',{name:'Seçili bölüm başlığı'}).fill('DXF KAYDET');
   await expect(page.getByRole('textbox',{name:'Seçili bölüm başlığı'})).toHaveValue('DXF KAYDET');
   await expect(page.frameLocator('iframe[title="Gerçek Serula Nesting ekranı"]').locator('.export-actions .download-button:not(.corel-transfer-button)')).toContainText('DXF KAYDET');
