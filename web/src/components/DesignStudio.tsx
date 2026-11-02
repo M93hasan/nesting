@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState,type MouseEvent} from 'react';
-import {DESIGN_ZONES,cleanZoneStyles,type DesignZone,type ZoneStyle,type ZoneStyles} from './design-zone-styles';
+import {DESIGN_ZONES,cleanZoneStyles,renderZoneCss,type DesignZone,type ZoneStyle,type ZoneStyles} from './design-zone-styles';
 import './DesignStudio.css';
 import {DESIGN_COMPONENTS,canReorder} from './design-component-registry';
 import {appearanceToPreviewTokens} from './design-appearance-adapter';
@@ -154,6 +154,32 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
     catch{setSaved(false);setStorageError('Tarayıcı taslağı kaydedemedi.');}
   };
   const design=history[index];
+  const syncFramePreview=()=>{
+    try{
+      const doc=frameRef.current?.contentDocument;if(!doc)return;
+      let stylesheet=doc.querySelector<HTMLStyleElement>('style[data-serula-design-editor]');
+      if(!stylesheet){stylesheet=doc.createElement('style');stylesheet.setAttribute('data-serula-design-editor','true');doc.head.appendChild(stylesheet);}
+      stylesheet.textContent=renderZoneCss(design.zoneStyles);
+      // Update only allowlisted labels. No HTML insertion or button handler changes.
+      const safe=cleanZoneStyles(design.zoneStyles);
+      const headings:Partial<Record<DesignZone,string>>={
+        header:'.app .tagline',canvas:'.app .studio-canvas-heading h1',
+        parts:'.app #parts-settings .panel-title h2',material:'.app .material-panel .panel-title h2',
+        runButton:'.app .run-button.reference-launch span',
+        corelButton:'.app .corel-transfer-button span',
+        downloadButton:'.app .export-actions .download-button:not(.corel-transfer-button) span'
+      };
+      for(const id of DESIGN_ZONES){
+        const label=safe[id]?.text,selector=headings[id];
+        if(label===undefined||!selector)continue;
+        const target=doc.querySelector<HTMLElement>(selector);if(!target)continue;
+        if(id==='parts'&&target.firstChild?.nodeType===Node.TEXT_NODE)target.firstChild.textContent=label+' ';
+        else target.textContent=label;
+      }
+    }catch{/* Preview styling never affects project state. */}
+  };
+  useEffect(()=>{if(realPreview)syncFramePreview();},[design,realPreview]);
+
   useEffect(()=>{
     if(!realPreview)return;
     try{localStorage.setItem('serula-design-studio-live-preview-v1',JSON.stringify(design));frameRef.current?.contentWindow?.postMessage('serula-design-preview-refresh',window.location.origin);}
@@ -324,7 +350,7 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
           <div className={'editor-live-surface editor-live-'+device}>
             <div className="editor-frame-top"><span/><span/><span/><span className="editor-frame-url">serula.site / studio</span></div>
             <div className="editor-iframe-wrap">
-              <iframe ref={frameRef} title="Gerçek Serula Nesting ekranı" src={import.meta.env.BASE_URL+'?design-preview=1'} tabIndex={-1} loading="eager" style={{width:deviceWidth,height:Math.ceil(Math.max(680,frameSize.height/previewScale)),transform:'scale('+previewScale+')',transformOrigin:'top left'}}/>
+              <iframe ref={frameRef} title="Gerçek Serula Nesting ekranı" src={import.meta.env.BASE_URL+'?design-preview=1'} tabIndex={-1} loading="eager" onLoad={()=>syncFramePreview()} style={{width:deviceWidth,height:Math.ceil(Math.max(680,frameSize.height/previewScale)),transform:'scale('+previewScale+')',transformOrigin:'top left'}}/>
               <div className="editor-click-shield" role="button" tabIndex={0} aria-label="Önizlemeden bir öğe seç" onClick={selectAtPoint} onWheel={event=>{try{frameRef.current?.contentWindow?.scrollBy(0,event.deltaY/previewScale);}catch{}}} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();selectZone('canvas');}}}/>
             </div>
           </div>
