@@ -45,5 +45,13 @@ describe('isolated design document validation',()=>{
     expect(()=>parseDesignPayload(input([block,block]))).toThrow();
     expect(()=>parseDesignPayload(input([{...block,unknownStyle:'position:fixed'}]))).toThrow();
   });
+  it('accepts HTTPS image assets while rejecting non-image and script URLs',()=>{
+    const payload=(src)=>({format:'serula-design-v1',design:{...design,blocks:[{id:'widget-imageabc',kind:'image',region:'canvas',text:'Katalog görseli',src}]}});
+    expect(parseDesignPayload(payload('https://cdn.example.com/catalog.png')).design.blocks).toHaveLength(1);
+    expect(()=>parseDesignPayload(payload('javascript:alert(1)'))).toThrow();
+    expect(()=>parseDesignPayload(payload('https://cdn.example.com/file.html'))).toThrow();
+    expect(()=>parseDesignPayload(payload('//attacker.example.com/photo.png'))).toThrow();
+    expect(()=>parseDesignPayload(payload('/assets/../../secret.png'))).toThrow();
+  });
   it('rejects unknown format',()=>expect(()=>parseDesignPayload({format:'other',design})).toThrow());
 });
