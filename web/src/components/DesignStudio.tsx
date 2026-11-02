@@ -13,7 +13,7 @@ function validDraft(value:unknown):value is Design{
   const d=value as Partial<Design>;
   return ['background','panel','accent'].every(key=>typeof d[key as keyof Design]==='string'&&/^#[0-9a-f]{6}$/i.test(d[key as keyof Design] as string))
     &&typeof d.heading==='string'&&d.heading.length<=80
-    &&(d.order===undefined||(Array.isArray(d.order)&&d.order.length===samples.length&&new Set(d.order).size===samples.length&&d.order.every((name:unknown)=>typeof name==='string'&&isLayer(name))))
+    &&(d.order===undefined||(Array.isArray(d.order)&&d.order.length===samples.length&&new Set(d.order).size===samples.length&&d.order[d.order.length-1]==='Birincil buton'&&d.order.every((name:unknown)=>typeof name==='string'&&isLayer(name))))
     &&(d.hidden===undefined||(Array.isArray(d.hidden)&&d.hidden.length<=samples.length&&d.hidden.every((name:unknown)=>typeof name==='string'&&isLayer(name))))
     &&([['radius',0,32],['spacing',8,40],['fontSize',12,22]] as const).every(([key,min,max])=>typeof d[key]==='number'&&Number.isFinite(d[key])&&d[key]>=min&&d[key]<=max);
 }
@@ -68,14 +68,14 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
   };
   const layerOrder=(design.order??[...samples]) as Layer[];
   const moveLayer=(source:Layer,target:Layer)=>{
-    if(source===target||locked.includes(source))return;
+    if(source===target||source==='Birincil buton'||target==='Birincil buton'||locked.includes(source))return;
     const reordered=layerOrder.filter(item=>item!==source);
     reordered.splice(reordered.indexOf(target),0,source);
     apply({order:reordered});
   };
   const shiftLayer=(layer:Layer,delta:number)=>{
     const target=layerOrder[layerOrder.indexOf(layer)+delta];
-    if(target)moveLayer(layer,target);
+    if(target&&layer!=='Birincil buton'&&target!=='Birincil buton')moveLayer(layer,target);
   };
   const toggleVisibility=(layer:Layer)=>apply({hidden:design.hidden?.includes(layer)?(design.hidden??[]).filter(name=>name!==layer):[...(design.hidden??[]),layer]});
   const toggleLock=(layer:Layer)=>setLocked(current=>current.includes(layer)?current.filter(name=>name!==layer):[...current,layer]);
@@ -118,15 +118,15 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
     </div>}
     <div className="design-studio-workspace">
       <aside className="design-studio-pane" aria-label="Katmanlar">
-        <h3>Katmanlar</h3>
-        {layerOrder.map(item=><div className="design-layer-row" key={item} draggable={!locked.includes(item)}
-          onDragStart={event=>{if(locked.includes(item)){event.preventDefault();return;}setDragging(item);event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('text/plain',item);}}
+        <h3>Katmanlar</h3><p>Başlık ve paneli sürükleyerek ya da oklarla sırala. Buton panelin alt öğesidir.</p>
+        {layerOrder.map(item=><div className="design-layer-row" key={item} draggable={item!=='Birincil buton'&&!locked.includes(item)}
+          onDragStart={event=>{if(item==='Birincil buton'||locked.includes(item)){event.preventDefault();return;}setDragging(item);event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('text/plain',item);}}
           onDragOver={event=>{if(dragging){event.preventDefault();event.dataTransfer.dropEffect='move';}}}
           onDrop={event=>{event.preventDefault();if(dragging)moveLayer(dragging,item);setDragging(null);}}
           onDragEnd={()=>setDragging(null)}> 
           <button type="button" aria-pressed={selected===item} className={selected===item?'design-selected':''} onClick={()=>setSelected(item)}>{item}</button>
-          <button type="button" aria-label={item+' yukarı taşı'} disabled={layerOrder.indexOf(item)===0||locked.includes(item)} onClick={()=>shiftLayer(item,-1)}>↑</button>
-          <button type="button" aria-label={item+' aşağı taşı'} disabled={layerOrder.indexOf(item)===layerOrder.length-1||locked.includes(item)} onClick={()=>shiftLayer(item,1)}>↓</button>
+          <button type="button" aria-label={item+' yukarı taşı'} disabled={item==='Birincil buton'||layerOrder.indexOf(item)===0||locked.includes(item)} onClick={()=>shiftLayer(item,-1)}>↑</button>
+          <button type="button" aria-label={item+' aşağı taşı'} disabled={item==='Birincil buton'||layerOrder.indexOf(item)>=layerOrder.length-2||locked.includes(item)} onClick={()=>shiftLayer(item,1)}>↓</button>
           <button type="button" aria-label={item+' görünürlüğünü değiştir'} aria-pressed={!(design.hidden??[]).includes(item)} title={(design.hidden??[]).includes(item)?'Göster':'Gizle'} onClick={()=>toggleVisibility(item)}>{(design.hidden??[]).includes(item)?'◌':'◉'}</button>
           <button type="button" aria-label={item+' kilidini değiştir'} aria-pressed={locked.includes(item)} title={locked.includes(item)?'Kilidi aç':'Kilitle'} onClick={()=>toggleLock(item)}>{locked.includes(item)?'🔒':'🔓'}</button>
         </div>)}
