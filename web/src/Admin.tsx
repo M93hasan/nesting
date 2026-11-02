@@ -368,6 +368,7 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
       </section>
     </main></div>;
   }
+  if(designStudioOpen&&section==='appearance')return <DesignStudio onClose={()=>setDesignStudioOpen(false)}/>;
   return <div className={adminPageClass}>
     <header className="admin-topbar">
       <div className="admin-brand"><img src={import.meta.env.BASE_URL+'serula-logo.svg'} alt="" /><div><strong>Serula</strong><span>Yönetim Paneli</span></div></div>
