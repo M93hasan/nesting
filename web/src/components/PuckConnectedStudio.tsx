@@ -1,4 +1,4 @@
-import {useRef,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import {Puck} from '@puckeditor/core';
 import {
   connectedPuckConfig,initialConnectedPage,parseConnectedPage,toNestingDesign,
@@ -38,6 +38,11 @@ export default function PuckConnectedStudio({onClose}:{onClose:()=>void}){
       return true;
     }catch(e){setNotice(e instanceof Error?e.message:'Tarayıcı taslağı kaydedemedi.');return false;}
   };
+  useEffect(()=>{
+    // Always initialize the real iframe with this editor's own connected draft
+    // rather than a stale preview from the legacy editor.
+    saveBrowser(latest.current);
+  },[]);
   // Puck's data is not executable markup; only the allowlisted visual zones
   // are converted into the versioned Nesting server format.
   const saveServer=async(value:ConnectedPage)=>{
