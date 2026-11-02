@@ -56,7 +56,8 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         const color=/^#[0-9a-f]{6}$/i;
         if(!['background','panel','accent'].every(k=>typeof d[k]==='string'&&color.test(d[k] as string)))return;
         if(!([['radius',0,32],['spacing',8,40],['fontSize',12,22]] as const).every(([k,lo,hi])=>typeof d[k]==='number'&&Number.isFinite(d[k])&&(d[k] as number)>=lo&&(d[k] as number)<=hi))return;
-        const workspaceOrder=Array.isArray(d.workspaceOrder)&&d.workspaceOrder.length===3&&new Set(d.workspaceOrder).size===3&&['parts','canvas','material'].every(x=>d.workspaceOrder.includes(x))?[...d.workspaceOrder] as string[]:undefined;
+        const orderCandidate=d.workspaceOrder;
+        const workspaceOrder=Array.isArray(orderCandidate)&&orderCandidate.length===3&&new Set(orderCandidate).size===3&&['parts','canvas','material'].every(x=>orderCandidate.includes(x))?[...orderCandidate] as string[]:undefined;
         if(active)setPublishedVisual({background:d.background as string,panel:d.panel as string,accent:d.accent as string,radius:d.radius as number,spacing:d.spacing as number,fontSize:d.fontSize as number,workspaceOrder,zoneStyles:cleanZoneStyles(d.zoneStyles)});
       }catch{/* Published design failure must never block Nesting functionality. */}
     };
@@ -73,7 +74,8 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         const d=value as Record<string,unknown>,color=/^#[0-9a-f]{6}$/i;
         if(!['background','panel','accent'].every(k=>typeof d[k]==='string'&&color.test(d[k] as string)))return;
         if(!([['radius',0,32],['spacing',8,40],['fontSize',12,22]] as const).every(([k,lo,hi])=>typeof d[k]==='number'&&(d[k] as number)>=lo&&(d[k] as number)<=hi))return;
-        const workspaceOrder=Array.isArray(d.workspaceOrder)&&d.workspaceOrder.length===3&&new Set(d.workspaceOrder).size===3&&['parts','canvas','material'].every(x=>d.workspaceOrder.includes(x))?[...d.workspaceOrder] as string[]:undefined;
+        const orderCandidate=d.workspaceOrder;
+        const workspaceOrder=Array.isArray(orderCandidate)&&orderCandidate.length===3&&new Set(orderCandidate).size===3&&['parts','canvas','material'].every(x=>orderCandidate.includes(x))?[...orderCandidate] as string[]:undefined;
         setDesignPreview({background:d.background as string,panel:d.panel as string,accent:d.accent as string,radius:d.radius as number,spacing:d.spacing as number,fontSize:d.fontSize as number,workspaceOrder,zoneStyles:cleanZoneStyles(d.zoneStyles)});
       }catch{/* Keep the original style when preview data is invalid. */}
     };
