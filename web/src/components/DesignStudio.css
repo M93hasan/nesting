@@ -25,3 +25,8 @@
 .design-studio-import{display:grid;gap:8px;border:1px solid var(--border);border-radius:12px;padding:14px;background:var(--panel)}
 .design-studio-import textarea{box-sizing:border-box;width:100%;font-family:monospace;max-width:100%}
 .design-studio-import button{justify-self:start}
+
+.design-layer-row{display:flex;align-items:center;gap:4px;min-width:0}
+.design-layer-row>button:first-child{flex:1;text-align:left;min-width:0}
+.design-layer-row>button:not(:first-child){flex:none;padding:6px!important;min-width:36px}
+.design-studio-properties fieldset{border:0;min-width:0;padding:0;margin:0;display:grid;gap:10px}
