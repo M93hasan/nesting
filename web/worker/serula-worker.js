@@ -356,8 +356,10 @@ async function handleApi(request,env){
       if(!row)return json({error:'Sürüm bulunamadı.'},404);
       let document;try{document=parseDesignPayload(JSON.parse(row.document_json));}catch{return json({error:'Sürüm geçersiz.'},400);}
       const encoded=JSON.stringify(document);
-      // Snapshot and pointer update are executed in one D1 batch.
+      // Preserve the prior published state (including the default/no-design state) before switching.
+      const previous=await env.DB.prepare("SELECT value_json FROM system_settings WHERE key='design_published_v1'").first();
       await env.DB.batch([
+        env.DB.prepare("INSERT INTO design_publication_log(document_json,action) VALUES(?,'before_publish')").bind(previous?.value_json??null),
         env.DB.prepare("INSERT INTO design_publication_log(document_json,action,source_revision) VALUES(?,'publish',?)").bind(encoded,data.versionId),
         env.DB.prepare("INSERT INTO system_settings(key,value_json,updated_at) VALUES('design_published_v1',?,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json,updated_at=CURRENT_TIMESTAMP").bind(encoded)
       ]);
