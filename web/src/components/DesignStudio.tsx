@@ -41,6 +41,15 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
   const [sidebarTab,setSidebarTab]=useState<'layers'|'history'>('layers');
   const [showPublish,setShowPublish]=useState(false);
   const frameRef=useRef<HTMLIFrameElement|null>(null);
+  const [frameSize,setFrameSize]=useState({width:1100,height:680});
+  const deviceWidth=device==='desktop'?1440:device==='tablet'?768:390;
+  const previewScale=Math.min(1,frameSize.width/deviceWidth);
+  useEffect(()=>{
+    const el=frameRef.current?.parentElement;if(!el)return;
+    const update=()=>setFrameSize({width:el.clientWidth,height:el.clientHeight});
+    update();const observer=new ResizeObserver(update);observer.observe(el);
+    return()=>observer.disconnect();
+  },[device]);
   const [locked,setLocked]=useState<Layer[]>([]);
   const [dragging,setDragging]=useState<Layer|null>(null);
   const [placing,setPlacing]=useState<Layer|null>(null);
@@ -230,7 +239,7 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
     try{
       const doc=iframe.contentDocument;if(!doc)return;
       const bounds=iframe.getBoundingClientRect();
-      const hit=doc.elementFromPoint(event.clientX-bounds.left,event.clientY-bounds.top);
+      const hit=doc.elementFromPoint((event.clientX-bounds.left)/previewScale,(event.clientY-bounds.top)/previewScale);
       const root=hit?.closest('[data-design-zone]');
       const id=root?.getAttribute('data-design-zone');
       if(id&&DESIGN_ZONES.some(zone=>zone===id)){
@@ -308,14 +317,14 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
           <div className="editor-viewport-controls" role="group" aria-label="Ekran boyutu">
             {(['desktop','tablet','mobile'] as const).map(item=><button type="button" key={item} aria-label={({desktop:"Masaüstü",tablet:"Tablet",mobile:"Mobil"} as const)[item]} aria-pressed={device===item} onClick={()=>setDevice(item)}>{({desktop:'▭ Masaüstü',tablet:'▯ Tablet',mobile:'▮ Mobil'} as const)[item]}</button>)}
           </div>
-          <div className="editor-stage-percent">{device==='desktop'?'100%':device==='tablet'?'768 px':'390 px'}</div>
+          <div className="editor-stage-percent">{Math.round(previewScale*100)+'% · '+deviceWidth+' px'}</div>
         </div>
         <div className="editor-stage-scroller">
           <div className={'editor-live-surface editor-live-'+device}>
             <div className="editor-frame-top"><span/><span/><span/><span className="editor-frame-url">serula.site / studio</span></div>
             <div className="editor-iframe-wrap">
-              <iframe ref={frameRef} title="Gerçek Serula Nesting ekranı" src={import.meta.env.BASE_URL+'?design-preview=1'} tabIndex={-1} loading="eager"/>
-              <div className="editor-click-shield" role="button" tabIndex={0} aria-label="Önizlemeden bir öğe seç" onClick={selectAtPoint} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();selectZone('canvas');}}}/>
+              <iframe ref={frameRef} title="Gerçek Serula Nesting ekranı" src={import.meta.env.BASE_URL+'?design-preview=1'} tabIndex={-1} loading="eager" style={{width:deviceWidth,height:Math.ceil(Math.max(680,frameSize.height/previewScale)),transform:'scale('+previewScale+')',transformOrigin:'top left'}}/>
+              <div className="editor-click-shield" role="button" tabIndex={0} aria-label="Önizlemeden bir öğe seç" onClick={selectAtPoint} onWheel={event=>{try{frameRef.current?.contentWindow?.scrollBy(0,event.deltaY/previewScale);}catch{}}} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();selectZone('canvas');}}}/>
             </div>
           </div>
         </div>
