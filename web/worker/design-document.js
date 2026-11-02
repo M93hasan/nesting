@@ -55,7 +55,8 @@ export function parseDesignDocument(input){
         cleaned[key]=style[key];
       }
       for(const key of ['offsetX','offsetY'])if(Object.prototype.hasOwnProperty.call(style,key)){
-        if(!['runButton','corelButton','downloadButton'].includes(id)||!Number.isInteger(style[key])||style[key]<-80||style[key]>80)throw new Error('Geçersiz düğme konumu.');
+        const max=['runButton','corelButton','downloadButton'].includes(id)?80:160;
+        if(!Number.isInteger(style[key])||style[key]<-max||style[key]>max)throw new Error('Geçersiz öğe konumu.');
         cleaned[key]=style[key];
       }
       if(Object.prototype.hasOwnProperty.call(style,'text')){
