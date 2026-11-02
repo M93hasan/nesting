@@ -45,6 +45,7 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
   const [showPublish,setShowPublish]=useState(false);
   const frameRef=useRef<HTMLIFrameElement|null>(null);
   const buttonDragRef=useRef<{zone:DesignZone;pointerId:number;startX:number;startY:number;x:number;y:number}|null>(null);
+  const customDragRef=useRef<{id:string;pointerId:number;startX:number;startY:number;x:number;y:number}|null>(null);
   const didDragRef=useRef(false);
   const [frameSize,setFrameSize]=useState({width:1100,height:680});
   const [zoom,setZoom]=useState(100);
@@ -308,12 +309,20 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
       }
     }catch{/* Ignore missing preview frame. */}
   };
+  const blockHit=(clientX:number,clientY:number)=>{
+    const frame=frameRef.current,doc=frame?.contentDocument;if(!frame||!doc)return null;
+    const rect=frame.getBoundingClientRect();
+    return doc.elementFromPoint((clientX-rect.left)/previewScale,(clientY-rect.top)/previewScale);
+  };
   const selectAtPoint=(event:MouseEvent<HTMLDivElement>)=>{
     const iframe=frameRef.current;if(!iframe)return;
     try{
       const doc=iframe.contentDocument;if(!doc)return;
       const bounds=iframe.getBoundingClientRect();
       const hit=doc.elementFromPoint((event.clientX-bounds.left)/previewScale,(event.clientY-bounds.top)/previewScale);
+      const block=hit?.closest('[data-design-block-id]');
+      const blockId=block?.getAttribute('data-design-block-id');
+      if(blockId&&blocks.some(item=>item.id===blockId)){selectBlock(blockId);return;}
       const root=hit?.closest('[data-design-zone]');
       const id=root?.getAttribute('data-design-zone');
       if(id&&DESIGN_ZONES.some(zone=>zone===id)){
@@ -334,6 +343,15 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
   };
   const pointerDown=(event:ReactPointerEvent<HTMLDivElement>)=>{
     if(event.button!==0)return;
+    const blockId=blockHit(event.clientX,event.clientY)?.closest('[data-design-block-id]')?.getAttribute('data-design-block-id');
+    const custom=blocks.find(b=>b.id===blockId);
+    if(custom){
+      selectBlock(custom.id);
+      customDragRef.current={id:custom.id,pointerId:event.pointerId,startX:event.clientX,startY:event.clientY,x:custom.x??0,y:custom.y??0};
+      didDragRef.current=false;
+      event.currentTarget.setPointerCapture(event.pointerId);
+      return;
+    }
     const id=hitZone(event);
     if(!id)return;
     selectZone(id);
@@ -344,6 +362,14 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
     event.currentTarget.setPointerCapture(event.pointerId);
   };
   const pointerMove=(event:ReactPointerEvent<HTMLDivElement>)=>{
+    const custom=customDragRef.current;
+    if(custom&&custom.pointerId===event.pointerId){
+      const x=Math.max(-300,Math.min(300,Math.round(custom.x+(event.clientX-custom.startX)/previewScale)));
+      const y=Math.max(-300,Math.min(300,Math.round(custom.y+(event.clientY-custom.startY)/previewScale)));
+      if(x!==custom.x||y!==custom.y)didDragRef.current=true;
+      frameRef.current?.contentDocument?.querySelector<HTMLElement>('[data-design-block-id="'+custom.id+'"]')?.style.setProperty('transform','translate('+x+'px,'+y+'px)');
+      return;
+    }
     const dragging=buttonDragRef.current;
     if(!dragging||dragging.pointerId!==event.pointerId)return;
     const x=boundedOffset(dragging.x+(event.clientX-dragging.startX)/previewScale);
@@ -353,6 +379,16 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
     target?.style.setProperty('transform','translate('+x+'px,'+y+'px)','important');
   };
   const pointerUp=(event:ReactPointerEvent<HTMLDivElement>)=>{
+    const custom=customDragRef.current;
+    if(custom&&custom.pointerId===event.pointerId){
+      const x=Math.max(-300,Math.min(300,Math.round(custom.x+(event.clientX-custom.startX)/previewScale)));
+      const y=Math.max(-300,Math.min(300,Math.round(custom.y+(event.clientY-custom.startY)/previewScale)));
+      frameRef.current?.contentDocument?.querySelector<HTMLElement>('[data-design-block-id="'+custom.id+'"]')?.style.removeProperty('transform');
+      customDragRef.current=null;
+      if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);
+      if(x!==custom.x||y!==custom.y)apply({blocks:blocks.map(b=>b.id===custom.id?{...b,x,y}:b)});
+      return;
+    }
     const dragging=buttonDragRef.current;
     if(!dragging||dragging.pointerId!==event.pointerId)return;
     const x=boundedOffset(dragging.x+(event.clientX-dragging.startX)/previewScale);
@@ -365,6 +401,9 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
     }
   };
   const pointerCancel=()=>{
+    const custom=customDragRef.current;
+    if(custom)frameRef.current?.contentDocument?.querySelector<HTMLElement>('[data-design-block-id="'+custom.id+'"]')?.style.removeProperty('transform');
+    customDragRef.current=null;
     const dragging=buttonDragRef.current;
     if(dragging)frameRef.current?.contentDocument?.querySelector<HTMLElement>('[data-design-zone="'+dragging.zone+'"]')?.style.removeProperty('transform');
     buttonDragRef.current=null;
@@ -402,6 +441,7 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
       <aside className="editor-sidebar" aria-label="Sayfalar ve katmanlar">
         <div className="editor-sidebar-tabs" role="group" aria-label="Sol panel görünümü">
           <button type="button" aria-pressed={sidebarTab==='layers'} onClick={()=>setSidebarTab('layers')}>Katmanlar</button>
+          <button type="button" aria-pressed={sidebarTab==='elements'} onClick={()=>setSidebarTab('elements')}>Ekle</button>
           <button type="button" aria-pressed={sidebarTab==='history'} onClick={()=>setSidebarTab('history')}>Geçmiş</button>
         </div>
         {sidebarTab==='layers'?<div className="editor-layer-area">
@@ -422,7 +462,24 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
               </div>}
             </div>)}
           </div>
-          <div className="editor-layer-bottom"><button type="button" onClick={()=>apply({workspaceOrder:['parts','canvas','material']})}>↺ Panel sırasını sıfırla</button></div>
+          <div className="editor-section-label editor-layer-title">EKLENEN ÖĞELER <span>{blocks.length}</span></div>
+          <div className="editor-layer-tree">
+            {blocks.map(block=><div key={block.id} className={'editor-layer'+(selectedBlockId===block.id?' is-selected':'')}>
+              <button type="button" className="editor-layer-select" onClick={()=>selectBlock(block.id)} aria-label={'Öğe: '+block.text}>{block.kind==='button'?'▣':block.kind==='image'?'▧':'T'} {block.text||'Ayraç'}</button>
+              <button type="button" aria-label={block.text+' görünürlüğünü değiştir'} onClick={()=>{apply({blocks:blocks.map(b=>b.id===block.id?{...b,hidden:!b.hidden}:b)});}}>{block.hidden?'◌':'◉'}</button>
+            </div>)}
+          </div>
+                    <div className="editor-layer-bottom"><button type="button" onClick={()=>apply({workspaceOrder:['parts','canvas','material']})}>↺ Panel sırasını sıfırla</button></div>
+        </div>:sidebarTab==='elements'?<div className="editor-history editor-elements-palette">
+          <div className="editor-section-label">BİLEŞEN EKLE</div>
+          <p>Önce bir panel seç, ardından yeni öğeyi ekle. Öğeler gerçek Nesting ekranına yerleşir; işlevsel kontroller korunur.</p>
+          <label>Bölüm
+            <select value={BLOCK_REGIONS.includes(selectedZone as BlockRegion)?selectedZone:'canvas'} onChange={e=>selectZone(e.target.value as DesignZone)}>
+              {BLOCK_REGIONS.map(id=><option key={id} value={id}>{({header:'Üst menü',parts:'Parçalar',canvas:'Çalışma alanı',material:'Malzeme',actions:'Alt çubuk'} as Record<BlockRegion,string>)[id]}</option>)}
+            </select>
+          </label>
+          {BLOCK_KINDS.map(kind=><button key={kind} type="button" className="editor-add-block" onClick={()=>addBlock(kind)}>+ {({text:'Metin',heading:'Başlık',button:'Bağlantı butonu',image:'Görsel',divider:'Ayraç'} as Record<BlockKind,string>)[kind]}</button>)}
+          <small>Öğe ekleyince katman listesinde görünür. Mevcut Nesting butonlarının çalışma biçimi değiştirilmez.</small>
         </div>:<div className="editor-history">
           <div className="editor-section-label">SUNUCU SÜRÜMLERİ</div>
           <button type="button" disabled={serverBusy} onClick={()=>void refreshVersions().catch(()=>setServerMessage('Sürüm geçmişi alınamadı.'))}>Sürümleri yenile ↻</button>
@@ -452,8 +509,35 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
         <div className="editor-stage-footer"><span><span className="editor-live-dot"/> Gerçek Serula ekranı · Güvenli seçim modu</span><span>Butonları ekranda sürükle veya sağdaki X/Y ayarlarını kullan. Canlı site değişmez.</span></div>
       </main>
       <aside className="editor-inspector" aria-label="Seçili öğe özellikleri">
-        <div className="editor-inspector-head"><small>ÖZELLİKLER</small><strong>{zoneNames[selectedZone]}</strong><span>{selectedDetail?'Seçilen kontrol: '+selectedDetail:'Gerçek uygulama bileşeni'}</span></div>
+        <div className="editor-inspector-head"><small>ÖZELLİKLER</small><strong>{selectedBlock?selectedBlock.text||'Ayraç':zoneNames[selectedZone]}</strong><span>{selectedBlock?'Eklenen '+selectedBlock.kind+' bileşeni':selectedDetail?'Seçilen kontrol: '+selectedDetail:'Gerçek uygulama bileşeni'}</span></div>
         <div className="editor-inspector-scroll">
+          {selectedBlock?<div className="editor-block-inspector">
+            <div className="editor-property-group"><div className="editor-property-title">Öğe içeriği</div>
+              {selectedBlock.kind!=='divider'&&<label className="editor-text-field">Metin / açıklama<input aria-label="Bileşen metni" type="text" maxLength={160} value={selectedBlock.text} onChange={e=>modifyBlock({text:e.target.value})}/></label>}
+              <label className="editor-text-field">Yerleşeceği bölüm<select aria-label="Bileşen bölgesi" value={selectedBlock.region} onChange={e=>modifyBlock({region:e.target.value as BlockRegion,x:0,y:0})}>{BLOCK_REGIONS.map(region=><option key={region} value={region}>{region}</option>)}</select></label>
+              {selectedBlock.kind==='button'&&<label className="editor-text-field">Bağlantı adresi (site içi)<input aria-label="Buton bağlantısı" type="text" value={selectedBlock.href??'/'} maxLength={80} onChange={e=>modifyBlock({href:e.target.value})}/></label>}
+              {selectedBlock.kind==='image'&&<label className="editor-text-field">Görsel<select aria-label="Bileşen görseli" value={selectedBlock.src??'/serula-logo.svg'} onChange={e=>modifyBlock({src:e.target.value})}><option value="/serula-logo.svg">Serula logosu</option><option value="/corel-button-logo.svg">CorelDRAW logosu</option></select></label>}
+            </div>
+            <div className="editor-property-group"><div className="editor-property-title">Görünüm</div>
+              <label className="editor-color-field">Yazı rengi<input aria-label="Bileşen yazı rengi" type="color" value={selectedBlock.color??'#24354f'} onChange={e=>modifyBlock({color:e.target.value})}/></label>
+              <label className="editor-color-field">Arka plan<input aria-label="Bileşen arka planı" type="color" value={selectedBlock.background??'#ffffff'} onChange={e=>modifyBlock({background:e.target.value})}/></label>
+              {([['fontSize','Yazı boyutu',10,36],['padding','Boşluk',0,48],['radius','Köşe',0,40],['width','Genişlik',40,650],['opacity','Saydamlık',0,100]] as const).map(([key,label,min,max])=><label key={key} className="editor-slider-label"><span>{label}</span><output>{selectedBlock[key]??(key==='opacity'?100:key==='width'?200:key==='fontSize'?14:8)}</output><input aria-label={'Bileşen '+label} type="range" min={min} max={max} value={selectedBlock[key]??(key==='opacity'?100:key==='width'?200:key==='fontSize'?14:8)} onChange={e=>modifyBlock({[key]:Number(e.target.value)})}/></label>)}
+              <label className="editor-text-field">Hizalama<select aria-label="Bileşen hizalama" value={selectedBlock.align??'left'} onChange={e=>modifyBlock({align:e.target.value as DesignBlock['align']})}><option value="left">Sol</option><option value="center">Orta</option><option value="right">Sağ</option></select></label>
+            </div>
+            <div className="editor-property-group"><div className="editor-property-title">Konum · sürükle-bırak</div>
+              {([['x','Yatay konum'],['y','Dikey konum']] as const).map(([key,label])=><label key={key} className="editor-slider-label"><span>{label}</span><output>{selectedBlock[key]??0} px</output><input aria-label={'Bileşen '+label} type="range" min="-300" max="300" value={selectedBlock[key]??0} onChange={e=>modifyBlock({[key]:Number(e.target.value)})}/></label>)}
+              <button type="button" onClick={()=>modifyBlock({x:0,y:0})}>Konumu sıfırla</button>
+            </div>
+            <div className="editor-property-group"><div className="editor-property-title">Responsive görünürlük</div>
+              {BLOCK_DEVICES.map(dev=><label key={dev} className="editor-device-toggle"><input type="checkbox" aria-label={'Bileşen '+dev+' göster'} checked={(selectedBlock.devices??[...BLOCK_DEVICES]).includes(dev)} onChange={e=>{const original=selectedBlock.devices??[...BLOCK_DEVICES];const next=e.target.checked?[...original,dev]:original.filter(v=>v!==dev);if(next.length)modifyBlock({devices:next});}}/>{dev}</label>)}
+              <label className="editor-device-toggle"><input type="checkbox" aria-label="Bileşeni gizle" checked={!!selectedBlock.hidden} onChange={e=>modifyBlock({hidden:e.target.checked})}/>Gizle</label>
+            </div>
+            <div className="editor-block-actions">
+              <button type="button" onClick={()=>shiftBlock(-1)}>↑ Üste taşı</button><button type="button" onClick={()=>shiftBlock(1)}>↓ Alta taşı</button>
+              <button type="button" onClick={duplicateBlock}>Çoğalt</button>
+              <button type="button" className="editor-delete" onClick={removeBlock}>Sil</button>
+            </div>
+          </div>:<>
           <div className="editor-property-group"><div className="editor-property-title">Görünüm <span>◫</span></div>
             <label className="editor-color-field"><span>Arka plan rengi</span><span className="editor-color-control"><input aria-label="Seçili öğe arka plan rengi" type="color" value={zoneStyle.background??design.panel} onChange={e=>changeZoneStyle('background',e.target.value)}/><code>{zoneStyle.background??design.panel}</code></span></label>
             <label className="editor-color-field"><span>Yazı rengi</span><span className="editor-color-control"><input aria-label="Seçili öğe yazı rengi" type="color" value={zoneStyle.color??'#222a36'} onChange={e=>changeZoneStyle('color',e.target.value)}/><code>{zoneStyle.color??'#222a36'}</code></span></label>
@@ -482,6 +566,7 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
             <label className="editor-color-field"><span>Vurgu rengi</span><span className="editor-color-control"><input type="color" aria-label="Vurgu rengi" value={design.accent} onChange={e=>apply({accent:e.target.value})}/><code>{design.accent}</code></span></label>
           </div>
           <button type="button" className="editor-reset-props" onClick={resetZone}>↺ Seçili bileşenin ayarlarını sıfırla</button>
+          </>}
         </div>
         <div className="editor-inspector-footer"><button type="button" disabled={!appearanceLoaded} onClick={()=>apply(appearanceToPreviewTokens(appearance))}>Serula renklerini içe al</button></div>
       </aside>
