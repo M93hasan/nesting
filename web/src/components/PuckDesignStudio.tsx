@@ -101,6 +101,7 @@ export default function PuckDesignStudio({onClose}:{onClose:()=>void}){
         key={generation}
         config={puckBuilderConfig}
         data={page}
+        iframe={{enabled:false}}
         headerTitle="Nesting Tasarım Taslağı"
         dictionary={{'header-publish':'Taslağı kaydet','outline-header-title':'Katmanlar'}}
         onChange={data=>setDraft(data)}
