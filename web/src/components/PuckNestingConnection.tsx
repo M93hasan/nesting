@@ -8,9 +8,9 @@ export type ConnectedRoot={
   radius:number;spacing:number;fontSize:number;
 };
 export type ConnectedZone={
-  text:string;background:string;color:string;
+  text?:string;background:string;color:string;
   radius:number;spacing:number;fontSize:number;shadow:number;
-  offsetX:number;offsetY:number;
+  offsetX?:number;offsetY?:number;
 };
 type Names='Header'|'Parts'|'Canvas'|'Material'|'Actions'|'RunButton'|'CorelButton'|'DownloadButton';
 export type ConnectedBlocks=Record<Names,ConnectedZone>;
@@ -79,7 +79,7 @@ export function parseConnectedPage(input:unknown):ConnectedPage|null{
 }
 /** Translate Puck field edits to the SAME server-validated design used by live App.tsx. */
 export function toNestingDesign(input:ConnectedPage):NestingDesign{
-  const root=input.root.props;
+  const root=input.root.props??defaultConnectedRoot;
   const mapped:ConnectedRoot={
     background:validColor(root.background,defaultConnectedRoot.background),
     panel:validColor(root.panel,defaultConnectedRoot.panel),
