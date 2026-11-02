@@ -1,0 +1,20 @@
+import {test,expect} from '@playwright/test';
+test.use({serviceWorkers:'block'});
+test('admin opens full-screen editor, selects actual layer, changes styles and undoes',async({page})=>{
+  await page.route('**/api/auth/admin-me',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({user:{id:1,email:'qa@example.test',name:'QA',role:'admin',credits:0,unlimited:true}})}));
+  await page.route('**/api/admin/design/versions',r=>r.fulfill({status:200,contentType:'application/json',body:'{"versions":[]}'}));
+  await page.route('**/api/admin/design/publications',r=>r.fulfill({status:200,contentType:'application/json',body:'{"publications":[]}'}));
+  await page.goto('/admin');
+  await page.getByRole('button',{name:/Görünüm/}).click();
+  await page.getByRole('button',{name:'Tasarım Editörünü Aç'}).click();
+  await expect(page.getByRole('region',{name:'Serula görsel tasarım editörü'})).toBeVisible();
+  await expect(page.getByRole('complementary',{name:'Sayfalar ve katmanlar'})).toBeVisible();
+  await page.getByRole('button',{name:'Parça paneli',exact:true}).click();
+  await expect(page.getByRole('complementary',{name:'Seçili öğe özellikleri'})).toContainText('Parça paneli');
+  await page.getByRole('slider',{name:'Seçili öğe köşe yarıçapı'}).fill('24');
+  await expect(page.getByRole('slider',{name:'Seçili öğe köşe yarıçapı'})).toHaveValue('24');
+  await page.getByRole('button',{name:'Geri al'}).click();
+  await expect(page.getByRole('slider',{name:'Seçili öğe köşe yarıçapı'})).toHaveValue('12');
+  await page.getByRole('button',{name:'Mobil'}).click();
+  await expect(page.locator('.editor-live-mobile')).toBeVisible();
+});
