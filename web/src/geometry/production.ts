@@ -7,8 +7,11 @@ export function productionTotals(document:Document,result?:Result):{
   const raw=String(document.seriesMultiplier??1);
   if(!/^[1-9][0-9]*$/.test(raw))throw Error('Seri adedi 1 veya daha büyük bir tam sayı olmalıdır.');
   const series=BigInt(raw);
-  const piecesPerSeries=document.parts.reduce((sum,part)=>
-    sum+BigInt(part.quantity)*BigInt(part.source.dxfSourceEntityCount??1),0n);
+  const piecesPerSeries=document.parts.reduce((sum,part)=>{
+    const copies=Number.isSafeInteger(part.quantity)&&part.quantity>=0?BigInt(part.quantity):0n;
+    const entities=part.source.dxfSourceEntityCount??1;
+    return sum+copies*BigInt(Number.isSafeInteger(entities)&&entities>0?entities:1);
+  },0n);
   let material: {amount:string;unit:'plaka'|'mm'}|undefined;
   if(result) {
     if(document.settings.materialType==='sheet') {
