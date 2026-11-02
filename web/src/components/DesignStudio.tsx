@@ -46,6 +46,19 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
     const data=await response.json() as {versions?:{id:number;created_at:string}[]};
     setRemoteVersions(data.versions??[]);
   };
+  const loadServerDraft=async()=>{
+    setServerBusy(true);setServerMessage('');
+    try{
+      const response=await fetch('/api/admin/design/draft',{credentials:'same-origin',cache:'no-store'});
+      const data=await response.json() as {draft?:{design?:unknown}|null;error?:string};
+      if(!response.ok)throw Error(data.error??'Sunucu taslağı okunamadı.');
+      if(!data.draft){setServerMessage('Sunucuda henüz kayıtlı taslak yok.');return;}
+      if(!validDraft(data.draft.design))throw Error('Sunucu taslağı geçersiz.');
+      apply(data.draft.design);
+      setServerMessage('Sunucu taslağı önizlemeye yüklendi; canlı görünüm değişmedi.');
+    }catch(error){setServerMessage(error instanceof Error?error.message:'Taslak yüklenemedi.');}
+    finally{setServerBusy(false);}
+  };
   const saveServerDraft=async()=>{
     setServerBusy(true);setServerMessage('');
     try{
@@ -143,6 +156,7 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
         <button type="button" disabled={!appearanceLoaded} onClick={()=>apply(appearanceToPreviewTokens(appearance))}>Mevcut Serula renklerini al</button>
         <button type="button" onClick={saveDraft}>Taslağı tarayıcıya kaydet</button>
         <button type="button" disabled={serverBusy} onClick={()=>void saveServerDraft()}>Sunucuya taslak kaydet</button>
+        <button type="button" disabled={serverBusy} onClick={()=>void loadServerDraft()}>Sunucu taslağını aç</button>
         <button type="button" onClick={exportJson}>JSON dışa aktar</button>
         <button type="button" onClick={()=>setImportOpen(v=>!v)}>JSON içe aktar</button>
         <button type="button" onClick={reset}>Taslağı sıfırla</button>
