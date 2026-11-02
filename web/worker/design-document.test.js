@@ -23,5 +23,9 @@ describe('isolated design document validation',()=>{
     expect(()=>parseDesignPayload({format:'serula-design-v1',design:{...design,zoneStyles:{parts:{shadow:500}}}})).toThrow();
     expect(()=>parseDesignPayload({format:'serula-design-v1',design:{...design,workspaceOrder:['parts','parts','canvas']}})).toThrow();
   });
+  it('accepts plain label text and rejects markup',()=>{
+    expect(parseDesignPayload({format:'serula-design-v1',design:{...design,zoneStyles:{downloadButton:{text:'DXF KAYDET'}}}}).design.zoneStyles.downloadButton.text).toBe('DXF KAYDET');
+    expect(()=>parseDesignPayload({format:'serula-design-v1',design:{...design,zoneStyles:{downloadButton:{text:'<script>'}}}})).toThrow();
+  });
   it('rejects unknown format',()=>expect(()=>parseDesignPayload({format:'other',design})).toThrow());
 });
