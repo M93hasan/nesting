@@ -30,3 +30,8 @@
 .design-layer-row>button:first-child{flex:1;text-align:left;min-width:0}
 .design-layer-row>button:not(:first-child){flex:none;padding:6px!important;min-width:36px}
 .design-studio-properties fieldset{border:0;min-width:0;padding:0;margin:0;display:grid;gap:10px}
+
+.design-real-frame{width:100%;max-width:100%;margin:0 auto;display:grid;gap:8px;overflow:hidden}
+.design-real-frame.design-preview-tablet{width:620px}.design-real-frame.design-preview-mobile{width:340px}
+.design-real-frame p{font-size:12px;margin:0;color:var(--muted)}
+.design-real-frame iframe{border:1px solid var(--border);border-radius:10px;background:white;width:100%;height:520px;pointer-events:none;box-sizing:border-box}
