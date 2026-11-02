@@ -11,10 +11,10 @@ export type BuilderBlocks={
   Flex:{direction:'row'|'column';gap:number;items:Slot};
   Grid:{columns:number;gap:number;items:Slot};
   Space:{height:number};
-  PartsPanel:{title:string};
-  NestingCanvas:{title:string};
-  MaterialPanel:{title:string};
-  ActionBar:{label:string};
+  PartsPanel:{title:string;parts:{name:string;quantity:number}[]};
+  NestingCanvas:{title:string;sheetWidth:number;sheetHeight:number;fill:string};
+  MaterialPanel:{title:string;width:number;gap:number;material:string};
+  ActionBar:{label:string;downloadLabel:string;corelLabel:string};
   RichText:{richtext:string};
   Hero:{title:string;description:string;buttonText:string;buttonHref:string;align:'left'|'center'|'right'};
   Logos:{logos:{alt:string;imageUrl:string}[]};
@@ -130,32 +130,45 @@ export const puckBuilderConfig:Config<BuilderBlocks,BuilderRoot>={
     },
     PartsPanel:{
       label:'Parçalar paneli',
-      fields:{title:{type:'text',label:'Panel başlığı',contentEditable:true}},
-      defaultProps:{title:'Parçalar'},
-      render:({title})=><section className="puck-builder-parts" style={surface}>
-        <strong>{title}</strong><small>Parça listesi · örnek görünüm</small>
-        <div className="puck-builder-item"><span>▣</span><span>Parça 01</span><em>× 4</em></div>
-        <div className="puck-builder-item"><span>▣</span><span>Parça 02</span><em>× 2</em></div>
-        <div className="puck-builder-item"><span>▣</span><span>Parça 03</span><em>× 1</em></div>
+      fields:{
+        title:{type:'text',label:'Panel başlığı',contentEditable:true},
+        parts:{type:'array',label:'Parçalar',getItemSummary:(item,i)=>item.name||'Parça '+(i+1),
+          defaultItemProps:{name:'Yeni parça',quantity:1},
+          arrayFields:{name:{type:'text',label:'Parça adı'},quantity:{type:'number',label:'Adet',min:1,max:10000}}}
+      },
+      defaultProps:{title:'Parçalar',parts:[{name:'Parça 01',quantity:4},{name:'Parça 02',quantity:2},{name:'Parça 03',quantity:1}]},
+      render:({title,parts})=><section className="puck-builder-parts" style={surface}>
+        <strong>{title}</strong><small>Parça listesi · düzenlenebilir tasarım örneği</small>
+        {parts.map((part,i)=><div key={i} className="puck-builder-item"><span>▣</span><span>{part.name}</span><em>× {part.quantity}</em></div>)}
       </section>
     },
     NestingCanvas:{
       label:'Yerleşim alanı',
-      fields:{title:{type:'text',label:'Başlık',contentEditable:true}},
-      defaultProps:{title:'Yerleşim önizlemesi'},
-      render:({title})=><section className="puck-builder-nesting" style={surface}>
+      fields:{
+        title:{type:'text',label:'Başlık',contentEditable:true},
+        sheetWidth:{type:'number',label:'Genişlik (mm)',min:50,max:100000},
+        sheetHeight:{type:'number',label:'Yükseklik (mm)',min:50,max:100000},
+        fill:{type:'text',label:'Zemin rengi (#RRGGBB)'}
+      },
+      defaultProps:{title:'Yerleşim önizlemesi',sheetWidth:1500,sheetHeight:3000,fill:'#f8fbfe'},
+      render:({title,sheetWidth,sheetHeight,fill})=><section className="puck-builder-nesting" style={surface}>
         <strong>{title}</strong>
-        <div className="puck-builder-sheet"><span/><span/><span/><span/></div>
-        <small>Temsili tasarım öğesi — hesaplama yapmaz</small>
+        <div className="puck-builder-sheet" style={{background:/^#[0-9a-f]{6}$/i.test(fill)?fill:'#f8fbfe'}}><span/><span/><span/><span/></div>
+        <small>{sheetWidth} × {sheetHeight} mm · tasarım önizlemesi, hesaplama yapmaz</small>
       </section>
     },
     MaterialPanel:{
       label:'Malzeme ayarları',
-      fields:{title:{type:'text',label:'Başlık',contentEditable:true}},
-      defaultProps:{title:'Malzeme ayarları'},
-      render:({title})=><section className="puck-builder-material" style={surface}>
-        <strong>{title}</strong><label>Genişlik (mm)<span>1500</span></label>
-        <label>Boşluk (mm)<span>5</span></label><label>Malzeme<span>Rulo</span></label>
+      fields:{
+        title:{type:'text',label:'Başlık',contentEditable:true},
+        width:{type:'number',label:'Genişlik (mm)',min:50,max:100000},
+        gap:{type:'number',label:'Boşluk (mm)',min:0,max:1000},
+        material:{type:'text',label:'Malzeme adı',contentEditable:true}
+      },
+      defaultProps:{title:'Malzeme ayarları',width:1500,gap:5,material:'Rulo'},
+      render:({title,width,gap,material})=><section className="puck-builder-material" style={surface}>
+        <strong>{title}</strong><label>Genişlik (mm)<span>{width}</span></label>
+        <label>Boşluk (mm)<span>{gap}</span></label><label>Malzeme<span>{material}</span></label>
       </section>
     },
     RichText:{
@@ -214,12 +227,16 @@ export const puckBuilderConfig:Config<BuilderBlocks,BuilderRoot>={
     },
     ActionBar:{
       label:'İşlem çubuğu',
-      fields:{label:{type:'text',label:'Ana buton yazısı',contentEditable:true}},
-      defaultProps:{label:'Parçaları yerleştir'},
-      render:({label})=><div className="puck-builder-actions" style={surface}>
+      fields:{
+        label:{type:'text',label:'Ana buton yazısı',contentEditable:true},
+        downloadLabel:{type:'text',label:'İndirme butonu'},
+        corelLabel:{type:'text',label:'CorelDRAW butonu'}
+      },
+      defaultProps:{label:'Parçaları yerleştir',downloadLabel:'DXF İndir',corelLabel:'CorelDRAW'},
+      render:({label,downloadLabel,corelLabel})=><div className="puck-builder-actions" style={surface}>
         <button type="button" tabIndex={-1} className="puck-builder-button is-primary">{label}</button>
-        <button type="button" tabIndex={-1} className="puck-builder-button is-secondary">DXF İndir</button>
-        <button type="button" tabIndex={-1} className="puck-builder-button is-secondary">CorelDRAW</button>
+        <button type="button" tabIndex={-1} className="puck-builder-button is-secondary">{downloadLabel}</button>
+        <button type="button" tabIndex={-1} className="puck-builder-button is-secondary">{corelLabel}</button>
       </div>
     }
   }
