@@ -342,7 +342,8 @@ async function handleApi(request,env){
       const rows=await env.DB.prepare('SELECT id,created_at FROM design_revision_store ORDER BY id DESC LIMIT 30').all();
       return json({versions:rows.results??[]});
     }
-    const match=path.match(new RegExp('^/api/admin/design/versions/([0-9]+)
+    const versionPath=path.startsWith('/api/admin/design/versions/')?path.slice('/api/admin/design/versions/'.length):'';
+    const match=/^[0-9]+$/.test(versionPath)?[path,versionPath]:null;
     if(match&&request.method==='GET'){
       const row=await env.DB.prepare('SELECT document_json FROM design_revision_store WHERE id=?').bind(Number(match[1])).first();
       return row?json({document:JSON.parse(row.document_json)}):json({error:'Sürüm bulunamadı.'},404);
