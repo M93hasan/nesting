@@ -132,7 +132,7 @@ export const puckBuilderConfig:Config<BuilderBlocks,BuilderRoot>={
       label:'Parçalar paneli',
       fields:{
         title:{type:'text',label:'Panel başlığı',contentEditable:true},
-        parts:{type:'array',label:'Parçalar',getItemSummary:(item,i)=>item.name||'Parça '+(i+1),
+        parts:{type:'array',label:'Parçalar',getItemSummary:(item,i)=>item.name||'Parça '+((i??0)+1),
           defaultItemProps:{name:'Yeni parça',quantity:1},
           arrayFields:{name:{type:'text',label:'Parça adı'},quantity:{type:'number',label:'Adet',min:1,max:10000}}}
       },
@@ -194,7 +194,7 @@ export const puckBuilderConfig:Config<BuilderBlocks,BuilderRoot>={
     Logos:{
       label:'Logolar',
       fields:{
-        logos:{type:'array',label:'Logolar',getItemSummary:(item,i)=>item.alt||'Logo '+(i+1),
+        logos:{type:'array',label:'Logolar',getItemSummary:(item,i)=>item.alt||'Logo '+((i??0)+1),
           defaultItemProps:{alt:'Logo',imageUrl:''},
           arrayFields:{alt:{type:'text',label:'Alternatif yazı'},imageUrl:{type:'text',label:'Görsel URL'}}}
       },
@@ -208,7 +208,7 @@ export const puckBuilderConfig:Config<BuilderBlocks,BuilderRoot>={
     Stats:{
       label:'İstatistikler',
       fields:{
-        items:{type:'array',label:'Ölçümler',getItemSummary:(item,i)=>item.title||'İstatistik '+(i+1),
+        items:{type:'array',label:'Ölçümler',getItemSummary:(item,i)=>item.title||'İstatistik '+((i??0)+1),
           defaultItemProps:{title:'Üretim',description:'100%'},
           arrayFields:{title:{type:'text',label:'Başlık'},description:{type:'text',label:'Değer'}}}
       },
