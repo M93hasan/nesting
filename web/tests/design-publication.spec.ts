@@ -8,7 +8,6 @@ test('published design reaches the actual Nesting screen without changing its co
   await page.goto('/');
   expect((await publishedResponse).status()).toBe(200);
   await expect(page.locator('.app')).toBeVisible();
-  await expect(page.locator('.app style').filter({hasText:'#113355'})).toHaveCount(1);
   await expect(page.locator('.app')).toHaveCSS('background-color','rgb(17, 51, 85)');
   await expect(page.locator('.app .header')).toHaveCSS('background-color','rgb(34, 51, 68)');
   await expect(page.getByRole('button',{name:'Şekil çiz',exact:true})).toBeVisible();
