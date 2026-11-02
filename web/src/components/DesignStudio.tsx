@@ -1,5 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import './DesignStudio.css';
+import {DESIGN_COMPONENTS,canReorder} from './design-component-registry';
 
 type Design = {background:string;panel:string;accent:string;radius:number;spacing:number;fontSize:number;heading:string;hidden?:string[];order?:string[]};
 const initial:Design={background:'#121421',panel:'#242935',accent:'#5278ed',radius:12,spacing:16,fontSize:15,heading:'Serula çalışma alanı'};
@@ -68,7 +69,7 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
   };
   const layerOrder=(design.order??[...samples]) as Layer[];
   const moveLayer=(source:Layer,target:Layer)=>{
-    if(source===target||source==='Birincil buton'||target==='Birincil buton'||locked.includes(source))return;
+    if(!canReorder(source==='Başlık'?'heading':source==='Ana panel'?'panel':'button',target==='Başlık'?'heading':target==='Ana panel'?'panel':'button')||locked.includes(source))return;
     const reordered=layerOrder.filter(item=>item!==source);
     reordered.splice(reordered.indexOf(target),0,source);
     apply({order:reordered});
@@ -118,7 +119,7 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
     </div>}
     <div className="design-studio-workspace">
       <aside className="design-studio-pane" aria-label="Katmanlar">
-        <h3>Katmanlar</h3><p>Başlık ve paneli sürükleyerek ya da oklarla sırala. Buton panelin alt öğesidir.</p>
+        <h3>Katmanlar</h3><p>Başlık ve paneli sürükleyerek ya da oklarla sırala. Buton panelin alt öğesidir.</p><small>{DESIGN_COMPONENTS.length} izinli bileşen tanımlı; gerçek ekranlara henüz uygulanmaz.</small>
         {layerOrder.map(item=><div className="design-layer-row" key={item} draggable={item!=='Birincil buton'&&!locked.includes(item)}
           onDragStart={event=>{if(item==='Birincil buton'||locked.includes(item)){event.preventDefault();return;}setDragging(item);event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('text/plain',item);}}
           onDragOver={event=>{if(dragging){event.preventDefault();event.dataTransfer.dropEffect='move';}}}
