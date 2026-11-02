@@ -13,5 +13,19 @@ describe('isolated design document validation',()=>{
     expect(()=>parseDesignPayload({format:'serula-design-v1',design:{...design,positions:{'Ana panel':{x:999,y:25}}}})).toThrow();
     expect(()=>parseDesignPayload({format:'serula-design-v1',design:{...design,positions:{evil:{x:1,y:1}}}})).toThrow();
   });
+  it('validates individual real screen components',()=>{
+    const zoneStyles={header:{background:'#112233',color:'#aabbcc',radius:8,spacing:12,fontSize:16,shadow:12}};
+    const parsed=parseDesignPayload({format:'serula-design-v1',design:{...design,workspaceOrder:['material','canvas','parts'],zoneStyles}});
+    expect(parsed.design.zoneStyles).toEqual(zoneStyles);
+    expect(parsed.design.workspaceOrder).toEqual(['material','canvas','parts']);
+    expect(()=>parseDesignPayload({format:'serula-design-v1',design:{...design,zoneStyles:{header:{background:'url(javascript:evil)'}}}})).toThrow();
+    expect(()=>parseDesignPayload({format:'serula-design-v1',design:{...design,zoneStyles:{evil:{background:'#123456'}}}})).toThrow();
+    expect(()=>parseDesignPayload({format:'serula-design-v1',design:{...design,zoneStyles:{parts:{shadow:500}}}})).toThrow();
+    expect(()=>parseDesignPayload({format:'serula-design-v1',design:{...design,workspaceOrder:['parts','parts','canvas']}})).toThrow();
+  });
+  it('accepts plain label text and rejects markup',()=>{
+    expect(parseDesignPayload({format:'serula-design-v1',design:{...design,zoneStyles:{downloadButton:{text:'DXF KAYDET'}}}}).design.zoneStyles.downloadButton.text).toBe('DXF KAYDET');
+    expect(()=>parseDesignPayload({format:'serula-design-v1',design:{...design,zoneStyles:{downloadButton:{text:'<script>'}}}})).toThrow();
+  });
   it('rejects unknown format',()=>expect(()=>parseDesignPayload({format:'other',design})).toThrow());
 });

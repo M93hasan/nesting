@@ -33,3 +33,14 @@ test('preview mode uses isolated browser draft rather than published design',asy
   await expect(page.getByText('Tasarım editörü önizlemesi')).toBeVisible();
   await expect(page.locator('.app')).toHaveCSS('background-color','rgb(51, 68, 85)');
 });
+
+test('real Nesting structural panels use the editor panel order and safe per-zone styles',async({page})=>{
+  const custom={...published,design:{...published.design,workspaceOrder:['material','canvas','parts'],zoneStyles:{header:{background:'#102030',radius:9},parts:{background:'#223355',shadow:12}}}};
+  await page.route('**/api/design/published',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({published:custom})}));
+  await page.goto('/');
+  await expect(page.locator('[data-design-zone="header"]')).toHaveCSS('background-color','rgb(16, 32, 48)');
+  await expect(page.locator('[data-design-zone="parts"]')).toHaveCSS('background-color','rgb(34, 51, 85)');
+  await expect(page.locator('[data-design-zone="material"]')).toHaveCSS('order','0');
+  await expect(page.locator('[data-design-zone="parts"]')).toHaveCSS('order','2');
+  await expect(page.getByRole('button',{name:'Şekil çiz',exact:true})).toBeVisible();
+});

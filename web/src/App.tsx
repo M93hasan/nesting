@@ -1,3 +1,4 @@
+import {cleanZoneStyles,renderZoneCss,type ZoneStyles} from './components/design-zone-styles';
 import RotationControl from './components/RotationControl';
 import packageInfo from '../package.json';
 import {readRecovery,saveRecovery} from './storage/recovery';
@@ -40,8 +41,8 @@ function download(name:string,text:BlobPart,type='application/json') {
 export default function App({initialDocument=emptyProject(),initialError='',loadDefaultExample=false}:{initialDocument?:Document;initialError?:string;loadDefaultExample?:boolean}) {
   // An explicit URL flag is required. The editor preview never changes the normal application.
   const designPreviewEnabled=typeof window!=='undefined'&&new URLSearchParams(window.location.search).get('design-preview')==='1';
-  const [designPreview,setDesignPreview]=useState<{background:string;panel:string;accent:string;radius:number;spacing:number;fontSize:number}|null>(null);
-  const [publishedVisual,setPublishedVisual]=useState<{background:string;panel:string;accent:string;radius:number;spacing:number;fontSize:number}|null>(null);
+  const [designPreview,setDesignPreview]=useState<{background:string;panel:string;accent:string;radius:number;spacing:number;fontSize:number;workspaceOrder?:string[];zoneStyles?:ZoneStyles}|null>(null);
+  const [publishedVisual,setPublishedVisual]=useState<{background:string;panel:string;accent:string;radius:number;spacing:number;fontSize:number;workspaceOrder?:string[];zoneStyles?:ZoneStyles}|null>(null);
   useEffect(()=>{
     if(designPreviewEnabled)return;
     let active=true;
@@ -55,7 +56,9 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         const color=/^#[0-9a-f]{6}$/i;
         if(!['background','panel','accent'].every(k=>typeof d[k]==='string'&&color.test(d[k] as string)))return;
         if(!([['radius',0,32],['spacing',8,40],['fontSize',12,22]] as const).every(([k,lo,hi])=>typeof d[k]==='number'&&Number.isFinite(d[k])&&(d[k] as number)>=lo&&(d[k] as number)<=hi))return;
-        if(active)setPublishedVisual({background:d.background as string,panel:d.panel as string,accent:d.accent as string,radius:d.radius as number,spacing:d.spacing as number,fontSize:d.fontSize as number});
+        const orderCandidate=d.workspaceOrder;
+        const workspaceOrder=Array.isArray(orderCandidate)&&orderCandidate.length===3&&new Set(orderCandidate).size===3&&['parts','canvas','material'].every(x=>orderCandidate.includes(x))?[...orderCandidate] as string[]:undefined;
+        if(active)setPublishedVisual({background:d.background as string,panel:d.panel as string,accent:d.accent as string,radius:d.radius as number,spacing:d.spacing as number,fontSize:d.fontSize as number,workspaceOrder,zoneStyles:cleanZoneStyles(d.zoneStyles)});
       }catch{/* Published design failure must never block Nesting functionality. */}
     };
     void read();window.addEventListener('focus',read);
@@ -71,11 +74,16 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         const d=value as Record<string,unknown>,color=/^#[0-9a-f]{6}$/i;
         if(!['background','panel','accent'].every(k=>typeof d[k]==='string'&&color.test(d[k] as string)))return;
         if(!([['radius',0,32],['spacing',8,40],['fontSize',12,22]] as const).every(([k,lo,hi])=>typeof d[k]==='number'&&(d[k] as number)>=lo&&(d[k] as number)<=hi))return;
-        setDesignPreview({background:d.background as string,panel:d.panel as string,accent:d.accent as string,radius:d.radius as number,spacing:d.spacing as number,fontSize:d.fontSize as number});
+        const orderCandidate=d.workspaceOrder;
+        const workspaceOrder=Array.isArray(orderCandidate)&&orderCandidate.length===3&&new Set(orderCandidate).size===3&&['parts','canvas','material'].every(x=>orderCandidate.includes(x))?[...orderCandidate] as string[]:undefined;
+        setDesignPreview({background:d.background as string,panel:d.panel as string,accent:d.accent as string,radius:d.radius as number,spacing:d.spacing as number,fontSize:d.fontSize as number,workspaceOrder,zoneStyles:cleanZoneStyles(d.zoneStyles)});
       }catch{/* Keep the original style when preview data is invalid. */}
     };
-    update();window.addEventListener('storage',update);
-    return()=>window.removeEventListener('storage',update);
+    const onRefresh=(event:MessageEvent)=>{
+      if(event.origin===window.location.origin&&event.source===window.parent&&event.data==='serula-design-preview-refresh')update();
+    };
+    update();window.addEventListener('storage',update);window.addEventListener('message',onRefresh);
+    return()=>{window.removeEventListener('storage',update);window.removeEventListener('message',onRefresh);};
   },[designPreviewEnabled]);
   const [doc,setDoc]=useState<Document>(()=>withDocumentPlacements(initialDocument)),[revision,setRevision]=useState(1),[selectedCopies,setSelectedCopies]=useState<CopyRef[]>([]);
   const [unusedSelection,setUnusedSelection]=useState<string[]>([]);
@@ -652,15 +660,38 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const utilization=result&&materialArea>0?totalArea/materialArea*100:0;
   const waste=result?Math.max(0,100-utilization):0;
   const improvement=result&&phaseImprovements(solver.diagnostics.current?.history??[],result.usedLengthMm);
+  const safeWorkspaceOrder=(designPreviewEnabled?designPreview:publishedVisual)?.workspaceOrder;
+  const editableHeadings=(designPreviewEnabled?designPreview:publishedVisual)?.zoneStyles;
+  useEffect(()=>{
+    // Keep Nesting's source markup and event handlers unchanged. Only attach safe editor
+    // identifiers and optional CSS flex ordering after the application is mounted.
+    const selectors:Record<string,string>={
+      header:'.app > .header',parts:'.app > .main-workspace > #parts-settings',
+      canvas:'.app > .main-workspace > .drawing-panel',
+      material:'.app > .main-workspace > .material-panel',
+      actions:'.app > .statusbar',
+      runButton:'.app .run-button.reference-launch',
+      corelButton:'.app .download-button.corel-transfer-button',
+      downloadButton:'.app .export-actions .download-button:not(.corel-transfer-button)'
+    };
+    for(const [id,selector] of Object.entries(selectors)){
+      const element=document.querySelector<HTMLElement>(selector);
+      if(!element)continue;
+      element.dataset.designZone=id;
+      if(id==='parts'||id==='canvas'||id==='material')element.style.order=safeWorkspaceOrder?String(safeWorkspaceOrder.indexOf(id)):'';
+    }
+  },[safeWorkspaceOrder]);
+
   return <div className="app" onBlurCapture={()=>{fieldEdit.current=undefined;}} onKeyDown={e=>{if(e.key==='Enter'&&e.target instanceof HTMLInputElement&&e.target.hasAttribute('data-undo-field')){e.preventDefault();e.target.blur();}}} onMouseDownCapture={e=>{const target=e.target;focusClick.current=target instanceof HTMLInputElement&&['text','number'].includes(target.type)&&document.activeElement!==target?target:null;}} onMouseUpCapture={e=>{if(focusClick.current===e.target){e.preventDefault();focusClick.current.select();}focusClick.current=null;}} onFocusCapture={e=>{const input=e.target;if(input instanceof HTMLInputElement&&['text','number'].includes(input.type))input.select();}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(!document.querySelector('dialog[open]'))void openFiles(e.dataTransfer.files);}}>
     {(designPreviewEnabled?designPreview:publishedVisual)&&<style>{`
        :root #root .app {background:${(designPreviewEnabled?designPreview:publishedVisual)!.background}!important;font-size:${(designPreviewEnabled?designPreview:publishedVisual)!.fontSize}px}
        :root #root .app .header,:root #root .app .panel,:root #root .app .sidebar,:root #root .app .settings,:root #root .app .parts-panel {background:${(designPreviewEnabled?designPreview:publishedVisual)!.panel}!important;border-radius:${(designPreviewEnabled?designPreview:publishedVisual)!.radius}px}
       .app button:not(:disabled) {border-radius:${(designPreviewEnabled?designPreview:publishedVisual)!.radius}px}
       .app .primary,.app .primary-button,.app button[type="submit"] {background:${(designPreviewEnabled?designPreview:publishedVisual)!.accent}!important}
+    ${renderZoneCss((designPreviewEnabled?designPreview:publishedVisual)?.zoneStyles)}
     `}</style>}
-    {designPreviewEnabled&&<div role="status" className="design-preview-banner" style={{padding:'8px 12px',background:'#fff1c2',color:'#212121'}}>Tasarım editörü önizlemesi — değişiklikler yalnızca bu sekmede görünür, canlıya yayınlanmaz.</div>}
-    <header className="header"><div className="brand-block"><a className="brand serula-brand" aria-label="Serula Nesting Studio" href={import.meta.env.BASE_URL}><img src={`${import.meta.env.BASE_URL}serula-logo.svg`} alt="" /><strong>Serula Nesting</strong><span>/studio · Sürüm {packageInfo.version}</span></a><p className="tagline">Akıllı DXF yerleştirme ve malzeme optimizasyonu</p></div>
+    {designPreviewEnabled&&window.self===window.top&&<div role="status" className="design-preview-banner" style={{padding:'8px 12px',background:'#fff1c2',color:'#212121'}}>Tasarım editörü önizlemesi — değişiklikler yalnızca bu sekmede görünür, canlıya yayınlanmaz.</div>}
+    <header className="header"><div className="brand-block"><a className="brand serula-brand" aria-label="Serula Nesting Studio" href={import.meta.env.BASE_URL}><img src={`${import.meta.env.BASE_URL}serula-logo.svg`} alt="" /><strong>Serula Nesting</strong><span>/studio · Sürüm {packageInfo.version}</span></a><p className="tagline">{editableHeadings?.header?.text??"Akıllı DXF yerleştirme ve malzeme optimizasyonu"}</p></div>
       <div className="header-primary project-bar"><details className="project-menu" ref={projectMenu} hidden><summary aria-label={`Proje: ${doc.name}`}>{doc.name}<span aria-hidden="true"> ▾</span></summary><div>
         <button disabled={locked} onClick={()=>{projectMenu.current!.open=false;setProjectAd('Adsız proje');setNameDialog('new');}}>Yeni proje</button>
         <button disabled={locked} onClick={()=>{projectMenu.current!.open=false;projectInput.current?.click();}}>Proje aç</button>
@@ -675,7 +706,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     {recoveryError&&<div className="error-banner" role="alert">{recoveryError}</div>}
     <main className="main-workspace">
       <aside id="parts-settings" className={`sidebar ${panel?'open':''}`}>
-        <div className="panel-title"><h2>Parçalar <span>{displayedPieceCount(doc.parts)}</span></h2><div className="panel-title-actions"><div className="series-multiplier" title="Yerleşim bir seriye göre hesaplanır; bu değer üretim serisi sayısıdır"><span aria-hidden="true">×</span><input aria-label="Proje seri adedi" inputMode="numeric" type="text" pattern="[0-9]*" value={seriesDraft??String(seriesMultiplier)} disabled={locked||!doc.parts.length} onFocus={e=>{setSeriesDraft(String(seriesMultiplier));e.currentTarget.select();}} onChange={e=>{if(/^\d*$/.test(e.target.value))setSeriesDraft(e.target.value)}} onBlur={finishSeriesEdit} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();e.currentTarget.blur()}}}/></div><button onClick={()=>setInfo('help')}>Yardım</button></div></div>
+        <div className="panel-title"><h2>{editableHeadings?.parts?.text??"Parçalar"} <span>{displayedPieceCount(doc.parts)}</span></h2><div className="panel-title-actions"><div className="series-multiplier" title="Yerleşim bir seriye göre hesaplanır; bu değer üretim serisi sayısıdır"><span aria-hidden="true">×</span><input aria-label="Proje seri adedi" inputMode="numeric" type="text" pattern="[0-9]*" value={seriesDraft??String(seriesMultiplier)} disabled={locked||!doc.parts.length} onFocus={e=>{setSeriesDraft(String(seriesMultiplier));e.currentTarget.select();}} onChange={e=>{if(/^\d*$/.test(e.target.value))setSeriesDraft(e.target.value)}} onBlur={finishSeriesEdit} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();e.currentTarget.blur()}}}/></div><button onClick={()=>setInfo('help')}>Yardım</button></div></div>
         <div className="parts-list">{doc.parts.map((p,i)=>{const b=bounds(p.outer);return <div key={p.id} className={`part-row ${selected.includes(p.id)?'selected':''}`}>
           <button className="part-select" aria-pressed={selected.includes(p.id)} onClick={e=>{
             const additive=e.metaKey||e.ctrlKey;
@@ -710,7 +741,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         </>:<p className="muted">Özelliklerini görmek için bir parça seçin.</p>}</div></details>
       </aside>
       <section className="drawing-panel">
-        <div className="studio-canvas-heading"><div><span className="studio-canvas-eyebrow">STÜDYO / YERLEŞİM</span><h1>Çalışma alanı</h1></div><span className="studio-canvas-context">Malzeme üzerinde parçaları düzenleyin ve yerleşimi önizleyin.</span></div>
+        <div className="studio-canvas-heading"><div><span className="studio-canvas-eyebrow">STÜDYO / YERLEŞİM</span><h1>{editableHeadings?.canvas?.text??"Çalışma alanı"}</h1></div><span className="studio-canvas-context">Malzeme üzerinde parçaları düzenleyin ve yerleşimi önizleyin.</span></div>
         <Workspace optimizing={running} onSelectCopies={kopya=>{setUnusedSelection([]);setSelectedCopies(kopya);}} materialWidthFocused={materialWidthFocused} unit={unit} fitRequest={fitRequest} document={canvasDocument} result={visibleResult} live={showingLive?live:undefined} selected={selected} selectedCopies={selectedCopies} disabled={locked} onTransform={transformSelection}
           polygon={polygon} onDraw={point=>{if(!locked)setPolygon(p=>[...(p??[]),point]);}}
           onSelect={(copy,toggle)=>{setUnusedSelection([]);if(!copy){setSelectedCopies([]);return;}const key=`${copy.partId}:${copy.copyIndex}`,already=selectedCopies.some(p=>`${p.partId}:${p.copyIndex}`===key);const nextCopies=toggle?(already?selectedCopies.filter(p=>`${p.partId}:${p.copyIndex}`!==key):[...selectedCopies,copy]):already?selectedCopies:[copy];setSelectedCopies(nextCopies);}}
@@ -721,7 +752,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         {solver.liveError&&<p className="field-error">Canlı önizleme kullanılamıyor: {solver.liveError}</p>}
       </section>
       <aside className="material-panel" aria-label="Malzeme ve Yerleşim">
-        <div className="panel-title"><h2>Malzeme ve Yerleşim</h2></div>
+        <div className="panel-title"><h2>{editableHeadings?.material?.text??"Malzeme ve Yerleşim"}</h2></div>
         <section className="settings material-settings">
           <div className="material-rotation">
           <RotationControl key={JSON.stringify([selected,mixedRotations,chosen?.rotations])} rule={chosen?normalizedRotationRule(chosen.rotations):DEFAULT_ROTATIONS} mixed={!!chosen&&!!mixedRotations} disabled={locked||!chosen} required onChange={rotations=>{if(chosen)editPart({rotations})}}/>
@@ -742,13 +773,13 @@ export default function App({initialDocument=emptyProject(),initialError='',load
       </aside>
 
     </main>
-    <footer className="statusbar"><div className="run-controls"><span id="compression-tooltip" role="tooltip" className="compression-tooltip"><strong>Sıkıştırmaya geç</strong>Keşfi bitir ve en iyi yerleşimi sıkıştır.</span>{running?<><button className="run-button stop-button" onClick={solver.stop}>Durdur</button>{solver.canSkip&&(solver.state==='Initializing'||solver.state==='Running'&&solver.phase==='Exploration')&&<button className="run-button skip-compression" aria-label="Sıkıştırmaya geç" disabled={solver.state!=='Running'||solver.skipping||!solver.result} aria-describedby="compression-tooltip" onClick={solver.skipToCompression}><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3 5v14l9-7zM12 5v14l9-7z"/></svg></button>}</>:<button className="run-button reference-launch" disabled={locked||invalidSettings||!doc.parts.some(part=>part.quantity>0)||!!polygon} onClick={()=>void run()}><svg className="launch-rocket" aria-hidden="true" width="23" height="23" viewBox="0 0 24 24" fill="currentColor"><path d="M5 13c0-5.088 2.903-9.436 7-11.182C16.097 3.564 19 7.912 19 13c0 .823-.076 1.626-.22 2.403l1.94 1.832a.5.5 0 0 1 .095.603l-2.495 4.575a.5.5 0 0 1-.793.114l-2.234-2.234a1 1 0 0 0-.707-.293H9.414a1 1 0 0 0-.707.293l-2.234 2.234a.5.5 0 0 1-.793-.114l-2.495-4.575a.5.5 0 0 1 .095-.603l1.94-1.832A12.5 12.5 0 0 1 5 13Zm1.476 6.696.817-.817A3 3 0 0 1 9.414 18h5.172a3 3 0 0 1 2.121.879l.817.817.982-1.8-1.1-1.04a2 2 0 0 1-.593-1.82c.124-.664.187-1.345.187-2.036 0-3.87-1.995-7.3-5-8.96C8.995 5.7 7 9.13 7 13c0 .691.063 1.372.187 2.037a2 2 0 0 1-.593 1.82l-1.1 1.039.982 1.8ZM12 13a2 2 0 1 1 0-4 2 2 0 0 1 0 4Z"/></svg><span>{result?'Yeniden yerleştir':'Parçaları yerleştir'}</span></button>}</div>
+    <footer className="statusbar"><div className="run-controls"><span id="compression-tooltip" role="tooltip" className="compression-tooltip"><strong>Sıkıştırmaya geç</strong>Keşfi bitir ve en iyi yerleşimi sıkıştır.</span>{running?<><button className="run-button stop-button" onClick={solver.stop}>Durdur</button>{solver.canSkip&&(solver.state==='Initializing'||solver.state==='Running'&&solver.phase==='Exploration')&&<button className="run-button skip-compression" aria-label="Sıkıştırmaya geç" disabled={solver.state!=='Running'||solver.skipping||!solver.result} aria-describedby="compression-tooltip" onClick={solver.skipToCompression}><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3 5v14l9-7zM12 5v14l9-7z"/></svg></button>}</>:<button className="run-button reference-launch" disabled={locked||invalidSettings||!doc.parts.some(part=>part.quantity>0)||!!polygon} onClick={()=>void run()}><svg className="launch-rocket" aria-hidden="true" width="23" height="23" viewBox="0 0 24 24" fill="currentColor"><path d="M5 13c0-5.088 2.903-9.436 7-11.182C16.097 3.564 19 7.912 19 13c0 .823-.076 1.626-.22 2.403l1.94 1.832a.5.5 0 0 1 .095.603l-2.495 4.575a.5.5 0 0 1-.793.114l-2.234-2.234a1 1 0 0 0-.707-.293H9.414a1 1 0 0 0-.707.293l-2.234 2.234a.5.5 0 0 1-.793-.114l-2.495-4.575a.5.5 0 0 1 .095-.603l1.94-1.832A12.5 12.5 0 0 1 5 13Zm1.476 6.696.817-.817A3 3 0 0 1 9.414 18h5.172a3 3 0 0 1 2.121.879l.817.817.982-1.8-1.1-1.04a2 2 0 0 1-.593-1.82c.124-.664.187-1.345.187-2.036 0-3.87-1.995-7.3-5-8.96C8.995 5.7 7 9.13 7 13c0 .691.063 1.372.187 2.037a2 2 0 0 1-.593 1.82l-1.1 1.039.982 1.8ZM12 13a2 2 0 1 1 0-4 2 2 0 0 1 0 4Z"/></svg><span>{editableHeadings?.runButton?.text??(result?'Yeniden yerleştir':'Parçaları yerleştir')}</span></button>}</div>
       <div className="run-status"><span className="status-symbol" aria-hidden="true"><i className={running||busy?'active':undefined}/></span><span role="status" className="run-state"><span>{busy?'Girdiler kontrol ediliyor':loadingExample?'Örnek yükleniyor…':solver.state==='Running'&&solver.phase?(solver.skipping?'Geçiliyor…':solver.phase):solver.state}</span>{(running||solver.state==='Complete'||solver.state==='Stopped')&&<span className="run-elapsed">{solver.elapsed.toFixed(1)} s</span>}</span>{solver.workers&&<small className="worker-status" title={solver.workers.reason} data-worker-count={solver.workers.actual}>{`${solver.workers.actual} çözücü işçisi`}{solver.workers.requested?` / ${solver.workers.requested} istendi`:' · otomatik'}{solver.workers.reason&&' · yedek'}</small>}</div>
       <div className="metrics"><span>{doc.settings.materialType==='sheet'?'Kullanılan plaka':showingLive?'En iyi geçerli uzunluk':'Kullanılan uzunluk'} <strong>{result?(doc.settings.materialType==='sheet'?String(result.sheetCount??1):`${length(result.usedLengthMm)} ${unit}`):'—'}</strong></span><span>Malzeme verimliliği <strong>{result?`${utilization.toFixed(2)}%`:'—'}</strong></span><span>Fire <strong>{result?`${waste.toFixed(2)}%`:'—'}</strong></span>{improvement&&doc.settings.materialType!=='sheet'&&<span title="Keşif: ilk geçerli uzunluktan azalma. Sıkıştırma: en iyi keşif uzunluğundan ek azalma.">İyileştirme keşfet / sıkıştır <strong>{improvement.explore.toFixed(1)}% / {improvement.compress.toFixed(1)}%</strong></span>}</div>
       <div className="export-actions"><div className="corel-transfer-control">
           <button type="button" disabled={!!exportBlockedReason} className="download-button corel-transfer-button" title="CorelDRAW'a dosya indirmeden aktar; Windows Serula Bridge gerekir" onClick={()=>void transferLayout('corel')}>
             <img className="corel-transfer-logo" src={`${import.meta.env.BASE_URL}corel-button-logo.svg`} width="24" height="24" alt="" aria-hidden="true"/>
-            <span>CorelDRAW'a Aktar</span>
+            <span>{editableHeadings?.corelButton?.text??"CorelDRAW'a Aktar"}</span>
           </button>
           {bridgeInstallPrompt&&<div className="corel-bridge-prompt" role="alert">
             <strong>Serula Bridge bağlantısı kurulamadı</strong>
@@ -760,7 +791,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
             </div>
           </div>}
         </div>
-        <span className="download-control" tabIndex={exportBlockedReason?0:undefined} aria-describedby={exportBlockedReason?'download-tooltip':undefined}><button disabled={!!exportBlockedReason} className="download-button" onClick={()=>void exportLayout()}><svg className="download-button__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg><span>DXF İndir</span></button>{exportBlockedReason&&<span id="download-tooltip" role="tooltip" className="compression-tooltip">{exportBlockedReason}</span>}</span></div>
+        <span className="download-control" tabIndex={exportBlockedReason?0:undefined} aria-describedby={exportBlockedReason?'download-tooltip':undefined}><button disabled={!!exportBlockedReason} className="download-button" onClick={()=>void exportLayout()}><svg className="download-button__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg><span>{editableHeadings?.downloadButton?.text??'DXF İndir'}</span></button>{exportBlockedReason&&<span id="download-tooltip" role="tooltip" className="compression-tooltip">{exportBlockedReason}</span>}</span></div>
 
     </footer>
     {historyOpen&&<ExportHistory onClose={()=>setHistoryOpen(false)} onOpen={async(name,projectText)=>{try{const saved=JSON.parse(projectText) as {serulaCloud?:{ui?:{theme?:string;unit?:string}}};const savedTheme=saved.serulaCloud?.ui?.theme,savedUnit=saved.serulaCloud?.ui?.unit;if(savedTheme==='system'||savedTheme==='light'||savedTheme==='dark')setTheme(savedTheme);if(savedUnit==='mm'||savedUnit==='in')setUnit(savedUnit)}catch{}setHistoryOpen(false);await openFiles([new File([projectText],name,{type:'application/json'})],'project')}}/>}
