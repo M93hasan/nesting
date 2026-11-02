@@ -5,12 +5,30 @@ type Design = {background:string;panel:string;accent:string;radius:number;spacin
 const initial:Design={background:'#121421',panel:'#242935',accent:'#5278ed',radius:12,spacing:16,fontSize:15,heading:'Serula çalışma alanı'};
 type Device='desktop'|'tablet'|'mobile';
 const samples=['Başlık','Ana panel','Birincil buton'] as const;
+const DRAFT_KEY='serula-design-studio-draft-v1';
+function validDraft(value:unknown):value is Design{
+  if(!value||typeof value!=='object')return false;
+  const d=value as Partial<Design>;
+  return ['background','panel','accent'].every(key=>typeof d[key as keyof Design]==='string'&&/^#[0-9a-f]{6}$/i.test(d[key as keyof Design] as string))
+    &&typeof d.heading==='string'&&d.heading.length<=80
+    &&([['radius',0,32],['spacing',8,40],['fontSize',12,22]] as const).every(([key,min,max])=>typeof d[key]==='number'&&Number.isFinite(d[key])&&d[key]>=min&&d[key]<=max);
+}
+function loadDraft():Design{
+  try{const raw=localStorage.getItem(DRAFT_KEY);if(!raw)return initial;const data:unknown=JSON.parse(raw);return validDraft(data)?data:initial;}
+  catch{return initial;}
+}
 
 export default function DesignStudio({onClose}:{onClose:()=>void}){
-  const [history,setHistory]=useState<Design[]>([initial]);
+  const [history,setHistory]=useState<Design[]>(()=>[loadDraft()]);
   const [index,setIndex]=useState(0);
   const [selected,setSelected]=useState<(typeof samples)[number]>('Ana panel');
   const [device,setDevice]=useState<Device>('desktop');
+  const [saved,setSaved]=useState(false);
+  const [storageError,setStorageError]=useState('');
+  const saveDraft=()=>{
+    try{localStorage.setItem(DRAFT_KEY,JSON.stringify(design));setSaved(true);setStorageError('');}
+    catch{setSaved(false);setStorageError('Tarayıcı taslağı kaydedemedi.');}
+  };
   const design=history[index];
   const stateRef=useRef({history,index});
   stateRef.current={history,index};
@@ -20,23 +38,24 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
     if(JSON.stringify(next)===JSON.stringify(state.history[state.index]))return;
     const updated=[...state.history.slice(0,state.index+1),next].slice(-80);
     stateRef.current={history:updated,index:updated.length-1};
-    setHistory(updated);setIndex(updated.length-1);
+    setHistory(updated);setIndex(updated.length-1);setSaved(false);
   };
-  const undo=()=>setIndex(v=>Math.max(0,v-1));
-  const redo=()=>setIndex(v=>Math.min(history.length-1,v+1));
+  const undo=()=>{setSaved(false);setIndex(v=>Math.max(0,v-1));};
+  const redo=()=>{setSaved(false);setIndex(v=>Math.min(history.length-1,v+1));};
   useEffect(()=>{
     const handler=(event:KeyboardEvent)=>{
-      if(!(event.ctrlKey||event.metaKey)||event.key.toLowerCase()!=='z')return;
+      if(!(event.ctrlKey||event.metaKey)||!['z','y'].includes(event.key.toLowerCase()))return;
       if(event.target instanceof HTMLElement&&event.target.closest('input,textarea,[contenteditable="true"]'))return;
       event.preventDefault();
-      if(event.shiftKey)redo();else undo();
+      if(event.key.toLowerCase()==='y'||event.shiftKey)redo();else undo();
     };
     window.addEventListener('keydown',handler);
     return()=>window.removeEventListener('keydown',handler);
   },[history.length]);
   const reset=()=>{
     if(window.confirm('Yalnızca bu editördeki yayınlanmamış denemeler sıfırlansın mı?')){
-      setHistory([initial]);setIndex(0);
+      setHistory([initial]);setIndex(0);setSaved(false);
+      try{localStorage.removeItem(DRAFT_KEY);setStorageError('');}catch{setStorageError('Tarayıcıdaki kayıt silinemedi.');}
     }
   };
   return <section className="design-studio" aria-label="Tasarım editörü">
@@ -45,11 +64,12 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
       <div className="design-studio-actions">
         <button type="button" onClick={undo} disabled={index===0} aria-label="Geri al">↶ Ctrl+Z</button>
         <button type="button" onClick={redo} disabled={index===history.length-1} aria-label="Yinele">↷</button>
+        <button type="button" onClick={saveDraft}>Taslağı tarayıcıya kaydet</button>
         <button type="button" onClick={reset}>Taslağı sıfırla</button>
         <button type="button" onClick={onClose}>Görünüme dön</button>
       </div>
     </header>
-    <p className="design-studio-warning" role="status">İlk aşama: bileşen seçimi, özellik düzenleme, cihaz önizleme ve geri alma çalışır. Kalıcı taslak ve yayınlama sonraki aşamadır.</p>
+    <p className="design-studio-warning" role="status">Bu prototip yalnızca örnek bileşenleri düzenler. Taslağı bu tarayıcıya kaydedebilirsin; başka cihazlara aktarılmaz ve canlı siteye yayınlanmaz. {saved?'Taslak tarayıcıya kaydedildi.':''}{storageError}</p>
     <div className="design-studio-workspace">
       <aside className="design-studio-pane" aria-label="Katmanlar">
         <h3>Katmanlar</h3>
