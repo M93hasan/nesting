@@ -8,6 +8,11 @@ test('published design reaches the actual Nesting screen without changing its co
   await page.goto('/');
   expect((await publishedResponse).status()).toBe(200);
   await expect(page.locator('.app')).toBeVisible();
+  console.log('PUBLISHED_DESIGN_DIAGNOSTIC',JSON.stringify(await page.evaluate(()=>({
+    bodyStyles:[...document.querySelectorAll('style')].map(el=>el.textContent||'').filter(text=>text.includes('#113355')).slice(0,3),
+    rootBackground:getComputedStyle(document.querySelector('.app')!).backgroundColor,
+    rootAttributes:document.querySelector('.app')?.outerHTML.slice(0,200)
+  }))));
   await expect(page.locator('.app')).toHaveCSS('background-color','rgb(17, 51, 85)');
   await expect(page.locator('.app .header')).toHaveCSS('background-color','rgb(34, 51, 68)');
   await expect(page.getByRole('button',{name:'Şekil çiz',exact:true})).toBeVisible();
