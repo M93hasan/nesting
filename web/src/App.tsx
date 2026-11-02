@@ -40,8 +40,8 @@ function download(name:string,text:BlobPart,type='application/json') {
 export default function App({initialDocument=emptyProject(),initialError='',loadDefaultExample=false}:{initialDocument?:Document;initialError?:string;loadDefaultExample?:boolean}) {
   // An explicit URL flag is required. The editor preview never changes the normal application.
   const designPreviewEnabled=typeof window!=='undefined'&&new URLSearchParams(window.location.search).get('design-preview')==='1';
-  const [designPreview,setDesignPreview]=useState<{background:string;panel:string;accent:string;radius:number;spacing:number;fontSize:number}|null>(null);
-  const [publishedVisual,setPublishedVisual]=useState<{background:string;panel:string;accent:string;radius:number;spacing:number;fontSize:number}|null>(null);
+  const [designPreview,setDesignPreview]=useState<{background:string;panel:string;accent:string;radius:number;spacing:number;fontSize:number;workspaceOrder?:string[]}|null>(null);
+  const [publishedVisual,setPublishedVisual]=useState<{background:string;panel:string;accent:string;radius:number;spacing:number;fontSize:number;workspaceOrder?:string[]}|null>(null);
   useEffect(()=>{
     if(designPreviewEnabled)return;
     let active=true;
@@ -55,7 +55,8 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         const color=/^#[0-9a-f]{6}$/i;
         if(!['background','panel','accent'].every(k=>typeof d[k]==='string'&&color.test(d[k] as string)))return;
         if(!([['radius',0,32],['spacing',8,40],['fontSize',12,22]] as const).every(([k,lo,hi])=>typeof d[k]==='number'&&Number.isFinite(d[k])&&(d[k] as number)>=lo&&(d[k] as number)<=hi))return;
-        if(active)setPublishedVisual({background:d.background as string,panel:d.panel as string,accent:d.accent as string,radius:d.radius as number,spacing:d.spacing as number,fontSize:d.fontSize as number});
+        const workspaceOrder=Array.isArray(d.workspaceOrder)&&d.workspaceOrder.length===3&&new Set(d.workspaceOrder).size===3&&['parts','canvas','material'].every(x=>d.workspaceOrder.includes(x))?[...d.workspaceOrder] as string[]:undefined;
+        if(active)setPublishedVisual({background:d.background as string,panel:d.panel as string,accent:d.accent as string,radius:d.radius as number,spacing:d.spacing as number,fontSize:d.fontSize as number,workspaceOrder});
       }catch{/* Published design failure must never block Nesting functionality. */}
     };
     void read();window.addEventListener('focus',read);
@@ -71,7 +72,8 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         const d=value as Record<string,unknown>,color=/^#[0-9a-f]{6}$/i;
         if(!['background','panel','accent'].every(k=>typeof d[k]==='string'&&color.test(d[k] as string)))return;
         if(!([['radius',0,32],['spacing',8,40],['fontSize',12,22]] as const).every(([k,lo,hi])=>typeof d[k]==='number'&&(d[k] as number)>=lo&&(d[k] as number)<=hi))return;
-        setDesignPreview({background:d.background as string,panel:d.panel as string,accent:d.accent as string,radius:d.radius as number,spacing:d.spacing as number,fontSize:d.fontSize as number});
+        const workspaceOrder=Array.isArray(d.workspaceOrder)&&d.workspaceOrder.length===3&&new Set(d.workspaceOrder).size===3&&['parts','canvas','material'].every(x=>d.workspaceOrder.includes(x))?[...d.workspaceOrder] as string[]:undefined;
+        setDesignPreview({background:d.background as string,panel:d.panel as string,accent:d.accent as string,radius:d.radius as number,spacing:d.spacing as number,fontSize:d.fontSize as number,workspaceOrder});
       }catch{/* Keep the original style when preview data is invalid. */}
     };
     update();window.addEventListener('storage',update);
@@ -652,6 +654,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const utilization=result&&materialArea>0?totalArea/materialArea*100:0;
   const waste=result?Math.max(0,100-utilization):0;
   const improvement=result&&phaseImprovements(solver.diagnostics.current?.history??[],result.usedLengthMm);
+  const safeWorkspaceOrder=(designPreviewEnabled?designPreview:publishedVisual)?.workspaceOrder;
   return <div className="app" onBlurCapture={()=>{fieldEdit.current=undefined;}} onKeyDown={e=>{if(e.key==='Enter'&&e.target instanceof HTMLInputElement&&e.target.hasAttribute('data-undo-field')){e.preventDefault();e.target.blur();}}} onMouseDownCapture={e=>{const target=e.target;focusClick.current=target instanceof HTMLInputElement&&['text','number'].includes(target.type)&&document.activeElement!==target?target:null;}} onMouseUpCapture={e=>{if(focusClick.current===e.target){e.preventDefault();focusClick.current.select();}focusClick.current=null;}} onFocusCapture={e=>{const input=e.target;if(input instanceof HTMLInputElement&&['text','number'].includes(input.type))input.select();}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(!document.querySelector('dialog[open]'))void openFiles(e.dataTransfer.files);}}>
     {(designPreviewEnabled?designPreview:publishedVisual)&&<style>{`
        :root #root .app {background:${(designPreviewEnabled?designPreview:publishedVisual)!.background}!important;font-size:${(designPreviewEnabled?designPreview:publishedVisual)!.fontSize}px}
@@ -674,7 +677,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     {(error||solver.error)&&<div className="error-banner" role="alert">{error||solver.error}</div>}
     {recoveryError&&<div className="error-banner" role="alert">{recoveryError}</div>}
     <main className="main-workspace">
-      <aside id="parts-settings" className={`sidebar ${panel?'open':''}`}>
+      <aside id="parts-settings" className={`sidebar ${panel?'open':''}`} style={safeWorkspaceOrder?{order:safeWorkspaceOrder.indexOf('parts')}:undefined}>
         <div className="panel-title"><h2>Parçalar <span>{displayedPieceCount(doc.parts)}</span></h2><div className="panel-title-actions"><div className="series-multiplier" title="Yerleşim bir seriye göre hesaplanır; bu değer üretim serisi sayısıdır"><span aria-hidden="true">×</span><input aria-label="Proje seri adedi" inputMode="numeric" type="text" pattern="[0-9]*" value={seriesDraft??String(seriesMultiplier)} disabled={locked||!doc.parts.length} onFocus={e=>{setSeriesDraft(String(seriesMultiplier));e.currentTarget.select();}} onChange={e=>{if(/^\d*$/.test(e.target.value))setSeriesDraft(e.target.value)}} onBlur={finishSeriesEdit} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();e.currentTarget.blur()}}}/></div><button onClick={()=>setInfo('help')}>Yardım</button></div></div>
         <div className="parts-list">{doc.parts.map((p,i)=>{const b=bounds(p.outer);return <div key={p.id} className={`part-row ${selected.includes(p.id)?'selected':''}`}>
           <button className="part-select" aria-pressed={selected.includes(p.id)} onClick={e=>{
@@ -709,7 +712,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
 
         </>:<p className="muted">Özelliklerini görmek için bir parça seçin.</p>}</div></details>
       </aside>
-      <section className="drawing-panel">
+      <section className="drawing-panel" style={safeWorkspaceOrder?{order:safeWorkspaceOrder.indexOf('canvas')}:undefined}>
         <div className="studio-canvas-heading"><div><span className="studio-canvas-eyebrow">STÜDYO / YERLEŞİM</span><h1>Çalışma alanı</h1></div><span className="studio-canvas-context">Malzeme üzerinde parçaları düzenleyin ve yerleşimi önizleyin.</span></div>
         <Workspace optimizing={running} onSelectCopies={kopya=>{setUnusedSelection([]);setSelectedCopies(kopya);}} materialWidthFocused={materialWidthFocused} unit={unit} fitRequest={fitRequest} document={canvasDocument} result={visibleResult} live={showingLive?live:undefined} selected={selected} selectedCopies={selectedCopies} disabled={locked} onTransform={transformSelection}
           polygon={polygon} onDraw={point=>{if(!locked)setPolygon(p=>[...(p??[]),point]);}}
@@ -720,7 +723,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         {(live||result)&&<div className={`result-details${showingLive?' live-details':''}`}><div className="result-mode" role="group" aria-label="Sonuç görünümü"><button aria-pressed={resultMode==='live'} disabled={!live} onClick={()=>setResultMode('live')}>{running&&<i className="live-dot" aria-hidden="true"/>}Canlı arama</button><button aria-pressed={resultMode==='checked'} disabled={!result} onClick={()=>setResultMode('checked')}>En iyi geçerli yerleşim</button></div>{showingLive&&<div className="result-copy"><span><i className="overlap-key"/>Çakışmalar kırmızı</span><p>Ara yerleşimlerde geçici çakışmalar olabilir.</p></div>}</div>}
         {solver.liveError&&<p className="field-error">Canlı önizleme kullanılamıyor: {solver.liveError}</p>}
       </section>
-      <aside className="material-panel" aria-label="Malzeme ve Yerleşim">
+      <aside className="material-panel" aria-label="Malzeme ve Yerleşim" style={safeWorkspaceOrder?{order:safeWorkspaceOrder.indexOf('material')}:undefined}>
         <div className="panel-title"><h2>Malzeme ve Yerleşim</h2></div>
         <section className="settings material-settings">
           <div className="material-rotation">
