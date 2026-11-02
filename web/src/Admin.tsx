@@ -1,14 +1,7 @@
-import {lazy,Suspense,useEffect,useMemo,useRef,useState} from 'react';
+import {useEffect,useMemo,useRef,useState} from 'react';
 import packageInfo from '../package.json';
 import {LanguageSelect,localeTag,useI18n} from './i18n';
 import AppearanceSettings from './components/AppearanceSettings';
-import DesignStudio from './components/DesignStudio';
-import PuckEditorBoundary,{PuckLoadingFallback} from './components/PuckEditorBoundary';
-// Load Puck styles eagerly so cross-origin-isolated browsers never need a
-// dynamic CSS preload while opening the lazy editor module.
-import '@puckeditor/core/puck.css';
-import './components/PuckDesignStudio.css';
-const PuckDesignStudio=lazy(()=>import('./components/PuckDesignStudio'));
 
 type Section='overview'|'users'|'messages'|'roles'|'user-settings'|'defaults'|'appearance'|'history'|'logs'|'system';
 
@@ -67,8 +60,6 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
   const [signedEmail,setSignedEmail]=useState('');
   const googleButton=useRef<HTMLDivElement>(null);
   const [section,setSection]=useState<Section>('overview');
-  const [designStudioOpen,setDesignStudioOpen]=useState(false);
-  const [puckStudioOpen,setPuckStudioOpen]=useState(false);
   const [query,setQuery]=useState('');
   const [role,setRole]=useState<'all'|'admin'|'operator'>('all');
   const [users,setUsers]=useState<AdminUser[]>([]);
@@ -375,8 +366,6 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
       </section>
     </main></div>;
   }
-  if(puckStudioOpen&&section==='appearance')return <PuckEditorBoundary onClose={()=>setPuckStudioOpen(false)} onLegacy={()=>{setPuckStudioOpen(false);setDesignStudioOpen(true)}}><Suspense fallback={<PuckLoadingFallback onClose={()=>setPuckStudioOpen(false)}/>}><PuckDesignStudio onClose={()=>setPuckStudioOpen(false)}/></Suspense></PuckEditorBoundary>;
-  if(designStudioOpen&&section==='appearance')return <DesignStudio onClose={()=>setDesignStudioOpen(false)}/>;
   return <div className={adminPageClass}>
     <header className="admin-topbar">
       <div className="admin-brand"><img src={import.meta.env.BASE_URL+'serula-logo.svg'} alt="" /><div><strong>Serula</strong><span>Yönetim Paneli</span></div></div>
@@ -392,7 +381,7 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
       <main className="admin-main">
         <div className="admin-heading"><div className="admin-heading-copy"><p>YÖNETİM MERKEZİ</p><h1>{title}</h1><small>{({overview:'Serula sistemini, kullanıcı hareketlerini ve servis sağlığını tek ekrandan takip edin.',users:'Hesapları, kullanım haklarını ve lisans sürelerini yönetin.',messages:'Kullanıcı destek taleplerini ve mesajlaşmaları takip edin.',roles:'Yönetim yetkilerinin kapsamını ve sınırlarını inceleyin.','user-settings':'Seçilen kullanıcı için üretim varsayılanlarını ve destek bağlantısını yönetin.',defaults:'Yeni projelerde kullanılacak üretim başlangıç değerlerini belirleyin.',appearance:'Yönetim arayüzünün görünüm ve erişilebilirlik tercihlerini ayarlayın.',history:'Yönetim ve üretim işlemlerinin kayıtlarını inceleyin.',logs:'Servis olaylarını ve başarısız işlemleri kontrol edin.',system:'API, kimlik doğrulama ve veri katmanı durumunu kontrol edin.'} as Record<Section,string>)[section]}</small></div><span className="admin-connection"><i aria-hidden="true"/>{health?.adminApi?'Sunucu bağlı':health?'Sunucu hatası':'Kontrol ediliyor…'}</span></div>
 
-        {section==='appearance'&&(designStudioOpen?<DesignStudio onClose={()=>setDesignStudioOpen(false)}/>:<><section className="admin-card"><div className="admin-card-head"><div><h2>Puck Tasarım Editörü</h2><p>Puck ile izinli panelleri düzenle ve gerçek Nesting ekranında önizle. Eski editör karşılaştırma için korunuyor.</p></div></div><button type="button" className="primary" onClick={()=>setPuckStudioOpen(true)}>Puck Editörünü Aç</button> <button type="button" onClick={()=>setDesignStudioOpen(true)}>Tasarım Editörünü Aç</button></section><AppearanceSettings/></>)}
+        {section==='appearance'&&<AppearanceSettings/>}
         {section==='overview'&&<>
           <section className="admin-metrics">
             <Metric label="Toplam kullanıcı" value={String(users.length)} detail="D1 kullanıcı veritabanı" icon="♙"/>
