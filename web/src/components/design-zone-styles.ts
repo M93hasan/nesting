@@ -20,11 +20,9 @@ export function cleanZoneStyles(value:unknown):ZoneStyles{
       const num=record[key],bounds=NUMBER_BOUNDS[key];
       if(typeof num==='number'&&Number.isInteger(num)&&num>=bounds[0]&&num<=bounds[1])out[key]=num;
     }
-    if(['runButton','corelButton','downloadButton'].includes(id)){
-      for(const key of ['offsetX','offsetY'] as const){
-        const n=record[key];
-        if(typeof n==='number'&&Number.isInteger(n)&&n>=-80&&n<=80)out[key]=n;
-      }
+    for(const key of ['offsetX','offsetY'] as const){
+      const n=record[key],limit=['runButton','corelButton','downloadButton'].includes(id)?80:160;
+      if(typeof n==='number'&&Number.isInteger(n)&&n>=-limit&&n<=limit)out[key]=n;
     }
     if(['header','parts','canvas','material','runButton','corelButton','downloadButton'].includes(id)&&typeof record.text==='string'&&record.text.length<=80&&!/[<>\x00-\x1f]/.test(record.text))out.text=record.text;
     if(Object.keys(out).length)result[id]=out;
