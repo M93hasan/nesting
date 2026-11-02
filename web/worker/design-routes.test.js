@@ -79,6 +79,32 @@ describe('design worker route integration with isolated D1 emulator',()=>{
     expect((await request(db,'/api/admin/design/rollback',{method:'POST',body:{publicationId:baseline.id,confirmation:'GERI AL'}})).status).toBe(200);
     expect((await request(db,'/api/design/published',{admin:false})).data.published).toBe(null);
   });
+  it('publishes and rolls back an entire component-rich layout without changing earlier revisions',async()=>{
+    const db=new MemoryD1();
+    const layout={...design,blocks:[
+      {id:'widget-heading0123',kind:'heading',region:'canvas',text:'Üretim duyurusu',fontSize:24,x:65,y:-20,devices:['desktop','mobile']},
+      {id:'widget-button0123',kind:'button',region:'material',text:'İletişim',href:'/contact',borderColor:'#123456',borderWidth:2,animation:'fade'}
+    ],zoneStyles:{header:{background:'#224466'},projectBar:{offsetX:45}}};
+    const saved=await request(db,'/api/admin/design/draft',{method:'POST',body:payload(layout)});
+    expect(saved.status).toBe(200);
+    expect(saved.data.draft.design.blocks).toHaveLength(2);
+    const denied=await request(db,'/api/admin/design/publish',{method:'POST',body:{versionId:1,confirmation:'YAYINLA'},admin:false});
+    expect(denied.status).toBe(403);
+    expect((await request(db,'/api/design/published',{admin:false})).data.published).toBe(null);
+    const published=await request(db,'/api/admin/design/publish',{method:'POST',body:{versionId:1,confirmation:'YAYINLA'}});
+    expect(published.status).toBe(200);
+    const live=(await request(db,'/api/design/published',{admin:false})).data.published;
+    expect(live.design.blocks).toEqual(layout.blocks);
+    expect(live.design.zoneStyles).toEqual(layout.zoneStyles);
+    const base=(await request(db,'/api/admin/design/publications')).data.publications.find(row=>row.action==='before_publish');
+    expect(base?.id).toBeGreaterThan(0);
+    expect((await request(db,'/api/admin/design/rollback',{method:'POST',body:{publicationId:base.id,confirmation:'incorrect'}})).status).toBe(400);
+    expect((await request(db,'/api/design/published',{admin:false})).data.published.design.blocks).toHaveLength(2);
+    expect((await request(db,'/api/admin/design/rollback',{method:'POST',body:{publicationId:base.id,confirmation:'GERI AL'}})).status).toBe(200);
+    expect((await request(db,'/api/design/published',{admin:false})).data.published).toBe(null);
+    expect(db.revisions).toHaveLength(1);
+    expect(db.revisions[0].document_json).toBe(JSON.stringify(saved.data.draft));
+  });
   it('restores an earlier published version and retains immutable history',async()=>{
     const db=new MemoryD1(),updated={...design,background:'#778899'};
     await request(db,'/api/admin/design/draft',{method:'POST',body:payload()});
