@@ -41,7 +41,7 @@ class Statement{
     }else if(s.startsWith('INSERT INTO audit_logs')){
       db.audit.push(this.values);
     }
-    return {success:true,meta:{changes:1}};
+    return {success:true,meta:{changes:1,last_row_id:s.startsWith('INSERT INTO design_revision_store')?db.revisions.length:0}};
   }
 }
 function dbSort(items){return [...items].reverse().slice(0,30);}
@@ -68,7 +68,9 @@ describe('design worker route integration with isolated D1 emulator',()=>{
     const db=new MemoryD1();
     expect((await request(db,'/api/design/published',{admin:false})).data.published).toBe(null);
     expect((await request(db,'/api/admin/design/draft',{method:'POST',body:payload({...design,background:'url(bad)'})})).status).toBe(400);
-    expect((await request(db,'/api/admin/design/draft',{method:'POST',body:payload()})).status).toBe(200);
+    const saved=await request(db,'/api/admin/design/draft',{method:'POST',body:payload()});
+    expect(saved.status).toBe(200);
+    expect(saved.data.revisionId).toBe(1);
     expect((await request(db,'/api/admin/design/versions')).data.versions).toHaveLength(1);
     expect((await request(db,'/api/admin/design/publish',{method:'POST',body:{versionId:1,confirmation:'wrong'}})).status).toBe(400);
     expect((await request(db,'/api/admin/design/publish',{method:'POST',body:{versionId:1,confirmation:'YAYINLA'}})).status).toBe(200);
@@ -88,6 +90,7 @@ describe('design worker route integration with isolated D1 emulator',()=>{
     const saved=await request(db,'/api/admin/design/draft',{method:'POST',body:payload(layout)});
     expect(saved.status).toBe(200);
     expect(saved.data.draft.design.blocks).toHaveLength(2);
+    expect(saved.data.revisionId).toBe(1);
     const denied=await request(db,'/api/admin/design/publish',{method:'POST',body:{versionId:1,confirmation:'YAYINLA'},admin:false});
     expect(denied.status).toBe(403);
     expect((await request(db,'/api/design/published',{admin:false})).data.published).toBe(null);
