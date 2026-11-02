@@ -71,7 +71,11 @@ test.describe('production-like service worker',()=>{
     await page.goto('/admin');
     await expect(page.getByRole('button',{name:/Görünüm/})).toBeVisible();
     await page.getByRole('button',{name:/Görünüm/}).click();
+    page.on('pageerror',error=>console.log('PUCK_SW_PAGEERROR',error.message));
     await page.getByRole('button',{name:'Puck Editörünü Aç'}).click();
+    await page.waitForTimeout(1800);
+    console.log('PUCK_SW_DIAGNOSTIC',JSON.stringify(await page.evaluate(()=>({path:location.pathname,isolated:crossOriginIsolated,controlled:!!navigator.serviceWorker?.controller,admin:document.body.innerText.slice(0,1000),alert:document.querySelector('[aria-label="Puck editör yükleme hatası"]')?.textContent?.slice(0,600)}))));
+    await page.screenshot({path:'test-results/puck-sw-diagnostic.png',fullPage:true});
     await expect(page.getByRole('region',{name:'Puck görsel tasarım editörü'})).toBeVisible();
     await expect(page.getByRole('heading',{name:'Nesting Bileşenleri',exact:true})).toBeVisible();
   });
