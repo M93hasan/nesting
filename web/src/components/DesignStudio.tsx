@@ -161,8 +161,9 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
   };
   const moveLayer=(source:Layer,target:Layer)=>{
     if(!canReorder(source==='Başlık'?'heading':source==='Ana panel'?'panel':'button',target==='Başlık'?'heading':target==='Ana panel'?'panel':'button')||locked.includes(source))return;
+    const sourceIndex=layerOrder.indexOf(source),targetIndex=layerOrder.indexOf(target);
     const reordered=layerOrder.filter(item=>item!==source);
-    reordered.splice(reordered.indexOf(target),0,source);
+    reordered.splice(reordered.indexOf(target)+(sourceIndex<targetIndex?1:0),0,source);
     apply({order:reordered});
   };
   const shiftLayer=(layer:Layer,delta:number)=>{
