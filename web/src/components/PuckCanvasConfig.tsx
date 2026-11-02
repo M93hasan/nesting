@@ -6,7 +6,7 @@ import type {CSSProperties} from 'react';
 export type BuilderBlocks={
   Heading:{text:string;level:'h1'|'h2'|'h3';align:'left'|'center'|'right'};
   Text:{text:string;align:'left'|'center'|'right';size:number};
-  Button:{label:string;variant:'primary'|'secondary';radius:number};
+  Button:{label:string;href:string;variant:'primary'|'secondary';radius:number};
   Card:{title:string;body:string;accent:string};
   Flex:{direction:'row'|'column';gap:number;items:Slot};
   Grid:{columns:number;gap:number;items:Slot};
@@ -15,6 +15,11 @@ export type BuilderBlocks={
   NestingCanvas:{title:string};
   MaterialPanel:{title:string};
   ActionBar:{label:string};
+  RichText:{richtext:string};
+  Hero:{title:string;description:string;buttonText:string;buttonHref:string;align:'left'|'center'|'right'};
+  Logos:{logos:{alt:string;imageUrl:string}[]};
+  Stats:{items:{title:string;description:string}[]};
+  Template:{title:string;description:string;items:Slot};
 };
 export type BuilderRoot={title:string;background:string;panel:string;accent:string};
 
@@ -29,8 +34,9 @@ const spacing=(n:number)=>Math.max(0,Math.min(64,n||0));
 export const puckBuilderConfig:Config<BuilderBlocks,BuilderRoot>={
   categories:{
     layout:{title:'Yerleşim',components:['Grid','Flex','Space']},
-    typography:{title:'Yazı ve başlık',components:['Heading','Text']},
-    content:{title:'Buton ve kart',components:['Button','Card']},
+    typography:{title:'Yazı ve başlık',components:['Heading','Text','RichText']},
+    interactive:{title:'Eylemler',components:['Button']},
+    content:{title:'İçerik',components:['Card','Hero','Logos','Stats','Template']},
     nesting:{title:'Nesting bileşenleri',components:['PartsPanel','NestingCanvas','MaterialPanel','ActionBar']}
   },
   root:{
@@ -79,10 +85,11 @@ export const puckBuilderConfig:Config<BuilderBlocks,BuilderRoot>={
       label:'Buton',
       fields:{
         label:{type:'text',label:'Buton yazısı',contentEditable:true},
+        href:{type:'text',label:'Bağlantı (# veya https://)'},
         variant:{type:'radio',label:'Görünüm',options:[{label:'Vurgu',value:'primary'},{label:'İkincil',value:'secondary'}]},
         radius:{type:'number',label:'Köşe yarıçapı',min:0,max:32}
       },
-      defaultProps:{label:'Yeni buton',variant:'primary',radius:9},
+      defaultProps:{label:'Yeni buton',href:'#',variant:'primary',radius:9},
       render:({label,variant,radius})=><div className="puck-builder-button-holder"><button type="button" tabIndex={-1} className={'puck-builder-button '+(variant==='primary'?'is-primary':'is-secondary')} style={{borderRadius:radius}}>{label}</button></div>
     },
     Card:{
@@ -149,6 +156,60 @@ export const puckBuilderConfig:Config<BuilderBlocks,BuilderRoot>={
       render:({title})=><section className="puck-builder-material" style={surface}>
         <strong>{title}</strong><label>Genişlik (mm)<span>1500</span></label>
         <label>Boşluk (mm)<span>5</span></label><label>Malzeme<span>Rulo</span></label>
+      </section>
+    },
+    RichText:{
+      label:'Zengin metin',
+      fields:{richtext:{type:'richtext',label:'Biçimlendirilmiş metin'}},
+      defaultProps:{richtext:'<h2>Başlık</h2><p>Açıklama metni</p>'},
+      render:({richtext})=><section className="puck-builder-card" style={surface}><span style={{whiteSpace:'pre-wrap'}}>{richtext.replace(/<[^>]*>/g,' ').trim()}</span></section>
+    },
+    Hero:{
+      label:'Tanıtım (Hero)',
+      fields:{
+        title:{type:'text',label:'Başlık',contentEditable:true},
+        description:{type:'textarea',label:'Açıklama',contentEditable:true},
+        buttonText:{type:'text',label:'Buton metni',contentEditable:true},
+        buttonHref:{type:'text',label:'Buton bağlantısı'},
+        align:{type:'radio',label:'Hizalama',options:[...alignOptions]}
+      },
+      defaultProps:{title:'Üretime hazır tasarım',description:'Nesting çalışma alanınızı düzenleyin.',buttonText:'Başla',buttonHref:'#',align:'center'},
+      render:({title,description,buttonText,align})=><section className="puck-builder-hero" style={{...surface,textAlign:align,padding:'32px 24px'}}>
+        <h2>{title}</h2><p>{description}</p><span className="puck-builder-button is-primary">{buttonText}</span>
+      </section>
+    },
+    Logos:{
+      label:'Logolar',
+      fields:{
+        logos:{type:'array',label:'Logolar',getItemSummary:(item,i)=>item.alt||'Logo '+(i+1),
+          defaultItemProps:{alt:'Logo',imageUrl:''},
+          arrayFields:{alt:{type:'text',label:'Alternatif yazı'},imageUrl:{type:'text',label:'Görsel URL'}}}
+      },
+      defaultProps:{logos:[{alt:'Marka 1',imageUrl:''},{alt:'Marka 2',imageUrl:''}]},
+      render:({logos})=><section className="puck-builder-logos" style={surface}>
+        {logos.map((item,i)=><div key={i} className="puck-builder-logo">
+          {/^https:\/\//i.test(item.imageUrl)?<img alt={item.alt} src={item.imageUrl} loading="lazy"/>:<strong>{item.alt}</strong>}
+        </div>)}
+      </section>
+    },
+    Stats:{
+      label:'İstatistikler',
+      fields:{
+        items:{type:'array',label:'Ölçümler',getItemSummary:(item,i)=>item.title||'İstatistik '+(i+1),
+          defaultItemProps:{title:'Üretim',description:'100%'},
+          arrayFields:{title:{type:'text',label:'Başlık'},description:{type:'text',label:'Değer'}}}
+      },
+      defaultProps:{items:[{title:'Verimlilik',description:'%86'},{title:'Parça',description:'128'}]},
+      render:({items})=><section className="puck-builder-stats" style={surface}>
+        {items.map((item,i)=><div key={i}><strong>{item.description}</strong><small>{item.title}</small></div>)}
+      </section>
+    },
+    Template:{
+      label:'Şablon alanı',
+      fields:{title:{type:'text',label:'Başlık',contentEditable:true},description:{type:'textarea',label:'Açıklama'},items:{type:'slot',label:'İç bileşenler'}},
+      defaultProps:{title:'Yeni şablon',description:'İçerik eklemek için bileşen sürükleyin',items:[]},
+      render:({title,description,items:Items})=><section className="puck-builder-template" style={surface}>
+        <h3>{title}</h3><p>{description}</p><Items className="puck-builder-slot" style={{minHeight:140}}/>
       </section>
     },
     ActionBar:{
