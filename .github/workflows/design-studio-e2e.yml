@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 jobs:
   design-e2e:
-    if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'feature/')
+    if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'feature/') || startsWith(github.head_ref, 'fix/design-')
     runs-on: ubuntu-latest
     defaults:
       run:
