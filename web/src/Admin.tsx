@@ -4,6 +4,10 @@ import {LanguageSelect,localeTag,useI18n} from './i18n';
 import AppearanceSettings from './components/AppearanceSettings';
 import DesignStudio from './components/DesignStudio';
 import PuckEditorBoundary,{PuckLoadingFallback} from './components/PuckEditorBoundary';
+// Load Puck styles eagerly so cross-origin-isolated browsers never need a
+// dynamic CSS preload while opening the lazy editor module.
+import '@puckeditor/core/puck.css';
+import './components/PuckDesignStudio.css';
 const PuckDesignStudio=lazy(()=>import('./components/PuckDesignStudio'));
 
 type Section='overview'|'users'|'messages'|'roles'|'user-settings'|'defaults'|'appearance'|'history'|'logs'|'system';
