@@ -37,6 +37,39 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
   const [storageError,setStorageError]=useState('');
   const [importText,setImportText]=useState('');
   const [importOpen,setImportOpen]=useState(false);
+  const [remoteVersions,setRemoteVersions]=useState<{id:number;created_at:string}[]>([]);
+  const [serverBusy,setServerBusy]=useState(false);
+  const [serverMessage,setServerMessage]=useState('');
+  const refreshVersions=async()=>{
+    const response=await fetch('/api/admin/design/versions',{credentials:'same-origin'});
+    if(!response.ok)throw Error('Sürümler yüklenemedi.');
+    const data=await response.json() as {versions?:{id:number;created_at:string}[]};
+    setRemoteVersions(data.versions??[]);
+  };
+  const saveServerDraft=async()=>{
+    setServerBusy(true);setServerMessage('');
+    try{
+      const response=await fetch('/api/admin/design/draft',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({format:'serula-design-v1',design})});
+      const data=await response.json() as {error?:string};
+      if(!response.ok)throw Error(data.error??'Taslak kaydedilemedi.');
+      await refreshVersions();
+      setServerMessage('Sunucu taslağı kaydedildi; canlıya uygulanmadı.');
+    }catch(error){setServerMessage(error instanceof Error?error.message:'Kayıt başarısız.');}
+    finally{setServerBusy(false);}
+  };
+  const restoreServerVersion=async(id:number)=>{
+    if(!window.confirm('Seçili sürüm yeni taslak olarak geri yüklensin mi?'))return;
+    setServerBusy(true);setServerMessage('');
+    try{
+      const response=await fetch('/api/admin/design/restore',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({versionId:id})});
+      const data=await response.json() as {draft?:{design?:unknown};error?:string};
+      if(!response.ok||!validDraft(data.draft?.design))throw Error(data.error??'Geri yükleme başarısız.');
+      apply(data.draft.design);
+      await refreshVersions();setServerMessage('Sürüm taslağa geri yüklendi. Canlı site değişmedi.');
+    }catch(error){setServerMessage(error instanceof Error?error.message:'Geri yükleme başarısız.');}
+    finally{setServerBusy(false);}
+  };
+  useEffect(()=>{void refreshVersions().catch(()=>{});},[]);
   const exportJson=()=>{
     const payload=JSON.stringify({format:'serula-design-v1',design},null,2);
     const blob=new Blob([payload],{type:'application/json'});
@@ -109,6 +142,7 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
         <button type="button" onClick={redo} disabled={index===history.length-1} aria-label="Yinele">↷</button>
         <button type="button" disabled={!appearanceLoaded} onClick={()=>apply(appearanceToPreviewTokens(appearance))}>Mevcut Serula renklerini al</button>
         <button type="button" onClick={saveDraft}>Taslağı tarayıcıya kaydet</button>
+        <button type="button" disabled={serverBusy} onClick={()=>void saveServerDraft()}>Sunucuya taslak kaydet</button>
         <button type="button" onClick={exportJson}>JSON dışa aktar</button>
         <button type="button" onClick={()=>setImportOpen(v=>!v)}>JSON içe aktar</button>
         <button type="button" onClick={reset}>Taslağı sıfırla</button>
@@ -116,6 +150,11 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
       </div>
     </header>
     <p className="design-studio-warning" role="status">Bu prototip mevcut Serula renklerini salt okunur biçimde içe alabilir; yalnızca örnek bileşenleri düzenler. Taslağı bu tarayıcıya kaydedebilirsin; başka cihazlara aktarılmaz ve canlı siteye yayınlanmaz. {saved?'Taslak tarayıcıya kaydedildi.':''}{storageError}</p>
+    {serverMessage&&<p role="status" className="design-studio-warning">{serverMessage}</p>}
+    <details className="design-studio-import"><summary>Sunucu sürüm geçmişi ({remoteVersions.length})</summary>
+      <button type="button" disabled={serverBusy} onClick={()=>void refreshVersions().catch(()=>setServerMessage('Sürümler yüklenemedi.'))}>Yenile</button>
+      {remoteVersions.map(version=><div key={version.id}><span>#{version.id} · {version.created_at}</span><button type="button" disabled={serverBusy} onClick={()=>void restoreServerVersion(version.id)}>Taslağa geri yükle</button></div>)}
+    </details>
     {importOpen&&<div className="design-studio-import">
       <label htmlFor="design-json-import">Tasarım JSON içeriğini yapıştır</label>
       <textarea id="design-json-import" rows={5} maxLength={10000} value={importText} onChange={event=>setImportText(event.target.value)}/>
