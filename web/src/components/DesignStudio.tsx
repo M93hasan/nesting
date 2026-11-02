@@ -4,7 +4,7 @@ import {DESIGN_COMPONENTS,canReorder} from './design-component-registry';
 import {appearanceToPreviewTokens} from './design-appearance-adapter';
 import {useAppearance} from '../appearance';
 
-type Design = {background:string;panel:string;accent:string;radius:number;spacing:number;fontSize:number;heading:string;hidden?:string[];order?:string[]};
+type Design = {background:string;panel:string;accent:string;radius:number;spacing:number;fontSize:number;heading:string;hidden?:string[];order?:string[];positions?:Record<string,{x:number;y:number}>};
 const initial:Design={background:'#121421',panel:'#242935',accent:'#5278ed',radius:12,spacing:16,fontSize:15,heading:'Serula çalışma alanı'};
 type Device='desktop'|'tablet'|'mobile';
 const samples=['Başlık','Ana panel','Birincil buton'] as const;
@@ -17,6 +17,7 @@ function validDraft(value:unknown):value is Design{
   return ['background','panel','accent'].every(key=>typeof d[key as keyof Design]==='string'&&/^#[0-9a-f]{6}$/i.test(d[key as keyof Design] as string))
     &&typeof d.heading==='string'&&d.heading.length<=80
     &&(d.order===undefined||(Array.isArray(d.order)&&d.order.length===samples.length&&new Set(d.order).size===samples.length&&d.order[d.order.length-1]==='Birincil buton'&&d.order.every((name:unknown)=>typeof name==='string'&&isLayer(name))))
+    &&(d.positions===undefined||(typeof d.positions==='object'&&d.positions!==null&&!Array.isArray(d.positions)&&Object.keys(d.positions).every(key=>isLayer(key)&&typeof d.positions?.[key]?.x==='number'&&Number.isInteger(d.positions[key].x)&&d.positions[key].x>=0&&d.positions[key].x<=80&&typeof d.positions[key].y==='number'&&Number.isInteger(d.positions[key].y)&&d.positions[key].y>=0&&d.positions[key].y<=80)))
     &&(d.hidden===undefined||(Array.isArray(d.hidden)&&d.hidden.length<=samples.length&&d.hidden.every((name:unknown)=>typeof name==='string'&&isLayer(name))))
     &&([['radius',0,32],['spacing',8,40],['fontSize',12,22]] as const).every(([key,min,max])=>typeof d[key]==='number'&&Number.isFinite(d[key])&&d[key]>=min&&d[key]<=max);
 }
@@ -34,6 +35,7 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
   const [realPreview,setRealPreview]=useState(false);
   const [locked,setLocked]=useState<Layer[]>([]);
   const [dragging,setDragging]=useState<Layer|null>(null);
+  const [placing,setPlacing]=useState<Layer|null>(null);
   const [saved,setSaved]=useState(false);
   const [storageError,setStorageError]=useState('');
   const [importText,setImportText]=useState('');
@@ -123,6 +125,14 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
     setHistory(updated);setIndex(updated.length-1);setSaved(false);
   };
   const layerOrder=(design.order??[...samples]) as Layer[];
+  const setPosition=(layer:Layer,x:number,y:number)=>apply({positions:{...design.positions,[layer]:{x:Math.max(0,Math.min(80,Math.round(x))),y:Math.max(0,Math.min(80,Math.round(y)))}}});
+  const dropPosition=(event:import('react').DragEvent<HTMLDivElement>)=>{
+    event.preventDefault();
+    if(!placing)return;
+    const rect=event.currentTarget.getBoundingClientRect();
+    if(rect.width&&rect.height)setPosition(placing,(event.clientX-rect.left)/rect.width*80,(event.clientY-rect.top)/rect.height*80);
+    setPlacing(null);
+  };
   const moveLayer=(source:Layer,target:Layer)=>{
     if(!canReorder(source==='Başlık'?'heading':source==='Ana panel'?'panel':'button',target==='Başlık'?'heading':target==='Ana panel'?'panel':'button')||locked.includes(source))return;
     const reordered=layerOrder.filter(item=>item!==source);
@@ -203,13 +213,13 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
         <div className="design-device-switch" role="group" aria-label="Cihaz önizleme">
           {(['desktop','tablet','mobile'] as const).map(item=><button type="button" key={item} aria-pressed={device===item} onClick={()=>setDevice(item)}>{({desktop:'Masaüstü',tablet:'Tablet',mobile:'Mobil'} as const)[item]}</button>)}
         </div>
+        <div className="design-device-switch"><button type="button" onClick={()=>apply({positions:{}})}>Konumları sıfırla</button></div>
         {realPreview?<div className={'design-real-frame design-preview-'+device}>
           <p>Gerçek Nesting uygulamasının yalnızca görünüm önizlemesi. Ekran etkileşimi kilitlidir; henüz uygulamanın tüm kontrolleri düzenlenemez.</p>
           <iframe title="Gerçek Serula Nesting tasarım önizlemesi" src={import.meta.env.BASE_URL+'?design-preview=1'} tabIndex={-1}/>
         </div>:<div className={'design-preview design-preview-'+device} style={{background:design.background,color:'#fff',fontSize:design.fontSize}}>
-          <div className="design-preview-content" style={{display:'flex',flexDirection:'column'}}>
-          {layerOrder.filter(layer=>layer!=='Birincil buton').map(layer=>layer==='Başlık'?(!(design.hidden??[]).includes('Başlık')&&<h2 key={layer} className={selected==='Başlık'?'design-preview-selected':''} onClick={()=>{if(!locked.includes('Başlık'))setSelected('Başlık');}}>{design.heading}</h2>):(!(design.hidden??[]).includes('Ana panel')&&<div key={layer}
- className={selected==='Ana panel'?'design-preview-panel design-preview-selected':'design-preview-panel'} onClick={()=>{if(!locked.includes('Ana panel'))setSelected('Ana panel');}} style={{background:design.panel,borderRadius:design.radius,padding:design.spacing}}>
+          <div className="design-preview-content" style={{position:'relative',minHeight:310}} onDragOver={event=>{if(placing)event.preventDefault();}} onDrop={dropPosition}>
+          {layerOrder.filter(layer=>layer!=='Birincil buton').map(layer=>layer==='Başlık'?(!(design.hidden??[]).includes('Başlık')&&<h2 key={layer} draggable={!locked.includes('Başlık')} onDragStart={event=>{setPlacing('Başlık');event.dataTransfer.setData('text/plain','Başlık');}} onDragEnd={()=>setPlacing(null)} style={{position:'absolute',left:(design.positions?.['Başlık']?.x??0)+'%',top:(design.positions?.['Başlık']?.y??0)+'%',maxWidth:'80%'}} className={selected==='Başlık'?'design-preview-selected':''} onClick={()=>{if(!locked.includes('Başlık'))setSelected('Başlık');}}>{design.heading}</h2>):(!(design.hidden??[]).includes('Ana panel')&&<div key={layer} draggable={!locked.includes('Ana panel')} onDragStart={event=>{setPlacing('Ana panel');event.dataTransfer.setData('text/plain','Ana panel');}} onDragEnd={()=>setPlacing(null)} style={{position:'absolute',left:(design.positions?.['Ana panel']?.x??0)+'%',top:(design.positions?.['Ana panel']?.y??25)+'%',width:'min(75%,400px)',background:design.panel,borderRadius:design.radius,padding:design.spacing}} className={selected==='Ana panel'?'design-preview-panel design-preview-selected':'design-preview-panel'} onClick={()=>{if(!locked.includes('Ana panel'))setSelected('Ana panel');}}  >
             <strong>Örnek çalışma paneli</strong>
             <p>Bu alan yalnızca tasarım önizlemesidir. Gerçek hesaplamalar ve kullanıcı verileri değişmez.</p>
             {!(design.hidden??[]).includes('Birincil buton')&&<button type="button" className={selected==='Birincil buton'?'design-preview-selected':''} onClick={event=>{event.stopPropagation();if(!locked.includes('Birincil buton'))setSelected('Birincil buton');}} style={{background:design.accent,borderRadius:Math.min(design.radius,20),color:'#fff',border:0,padding:'10px 16px'}}>Örnek buton</button>}
@@ -220,6 +230,9 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
       <aside className="design-studio-pane design-studio-properties" aria-label="Özellikler">
         <h3>Özellikler</h3>
         <p>Seçili öğe: <strong>{selected}</strong></p>
+        <p>Örnek tuvalde başlık ve panel sürüklenebilir. Gerçek ekran önizlemesi salt okunurdur.</p>
+        <label>Yatay konum: {design.positions?.[selected]?.x??0}% <input type="range" min="0" max="80" disabled={selected==='Birincil buton'} value={design.positions?.[selected]?.x??0} onChange={e=>setPosition(selected,Number(e.target.value),design.positions?.[selected]?.y??0)}/></label>
+        <label>Dikey konum: {design.positions?.[selected]?.y??0}% <input type="range" min="0" max="80" disabled={selected==='Birincil buton'} value={design.positions?.[selected]?.y??0} onChange={e=>setPosition(selected,design.positions?.[selected]?.x??0,Number(e.target.value))}/></label>
         {locked.includes(selected)&&<p role="status">Bu katman kilitli. Düzenlemek için kilidi aç.</p>}
         <fieldset disabled={locked.includes(selected)}>
         <label>Arka plan <input type="color" value={design.background} onChange={e=>apply({background:e.target.value})}/></label>
