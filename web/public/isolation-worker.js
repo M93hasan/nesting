@@ -6,6 +6,10 @@ self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
   if (url.pathname === '/google-login.html' || url.pathname.startsWith('/api/auth/')) return;
+  // Same-origin hashed assets need no COOP/COEP rewrite. Wrapping their streamed
+  // responses can break Vite's lazy CSS preload (Puck Editor) under SW control.
+  // Keep isolation headers on the navigation document, where they are required.
+  if (url.pathname.startsWith('/assets/')) return;
   if (event.request.cache === 'only-if-cached' && event.request.mode !== 'same-origin') return;
   event.respondWith(fetch(event.request).then(response => {
     if (response.status === 0) return response;
