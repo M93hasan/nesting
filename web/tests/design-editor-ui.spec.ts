@@ -42,6 +42,11 @@ test('admin opens full-screen editor, selects actual layer, changes styles and u
   await expect.poll(async()=>Number(await page.getByRole('slider',{name:'Seçili buton yatay konumu'}).inputValue())).toBeGreaterThan(0);
   await page.getByRole('button',{name:'Geri al'}).click();
   await expect(page.getByRole('slider',{name:'Seçili buton yatay konumu'})).toHaveValue('0');
+  await page.getByRole('button',{name:'Proje menüsü',exact:true}).click();
+  await page.getByRole('slider',{name:'Seçili öğe yatay konumu'}).fill('40');
+  await expect(page.frameLocator('iframe[title="Gerçek Serula Nesting ekranı"]').locator('[data-design-zone="projectBar"]')).toHaveCSS('transform','matrix(1, 0, 0, 1, 40, 0)');
+  await page.getByRole('button',{name:'Geri al'}).click();
+  await expect(page.getByRole('slider',{name:'Seçili öğe yatay konumu'})).toHaveValue('0');
   await page.getByRole('button',{name:'Ekle',exact:true}).click();
   await page.getByRole('button',{name:'+ Metin'}).click();
   await expect(page.getByRole('textbox',{name:'Bileşen metni'})).toBeVisible();
