@@ -16,7 +16,7 @@ test('Puck opens safely and switches to the real non-interactive Nesting preview
   await expect(page.getByRole('region',{name:'Puck görsel tasarım editörü'})).toBeVisible();
   await expect(page.getByRole('heading',{name:'Nesting Bileşenleri',exact:true})).toBeVisible();
   await page.screenshot({path:'test-results/puck-editor-fullscreen.png',fullPage:true});
-  await page.getByRole('button',{name:'Sunucu taslağını kaydet'}).click();
+  await page.getByText('Sunucu taslağını kaydet',{exact:true}).click();
   await expect.poll(()=>savedDesign).not.toBeNull();
   expect(savedDesign).toMatchObject({format:'serula-design-v1',design:{background:'#121421',radius:12}});
   expect(JSON.stringify(savedDesign)).not.toContain('"content"');
