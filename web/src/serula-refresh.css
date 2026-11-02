@@ -9,15 +9,15 @@
   --font-ui: "Plus Jakarta Sans", Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-size-ui: 13px;
   --font-weight-ui: 450;
-  --radius-button: 10px;
+  --radius-button: 9999px;
   --radius-control: 10px;
   --radius-card: 16px;
   --radius-cards: 16px;
   --radius-inputs: 10px;
-  --radius-buttons: 10px;
+  --radius-buttons: 9999px;
   --surface-shadow: 0 2px 12px rgb(15 33 61 / .045);
-  --page: light-dark(#f3f6fb, #10151f);
-  --panel: light-dark(#ffffff, #1b2431);
+  --page: light-dark(#ffffff, #101114);
+  --panel: light-dark(#ffffff, #1b1d21);
   --panel-soft: light-dark(#f7f9fd, #222d3c);
   --panel-raised: light-dark(#ffffff, #293443);
   --card-surface: var(--panel);
@@ -95,7 +95,6 @@ body { background: var(--page) !important; background-image: none !important; }
 #root .app .header nav { align-items: center; }
 #root .app .header nav :is(a,button) {
   font-weight: 650;
-  border-radius: 9px !important;
 }
 #root .app .header nav .history-tab { background: var(--panel-soft) !important; border: 1px solid var(--border) !important; }
 #root .app .header nav .hello-button {
@@ -312,6 +311,17 @@ body { background: var(--page) !important; background-image: none !important; }
 }
 #root .app .run-controls { padding: 0 12px 0 0; }
 #root .app .run-controls .run-button { width: 100%; min-height: 46px; font-size: 13px; }
+/* Keep the existing premium-theme action contract while other accents use blue. */
+:root #root .run-controls .reference-launch {
+  background: #17191c !important;
+  border-color: #17191c !important;
+  color: #fff !important;
+}
+:root #root .run-controls .reference-launch:hover:enabled {
+  background: #363940 !important;
+  border-color: #363940 !important;
+}
+
 #root .app .run-status { min-width: 130px; color: var(--muted); }
 #root .app .run-state { font-size: 12px; font-weight: 750; color: var(--ink); }
 #root .app .metrics { gap: 10px; min-width: 0; }
