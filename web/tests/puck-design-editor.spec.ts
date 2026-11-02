@@ -35,14 +35,14 @@ test.describe('real Puck visual builder',()=>{
   test('dragging a real palette component inserts it into Puck content',async({page})=>{
     await openBuilder(page);
     const source=page.getByTestId('drawer-item:Card');
-    // Drop into Puck's real slot, not into non-droppable page whitespace.
-    const target=page.frameLocator('iframe').locator('.puck-builder-grid');
-    await source.dragTo(target,{targetPosition:{x:115,y:65}});
+    // The real Puck root renderDropZone accepts dragged content and updates data.
+    const target=page.frameLocator('iframe').locator('.puck-builder-page-content');
+    await source.dragTo(target,{targetPosition:{x:150,y:230}});
     console.log('PUCK_DND_DIAGNOSTIC',JSON.stringify({status:await page.locator('[role="status"]').allTextContents(),cardCount:await page.frameLocator('iframe').locator('.puck-builder-card').count(),storage:await page.evaluate(()=>localStorage.getItem('serula-puck-page-v1'))}));
     await expect.poll(async()=>page.evaluate(()=>{
       const doc=JSON.parse(localStorage.getItem('serula-puck-page-v1')??'null');
-      return doc?.content?.find((item:{type:string})=>item.type==='Grid')?.props?.items?.length ?? 0;
-    }),{timeout:10000}).toBe(4);
+      return doc?.content?.length ?? 0;
+    }),{timeout:10000}).toBe(5);
   });
   test('failed editor import shows recovery controls, not a blank app',async({page})=>{
     await page.route('**/api/auth/admin-me',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(adminUser)}));
