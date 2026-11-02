@@ -16,6 +16,10 @@ test('admin opens full-screen editor, selects actual layer, changes styles and u
   await expect(page.getByRole('slider',{name:'Seçili öğe köşe yarıçapı'})).toHaveValue('24');
   await page.getByRole('button',{name:'Geri al'}).click();
   await expect(page.getByRole('slider',{name:'Seçili öğe köşe yarıçapı'})).toHaveValue('12');
+  await page.getByRole('button',{name:'DXF indir butonu',exact:true}).click();
+  await page.getByRole('textbox',{name:'Seçili bölüm başlığı'}).fill('DXF KAYDET');
+  await expect(page.getByRole('textbox',{name:'Seçili bölüm başlığı'})).toHaveValue('DXF KAYDET');
+  await expect(page.frameLocator('iframe[title="Gerçek Serula Nesting ekranı"]').locator('.export-actions .download-button:not(.corel-transfer-button)')).toContainText('DXF KAYDET');
   await page.getByRole('button',{name:'Mobil'}).click();
   await expect(page.locator('.editor-live-mobile')).toBeVisible();
 });
