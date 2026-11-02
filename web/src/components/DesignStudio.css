@@ -122,3 +122,6 @@
 .editor-iframe-wrap iframe{position:absolute;top:0;left:0}
 .editor-color-field>span:first-child{align-self:flex-start!important;text-align:left!important}
 .editor-color-control{width:100%;min-width:0;justify-content:flex-start}
+
+.editor-text-field{display:flex;flex-direction:column;gap:7px;font-size:11px;color:#6b7990}
+.editor-text-field input{min-width:0;width:100%;height:36px;border:1px solid var(--editor-line);border-radius:7px;padding:7px 9px;font-size:12px;background:#fff;color:#24354f}
