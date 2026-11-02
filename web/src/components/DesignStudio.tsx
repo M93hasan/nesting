@@ -119,18 +119,27 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
     setServerBusy(true);setServerMessage('');
     try{
       const response=await fetch('/api/admin/design/draft',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({format:'serula-design-v1',design})});
-      const data=await response.json() as {error?:string};
+      const data=await response.json() as {error?:string;revisionId?:number|null};
       if(!response.ok)throw Error(data.error??'Taslak kaydedilemedi.');
       await refreshVersions();
-      // Newly created immutable revision is the version the user just saved.
-      const versions=await fetch('/api/admin/design/versions',{credentials:'same-origin',cache:'no-store'});
-      if(versions.ok){
-        const data=await versions.json() as {versions?:{id:number}[]};
-        const newest=data.versions?.[0]?.id;
-        if(Number.isSafeInteger(newest)&&newest&&newest>0)setReleaseId(String(newest));
-      }
-      setServerMessage('Sunucu taslağı yeni sürüm olarak kaydedildi. Yayınlanacak sürüm seçildi; canlı site henüz değişmedi.');
+      if(Number.isSafeInteger(data.revisionId)&&data.revisionId&&data.revisionId>0)setReleaseId(String(data.revisionId));
+      setServerMessage(data.revisionId?'Sunucu taslağı yeni sürüm olarak kaydedildi. Tam bu sürüm yayınlama için seçildi; canlı site değişmedi.':'Taslak kaydedildi. Yayınlamak için sürümü geçmişten seç; canlı site değişmedi.');
     }catch(error){setServerMessage(error instanceof Error?error.message:'Kayıt başarısız.');}
+    finally{setServerBusy(false);}
+  };
+  const openLiveDesign=async()=>{
+    if(!window.confirm('Mevcut düzenleme taslağı yerine canlıda yayınlanan görünüm açılsın mı? Yayın değişmeyecek.'))return;
+    setServerBusy(true);setServerMessage('');
+    try{
+      const response=await fetch('/api/design/published',{credentials:'same-origin',cache:'no-store'});
+      const data=await response.json() as {published?:{design?:unknown}|null;error?:string};
+      if(!response.ok)throw Error(data.error??'Canlı görünüm yüklenemedi.');
+      if(!data.published?.design){setServerMessage('Henüz yayınlanmış bir tasarım bulunmuyor.');return;}
+      if(!validDraft(data.published.design))throw Error('Canlı tasarımın veri biçimi geçersiz.');
+      apply(data.published.design);
+      setSelectedBlockId(null);
+      setServerMessage('Canlı sürüm düzenleme taslağına alındı. Canlı site değişmedi; değiştirmek için kaydet ve ayrıca yayınla.');
+    }catch(error){setServerMessage(error instanceof Error?error.message:'Canlı görünüm yüklenemedi.');}
     finally{setServerBusy(false);}
   };
   const restoreServerVersion=async(id:number)=>{
@@ -521,6 +530,7 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
           <small>Öğe ekleyince katman listesinde görünür. Mevcut Nesting butonlarının çalışma biçimi değiştirilmez.</small>
         </div>:<div className="editor-history">
           <div className="editor-section-label">SUNUCU SÜRÜMLERİ</div>
+          <button type="button" disabled={serverBusy} onClick={()=>void openLiveDesign()}>Canlı tasarımı düzenlemeye aç</button>
           <button type="button" disabled={serverBusy} onClick={()=>void refreshVersions().catch(()=>setServerMessage('Sürüm geçmişi alınamadı.'))}>Sürümleri yenile ↻</button>
           {remoteVersions.length===0?<p>Henüz kayıtlı sürüm yok.</p>:remoteVersions.map(v=><div className="editor-history-entry" key={v.id}><div><strong>#{v.id}</strong><small>{v.created_at}</small></div><button type="button" disabled={serverBusy} onClick={()=>void restoreServerVersion(v.id)}>Taslağa al</button></div>)}
           <div className="editor-section-label">DOSYA İŞLEMLERİ</div>
