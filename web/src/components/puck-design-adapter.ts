@@ -33,9 +33,11 @@ export function parseStudioDesign(input:unknown):StudioDesign|null{
   if(Object.keys(zones).length)result.zoneStyles=zones;
   // Preserve the old editor's metadata so migrating to Puck cannot discard it.
   if(Array.isArray(input.hidden)&&input.hidden.every(x=>SAMPLE_LAYERS.includes(x)))result.hidden=[...input.hidden];
-  if(Array.isArray(input.order)&&input.order.length===3&&new Set(input.order).size===3&&SAMPLE_LAYERS.every(x=>input.order.includes(x))&&input.order[2]==='Birincil buton')result.order=[...input.order];
-  if(isObject(input.positions)&&Object.keys(input.positions).every(k=>SAMPLE_LAYERS.includes(k)&&isObject(input.positions![k])&&inRange((input.positions![k] as Record<string,unknown>).x,0,80)&&inRange((input.positions![k] as Record<string,unknown>).y,0,80))){
-    result.positions=Object.fromEntries(Object.entries(input.positions).map(([k,v])=>[k,{x:(v as {x:number}).x,y:(v as {y:number}).y}]));
+  const order=input.order;
+  if(Array.isArray(order)&&order.length===3&&new Set(order).size===3&&SAMPLE_LAYERS.every(x=>order.includes(x))&&order[2]==='Birincil buton')result.order=[...order];
+  const positions=input.positions;
+  if(isObject(positions)&&Object.keys(positions).every(k=>SAMPLE_LAYERS.includes(k)&&isObject(positions[k])&&inRange((positions[k] as Record<string,unknown>).x,0,80)&&inRange((positions[k] as Record<string,unknown>).y,0,80))){
+    result.positions=Object.fromEntries(Object.entries(positions).map(([k,v])=>[k,{x:(v as {x:number}).x,y:(v as {y:number}).y}]));
   }
   return result;
 }
@@ -50,7 +52,7 @@ export function toPuckData(design:StudioDesign){
     return order.indexOf(a)-order.indexOf(b);
   });
   return {
-    content:sorted.map(zone=>({type:'Zone' as const,props:{id:'serula-'+zone,zone,...design.zoneStyles?.[zone]}})),
+    content:sorted.map(zone=>({type:'Zone' as const,props:{id:'serula-'+zone,zone,...design.zoneStyles?.[zone]},readOnly:{zone:true}})),
     root:{props:{background:design.background,panel:design.panel,accent:design.accent,radius:design.radius,spacing:design.spacing,fontSize:design.fontSize,heading:design.heading}}
   };
 }
