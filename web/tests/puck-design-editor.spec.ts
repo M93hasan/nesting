@@ -69,13 +69,13 @@ test.describe('production-like service worker',()=>{
   test('Puck opens after isolation service worker registration',async({page})=>{
     await page.route('**/api/auth/admin-me',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({user:{id:1,email:'qa@example.test',name:'QA',role:'admin',credits:0,unlimited:true}})}));
     await page.goto('/admin');
+    // The original bug only existed after the production isolation SW took control.
+    await expect.poll(()=>page.evaluate(()=>({
+      controlled:!!navigator.serviceWorker?.controller,isolated:crossOriginIsolated
+    })),{timeout:20000}).toEqual({controlled:true,isolated:true});
     await expect(page.getByRole('button',{name:/Görünüm/})).toBeVisible();
     await page.getByRole('button',{name:/Görünüm/}).click();
-    page.on('pageerror',error=>console.log('PUCK_SW_PAGEERROR',error.message));
     await page.getByRole('button',{name:'Puck Editörünü Aç'}).click();
-    await page.waitForTimeout(1800);
-    console.log('PUCK_SW_DIAGNOSTIC',JSON.stringify(await page.evaluate(()=>({path:location.pathname,isolated:crossOriginIsolated,controlled:!!navigator.serviceWorker?.controller,admin:document.body.innerText.slice(0,1000),alert:document.querySelector('[aria-label="Puck editör yükleme hatası"]')?.textContent?.slice(0,600)}))));
-    await page.screenshot({path:'test-results/puck-sw-diagnostic.png',fullPage:true});
     await expect(page.getByRole('region',{name:'Puck görsel tasarım editörü'})).toBeVisible();
     await expect(page.getByRole('heading',{name:'Nesting Bileşenleri',exact:true})).toBeVisible();
   });
