@@ -9,6 +9,7 @@ test('admin opens full-screen editor, selects actual layer, changes styles and u
   await page.getByRole('button',{name:'Tasarım Editörünü Aç'}).click();
   await expect(page.getByRole('region',{name:'Serula görsel tasarım editörü'})).toBeVisible();
   await expect(page.getByRole('complementary',{name:'Sayfalar ve katmanlar'})).toBeVisible();
+  await page.screenshot({path:'test-results/design-editor-fullscreen.png',fullPage:true});
   await page.getByRole('button',{name:'Parça paneli',exact:true}).click();
   await expect(page.getByRole('complementary',{name:'Seçili öğe özellikleri'})).toContainText('Parça paneli');
   await page.getByRole('slider',{name:'Seçili öğe köşe yarıçapı'}).fill('24');
