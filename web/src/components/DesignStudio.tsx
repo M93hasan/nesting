@@ -156,7 +156,7 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
   const design=history[index];
   useEffect(()=>{
     if(!realPreview)return;
-    try{localStorage.setItem('serula-design-studio-live-preview-v1',JSON.stringify(design));}
+    try{localStorage.setItem('serula-design-studio-live-preview-v1',JSON.stringify(design));frameRef.current?.contentWindow?.postMessage('serula-design-preview-refresh',window.location.origin);}
     catch{setStorageError('Gerçek ekran önizlemesi için tarayıcı depolaması kullanılamadı.');}
   },[design,realPreview]);
   const stateRef=useRef({history,index});
