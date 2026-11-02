@@ -1,16 +1,19 @@
 import {useEffect,useRef,useState} from 'react';
 import './DesignStudio.css';
 
-type Design = {background:string;panel:string;accent:string;radius:number;spacing:number;fontSize:number;heading:string};
+type Design = {background:string;panel:string;accent:string;radius:number;spacing:number;fontSize:number;heading:string;hidden?:string[]};
 const initial:Design={background:'#121421',panel:'#242935',accent:'#5278ed',radius:12,spacing:16,fontSize:15,heading:'Serula çalışma alanı'};
 type Device='desktop'|'tablet'|'mobile';
 const samples=['Başlık','Ana panel','Birincil buton'] as const;
+type Layer=typeof samples[number];
+const isLayer=(value:string):value is Layer=>samples.some(item=>item===value);
 const DRAFT_KEY='serula-design-studio-draft-v1';
 function validDraft(value:unknown):value is Design{
   if(!value||typeof value!=='object')return false;
   const d=value as Partial<Design>;
   return ['background','panel','accent'].every(key=>typeof d[key as keyof Design]==='string'&&/^#[0-9a-f]{6}$/i.test(d[key as keyof Design] as string))
     &&typeof d.heading==='string'&&d.heading.length<=80
+    &&(d.hidden===undefined||(Array.isArray(d.hidden)&&d.hidden.length<=samples.length&&d.hidden.every((name:unknown)=>typeof name==='string'&&isLayer(name))))
     &&([['radius',0,32],['spacing',8,40],['fontSize',12,22]] as const).every(([key,min,max])=>typeof d[key]==='number'&&Number.isFinite(d[key])&&d[key]>=min&&d[key]<=max);
 }
 function loadDraft():Design{
@@ -23,6 +26,7 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
   const [index,setIndex]=useState(0);
   const [selected,setSelected]=useState<(typeof samples)[number]>('Ana panel');
   const [device,setDevice]=useState<Device>('desktop');
+  const [locked,setLocked]=useState<Layer[]>([]);
   const [saved,setSaved]=useState(false);
   const [storageError,setStorageError]=useState('');
   const [importText,setImportText]=useState('');
@@ -60,6 +64,8 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
     stateRef.current={history:updated,index:updated.length-1};
     setHistory(updated);setIndex(updated.length-1);setSaved(false);
   };
+  const toggleVisibility=(layer:Layer)=>apply({hidden:design.hidden?.includes(layer)?(design.hidden??[]).filter(name=>name!==layer):[...(design.hidden??[]),layer]});
+  const toggleLock=(layer:Layer)=>setLocked(current=>current.includes(layer)?current.filter(name=>name!==layer):[...current,layer]);
   const undo=()=>{setSaved(false);setIndex(v=>Math.max(0,v-1));};
   const redo=()=>{setSaved(false);setIndex(v=>Math.min(history.length-1,v+1));};
   useEffect(()=>{
@@ -100,24 +106,30 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
     <div className="design-studio-workspace">
       <aside className="design-studio-pane" aria-label="Katmanlar">
         <h3>Katmanlar</h3>
-        {samples.map(item=><button type="button" key={item} aria-pressed={selected===item} className={selected===item?'design-selected':''} onClick={()=>setSelected(item)}>{item}</button>)}
+        {samples.map(item=><div className="design-layer-row" key={item}>
+          <button type="button" aria-pressed={selected===item} className={selected===item?'design-selected':''} onClick={()=>setSelected(item)}>{item}</button>
+          <button type="button" aria-label={item+' görünürlüğünü değiştir'} aria-pressed={!(design.hidden??[]).includes(item)} title={(design.hidden??[]).includes(item)?'Göster':'Gizle'} onClick={()=>toggleVisibility(item)}>{(design.hidden??[]).includes(item)?'◌':'◉'}</button>
+          <button type="button" aria-label={item+' kilidini değiştir'} aria-pressed={locked.includes(item)} title={locked.includes(item)?'Kilidi aç':'Kilitle'} onClick={()=>toggleLock(item)}>{locked.includes(item)?'🔒':'🔓'}</button>
+        </div>)}
       </aside>
       <div className="design-studio-center">
         <div className="design-device-switch" role="group" aria-label="Cihaz önizleme">
           {(['desktop','tablet','mobile'] as const).map(item=><button type="button" key={item} aria-pressed={device===item} onClick={()=>setDevice(item)}>{({desktop:'Masaüstü',tablet:'Tablet',mobile:'Mobil'} as const)[item]}</button>)}
         </div>
         <div className={'design-preview design-preview-'+device} style={{background:design.background,color:'#fff',fontSize:design.fontSize}}>
-          <h2 className={selected==='Başlık'?'design-preview-selected':''} onClick={()=>setSelected('Başlık')}>{design.heading}</h2>
-          <div className={selected==='Ana panel'?'design-preview-panel design-preview-selected':'design-preview-panel'} onClick={()=>setSelected('Ana panel')} style={{background:design.panel,borderRadius:design.radius,padding:design.spacing}}>
+          {!(design.hidden??[]).includes('Başlık')&&<h2 className={selected==='Başlık'?'design-preview-selected':''} onClick={()=>{if(!locked.includes('Başlık'))setSelected('Başlık');}}>{design.heading}</h2>}
+          {!(design.hidden??[]).includes('Ana panel')&&<div className={selected==='Ana panel'?'design-preview-panel design-preview-selected':'design-preview-panel'} onClick={()=>{if(!locked.includes('Ana panel'))setSelected('Ana panel');}} style={{background:design.panel,borderRadius:design.radius,padding:design.spacing}}>
             <strong>Örnek çalışma paneli</strong>
             <p>Bu alan yalnızca tasarım önizlemesidir. Gerçek hesaplamalar ve kullanıcı verileri değişmez.</p>
-            <button type="button" className={selected==='Birincil buton'?'design-preview-selected':''} onClick={event=>{event.stopPropagation();setSelected('Birincil buton');}} style={{background:design.accent,borderRadius:Math.min(design.radius,20),color:'#fff',border:0,padding:'10px 16px'}}>Örnek buton</button>
-          </div>
+            {!(design.hidden??[]).includes('Birincil buton')&&<button type="button" className={selected==='Birincil buton'?'design-preview-selected':''} onClick={event=>{event.stopPropagation();if(!locked.includes('Birincil buton'))setSelected('Birincil buton');}} style={{background:design.accent,borderRadius:Math.min(design.radius,20),color:'#fff',border:0,padding:'10px 16px'}}>Örnek buton</button>}
+          </div>}
         </div>
       </div>
       <aside className="design-studio-pane design-studio-properties" aria-label="Özellikler">
         <h3>Özellikler</h3>
         <p>Seçili öğe: <strong>{selected}</strong></p>
+        {locked.includes(selected)&&<p role="status">Bu katman kilitli. Düzenlemek için kilidi aç.</p>}
+        <fieldset disabled={locked.includes(selected)}>
         <label>Arka plan <input type="color" value={design.background} onChange={e=>apply({background:e.target.value})}/></label>
         <label>Panel rengi <input type="color" value={design.panel} onChange={e=>apply({panel:e.target.value})}/></label>
         <label>Vurgu rengi <input type="color" value={design.accent} onChange={e=>apply({accent:e.target.value})}/></label>
@@ -125,6 +137,7 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
         <label>İç boşluk: {design.spacing}px <input type="range" min="8" max="40" value={design.spacing} onChange={e=>apply({spacing:Number(e.target.value)})}/></label>
         <label>Yazı boyutu: {design.fontSize}px <input type="range" min="12" max="22" value={design.fontSize} onChange={e=>apply({fontSize:Number(e.target.value)})}/></label>
         <label>Başlık <input type="text" maxLength={80} value={design.heading} onChange={e=>apply({heading:e.target.value})}/></label>
+        </fieldset>
       </aside>
     </div>
   </section>;
