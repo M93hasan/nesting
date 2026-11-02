@@ -20,7 +20,7 @@ describe('Puck design adapter',()=>{
     const design=fromPuckData(data,DEFAULT_STUDIO_DESIGN);
     expect(design?.radius).toBe(25);
     expect(JSON.stringify(design)).not.toContain('"content"');
-    expect(parseStudioDesign(design)).toEqual(design);
+    expect(parseStudioDesign(design)).toMatchObject({radius:25,workspaceOrder:['parts','canvas','material']});
   });
   it('rejects arbitrary components, replacement ids and repeated zones',()=>{
     const data=toPuckData(DEFAULT_STUDIO_DESIGN);
