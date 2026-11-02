@@ -17,6 +17,7 @@ describe('design component registry',()=>{
   it('reorders only root components without mutating input',()=>{
     const before=['heading','panel'] as const;
     expect(reorderRoot(before,'heading','panel')).toEqual(['panel','heading']);
+    expect(reorderRoot(before,'panel','heading')).toEqual(['panel','heading']);
     expect(before).toEqual(['heading','panel']);
     expect(canReorder('button','heading')).toBe(false);
     expect(reorderRoot(before,'button','heading')).toEqual(['heading','panel']);
