@@ -32,8 +32,27 @@ describe('isolated design document validation',()=>{
     expect(parseDesignPayload(payload({downloadButton:{offsetX:60,offsetY:-40}})).design.zoneStyles.downloadButton).toEqual({offsetX:60,offsetY:-40});
     expect(()=>parseDesignPayload(payload({downloadButton:{offsetX:81}}))).toThrow();
     expect(()=>parseDesignPayload(payload({downloadButton:{offsetY:-81}}))).toThrow();
-    expect(()=>parseDesignPayload(payload({canvas:{offsetX:20}}))).toThrow();
+    expect(parseDesignPayload(payload({canvas:{offsetX:20,offsetY:-100}})).design.zoneStyles.canvas).toEqual({offsetX:20,offsetY:-100});
+    expect(()=>parseDesignPayload(payload({canvas:{offsetX:161}}))).toThrow();
     expect(()=>parseDesignPayload(payload({runButton:{offsetX:2.5}}))).toThrow();
+  });
+  it('accepts addable components and rejects executable HTML, external links and duplicate IDs',()=>{
+    const block={id:'widget-aaaa1111',kind:'button',region:'canvas',text:'Hizli baglanti',href:'/admin',fontSize:16,padding:12,x:20,y:0,devices:['desktop','mobile']};
+    const input=(blocks)=>({format:'serula-design-v1',design:{...design,blocks}});
+    expect(parseDesignPayload(input([block])).design.blocks).toEqual([block]);
+    expect(()=>parseDesignPayload(input([{...block,href:'javascript:alert(1)'}]))).toThrow();
+    expect(()=>parseDesignPayload(input([{...block,text:'<script>'}]))).toThrow();
+    expect(()=>parseDesignPayload(input([{...block,x:1000}]))).toThrow();
+    expect(()=>parseDesignPayload(input([block,block]))).toThrow();
+    expect(()=>parseDesignPayload(input([{...block,unknownStyle:'position:fixed'}]))).toThrow();
+  });
+  it('accepts HTTPS image assets while rejecting non-image and script URLs',()=>{
+    const payload=(src)=>({format:'serula-design-v1',design:{...design,blocks:[{id:'widget-imageabc',kind:'image',region:'canvas',text:'Katalog görseli',src}]}});
+    expect(parseDesignPayload(payload('https://cdn.example.com/catalog.png')).design.blocks).toHaveLength(1);
+    expect(()=>parseDesignPayload(payload('javascript:alert(1)'))).toThrow();
+    expect(()=>parseDesignPayload(payload('https://cdn.example.com/file.html'))).toThrow();
+    expect(()=>parseDesignPayload(payload('//attacker.example.com/photo.png'))).toThrow();
+    expect(()=>parseDesignPayload(payload('/assets/../../secret.png'))).toThrow();
   });
   it('rejects unknown format',()=>expect(()=>parseDesignPayload({format:'other',design})).toThrow());
 });

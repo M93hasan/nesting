@@ -1,7 +1,7 @@
 // Versioned, allowlisted Serula design drafts. Never accepts executable markup or styles.
 const COLOR=/^#[0-9a-f]{6}$/i;
 const LABELS=['Başlık','Ana panel','Birincil buton'];
-const EXACT=['background','panel','accent','radius','spacing','fontSize','heading','hidden','order','positions','workspaceOrder','zoneStyles'];
+const EXACT=['background','panel','accent','radius','spacing','fontSize','heading','hidden','order','positions','workspaceOrder','zoneStyles','blocks'];
 const has=(obj,key)=>Object.prototype.hasOwnProperty.call(obj,key);
 export function parseDesignDocument(input){
   if(!input||typeof input!=='object'||Array.isArray(input))throw new Error('Tasarım nesnesi gerekli.');
@@ -39,7 +39,7 @@ export function parseDesignDocument(input){
     output.workspaceOrder=[...input.workspaceOrder];
   }
   if(has(input,'zoneStyles')){
-    const zones=['header','parts','canvas','material','actions','runButton','corelButton','downloadButton'];
+    const zones=['header','parts','canvas','material','actions','runButton','corelButton','downloadButton','brand','projectBar','partsList','canvasHeading','rotationSettings','materialSettings','runControls','exportActions','projectStatus','partsTitle'];
     const allowed=['background','color','radius','spacing','fontSize','shadow','text','offsetX','offsetY'];
     if(!input.zoneStyles||typeof input.zoneStyles!=='object'||Array.isArray(input.zoneStyles)||Object.keys(input.zoneStyles).some(id=>!zones.includes(id)))throw new Error('Geçersiz bileşen kimliği.');
     output.zoneStyles={};
@@ -55,15 +55,38 @@ export function parseDesignDocument(input){
         cleaned[key]=style[key];
       }
       for(const key of ['offsetX','offsetY'])if(Object.prototype.hasOwnProperty.call(style,key)){
-        if(!['runButton','corelButton','downloadButton'].includes(id)||!Number.isInteger(style[key])||style[key]<-80||style[key]>80)throw new Error('Geçersiz düğme konumu.');
+        const max=['runButton','corelButton','downloadButton'].includes(id)?80:160;
+        if(!Number.isInteger(style[key])||style[key]<-max||style[key]>max)throw new Error('Geçersiz öğe konumu.');
         cleaned[key]=style[key];
       }
       if(Object.prototype.hasOwnProperty.call(style,'text')){
-        if(id==='actions'||typeof style.text!=='string'||style.text.length>80||/[<>\x00-\x1f]/.test(style.text))throw new Error('Geçersiz bileşen başlığı.');
+        if(!['header','parts','canvas','material','runButton','corelButton','downloadButton'].includes(id)||typeof style.text!=='string'||style.text.length>80||/[<>\x00-\x1f]/.test(style.text))throw new Error('Geçersiz bileşen başlığı.');
         cleaned.text=style.text;
       }
       output.zoneStyles[id]=cleaned;
     }
+  }
+  if(has(input,'blocks')){
+    const kinds=['text','heading','button','image','divider'],regions=['header','parts','canvas','material','actions'],devices=['desktop','tablet','mobile'];
+    const allowed=['id','kind','region','text','href','src','color','background','fontSize','padding','radius','width','x','y','opacity','align','hidden','devices','borderWidth','borderColor','fontFamily','animation'];
+    if(!Array.isArray(input.blocks)||input.blocks.length>100)throw new Error('Çok fazla tasarım bileşeni.');
+    const ids=new Set();
+    output.blocks=input.blocks.map(block=>{
+      if(!block||typeof block!=='object'||Array.isArray(block)||Object.keys(block).some(k=>!allowed.includes(k)))throw new Error('Geçersiz bileşen alanı.');
+      if(typeof block.id!=='string'||!/^widget-[a-z0-9-]{8,64}$/.test(block.id)||ids.has(block.id))throw new Error('Geçersiz bileşen kimliği.');
+      if(!kinds.includes(block.kind)||!regions.includes(block.region)||typeof block.text!=='string'||block.text.length>160||/[<>\x00-\x1f]/.test(block.text))throw new Error('Geçersiz tasarım bileşeni.');
+      if(has(block,'href')&&(typeof block.href!=='string'||!/^\/(?!\/)[a-zA-Z0-9/_-]{0,80}$/.test(block.href)))throw new Error('Geçersiz düğme bağlantısı.');
+      if(has(block,'src')&&!(typeof block.src==='string'&&block.src.length<=300&&/^(?:\/(?!\/)[a-zA-Z0-9/_-]+\.(?:png|jpe?g|webp|svg)|https:\/\/[a-zA-Z0-9.-]+\/[a-zA-Z0-9_./%-]+\.(?:png|jpe?g|webp)(?:\?[a-zA-Z0-9&=_-]{0,80})?)$/i.test(block.src)&&!block.src.includes('..')))throw new Error('İzin verilmeyen görsel adresi.');
+      for(const key of ['color','background','borderColor'])if(has(block,key)&&(typeof block[key]!=='string'||!COLOR.test(block[key])))throw new Error('Geçersiz bileşen rengi.');
+      for(const [key,min,max] of [['fontSize',10,36],['padding',0,48],['radius',0,40],['width',40,650],['x',-300,300],['y',-300,300],['opacity',0,100],['borderWidth',0,8]])if(has(block,key)&&(!Number.isInteger(block[key])||block[key]<min||block[key]>max))throw new Error('Geçersiz bileşen ölçüsü.');
+      if(has(block,'fontFamily')&&!['system','serif','mono'].includes(block.fontFamily))throw new Error('Geçersiz yazı tipi.');
+      if(has(block,'animation')&&!['none','fade','slide'].includes(block.animation))throw new Error('Geçersiz animasyon.');
+      if(has(block,'align')&&!['left','center','right'].includes(block.align))throw new Error('Geçersiz hizalama.');
+      if(has(block,'hidden')&&typeof block.hidden!=='boolean')throw new Error('Geçersiz görünürlük.');
+      if(has(block,'devices')&&(!Array.isArray(block.devices)||!block.devices.length||new Set(block.devices).size!==block.devices.length||!block.devices.every(d=>devices.includes(d))))throw new Error('Geçersiz cihaz görünürlüğü.');
+      ids.add(block.id);
+      return {...block};
+    });
   }
   return output;
 }

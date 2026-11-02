@@ -1,0 +1,19 @@
+/* User-created studio components: declarative only, never arbitrary HTML/CSS. */
+.design-widget-region{display:flex;flex-wrap:wrap;align-items:flex-start;gap:8px;min-width:0;max-width:100%;padding:4px 6px;position:relative}
+.design-widget{position:relative;box-sizing:border-box;display:inline-block;margin:2px 0;border:1px solid transparent;white-space:pre-wrap;overflow-wrap:anywhere}
+.design-widget-heading{font-weight:750;line-height:1.25}
+.design-widget-text{line-height:1.5}
+.design-widget-button{border:1px solid currentColor!important;text-decoration:none!important;font-weight:650;cursor:pointer}
+.design-widget-button:hover{filter:brightness(.94)}
+.design-widget-image{height:auto;object-fit:contain;max-height:100px}
+.design-widget-divider{min-width:60px;flex:1}
+.design-widget-divider hr{border:0;border-top:1px solid #b6bdc9;margin:8px 0}
+@media(min-width:1100px){.design-widget:not(.design-device-desktop){display:none!important}}
+@media(min-width:600px) and (max-width:1099px){.design-widget:not(.design-device-tablet){display:none!important}}
+@media(max-width:599px){.design-widget:not(.design-device-mobile){display:none!important}}
+
+@keyframes serula-widget-fade{from{opacity:0}to{opacity:1}}
+@keyframes serula-widget-reveal{from{clip-path:inset(0 0 100% 0);opacity:0}to{clip-path:inset(0);opacity:1}}
+.design-motion-fade{animation:serula-widget-fade .25s ease-out}
+.design-motion-slide{animation:serula-widget-reveal .3s ease-out}
+@media(prefers-reduced-motion:reduce){.design-motion-fade,.design-motion-slide{animation:none}}
