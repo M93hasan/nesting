@@ -67,7 +67,7 @@ export function parseDesignDocument(input){
   }
   if(has(input,'blocks')){
     const kinds=['text','heading','button','image','divider'],regions=['header','parts','canvas','material','actions'],devices=['desktop','tablet','mobile'];
-    const allowed=['id','kind','region','text','href','src','color','background','fontSize','padding','radius','width','x','y','opacity','align','hidden','devices'];
+    const allowed=['id','kind','region','text','href','src','color','background','fontSize','padding','radius','width','x','y','opacity','align','hidden','devices','borderWidth','borderColor','fontFamily','animation'];
     if(!Array.isArray(input.blocks)||input.blocks.length>100)throw new Error('Çok fazla tasarım bileşeni.');
     const ids=new Set();
     output.blocks=input.blocks.map(block=>{
@@ -76,8 +76,10 @@ export function parseDesignDocument(input){
       if(!kinds.includes(block.kind)||!regions.includes(block.region)||typeof block.text!=='string'||block.text.length>160||/[<>\x00-\x1f]/.test(block.text))throw new Error('Geçersiz tasarım bileşeni.');
       if(has(block,'href')&&(typeof block.href!=='string'||!/^\/(?!\/)[a-zA-Z0-9/_-]{0,80}$/.test(block.href)))throw new Error('Geçersiz düğme bağlantısı.');
       if(has(block,'src')&&!['/serula-logo.svg','/corel-button-logo.svg'].includes(block.src))throw new Error('İzin verilmeyen görsel adresi.');
-      for(const key of ['color','background'])if(has(block,key)&&(typeof block[key]!=='string'||!COLOR.test(block[key])))throw new Error('Geçersiz bileşen rengi.');
-      for(const [key,min,max] of [['fontSize',10,36],['padding',0,48],['radius',0,40],['width',40,650],['x',-300,300],['y',-300,300],['opacity',0,100]])if(has(block,key)&&(!Number.isInteger(block[key])||block[key]<min||block[key]>max))throw new Error('Geçersiz bileşen ölçüsü.');
+      for(const key of ['color','background','borderColor'])if(has(block,key)&&(typeof block[key]!=='string'||!COLOR.test(block[key])))throw new Error('Geçersiz bileşen rengi.');
+      for(const [key,min,max] of [['fontSize',10,36],['padding',0,48],['radius',0,40],['width',40,650],['x',-300,300],['y',-300,300],['opacity',0,100],['borderWidth',0,8]])if(has(block,key)&&(!Number.isInteger(block[key])||block[key]<min||block[key]>max))throw new Error('Geçersiz bileşen ölçüsü.');
+      if(has(block,'fontFamily')&&!['system','serif','mono'].includes(block.fontFamily))throw new Error('Geçersiz yazı tipi.');
+      if(has(block,'animation')&&!['none','fade','slide'].includes(block.animation))throw new Error('Geçersiz animasyon.');
       if(has(block,'align')&&!['left','center','right'].includes(block.align))throw new Error('Geçersiz hizalama.');
       if(has(block,'hidden')&&typeof block.hidden!=='boolean')throw new Error('Geçersiz görünürlük.');
       if(has(block,'devices')&&(!Array.isArray(block.devices)||!block.devices.length||new Set(block.devices).size!==block.devices.length||!block.devices.every(d=>devices.includes(d))))throw new Error('Geçersiz cihaz görünürlüğü.');
