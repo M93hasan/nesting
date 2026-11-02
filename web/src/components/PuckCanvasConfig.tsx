@@ -137,7 +137,7 @@ export const puckBuilderConfig:Config<BuilderBlocks,BuilderRoot>={
           arrayFields:{name:{type:'text',label:'Parça adı'},quantity:{type:'number',label:'Adet',min:1,max:10000}}}
       },
       defaultProps:{title:'Parçalar',parts:[{name:'Parça 01',quantity:4},{name:'Parça 02',quantity:2},{name:'Parça 03',quantity:1}]},
-      render:({title,parts})=><section className="puck-builder-parts" style={surface}>
+      render:({title,parts=[]})=><section className="puck-builder-parts" style={surface}>
         <strong>{title}</strong><small>Parça listesi · düzenlenebilir tasarım örneği</small>
         {parts.map((part,i)=><div key={i} className="puck-builder-item"><span>▣</span><span>{part.name}</span><em>× {part.quantity}</em></div>)}
       </section>
@@ -248,11 +248,11 @@ export const initialPuckPage:Data<BuilderBlocks,BuilderRoot>={
     {type:'Heading',props:{id:'demo-heading',text:'Serula Nesting',level:'h2',align:'left'}},
     {type:'Text',props:{id:'demo-intro',text:'Soldaki bileşenleri bu alana sürükle. Bileşene tıklayıp sağ panelden özelliklerini düzenle.',align:'left',size:14}},
     {type:'Grid',props:{id:'demo-grid',columns:3,gap:16,items:[
-      {type:'PartsPanel',props:{id:'demo-parts',title:'Parçalar'}},
-      {type:'NestingCanvas',props:{id:'demo-canvas',title:'Yerleşim önizlemesi'}},
-      {type:'MaterialPanel',props:{id:'demo-material',title:'Malzeme ayarları'}}
+      {type:'PartsPanel',props:{id:'demo-parts',title:'Parçalar',parts:[{name:'Parça 01',quantity:4},{name:'Parça 02',quantity:2},{name:'Parça 03',quantity:1}]}},
+      {type:'NestingCanvas',props:{id:'demo-canvas',title:'Yerleşim önizlemesi',sheetWidth:1500,sheetHeight:3000,fill:'#f8fbfe'}},
+      {type:'MaterialPanel',props:{id:'demo-material',title:'Malzeme ayarları',width:1500,gap:5,material:'Rulo'}}
     ]}},
-    {type:'ActionBar',props:{id:'demo-actions',label:'Parçaları yerleştir'}},
+    {type:'ActionBar',props:{id:'demo-actions',label:'Parçaları yerleştir',downloadLabel:'DXF İndir',corelLabel:'CorelDRAW'}},
     // A visible, empty Puck slot is the supported insertion target. Non-empty
     // dropzones disable direct collisions; users then drop between components.
     {type:'Flex',props:{id:'demo-insert-here',direction:'column',gap:14,items:[]}}
