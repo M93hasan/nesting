@@ -146,7 +146,7 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
   };
   const importJson=()=>{
     try{
-      if(importText.length>10000)throw Error('Dosya çok büyük.');
+      if(importText.length>70000)throw Error('Dosya çok büyük.');
       const value:unknown=JSON.parse(importText);
       if(!value||typeof value!=='object'||(value as {format?:unknown}).format!=='serula-design-v1')throw Error('Tanınmayan tasarım biçimi.');
       const candidate=(value as {design?:unknown}).design;
@@ -411,10 +411,11 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
   const zoneNames:Record<DesignZone,string>={header:'Üst menü',parts:'Parça paneli',canvas:'Çalışma alanı',material:'Malzeme ve ayarlar',actions:'Alt işlem çubuğu',runButton:'Yerleştir butonu',corelButton:'CorelDRAW butonu',downloadButton:'DXF indir butonu'};
   const shownZoneOrder:DesignZone[]=['header',...(workspaceOrder as DesignZone[]),'actions','runButton','corelButton','downloadButton'];
   const reset=()=>{
-    if(window.confirm('Yalnızca bu editördeki yayınlanmamış denemeler sıfırlansın mı?')){
-      setHistory([initial]);setIndex(0);setSaved(false);
-      try{localStorage.removeItem(DRAFT_KEY);setStorageError('');}catch{setStorageError('Tarayıcıdaki kayıt silinemedi.');}
-    }
+    if(!window.confirm('Kaydedilmemiş değişiklikler silinsin ve son kaydedilen taslak geri yüklensin mi?'))return;
+    const lastSaved=loadDraft();
+    setHistory([lastSaved]);setIndex(0);setSaved(true);
+    setSelectedBlockId(null);
+    setStorageError('');
   };
   return <section className="design-studio design-editor-v2" aria-label="Serula görsel tasarım editörü">
     <header className="editor-topbar">
@@ -571,6 +572,6 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
         <div className="editor-inspector-footer"><button type="button" disabled={!appearanceLoaded} onClick={()=>apply(appearanceToPreviewTokens(appearance))}>Serula renklerini içe al</button></div>
       </aside>
     </div>
-    {importOpen&&<div className="editor-import-overlay"><div className="editor-import-dialog" role="dialog" aria-modal="true" aria-label="Tasarım JSON içe aktar"><h3>JSON içe aktar</h3><p>Yalnızca doğrulanmış Serula tasarım dosyaları kabul edilir.</p><textarea aria-label="Tasarım JSON içeriği" rows={7} maxLength={10000} value={importText} onChange={e=>setImportText(e.target.value)}/><div><button type="button" onClick={()=>setImportOpen(false)}>Vazgeç</button><button type="button" onClick={importJson}>Doğrula ve taslağa uygula</button></div></div></div>}
+    {importOpen&&<div className="editor-import-overlay"><div className="editor-import-dialog" role="dialog" aria-modal="true" aria-label="Tasarım JSON içe aktar"><h3>JSON içe aktar</h3><p>Yalnızca doğrulanmış Serula tasarım dosyaları kabul edilir.</p><textarea aria-label="Tasarım JSON içeriği" rows={7} maxLength={70000} value={importText} onChange={e=>setImportText(e.target.value)}/><div><button type="button" onClick={()=>setImportOpen(false)}>Vazgeç</button><button type="button" onClick={importJson}>Doğrula ve taslağa uygula</button></div></div></div>}
   </section>;
 }
