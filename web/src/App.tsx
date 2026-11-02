@@ -736,7 +736,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
             <label htmlFor="production-series-count">Üretim serisi</label>
             <div className="series-multiplier" title="Yerleşim ve indirilen DXF tek seri içindir. Seri adedi üretim toplamını ve malzeme ihtiyacını hesaplar."><span aria-hidden="true">×</span><input id="production-series-count" aria-label="Proje seri adedi" inputMode="numeric" type="text" pattern="[0-9]*" value={seriesDraft??String(seriesMultiplier)} disabled={locked||!doc.parts.length} onFocus={e=>{setSeriesDraft(String(seriesMultiplier));e.currentTarget.select();}} onChange={e=>{if(/^\d*$/.test(e.target.value))setSeriesDraft(e.target.value)}} onBlur={finishSeriesEdit} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();e.currentTarget.blur()}}}/></div>
           </div>
-          <p className="production-series__total" role="status">Toplam üretim: <strong>{displayedProductionPieces}</strong> parça</p>
+          <p className="production-series__total">Toplam üretim: <strong>{displayedProductionPieces}</strong> parça</p>
           {production.material&&<p className="production-series__material">Toplam malzeme: <strong>{displayedProductionMaterial} {production.material.unit}</strong></p>}
           <small>Bir seride {displayedPieceCount(doc.parts)} parça bulunur. Yerleşim ve indirilen DXF tek seri içindir.</small>
         </section>
