@@ -130,3 +130,8 @@
 .editor-stage-percent span{min-width:76px;text-align:center}
 :root #root .design-editor-v2 .editor-stage-percent button{min-height:26px!important;padding:3px 7px!important;background:white!important;font-size:11px!important}
 @media(max-width:1050px){.editor-stage-percent span{display:none}}
+
+/* Button movement is contained in the editable preview and never activates controls. */
+.editor-click-shield{touch-action:none;user-select:none}
+.editor-click-shield:active{cursor:grabbing}
+.editor-position-hint{font-size:11px;line-height:1.5;color:#718096;margin:0}
