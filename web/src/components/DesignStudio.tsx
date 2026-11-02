@@ -65,7 +65,7 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
       const data=await response.json() as {error?:string};
       if(!response.ok)throw Error(data.error??'Yayın işlemi başarısız.');
       await refreshPublications();
-      setServerMessage(kind==='publish'?'Sürüm yayınlandı; canlı uygulamaya dağıtım ayrıca gerekli.':'Yayın kaydı eski sürüme döndürüldü.');
+      setServerMessage(kind==='publish'?'Yayın kaydı güncellendi. Bu kod dağıtıldığında yeni görünüm uygulamaya yansır.':'Yayın kaydı eski sürüme döndürüldü.');
     }catch(error){setServerMessage(error instanceof Error?error.message:'Yayın işlemi başarısız.');}
     finally{setServerBusy(false);}
   };
