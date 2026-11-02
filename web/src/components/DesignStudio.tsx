@@ -92,7 +92,7 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
       const data=await response.json() as {error?:string};
       if(!response.ok)throw Error(data.error??'Yayın işlemi başarısız.');
       await refreshPublications();
-      setServerMessage(kind==='publish'?'Yayın kaydı güncellendi. Bu kod dağıtıldığında yeni görünüm uygulamaya yansır.':'Yayın kaydı eski sürüme döndürüldü.');
+      setServerMessage(kind==='publish'?'Seçilen sürüm canlı görünüme yayınlandı. Açık Nesting sekmeleri yenilendiğinde görünür.':'Önceki yayın geri yüklendi. Açık Nesting sekmeleri yenilendiğinde görünür.');
     }catch(error){setServerMessage(error instanceof Error?error.message:'Yayın işlemi başarısız.');}
     finally{setServerBusy(false);}
   };
@@ -122,7 +122,14 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
       const data=await response.json() as {error?:string};
       if(!response.ok)throw Error(data.error??'Taslak kaydedilemedi.');
       await refreshVersions();
-      setServerMessage('Sunucu taslağı kaydedildi; canlıya uygulanmadı.');
+      // Newly created immutable revision is the version the user just saved.
+      const versions=await fetch('/api/admin/design/versions',{credentials:'same-origin',cache:'no-store'});
+      if(versions.ok){
+        const data=await versions.json() as {versions?:{id:number}[]};
+        const newest=data.versions?.[0]?.id;
+        if(Number.isSafeInteger(newest)&&newest&&newest>0)setReleaseId(String(newest));
+      }
+      setServerMessage('Sunucu taslağı yeni sürüm olarak kaydedildi. Yayınlanacak sürüm seçildi; canlı site henüz değişmedi.');
     }catch(error){setServerMessage(error instanceof Error?error.message:'Kayıt başarısız.');}
     finally{setServerBusy(false);}
   };
