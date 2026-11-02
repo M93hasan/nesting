@@ -34,4 +34,5 @@ jobs:
           path: |
             web/test-results/design-editor-fullscreen.png
             web/test-results/puck-editor-fullscreen.png
+            web/test-results/puck-sw-diagnostic.png
           if-no-files-found: ignore
