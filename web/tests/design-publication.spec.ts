@@ -56,3 +56,17 @@ test('published reusable text and button are rendered in actual Nesting panels',
   await expect(page.locator('.material-panel [data-design-block-id="widget-def67890"]')).toHaveAttribute('href','/admin');
   await expect(page.getByRole('button',{name:'Şekil çiz',exact:true})).toBeVisible();
 });
+
+test('real editor selectors recover when dynamic Nesting controls are replaced',async({page})=>{
+  await page.route('**/api/design/published',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({published})}));
+  await page.goto('/');
+  const button=page.locator('.app .run-button.reference-launch');
+  await expect(button).toHaveAttribute('data-design-zone','runButton');
+  await page.evaluate(()=>{
+    const current=document.querySelector('.app .run-button.reference-launch');
+    if(!current)throw new Error('Run control missing');
+    const replacement=current.cloneNode(true);
+    current.replaceWith(replacement);
+  });
+  await expect(page.locator('.app .run-button.reference-launch')).toHaveAttribute('data-design-zone','runButton');
+});
