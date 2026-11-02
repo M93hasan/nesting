@@ -341,8 +341,9 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
       }
     }catch{setStorageError('Önizleme alanı seçilemedi.');}
   };
-  const draggableZones:DesignZone[]=['runButton','corelButton','downloadButton'];
-  const boundedOffset=(n:number)=>Math.max(-80,Math.min(80,Math.round(n)));
+  const draggableZones:DesignZone[]=[...DESIGN_ZONES];
+  const movementLimit=(id:DesignZone)=>['runButton','corelButton','downloadButton'].includes(id)?80:160;
+  const boundedOffset=(n:number,id:DesignZone)=>Math.max(-movementLimit(id),Math.min(movementLimit(id),Math.round(n)));
   const hitZone=(event:ReactPointerEvent<HTMLDivElement>):DesignZone|null=>{
     const iframe=frameRef.current,doc=iframe?.contentDocument;
     if(!iframe||!doc)return null;
@@ -382,8 +383,8 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
     }
     const dragging=buttonDragRef.current;
     if(!dragging||dragging.pointerId!==event.pointerId)return;
-    const x=boundedOffset(dragging.x+(event.clientX-dragging.startX)/previewScale);
-    const y=boundedOffset(dragging.y+(event.clientY-dragging.startY)/previewScale);
+    const x=boundedOffset(dragging.x+(event.clientX-dragging.startX)/previewScale,dragging.zone);
+    const y=boundedOffset(dragging.y+(event.clientY-dragging.startY)/previewScale,dragging.zone);
     if(x!==dragging.x||y!==dragging.y)didDragRef.current=true;
     const target=frameRef.current?.contentDocument?.querySelector<HTMLElement>('[data-design-zone="'+dragging.zone+'"]');
     target?.style.setProperty('transform','translate('+x+'px,'+y+'px)','important');
@@ -407,8 +408,8 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
     }
     const dragging=buttonDragRef.current;
     if(!dragging||dragging.pointerId!==event.pointerId)return;
-    const x=boundedOffset(dragging.x+(event.clientX-dragging.startX)/previewScale);
-    const y=boundedOffset(dragging.y+(event.clientY-dragging.startY)/previewScale);
+    const x=boundedOffset(dragging.x+(event.clientX-dragging.startX)/previewScale,dragging.zone);
+    const y=boundedOffset(dragging.y+(event.clientY-dragging.startY)/previewScale,dragging.zone);
     frameRef.current?.contentDocument?.querySelector<HTMLElement>('[data-design-zone="'+dragging.zone+'"]')?.style.removeProperty('transform');
     buttonDragRef.current=null;
     if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);
@@ -570,10 +571,10 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
             <label className="editor-color-field"><span>Yazı rengi</span><span className="editor-color-control"><input aria-label="Seçili öğe yazı rengi" type="color" value={zoneStyle.color??'#222a36'} onChange={e=>changeZoneStyle('color',e.target.value)}/><code>{zoneStyle.color??'#222a36'}</code></span></label>
           </div>
           {draggableZones.includes(selectedZone)&&<div className="editor-property-group">
-            <div className="editor-property-title">Buton konumu <span>↔</span></div>
-            <p className="editor-position-hint">Önizleme ekranında butonu fareyle sürükle; konumu en fazla 80 piksel değiştirilebilir.</p>
-            <label className="editor-slider-label"><span>Yatay (X)</span><output>{zoneStyle.offsetX??0} px</output><input type="range" min="-80" max="80" aria-label="Seçili buton yatay konumu" value={zoneStyle.offsetX??0} onChange={e=>changeZoneStyle('offsetX',Number(e.target.value))}/></label>
-            <label className="editor-slider-label"><span>Dikey (Y)</span><output>{zoneStyle.offsetY??0} px</output><input type="range" min="-80" max="80" aria-label="Seçili buton dikey konumu" value={zoneStyle.offsetY??0} onChange={e=>changeZoneStyle('offsetY',Number(e.target.value))}/></label>
+            <div className="editor-property-title">Öğe konumu <span>↔</span></div>
+            <p className="editor-position-hint">Önizleme ekranında seçili öğeyi sürükle. Konum değişiklikleri kayda ve geri alma geçmişine dahil edilir.</p>
+            <label className="editor-slider-label"><span>Yatay (X)</span><output>{zoneStyle.offsetX??0} px</output><input type="range" min={-movementLimit(selectedZone)} max={movementLimit(selectedZone)} aria-label={['runButton','corelButton','downloadButton'].includes(selectedZone)?'Seçili buton yatay konumu':'Seçili öğe yatay konumu'} value={zoneStyle.offsetX??0} onChange={e=>changeZoneStyle('offsetX',Number(e.target.value))}/></label>
+            <label className="editor-slider-label"><span>Dikey (Y)</span><output>{zoneStyle.offsetY??0} px</output><input type="range" min={-movementLimit(selectedZone)} max={movementLimit(selectedZone)} aria-label={['runButton','corelButton','downloadButton'].includes(selectedZone)?'Seçili buton dikey konumu':'Seçili öğe dikey konumu'} value={zoneStyle.offsetY??0} onChange={e=>changeZoneStyle('offsetY',Number(e.target.value))}/></label>
             <button type="button" onClick={()=>apply({zoneStyles:{...design.zoneStyles,[selectedZone]:{...zoneStyle,offsetX:0,offsetY:0}}})}>Buton konumunu sıfırla</button>
           </div>}
           <div className="editor-property-group"><div className="editor-property-title">Boyut ve boşluk <span>▦</span></div>
