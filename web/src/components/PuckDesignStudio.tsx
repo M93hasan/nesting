@@ -1,12 +1,10 @@
 import {useEffect,useRef,useState} from 'react';
 import {Puck,type Config,type Data} from '@puckeditor/core';
-import '@puckeditor/core/puck.css';
 import {DESIGN_ZONES,type DesignZone} from './design-zone-styles';
 import {
   DEFAULT_STUDIO_DESIGN,PUCK_ZONE_NAMES,fromPuckData,loadStudioDesign,
   parseStudioDesign,toPuckData,type StudioDesign
 } from './puck-design-adapter';
-import './PuckDesignStudio.css';
 
 type ZoneProps={
   zone:DesignZone;background?:string;color?:string;radius?:number;spacing?:number;

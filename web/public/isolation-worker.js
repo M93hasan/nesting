@@ -6,6 +6,10 @@ self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
   if (url.pathname === '/google-login.html' || url.pathname.startsWith('/api/auth/')) return;
+  // Keep isolation handling for Worker scripts (Nesting geometry and solver).
+  // CSS does not need COOP/COEP headers, and rewriting streamed CSS responses
+  // breaks Vite's Puck stylesheet loading in some controlled browsers.
+  if (url.pathname.startsWith('/assets/') && (event.request.destination === 'style' || url.pathname.endsWith('.css'))) return;
   if (event.request.cache === 'only-if-cached' && event.request.mode !== 'same-origin') return;
   event.respondWith(fetch(event.request).then(response => {
     if (response.status === 0) return response;
