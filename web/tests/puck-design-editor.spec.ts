@@ -37,7 +37,14 @@ test.describe('real Puck visual builder',()=>{
     const source=page.getByTestId('drawer-item:Card');
     // The real Puck root renderDropZone accepts dragged content and updates data.
     const target=page.frameLocator('iframe').locator('.puck-builder-page-content');
-    await source.dragTo(target,{targetPosition:{x:150,y:230}});
+    const start=await source.boundingBox(),end=await target.boundingBox();
+    expect(start).not.toBeNull();expect(end).not.toBeNull();
+    await page.mouse.move(start!.x+start!.width/2,start!.y+start!.height/2);
+    await page.mouse.down();
+    await page.mouse.move(start!.x+start!.width/2+8,start!.y+start!.height/2+8,{steps:5});
+    await page.mouse.move(end!.x+Math.min(150,end!.width/2),end!.y+Math.min(220,end!.height/2),{steps:35});
+    await page.waitForTimeout(300);
+    await page.mouse.up();
     console.log('PUCK_DND_DIAGNOSTIC',JSON.stringify({status:await page.locator('[role="status"]').allTextContents(),cardCount:await page.frameLocator('iframe').locator('.puck-builder-card').count(),storage:await page.evaluate(()=>localStorage.getItem('serula-puck-page-v1'))}));
     await expect.poll(async()=>page.evaluate(()=>{
       const doc=JSON.parse(localStorage.getItem('serula-puck-page-v1')??'null');
