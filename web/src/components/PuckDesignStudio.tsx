@@ -5,7 +5,7 @@ import {initialPuckPage,puckBuilderConfig,type BuilderBlocks,type BuilderRoot} f
 const STORAGE_KEY='serula-puck-page-v1';
 type Page=Data<BuilderBlocks,BuilderRoot>;
 const isRecord=(x:unknown):x is Record<string,unknown>=>!!x&&typeof x==='object'&&!Array.isArray(x);
-const names=new Set(['Heading','Text','Button','Card','Flex','Grid','Space','PartsPanel','NestingCanvas','MaterialPanel','ActionBar']);
+const names=new Set(['Heading','Text','Button','Card','Flex','Grid','Space','PartsPanel','NestingCanvas','MaterialPanel','ActionBar','RichText','Hero','Logos','Stats','Template']);
 
 // The free-form Puck document is stored only in the browser; it is never
 // submitted as the legacy serula-design-v1 Worker document.
@@ -43,7 +43,6 @@ export default function PuckDesignStudio({onClose}:{onClose:()=>void}){
   const [page,setPage]=useState<Page>(loadPage);
   const [generation,setGeneration]=useState(0);
   const [mode,setMode]=useState<'edit'|'preview'>('edit');
-  const [device,setDevice]=useState<'desktop'|'tablet'|'mobile'>('desktop');
   const [message,setMessage]=useState('');
   const latest=useRef<Page>(page);
   const fileInput=useRef<HTMLInputElement>(null);
@@ -77,10 +76,11 @@ export default function PuckDesignStudio({onClose}:{onClose:()=>void}){
     const fresh=JSON.parse(JSON.stringify(initialPuckPage)) as Page;
     setPage(fresh);setGeneration(v=>v+1);setDraft(fresh,true);
   };
-  const viewportWidth=device==='mobile'?390:device==='tablet'?768:1440;
   return <section className="puck-studio" aria-label="Puck görsel tasarım editörü">
+    <div className="puck-studio-desktop-required" role="note">Puck editörü yalnızca PC / geniş ekran için kullanılabilir. Masaüstü tarayıcıdan açın.</div>
+    <div className="puck-studio-desktop-content">
     <header className="puck-studio-topbar">
-      <div><strong>Puck Tasarım Editörü</strong><small>Gerçek Puck bileşen paleti · sürükle-bırak · katmanlar · özellikler</small></div>
+      <div><strong>Puck Desktop Editor</strong><small>Orijinal Puck bileşenleri · katmanlar · tüm alanların düzenlenmesi</small></div>
       <nav aria-label="Tasarım görünümü">
         <button type="button" aria-pressed={mode==='edit'} onClick={()=>setMode('edit')}>Bileşen editörü</button>
         <button type="button" aria-pressed={mode==='preview'} onClick={()=>setMode('preview')}>Gerçek Nesting ekranı</button>
@@ -106,20 +106,21 @@ export default function PuckDesignStudio({onClose}:{onClose:()=>void}){
         dictionary={{'header-publish':'Taslağı kaydet','outline-header-title':'Katmanlar'}}
         onChange={data=>setDraft(data)}
         onPublish={async data=>setDraft(data,true)}
-        viewports={[{width:1440,label:'Masaüstü'},{width:768,label:'Tablet'},{width:390,label:'Mobil'}]}
+        viewports={[{width:1440,label:'PC'}]}
+        dnd={{enableDragHandle:true}}
         height="100%"
       />
     </div>
     {mode==='preview'&&<section className="puck-studio-live">
       <div className="puck-studio-devices">
         <strong>Canlı Nesting uygulaması · salt okunur karşılaştırma</strong>
-        {(['desktop','tablet','mobile'] as const).map(v=><button type="button" key={v} aria-pressed={device===v} onClick={()=>setDevice(v)}>{v==='desktop'?'Masaüstü':v==='tablet'?'Tablet':'Mobil'}</button>)}
       </div>
       <div className="puck-studio-live-scroll">
         <iframe title="Gerçek Nesting ekranı" src={import.meta.env.BASE_URL+'?design-preview=1'}
-          style={{width:viewportWidth,height:780,maxWidth:'none',pointerEvents:'none'}}/>
+          style={{width:1440,height:780,maxWidth:'none',pointerEvents:'none'}}/>
       </div>
       <p>Bu sekme mevcut Nesting'i gösterir; Puck yerleşimi henüz uygulamanın çalışma ekranına yayınlanmaz.</p>
     </section>}
+    </div>
   </section>;
 }
