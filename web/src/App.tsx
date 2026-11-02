@@ -683,7 +683,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
       .app .primary,.app .primary-button,.app button[type="submit"] {background:${(designPreviewEnabled?designPreview:publishedVisual)!.accent}!important}
     ${renderZoneCss((designPreviewEnabled?designPreview:publishedVisual)?.zoneStyles)}
     `}</style>}
-    {designPreviewEnabled&&<div role="status" className="design-preview-banner" style={{padding:'8px 12px',background:'#fff1c2',color:'#212121'}}>Tasarım editörü önizlemesi — değişiklikler yalnızca bu sekmede görünür, canlıya yayınlanmaz.</div>}
+    {designPreviewEnabled&&window.self===window.top&&<div role="status" className="design-preview-banner" style={{padding:'8px 12px',background:'#fff1c2',color:'#212121'}}>Tasarım editörü önizlemesi — değişiklikler yalnızca bu sekmede görünür, canlıya yayınlanmaz.</div>}
     <header className="header"><div className="brand-block"><a className="brand serula-brand" aria-label="Serula Nesting Studio" href={import.meta.env.BASE_URL}><img src={`${import.meta.env.BASE_URL}serula-logo.svg`} alt="" /><strong>Serula Nesting</strong><span>/studio · Sürüm {packageInfo.version}</span></a><p className="tagline">Akıllı DXF yerleştirme ve malzeme optimizasyonu</p></div>
       <div className="header-primary project-bar"><details className="project-menu" ref={projectMenu} hidden><summary aria-label={`Proje: ${doc.name}`}>{doc.name}<span aria-hidden="true"> ▾</span></summary><div>
         <button disabled={locked} onClick={()=>{projectMenu.current!.open=false;setProjectAd('Adsız proje');setNameDialog('new');}}>Yeni proje</button>
