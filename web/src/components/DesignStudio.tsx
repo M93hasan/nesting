@@ -43,6 +43,32 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
   const [remoteVersions,setRemoteVersions]=useState<{id:number;created_at:string}[]>([]);
   const [serverBusy,setServerBusy]=useState(false);
   const [serverMessage,setServerMessage]=useState('');
+  const [publications,setPublications]=useState<{id:number;action:string;source_revision:number|null;created_at:string}[]>([]);
+  const [releaseId,setReleaseId]=useState('');
+  const [rollbackId,setRollbackId]=useState('');
+  const refreshPublications=async()=>{
+    const response=await fetch('/api/admin/design/publications',{credentials:'same-origin'});
+    if(!response.ok)throw Error('Yayın geçmişi alınamadı.');
+    const data=await response.json() as {publications?:typeof publications};
+    setPublications(data.publications??[]);
+  };
+  const changePublication=async(kind:'publish'|'rollback')=>{
+    const id=Number(kind==='publish'?releaseId:rollbackId);
+    if(!Number.isSafeInteger(id)||id<=0){setServerMessage('Önce geçerli bir sürüm seç.');return;}
+    const text=kind==='publish'?'YAYINLA':'GERI AL';
+    if(!window.confirm(kind==='publish'?'Bu sürümü yayınlamak istediğinden emin misin?':'Seçilen eski yayına geri dönmek istediğinden emin misin?'))return;
+    const confirmation=window.prompt('İşlemi onaylamak için '+text+' yaz:');
+    if(confirmation!==text){setServerMessage('Yayın işlemi iptal edildi.');return;}
+    setServerBusy(true);setServerMessage('');
+    try{
+      const response=await fetch('/api/admin/design/'+kind,{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify(kind==='publish'?{versionId:id,confirmation}:{publicationId:id,confirmation})});
+      const data=await response.json() as {error?:string};
+      if(!response.ok)throw Error(data.error??'Yayın işlemi başarısız.');
+      await refreshPublications();
+      setServerMessage(kind==='publish'?'Sürüm yayınlandı; canlı uygulamaya dağıtım ayrıca gerekli.':'Yayın kaydı eski sürüme döndürüldü.');
+    }catch(error){setServerMessage(error instanceof Error?error.message:'Yayın işlemi başarısız.');}
+    finally{setServerBusy(false);}
+  };
   const refreshVersions=async()=>{
     const response=await fetch('/api/admin/design/versions',{credentials:'same-origin'});
     if(!response.ok)throw Error('Sürümler yüklenemedi.');
@@ -85,7 +111,7 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
     }catch(error){setServerMessage(error instanceof Error?error.message:'Geri yükleme başarısız.');}
     finally{setServerBusy(false);}
   };
-  useEffect(()=>{void refreshVersions().catch(()=>{});},[]);
+  useEffect(()=>{void refreshVersions().catch(()=>{});void refreshPublications().catch(()=>{});},[]);
   const exportJson=()=>{
     const payload=JSON.stringify({format:'serula-design-v1',design},null,2);
     const blob=new Blob([payload],{type:'application/json'});
@@ -184,6 +210,14 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
     <details className="design-studio-import"><summary>Sunucu sürüm geçmişi ({remoteVersions.length})</summary>
       <button type="button" disabled={serverBusy} onClick={()=>void refreshVersions().catch(()=>setServerMessage('Sürümler yüklenemedi.'))}>Yenile</button>
       {remoteVersions.map(version=><div key={version.id}><span>#{version.id} · {version.created_at}</span><button type="button" disabled={serverBusy} onClick={()=>void restoreServerVersion(version.id)}>Taslağa geri yükle</button></div>)}
+    </details>
+    <details className="design-studio-import"><summary>Güvenli yayın ve geri alma (yalnızca yönetici)</summary>
+      <p>Yalnızca kayıtlı ve doğrulanmış bir tasarım sürümü yayınlanabilir. İşlem sunucuda kayıt altına alınır; deploy yapmaz.</p>
+      <label>Yayınlanacak taslak sürümü <select value={releaseId} onChange={e=>setReleaseId(e.target.value)}><option value="">Sürüm seç</option>{remoteVersions.map(version=><option key={version.id} value={version.id}>#{version.id} — {version.created_at}</option>)}</select></label>
+      <button type="button" disabled={serverBusy||!releaseId} onClick={()=>void changePublication('publish')}>Seçilen sürümü yayınla</button>
+      <label>Geri dönülecek yayın <select value={rollbackId} onChange={e=>setRollbackId(e.target.value)}><option value="">Yayın seç</option>{publications.map(pub=><option key={pub.id} value={pub.id}>#{pub.id} — {pub.action} — {pub.created_at}</option>)}</select></label>
+      <button type="button" disabled={serverBusy||!rollbackId} onClick={()=>void changePublication('rollback')}>Eski yayına geri dön</button>
+      <button type="button" disabled={serverBusy} onClick={()=>void refreshPublications().catch(()=>setServerMessage('Yayın geçmişi alınamadı.'))}>Yayın listesini yenile</button>
     </details>
     {importOpen&&<div className="design-studio-import">
       <label htmlFor="design-json-import">Tasarım JSON içeriğini yapıştır</label>
