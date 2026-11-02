@@ -248,8 +248,8 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
       }
     }catch{setStorageError('Önizleme alanı seçilemedi.');}
   };
-  const zoneNames:Record<DesignZone,string>={header:'Üst menü',parts:'Parça paneli',canvas:'Çalışma alanı',material:'Malzeme ve ayarlar',actions:'Alt işlem çubuğu'};
-  const shownZoneOrder:DesignZone[]=['header',...(workspaceOrder as DesignZone[]),'actions'];
+  const zoneNames:Record<DesignZone,string>={header:'Üst menü',parts:'Parça paneli',canvas:'Çalışma alanı',material:'Malzeme ve ayarlar',actions:'Alt işlem çubuğu',runButton:'Yerleştir butonu',corelButton:'CorelDRAW butonu',downloadButton:'DXF indir butonu'};
+  const shownZoneOrder:DesignZone[]=['header',...(workspaceOrder as DesignZone[]),'actions','runButton','corelButton','downloadButton'];
   const reset=()=>{
     if(window.confirm('Yalnızca bu editördeki yayınlanmamış denemeler sıfırlansın mı?')){
       setHistory([initial]);setIndex(0);setSaved(false);
