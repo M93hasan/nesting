@@ -8,5 +8,10 @@ describe('isolated design document validation',()=>{
     expect(()=>parseDesignPayload({format:'serula-design-v1',design:{...design,background:'url(https://bad)'}})).toThrow();
     expect(()=>parseDesignPayload({format:'serula-design-v1',design:{...design,order:['Birincil buton','Ana panel','Başlık']}})).toThrow();
   });
+  it('validates bounded drag-and-drop coordinates',()=>{
+    expect(parseDesignPayload({format:'serula-design-v1',design:{...design,positions:{'Ana panel':{x:40,y:25}}}}).design.positions).toEqual({'Ana panel':{x:40,y:25}});
+    expect(()=>parseDesignPayload({format:'serula-design-v1',design:{...design,positions:{'Ana panel':{x:999,y:25}}}})).toThrow();
+    expect(()=>parseDesignPayload({format:'serula-design-v1',design:{...design,positions:{evil:{x:1,y:1}}}})).toThrow();
+  });
   it('rejects unknown format',()=>expect(()=>parseDesignPayload({format:'other',design})).toThrow());
 });
