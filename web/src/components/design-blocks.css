@@ -11,3 +11,9 @@
 @media(min-width:1100px){.design-widget:not(.design-device-desktop){display:none!important}}
 @media(min-width:600px) and (max-width:1099px){.design-widget:not(.design-device-tablet){display:none!important}}
 @media(max-width:599px){.design-widget:not(.design-device-mobile){display:none!important}}
+
+@keyframes serula-widget-fade{from{opacity:0}to{opacity:1}}
+@keyframes serula-widget-reveal{from{clip-path:inset(0 0 100% 0);opacity:0}to{clip-path:inset(0);opacity:1}}
+.design-motion-fade{animation:serula-widget-fade .25s ease-out}
+.design-motion-slide{animation:serula-widget-reveal .3s ease-out}
+@media(prefers-reduced-motion:reduce){.design-motion-fade,.design-motion-slide{animation:none}}
