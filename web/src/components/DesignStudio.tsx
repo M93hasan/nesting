@@ -31,6 +31,7 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
   const [index,setIndex]=useState(0);
   const [selected,setSelected]=useState<(typeof samples)[number]>('Ana panel');
   const [device,setDevice]=useState<Device>('desktop');
+  const [realPreview,setRealPreview]=useState(false);
   const [locked,setLocked]=useState<Layer[]>([]);
   const [dragging,setDragging]=useState<Layer|null>(null);
   const [saved,setSaved]=useState(false);
@@ -106,6 +107,11 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
     catch{setSaved(false);setStorageError('Tarayıcı taslağı kaydedemedi.');}
   };
   const design=history[index];
+  useEffect(()=>{
+    if(!realPreview)return;
+    try{localStorage.setItem('serula-design-studio-live-preview-v1',JSON.stringify(design));}
+    catch{setStorageError('Gerçek ekran önizlemesi için tarayıcı depolaması kullanılamadı.');}
+  },[design,realPreview]);
   const stateRef=useRef({history,index});
   stateRef.current={history,index};
   const apply=(patch:Partial<Design>)=>{
@@ -176,7 +182,7 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
     </div>}
     <div className="design-studio-workspace">
       <aside className="design-studio-pane" aria-label="Katmanlar">
-        <h3>Katmanlar</h3><p>Başlık ve paneli sürükleyerek ya da oklarla sırala. Buton panelin alt öğesidir.</p><small>{DESIGN_COMPONENTS.length} izinli bileşen tanımlı; gerçek ekranlara henüz uygulanmaz.</small>
+        <h3>Katmanlar</h3><p>Başlık ve paneli sürükleyerek ya da oklarla sırala. Buton panelin alt öğesidir.</p><small>{DESIGN_COMPONENTS.length} izinli bileşen tanımlı; gerçek ekran önizlemesinde yalnızca izinli görsel özellikler denenir.</small>
         {layerOrder.map(item=><div className="design-layer-row" key={item} draggable={item!=='Birincil buton'&&!locked.includes(item)}
           onDragStart={event=>{if(item==='Birincil buton'||locked.includes(item)){event.preventDefault();return;}setDragging(item);event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('text/plain',item);}}
           onDragOver={event=>{if(dragging){event.preventDefault();event.dataTransfer.dropEffect='move';}}}
@@ -190,10 +196,17 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
         </div>)}
       </aside>
       <div className="design-studio-center">
+        <div className="design-device-switch" role="group" aria-label="Önizleme türü">
+          <button type="button" aria-pressed={!realPreview} onClick={()=>setRealPreview(false)}>Örnek ekran</button>
+          <button type="button" aria-pressed={realPreview} onClick={()=>setRealPreview(true)}>Gerçek Nesting ekranı</button>
+        </div>
         <div className="design-device-switch" role="group" aria-label="Cihaz önizleme">
           {(['desktop','tablet','mobile'] as const).map(item=><button type="button" key={item} aria-pressed={device===item} onClick={()=>setDevice(item)}>{({desktop:'Masaüstü',tablet:'Tablet',mobile:'Mobil'} as const)[item]}</button>)}
         </div>
-        <div className={'design-preview design-preview-'+device} style={{background:design.background,color:'#fff',fontSize:design.fontSize}}>
+        {realPreview?<div className={'design-real-frame design-preview-'+device}>
+          <p>Gerçek Nesting uygulamasının yalnızca görünüm önizlemesi. Ekran etkileşimi kilitlidir; henüz uygulamanın tüm kontrolleri düzenlenemez.</p>
+          <iframe title="Gerçek Serula Nesting tasarım önizlemesi" src={import.meta.env.BASE_URL+'?design-preview=1'} tabIndex={-1}/>
+        </div>:<div className={'design-preview design-preview-'+device} style={{background:design.background,color:'#fff',fontSize:design.fontSize}}>
           <div className="design-preview-content" style={{display:'flex',flexDirection:'column'}}>
           {layerOrder.filter(layer=>layer!=='Birincil buton').map(layer=>layer==='Başlık'?(!(design.hidden??[]).includes('Başlık')&&<h2 key={layer} className={selected==='Başlık'?'design-preview-selected':''} onClick={()=>{if(!locked.includes('Başlık'))setSelected('Başlık');}}>{design.heading}</h2>):(!(design.hidden??[]).includes('Ana panel')&&<div key={layer}
  className={selected==='Ana panel'?'design-preview-panel design-preview-selected':'design-preview-panel'} onClick={()=>{if(!locked.includes('Ana panel'))setSelected('Ana panel');}} style={{background:design.panel,borderRadius:design.radius,padding:design.spacing}}>
@@ -202,7 +215,7 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
             {!(design.hidden??[]).includes('Birincil buton')&&<button type="button" className={selected==='Birincil buton'?'design-preview-selected':''} onClick={event=>{event.stopPropagation();if(!locked.includes('Birincil buton'))setSelected('Birincil buton');}} style={{background:design.accent,borderRadius:Math.min(design.radius,20),color:'#fff',border:0,padding:'10px 16px'}}>Örnek buton</button>}
           </div>))}
           </div>
-        </div>
+        </div>}
       </div>
       <aside className="design-studio-pane design-studio-properties" aria-label="Özellikler">
         <h3>Özellikler</h3>
