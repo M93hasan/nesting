@@ -6,6 +6,8 @@ async function openBuilder(page:import('@playwright/test').Page){
   await page.goto('/admin');
   await page.getByRole('button',{name:/Görünüm/}).click();
   await page.getByRole('button',{name:'Puck Editörünü Aç'}).click();
+  await expect(page.getByRole('button',{name:'Bağımsız Puck taslağı'})).toBeVisible();
+  await page.getByRole('button',{name:'Bağımsız Puck taslağı'}).click();
   await expect(page.getByRole('region',{name:'Puck görsel tasarım editörü'})).toBeVisible();
 }
 
