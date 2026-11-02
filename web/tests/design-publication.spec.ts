@@ -1,18 +1,18 @@
 import {test,expect} from '@playwright/test';
 
+// The Nesting isolation service worker proxies /api/* and can bypass Playwright route mocks.
+test.use({serviceWorkers:'block'});
+
 const published={format:'serula-design-v1',design:{background:'#113355',panel:'#223344',accent:'#556677',radius:17,spacing:16,fontSize:15,heading:'Test'}};
 
 test('published design reaches the actual Nesting screen without changing its controls',async({page})=>{
   await page.route('**/api/design/published',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({published})}));
   const publishedResponse=page.waitForResponse(response=>response.url().includes('/api/design/published'));
   await page.goto('/');
-  expect((await publishedResponse).status()).toBe(200);
+  const response=await publishedResponse;
+  expect(response.status()).toBe(200);
+  expect((await response.json()).published.design.background).toBe('#113355');
   await expect(page.locator('.app')).toBeVisible();
-  console.log('PUBLISHED_DESIGN_DIAGNOSTIC',JSON.stringify(await page.evaluate(()=>({
-    bodyStyles:[...document.querySelectorAll('style')].map(el=>el.textContent||'').filter(text=>text.includes('#113355')).slice(0,3),
-    rootBackground:getComputedStyle(document.querySelector('.app')!).backgroundColor,
-    rootAttributes:document.querySelector('.app')?.outerHTML.slice(0,200)
-  }))));
   await expect(page.locator('.app')).toHaveCSS('background-color','rgb(17, 51, 85)');
   await expect(page.locator('.app .header')).toHaveCSS('background-color','rgb(34, 51, 68)');
   await expect(page.getByRole('button',{name:'Şekil çiz',exact:true})).toBeVisible();
