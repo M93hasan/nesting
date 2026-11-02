@@ -38,7 +38,9 @@ test.describe('real Puck visual builder',()=>{
     // The real Puck root renderDropZone accepts dragged content and updates data.
     const target=page.locator('[data-puck-dropzone]').first();
     await expect(target).toBeVisible();
-    await source.dragTo(target,{targetPosition:{x:80,y:100}});
+    const box=await target.boundingBox();
+    expect(box).not.toBeNull();
+    await source.dragTo(target,{targetPosition:{x:Math.max(35,box!.width/2),y:box!.height-35}});
     console.log('PUCK_TARGET',JSON.stringify(await target.evaluate(el=>({zone:el.getAttribute('data-puck-dropzone'),height:el.getBoundingClientRect().height}))));
     console.log('PUCK_DND_DIAGNOSTIC',JSON.stringify({status:await page.locator('[role="status"]').allTextContents(),cardCount:await page.locator('.puck-builder-card').count(),storage:await page.evaluate(()=>localStorage.getItem('serula-puck-page-v1'))}));
     await expect.poll(async()=>page.evaluate(()=>{
