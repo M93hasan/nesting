@@ -117,7 +117,7 @@ export default function PuckDesignStudio({onClose}:{onClose:()=>void}){
       </div>
       <div className="puck-studio-live-scroll">
         <iframe title="Gerçek Nesting ekranı" src={import.meta.env.BASE_URL+'?design-preview=1'}
-          style={{width:1440,height:780,maxWidth:'none',pointerEvents:'none'}}/>
+          style={{width:1440,minWidth:1440,flexShrink:0,height:780,maxWidth:'none',pointerEvents:'none'}}/>
       </div>
       <p>Bu sekme mevcut Nesting'i gösterir; Puck yerleşimi henüz uygulamanın çalışma ekranına yayınlanmaz.</p>
     </section>}
