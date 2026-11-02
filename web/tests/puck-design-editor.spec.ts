@@ -29,8 +29,8 @@ test.describe('real Puck visual builder',()=>{
     await page.getByRole('button',{name:'Gerçek Nesting ekranı'}).click();
     const preview=page.locator('iframe[title="Gerçek Nesting ekranı"]');
     await expect(preview).toBeVisible();
-    await page.getByRole('button',{name:'Mobil'}).click();
-    await expect(preview).toHaveCSS('width','390px');
+    await expect(preview).toHaveCSS('width','1440px');
+    await expect(page.getByRole('button',{name:'Mobil'})).toHaveCount(0);
   });
   test('dragging a real palette component inserts it into Puck content',async({page})=>{
     await openBuilder(page);
@@ -67,6 +67,19 @@ test.describe('real Puck visual builder',()=>{
     expect(data.content.find((item:{type:string})=>item.type==='Card')?.props.title).toBe('Bilgi kartı');
     expect(data.content.some((item:{props:{id:string}})=>item.props.id==='demo-insert-here')).toBe(true);
     await expect(page.locator('.puck-builder-card')).toBeVisible();
+    // Merely inserting an element is not sufficient: its real field must edit
+    // Puck JSON, and that edit must survive opening the editor again.
+    await page.locator('.puck-builder-card').click();
+    const titleField=page.getByRole('textbox',{name:'Kart başlığı',exact:true});
+    await expect(titleField).toBeVisible();
+    await titleField.fill('Düzenlenen kart başlığı');
+    await expect.poll(async()=>page.evaluate(()=>{
+      const doc=JSON.parse(localStorage.getItem('serula-puck-page-v1')||'null');
+      return doc?.content?.find((item:{type:string})=>item.type==='Card')?.props?.title;
+    })).toBe('Düzenlenen kart başlığı');
+    await page.getByRole('button',{name:'Kapat ✕'}).click();
+    await page.getByRole('button',{name:'Puck Editörünü Aç'}).click();
+    await expect(page.locator('.puck-builder-card')).toContainText('Düzenlenen kart başlığı');
   });
   test('failed editor import shows recovery controls, not a blank app',async({page})=>{
     await page.route('**/api/auth/admin-me',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(adminUser)}));
@@ -94,6 +107,29 @@ test.describe('real Puck visual builder',()=>{
     expect(value.content[0].props.text).toBe('KAYITLI');
     expect(await page.evaluate(()=>localStorage.getItem('serula-design-studio-draft-v1'))).toBe('legacy-intact');
   });
+});
+
+test('native Puck desktop fields edit existing content and persist across reload',async({page})=>{
+  await openBuilder(page);
+  await page.locator('.puck-builder-heading').first().click();
+  const textField=page.getByRole('textbox',{name:'Başlık',exact:true});
+  await expect(textField).toBeVisible();
+  await textField.fill('PC ile düzenlendi');
+  await expect.poll(()=>page.evaluate(()=>{
+    const doc=JSON.parse(localStorage.getItem('serula-puck-page-v1')||'null');
+    return doc?.content?.[0]?.props?.text;
+  })).toBe('PC ile düzenlendi');
+  await page.reload();
+  await page.getByRole('button',{name:/Görünüm/}).click();
+  await page.getByRole('button',{name:'Puck Editörünü Aç'}).click();
+  await expect(page.locator('.puck-builder-heading').first()).toContainText('PC ile düzenlendi');
+});
+
+test('PC-only view blocks the editor on narrow screens',async({page})=>{
+  await page.setViewportSize({width:820,height:760});
+  await openBuilder(page);
+  await expect(page.getByText('Puck editörü yalnızca PC / geniş ekran için kullanılabilir.')).toBeVisible();
+  await expect(page.locator('.puck-studio-desktop-content')).toBeHidden();
 });
 
 test.describe('production isolation worker',()=>{

@@ -6,15 +6,20 @@ import type {CSSProperties} from 'react';
 export type BuilderBlocks={
   Heading:{text:string;level:'h1'|'h2'|'h3';align:'left'|'center'|'right'};
   Text:{text:string;align:'left'|'center'|'right';size:number};
-  Button:{label:string;variant:'primary'|'secondary';radius:number};
+  Button:{label:string;href:string;variant:'primary'|'secondary';radius:number};
   Card:{title:string;body:string;accent:string};
   Flex:{direction:'row'|'column';gap:number;items:Slot};
   Grid:{columns:number;gap:number;items:Slot};
   Space:{height:number};
-  PartsPanel:{title:string};
-  NestingCanvas:{title:string};
-  MaterialPanel:{title:string};
-  ActionBar:{label:string};
+  PartsPanel:{title:string;parts:{name:string;quantity:number}[]};
+  NestingCanvas:{title:string;sheetWidth:number;sheetHeight:number;fill:string};
+  MaterialPanel:{title:string;width:number;gap:number;material:string};
+  ActionBar:{label:string;downloadLabel:string;corelLabel:string};
+  RichText:{richtext:string};
+  Hero:{title:string;description:string;buttonText:string;buttonHref:string;align:'left'|'center'|'right'};
+  Logos:{logos:{alt:string;imageUrl:string}[]};
+  Stats:{items:{title:string;description:string}[]};
+  Template:{title:string;description:string;items:Slot};
 };
 export type BuilderRoot={title:string;background:string;panel:string;accent:string};
 
@@ -29,8 +34,9 @@ const spacing=(n:number)=>Math.max(0,Math.min(64,n||0));
 export const puckBuilderConfig:Config<BuilderBlocks,BuilderRoot>={
   categories:{
     layout:{title:'Yerleşim',components:['Grid','Flex','Space']},
-    typography:{title:'Yazı ve başlık',components:['Heading','Text']},
-    content:{title:'Buton ve kart',components:['Button','Card']},
+    typography:{title:'Yazı ve başlık',components:['Heading','Text','RichText']},
+    interactive:{title:'Eylemler',components:['Button']},
+    content:{title:'İçerik',components:['Card','Hero','Logos','Stats','Template']},
     nesting:{title:'Nesting bileşenleri',components:['PartsPanel','NestingCanvas','MaterialPanel','ActionBar']}
   },
   root:{
@@ -79,10 +85,11 @@ export const puckBuilderConfig:Config<BuilderBlocks,BuilderRoot>={
       label:'Buton',
       fields:{
         label:{type:'text',label:'Buton yazısı',contentEditable:true},
+        href:{type:'text',label:'Bağlantı (# veya https://)'},
         variant:{type:'radio',label:'Görünüm',options:[{label:'Vurgu',value:'primary'},{label:'İkincil',value:'secondary'}]},
         radius:{type:'number',label:'Köşe yarıçapı',min:0,max:32}
       },
-      defaultProps:{label:'Yeni buton',variant:'primary',radius:9},
+      defaultProps:{label:'Yeni buton',href:'#',variant:'primary',radius:9},
       render:({label,variant,radius})=><div className="puck-builder-button-holder"><button type="button" tabIndex={-1} className={'puck-builder-button '+(variant==='primary'?'is-primary':'is-secondary')} style={{borderRadius:radius}}>{label}</button></div>
     },
     Card:{
@@ -123,42 +130,113 @@ export const puckBuilderConfig:Config<BuilderBlocks,BuilderRoot>={
     },
     PartsPanel:{
       label:'Parçalar paneli',
-      fields:{title:{type:'text',label:'Panel başlığı',contentEditable:true}},
-      defaultProps:{title:'Parçalar'},
-      render:({title})=><section className="puck-builder-parts" style={surface}>
-        <strong>{title}</strong><small>Parça listesi · örnek görünüm</small>
-        <div className="puck-builder-item"><span>▣</span><span>Parça 01</span><em>× 4</em></div>
-        <div className="puck-builder-item"><span>▣</span><span>Parça 02</span><em>× 2</em></div>
-        <div className="puck-builder-item"><span>▣</span><span>Parça 03</span><em>× 1</em></div>
+      fields:{
+        title:{type:'text',label:'Panel başlığı',contentEditable:true},
+        parts:{type:'array',label:'Parçalar',getItemSummary:(item,i)=>item.name||'Parça '+((i??0)+1),
+          defaultItemProps:{name:'Yeni parça',quantity:1},
+          arrayFields:{name:{type:'text',label:'Parça adı'},quantity:{type:'number',label:'Adet',min:1,max:10000}}}
+      },
+      defaultProps:{title:'Parçalar',parts:[{name:'Parça 01',quantity:4},{name:'Parça 02',quantity:2},{name:'Parça 03',quantity:1}]},
+      render:({title,parts=[]})=><section className="puck-builder-parts" style={surface}>
+        <strong>{title}</strong><small>Parça listesi · düzenlenebilir tasarım örneği</small>
+        {parts.map((part,i)=><div key={i} className="puck-builder-item"><span>▣</span><span>{part.name}</span><em>× {part.quantity}</em></div>)}
       </section>
     },
     NestingCanvas:{
       label:'Yerleşim alanı',
-      fields:{title:{type:'text',label:'Başlık',contentEditable:true}},
-      defaultProps:{title:'Yerleşim önizlemesi'},
-      render:({title})=><section className="puck-builder-nesting" style={surface}>
+      fields:{
+        title:{type:'text',label:'Başlık',contentEditable:true},
+        sheetWidth:{type:'number',label:'Genişlik (mm)',min:50,max:100000},
+        sheetHeight:{type:'number',label:'Yükseklik (mm)',min:50,max:100000},
+        fill:{type:'text',label:'Zemin rengi (#RRGGBB)'}
+      },
+      defaultProps:{title:'Yerleşim önizlemesi',sheetWidth:1500,sheetHeight:3000,fill:'#f8fbfe'},
+      render:({title,sheetWidth,sheetHeight,fill})=><section className="puck-builder-nesting" style={surface}>
         <strong>{title}</strong>
-        <div className="puck-builder-sheet"><span/><span/><span/><span/></div>
-        <small>Temsili tasarım öğesi — hesaplama yapmaz</small>
+        <div className="puck-builder-sheet" style={{background:/^#[0-9a-f]{6}$/i.test(fill)?fill:'#f8fbfe'}}><span/><span/><span/><span/></div>
+        <small>{sheetWidth} × {sheetHeight} mm · tasarım önizlemesi, hesaplama yapmaz</small>
       </section>
     },
     MaterialPanel:{
       label:'Malzeme ayarları',
-      fields:{title:{type:'text',label:'Başlık',contentEditable:true}},
-      defaultProps:{title:'Malzeme ayarları'},
-      render:({title})=><section className="puck-builder-material" style={surface}>
-        <strong>{title}</strong><label>Genişlik (mm)<span>1500</span></label>
-        <label>Boşluk (mm)<span>5</span></label><label>Malzeme<span>Rulo</span></label>
+      fields:{
+        title:{type:'text',label:'Başlık',contentEditable:true},
+        width:{type:'number',label:'Genişlik (mm)',min:50,max:100000},
+        gap:{type:'number',label:'Boşluk (mm)',min:0,max:1000},
+        material:{type:'text',label:'Malzeme adı',contentEditable:true}
+      },
+      defaultProps:{title:'Malzeme ayarları',width:1500,gap:5,material:'Rulo'},
+      render:({title,width,gap,material})=><section className="puck-builder-material" style={surface}>
+        <strong>{title}</strong><label>Genişlik (mm)<span>{width}</span></label>
+        <label>Boşluk (mm)<span>{gap}</span></label><label>Malzeme<span>{material}</span></label>
+      </section>
+    },
+    RichText:{
+      label:'Zengin metin',
+      fields:{richtext:{type:'richtext',label:'Biçimlendirilmiş metin'}},
+      defaultProps:{richtext:'<h2>Başlık</h2><p>Açıklama metni</p>'},
+      render:({richtext})=><section className="puck-builder-card" style={surface}><span style={{whiteSpace:'pre-wrap'}}>{richtext.replace(/<[^>]*>/g,' ').trim()}</span></section>
+    },
+    Hero:{
+      label:'Tanıtım (Hero)',
+      fields:{
+        title:{type:'text',label:'Başlık',contentEditable:true},
+        description:{type:'textarea',label:'Açıklama',contentEditable:true},
+        buttonText:{type:'text',label:'Buton metni',contentEditable:true},
+        buttonHref:{type:'text',label:'Buton bağlantısı'},
+        align:{type:'radio',label:'Hizalama',options:[...alignOptions]}
+      },
+      defaultProps:{title:'Üretime hazır tasarım',description:'Nesting çalışma alanınızı düzenleyin.',buttonText:'Başla',buttonHref:'#',align:'center'},
+      render:({title,description,buttonText,align})=><section className="puck-builder-hero" style={{...surface,textAlign:align,padding:'32px 24px'}}>
+        <h2>{title}</h2><p>{description}</p><span className="puck-builder-button is-primary">{buttonText}</span>
+      </section>
+    },
+    Logos:{
+      label:'Logolar',
+      fields:{
+        logos:{type:'array',label:'Logolar',getItemSummary:(item,i)=>item.alt||'Logo '+((i??0)+1),
+          defaultItemProps:{alt:'Logo',imageUrl:''},
+          arrayFields:{alt:{type:'text',label:'Alternatif yazı'},imageUrl:{type:'text',label:'Görsel URL'}}}
+      },
+      defaultProps:{logos:[{alt:'Marka 1',imageUrl:''},{alt:'Marka 2',imageUrl:''}]},
+      render:({logos})=><section className="puck-builder-logos" style={surface}>
+        {logos.map((item,i)=><div key={i} className="puck-builder-logo">
+          {/^https:\/\//i.test(item.imageUrl)?<img alt={item.alt} src={item.imageUrl} loading="lazy"/>:<strong>{item.alt}</strong>}
+        </div>)}
+      </section>
+    },
+    Stats:{
+      label:'İstatistikler',
+      fields:{
+        items:{type:'array',label:'Ölçümler',getItemSummary:(item,i)=>item.title||'İstatistik '+((i??0)+1),
+          defaultItemProps:{title:'Üretim',description:'100%'},
+          arrayFields:{title:{type:'text',label:'Başlık'},description:{type:'text',label:'Değer'}}}
+      },
+      defaultProps:{items:[{title:'Verimlilik',description:'%86'},{title:'Parça',description:'128'}]},
+      render:({items})=><section className="puck-builder-stats" style={surface}>
+        {items.map((item,i)=><div key={i}><strong>{item.description}</strong><small>{item.title}</small></div>)}
+      </section>
+    },
+    Template:{
+      label:'Şablon alanı',
+      fields:{title:{type:'text',label:'Başlık',contentEditable:true},description:{type:'textarea',label:'Açıklama'},items:{type:'slot',label:'İç bileşenler'}},
+      defaultProps:{title:'Yeni şablon',description:'İçerik eklemek için bileşen sürükleyin',items:[]},
+      render:({title,description,items:Items})=><section className="puck-builder-template" style={surface}>
+        <h3>{title}</h3><p>{description}</p><Items className="puck-builder-slot" style={{minHeight:140}}/>
       </section>
     },
     ActionBar:{
       label:'İşlem çubuğu',
-      fields:{label:{type:'text',label:'Ana buton yazısı',contentEditable:true}},
-      defaultProps:{label:'Parçaları yerleştir'},
-      render:({label})=><div className="puck-builder-actions" style={surface}>
+      fields:{
+        label:{type:'text',label:'Ana buton yazısı',contentEditable:true},
+        downloadLabel:{type:'text',label:'İndirme butonu'},
+        corelLabel:{type:'text',label:'CorelDRAW butonu'}
+      },
+      defaultProps:{label:'Parçaları yerleştir',downloadLabel:'DXF İndir',corelLabel:'CorelDRAW'},
+      render:({label,downloadLabel,corelLabel})=><div className="puck-builder-actions" style={surface}>
         <button type="button" tabIndex={-1} className="puck-builder-button is-primary">{label}</button>
-        <button type="button" tabIndex={-1} className="puck-builder-button is-secondary">DXF İndir</button>
-        <button type="button" tabIndex={-1} className="puck-builder-button is-secondary">CorelDRAW</button>
+        <button type="button" tabIndex={-1} className="puck-builder-button is-secondary">{downloadLabel}</button>
+        <button type="button" tabIndex={-1} className="puck-builder-button is-secondary">{corelLabel}</button>
       </div>
     }
   }
@@ -170,11 +248,11 @@ export const initialPuckPage:Data<BuilderBlocks,BuilderRoot>={
     {type:'Heading',props:{id:'demo-heading',text:'Serula Nesting',level:'h2',align:'left'}},
     {type:'Text',props:{id:'demo-intro',text:'Soldaki bileşenleri bu alana sürükle. Bileşene tıklayıp sağ panelden özelliklerini düzenle.',align:'left',size:14}},
     {type:'Grid',props:{id:'demo-grid',columns:3,gap:16,items:[
-      {type:'PartsPanel',props:{id:'demo-parts',title:'Parçalar'}},
-      {type:'NestingCanvas',props:{id:'demo-canvas',title:'Yerleşim önizlemesi'}},
-      {type:'MaterialPanel',props:{id:'demo-material',title:'Malzeme ayarları'}}
+      {type:'PartsPanel',props:{id:'demo-parts',title:'Parçalar',parts:[{name:'Parça 01',quantity:4},{name:'Parça 02',quantity:2},{name:'Parça 03',quantity:1}]}},
+      {type:'NestingCanvas',props:{id:'demo-canvas',title:'Yerleşim önizlemesi',sheetWidth:1500,sheetHeight:3000,fill:'#f8fbfe'}},
+      {type:'MaterialPanel',props:{id:'demo-material',title:'Malzeme ayarları',width:1500,gap:5,material:'Rulo'}}
     ]}},
-    {type:'ActionBar',props:{id:'demo-actions',label:'Parçaları yerleştir'}},
+    {type:'ActionBar',props:{id:'demo-actions',label:'Parçaları yerleştir',downloadLabel:'DXF İndir',corelLabel:'CorelDRAW'}},
     // A visible, empty Puck slot is the supported insertion target. Non-empty
     // dropzones disable direct collisions; users then drop between components.
     {type:'Flex',props:{id:'demo-insert-here',direction:'column',gap:14,items:[]}}
