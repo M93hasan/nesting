@@ -393,7 +393,7 @@ async function handleApi(request,env){
     }
     if(path==='/api/admin/design/draft'&&request.method==='POST'){
       const raw=await request.text();
-      if(raw.length>12000)return json({error:'Tasarım fazla büyük.'},413);
+      if(raw.length>70000)return json({error:'Tasarım fazla büyük.'},413);
       let document;try{document=parseDesignPayload(JSON.parse(raw));}catch(error){return json({error:error.message},400);}
       const encoded=JSON.stringify(document);
       await env.DB.prepare("INSERT INTO system_settings(key,value_json,updated_at) VALUES('design_draft_v1',?,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json,updated_at=CURRENT_TIMESTAMP").bind(encoded).run();
