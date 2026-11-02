@@ -174,6 +174,9 @@ export const initialPuckPage:Data<BuilderBlocks,BuilderRoot>={
       {type:'NestingCanvas',props:{id:'demo-canvas',title:'Yerleşim önizlemesi'}},
       {type:'MaterialPanel',props:{id:'demo-material',title:'Malzeme ayarları'}}
     ]}},
-    {type:'ActionBar',props:{id:'demo-actions',label:'Parçaları yerleştir'}}
+    {type:'ActionBar',props:{id:'demo-actions',label:'Parçaları yerleştir'}},
+    // A visible, empty Puck slot is the supported insertion target. Non-empty
+    // dropzones disable direct collisions; users then drop between components.
+    {type:'Flex',props:{id:'demo-insert-here',direction:'column',gap:14,items:[]}}
   ]
 };
