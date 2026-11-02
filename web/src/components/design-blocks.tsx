@@ -9,7 +9,7 @@ export type BlockDevice=typeof BLOCK_DEVICES[number];
 export type DesignBlock={
   id:string;kind:BlockKind;region:BlockRegion;text:string;
   href?:string;src?:string;color?:string;background?:string;
-  fontSize?:number;padding?:number;radius?:number;width?:number;
+  fontSize?:number;padding?:number;radius?:number;width?:number;borderWidth?:number;borderColor?:string;fontFamily?:'system'|'serif'|'mono';animation?:'none'|'fade'|'slide';
   x?:number;y?:number;opacity?:number;align?:'left'|'center'|'right';
   hidden?:boolean;devices?:BlockDevice[];
 };
@@ -28,10 +28,12 @@ export function cleanBlocks(value:unknown):DesignBlock[]{
     if(typeof b.text!=='string'||b.text.length>160||/[<>\x00-\x1f]/.test(b.text))return [];
     if(b.href!==undefined&&(typeof b.href!=='string'||!BLOCK_LINK_PATTERN.test(b.href)))return [];
     if(b.src!==undefined&&(typeof b.src!=='string'||!BLOCK_IMAGE_SOURCES.includes(b.src as typeof BLOCK_IMAGE_SOURCES[number])))return [];
-    for(const key of ['color','background'])if(b[key]!==undefined&&(typeof b[key]!=='string'||!HEX.test(b[key])))return [];
-    for(const [key,a,z] of [['fontSize',10,36],['padding',0,48],['radius',0,40],['width',40,650],['x',-300,300],['y',-300,300],['opacity',0,100]] as const){
+    for(const key of ['color','background','borderColor'])if(b[key]!==undefined&&(typeof b[key]!=='string'||!HEX.test(b[key])))return [];
+    for(const [key,a,z] of [['fontSize',10,36],['padding',0,48],['radius',0,40],['width',40,650],['x',-300,300],['y',-300,300],['opacity',0,100],['borderWidth',0,8]] as const){
       if(b[key]!==undefined&&!bounded(b[key],a,z))return [];
     }
+    if(b.fontFamily!==undefined&&!['system','serif','mono'].includes(String(b.fontFamily)))return [];
+    if(b.animation!==undefined&&!['none','fade','slide'].includes(String(b.animation)))return [];
     if(b.align!==undefined&&!['left','center','right'].includes(String(b.align)))return [];
     if(b.hidden!==undefined&&typeof b.hidden!=='boolean')return [];
     if(b.devices!==undefined&&(!Array.isArray(b.devices)||!b.devices.length||new Set(b.devices).size!==b.devices.length||!b.devices.every(v=>BLOCK_DEVICES.includes(v))))return [];
@@ -39,7 +41,7 @@ export function cleanBlocks(value:unknown):DesignBlock[]{
     const result:DesignBlock={id:b.id,kind:b.kind as BlockKind,region:b.region as BlockRegion,text:b.text};
     if(b.href!==undefined)result.href=b.href as string;
     if(b.src!==undefined)result.src=b.src as string;
-    for(const k of ['color','background','fontSize','padding','radius','width','x','y','opacity','align','hidden','devices'] as const)
+    for(const k of ['color','background','fontSize','padding','radius','width','x','y','opacity','align','hidden','devices','borderWidth','borderColor','fontFamily','animation'] as const)
       if(b[k]!==undefined)(result as unknown as Record<string,unknown>)[k]=b[k];
     return [result];
   });
@@ -53,7 +55,8 @@ export function defaultBlock(kind:BlockKind,region:BlockRegion,id:string):Design
 export function blockStyle(block:DesignBlock):CSSProperties{
   const color=block.color&&HEX.test(block.color)?block.color:undefined;
   const background=block.background&&HEX.test(block.background)?block.background:undefined;
-  return {color,background,borderRadius:block.radius??6,fontSize:block.fontSize??14,padding:block.padding??8,
+  const family=block.fontFamily==='serif'?'Georgia,serif':block.fontFamily==='mono'?'ui-monospace,monospace':'inherit';
+  return {color,background,borderRadius:block.radius??6,border:(block.borderWidth??0)+'px solid '+(block.borderColor??'#d7deea'),fontFamily:family,fontSize:block.fontSize??14,padding:block.padding??8,
     width:block.width??undefined,maxWidth:'100%',textAlign:block.align??'left',opacity:(block.opacity??100)/100,
     transform:'translate('+(block.x??0)+'px,'+(block.y??0)+'px)'};
 }
@@ -62,7 +65,7 @@ export function DesignBlocks({region,blocks}:{region:BlockRegion;blocks:unknown}
   if(!rows.length)return null;
   return <div className="design-widget-region" data-design-widget-region={region}>
     {rows.map(b=>{
-      const props={key:b.id,'data-design-block-id':b.id,className:'design-widget design-widget-'+b.kind+' '+(b.devices??BLOCK_DEVICES).map(d=>'design-device-'+d).join(' '),style:blockStyle(b)};
+      const props={key:b.id,'data-design-block-id':b.id,className:'design-widget design-widget-'+b.kind+' design-motion-'+(b.animation??'none')+' '+(b.devices??BLOCK_DEVICES).map(d=>'design-device-'+d).join(' '),style:blockStyle(b)};
       if(b.kind==='divider')return <div {...props} role="separator"><hr/></div>;
       if(b.kind==='heading')return <h3 {...props}>{b.text}</h3>;
       if(b.kind==='button')return <a {...props} href={b.href&&BLOCK_LINK_PATTERN.test(b.href)?b.href:'/'}>{b.text}</a>;
