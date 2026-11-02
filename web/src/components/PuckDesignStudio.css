@@ -1,0 +1,37 @@
+/* Puck is isolated from the legacy Serula pill-button rules. */
+.puck-studio{position:fixed;inset:0;z-index:1150;display:flex;flex-direction:column;background:#f5f7fb;color:#1e293b;font:14px/1.5 Inter,system-ui,sans-serif;min-width:0}
+.puck-studio *{box-sizing:border-box}
+.puck-studio-topbar{min-height:64px;padding:10px 19px;background:#fff;border-bottom:1px solid #e3e8ef;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.puck-studio-topbar>div{display:grid;gap:0}
+.puck-studio-topbar strong{font-size:17px}
+.puck-studio-topbar small{font-size:11px;color:#697586}
+.puck-studio-topbar nav{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+:root #root .puck-studio button{border-radius:7px!important}
+.puck-studio-topbar button,.puck-studio-history button,.puck-studio-devices button{background:#fff;color:#26354d;border:1px solid #d4dce8;padding:7px 11px;min-height:34px;cursor:pointer}
+.puck-studio-topbar button[aria-pressed=true],.puck-studio-devices button[aria-pressed=true]{background:#e9efff;color:#2f4bad;border-color:#bccbff}
+.puck-studio-editor{min-width:0;min-height:0;flex:1;overflow:hidden;--puck-color-interactive:#405dd7;--puck-color-interactive-hover:#2949c5;--puck-color-focus-ring:#405dd7}
+.puck-studio-status{padding:7px 16px;background:#edf7f2;border-bottom:1px solid #cce8da;color:#195c3e;font-size:12px}
+.puck-studio-history{background:#fff;border-bottom:1px solid #e3e8ef;padding:10px 18px;display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.puck-studio-history label{display:flex;align-items:center;gap:5px;font-size:12px}
+.puck-studio-history select{height:34px;max-width:175px;border:1px solid #d4dce8;border-radius:7px;background:#fff;padding:4px 7px;color:inherit}
+.puck-studio-history button:disabled{opacity:.5;cursor:not-allowed}
+.puck-studio-live{flex:1;min-height:0;display:flex;flex-direction:column}
+.puck-studio-devices{display:flex;align-items:center;gap:8px;background:#fff;padding:10px 18px;border-bottom:1px solid #ddd}
+.puck-studio-devices strong{margin-right:auto}
+.puck-studio-live-scroll{flex:1;min-height:0;overflow:auto;display:flex;justify-content:center;padding:25px;background:#e5eaf2}
+.puck-studio-live iframe{border:1px solid #bbc6d8;box-shadow:0 10px 38px #17233c26;background:white}
+.puck-studio-live>p{padding:7px 18px;margin:0;background:white;color:#64748b;font-size:12px}
+.puck-mock-page{min-height:100vh;padding:25px;border:2px solid #e2e8f0;font-family:system-ui,sans-serif}
+.puck-mock-page>header{display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid #e4e9f0;border-radius:12px;padding:15px;margin-bottom:15px}
+.puck-mock-page>header span{width:32px;height:5px;border-radius:99px}
+.puck-mock-zones{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+.puck-mock-page>p{color:#6b7280;font-size:11px}
+.puck-zone-card{min-height:95px;border:1px solid #dbe2ea;display:grid;align-content:start;gap:8px;overflow-wrap:anywhere}
+.puck-zone-card small{font-size:10px;opacity:.65}
+.puck-zone-card strong{font-size:1em}
+:root #root .puck-zone-card button{border:0;background:#3e5ccd;color:white;border-radius:8px!important;padding:9px;font:inherit}
+.puck-zone-canvas{display:flex;justify-content:center;align-items:center;gap:6px;height:75px;background:#eaf0f7}
+.puck-zone-canvas span{width:26px;height:26px;border:1px solid #7897a7;transform:rotate(14deg);background:#d7e4ee}
+.puck-zone-lines{display:grid;gap:6px}
+.puck-zone-lines span{height:8px;background:#eef2f6;border-radius:3px}
+@media(max-width:720px){.puck-studio-topbar{align-items:flex-start}.puck-studio-topbar strong{font-size:15px}.puck-studio-devices{flex-wrap:wrap}.puck-studio-live-scroll{justify-content:flex-start}}
