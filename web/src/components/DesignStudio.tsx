@@ -280,14 +280,24 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
   const redo=()=>{setSaved(false);setIndex(v=>Math.min(history.length-1,v+1));};
   useEffect(()=>{
     const handler=(event:KeyboardEvent)=>{
-      if(!(event.ctrlKey||event.metaKey)||!['z','y'].includes(event.key.toLowerCase()))return;
-      if(event.target instanceof HTMLElement&&event.target.closest('input,textarea,[contenteditable="true"]'))return;
+      if(event.target instanceof HTMLElement&&event.target.closest('input,textarea,select,[contenteditable="true"]'))return;
+      const ctrl=event.ctrlKey||event.metaKey;
+      if(selectedBlock&&(!ctrl&&['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(event.key))){
+        event.preventDefault();
+        const delta=event.shiftKey?10:1;
+        const x=Math.max(-300,Math.min(300,(selectedBlock.x??0)+(event.key==='ArrowLeft'?-delta:event.key==='ArrowRight'?delta:0)));
+        const y=Math.max(-300,Math.min(300,(selectedBlock.y??0)+(event.key==='ArrowUp'?-delta:event.key==='ArrowDown'?delta:0)));
+        modifyBlock({x,y});return;
+      }
+      if(selectedBlock&&ctrl&&event.key.toLowerCase()==='d'){event.preventDefault();duplicateBlock();return;}
+      if(selectedBlock&&!ctrl&&(['Delete','Backspace'].includes(event.key))){event.preventDefault();removeBlock();return;}
+      if(!ctrl||!['z','y'].includes(event.key.toLowerCase()))return;
       event.preventDefault();
       if(event.key.toLowerCase()==='y'||event.shiftKey)redo();else undo();
     };
     window.addEventListener('keydown',handler);
     return()=>window.removeEventListener('keydown',handler);
-  },[history.length]);
+  },[history.length,selectedBlockId,design,index]);
   const zoneStyle=design.zoneStyles?.[selectedZone]??{};
   const changeZoneStyle=(key:keyof ZoneStyle,value:string|number)=>{
     apply({zoneStyles:{...design.zoneStyles,[selectedZone]:{...zoneStyle,[key]:value}}});
