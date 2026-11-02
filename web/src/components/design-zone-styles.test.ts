@@ -13,10 +13,11 @@ describe('safe real component styles',()=>{
     expect(cleanZoneStyles({downloadButton:{text:'DXF KAYDET'}})).toEqual({downloadButton:{text:'DXF KAYDET'}});
     expect(cleanZoneStyles({downloadButton:{text:'<script>'}})).toEqual({});
   });
-  it('renders only bounded button movement and ignores panel translation',()=>{
+  it('renders bounded movement of buttons and real panels',()=>{
     const css=renderZoneCss({downloadButton:{offsetX:48,offsetY:-30},canvas:{offsetX:50,offsetY:50}});
     expect(css).toContain('transform:translate(48px,-30px) !important');
-    expect(css).not.toContain('transform:translate(50px,50px)');
+    expect(css).toContain('transform:translate(50px,50px) !important');
+    expect(cleanZoneStyles({canvas:{offsetX:161}})).toEqual({});
     expect(cleanZoneStyles({corelButton:{offsetX:81,offsetY:-81}})).toEqual({});
   });
   it('drops malformed colors, unsafe numbers and arbitrary selectors',()=>{
