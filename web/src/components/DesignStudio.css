@@ -153,3 +153,19 @@
 .editor-block-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px 0}
 .editor-block-actions button{white-space:normal!important}
 .editor-block-actions .editor-delete{color:#b33246!important;background:#fff5f5!important;border-color:#f1d4da!important}
+
+/* Usability: actual zoom levels and workspace focus layout. */
+.editor-main.editor-hide-left{grid-template-columns:0 minmax(0,1fr) 286px}
+.editor-main.editor-hide-right{grid-template-columns:246px minmax(0,1fr) 0}
+.editor-main.editor-hide-left.editor-hide-right{grid-template-columns:0 minmax(0,1fr) 0}
+.editor-main.editor-hide-left>.editor-sidebar,.editor-main.editor-hide-right>.editor-inspector{display:none}
+.editor-stage-scroller{justify-content:flex-start!important;align-items:flex-start!important;overflow:auto!important}
+.editor-live-surface{margin-inline:auto;overflow:hidden}
+.editor-live-surface.editor-live-tablet,.editor-live-surface.editor-live-mobile{max-width:none}
+.editor-stage-toolbar{gap:6px}
+:root #root .design-editor-v2 .editor-pane-toggle{min-height:30px!important;padding:4px 8px!important;background:#fff!important;flex:none}
+:root #root .design-editor-v2 .editor-color-field{display:flex!important;flex-direction:column!important;align-items:stretch!important;text-align:left!important;justify-content:flex-start!important;gap:8px!important;direction:ltr!important}
+:root #root .design-editor-v2 .editor-color-field>span:first-child{display:block!important;margin:0!important;text-align:left!important;align-self:flex-start!important}
+:root #root .design-editor-v2 .editor-color-field .editor-color-control{display:flex!important;align-items:center!important;justify-content:flex-start!important;direction:ltr!important}
+@media(max-width:1150px){.editor-main.editor-hide-left{grid-template-columns:0 minmax(0,1fr) 255px}.editor-main.editor-hide-right{grid-template-columns:215px minmax(0,1fr) 0}}
+@media(max-width:820px){.editor-main.editor-hide-left,.editor-main.editor-hide-right,.editor-main.editor-hide-left.editor-hide-right{display:flex;flex-direction:column}.editor-stage-scroller{overflow:auto!important}}
