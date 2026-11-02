@@ -79,4 +79,11 @@ test.describe('production-like service worker',()=>{
     await expect(page.getByRole('region',{name:'Puck görsel tasarım editörü'})).toBeVisible();
     await expect(page.getByRole('heading',{name:'Nesting Bileşenleri',exact:true})).toBeVisible();
   });
+  test('isolation service worker still permits geometry shape creation',async({page})=>{
+    await page.goto('/');
+    await expect.poll(()=>page.evaluate(()=>({controlled:!!navigator.serviceWorker?.controller,isolated:crossOriginIsolated})),{timeout:20000}).toEqual({controlled:true,isolated:true});
+    await page.getByRole('button',{name:'Şekil çiz',exact:true}).click();
+    await page.getByRole('dialog').getByRole('button',{name:'Şekil ekle',exact:true}).click();
+    await expect(page.locator('.part-row')).toHaveCount(1);
+  });
 });
