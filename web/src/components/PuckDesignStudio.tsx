@@ -104,7 +104,7 @@ export default function PuckDesignStudio({onClose}:{onClose:()=>void}){
         iframe={{enabled:false}}
         headerTitle="Nesting Tasarım Taslağı"
         dictionary={{'header-publish':'Taslağı kaydet','outline-header-title':'Katmanlar'}}
-        onChange={data=>setDraft(data)}
+        onChange={data=>{console.info('PUCK_DOC_CHANGE',JSON.stringify({length:data.content?.length,root:data.root?.props,types:data.content?.map(item=>item.type)}));setDraft(data)}}
         onPublish={async data=>setDraft(data,true)}
         viewports={[{width:1440,label:'Masaüstü'},{width:768,label:'Tablet'},{width:390,label:'Mobil'}]}
         height="100%"
