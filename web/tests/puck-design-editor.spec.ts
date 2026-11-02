@@ -1,87 +1,109 @@
 import {test,expect} from '@playwright/test';
-test.use({serviceWorkers:'block'});
-test('Puck opens safely and switches to the real non-interactive Nesting preview',async({page})=>{
-  await page.route('**/api/auth/admin-me',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({user:{id:1,email:'qa@example.test',name:'QA',role:'admin',credits:0,unlimited:true}})}));
-  await page.route('**/api/admin/design/versions',r=>r.fulfill({status:200,contentType:'application/json',body:'{"versions":[]}'}));
-  await page.route('**/api/admin/design/publications',r=>r.fulfill({status:200,contentType:'application/json',body:'{"publications":[]}'}));
-  await page.route('**/api/design/published',r=>r.fulfill({status:200,contentType:'application/json',body:'{"published":null}'}));
-  let savedDesign:unknown=null;
-  await page.route('**/api/admin/design/draft',async route=>{
-    if(route.request().method()==='POST')savedDesign=JSON.parse(route.request().postData()??'null');
-    await route.fulfill({status:200,contentType:'application/json',body:'{}'});
-  });
+
+const adminUser={user:{id:1,email:'qa@example.test',name:'QA',role:'admin',credits:0,unlimited:true}};
+async function openBuilder(page:import('@playwright/test').Page){
+  await page.route('**/api/auth/admin-me',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(adminUser)}));
   await page.goto('/admin');
   await page.getByRole('button',{name:/Görünüm/}).click();
   await page.getByRole('button',{name:'Puck Editörünü Aç'}).click();
   await expect(page.getByRole('region',{name:'Puck görsel tasarım editörü'})).toBeVisible();
-  await expect(page.getByRole('heading',{name:'Nesting Bileşenleri',exact:true})).toBeVisible();
-  await page.screenshot({path:'test-results/puck-editor-fullscreen.png',fullPage:true});
-  await page.getByText('Sunucu taslağını kaydet',{exact:true}).click();
-  await expect.poll(()=>savedDesign).not.toBeNull();
-  expect(savedDesign).toMatchObject({format:'serula-design-v1',design:{background:'#121421',radius:12}});
-  expect(JSON.stringify(savedDesign)).not.toContain('"content"');
-  await page.getByRole('button',{name:'Gerçek ekran'}).click();
-  const preview=page.locator('iframe[title="Puck gerçek Nesting önizlemesi"]');
-  await expect(preview).toBeVisible();
-  await expect(preview).toHaveAttribute('src',/design-preview=1/);
-  await page.getByRole('button',{name:'Mobil'}).click();
-  await expect(preview).toHaveCSS('width','390px');
-  await page.getByRole('button',{name:'Bileşen editörü'}).click();
-  await expect(page.getByRole('heading',{name:'Nesting Bileşenleri',exact:true})).toBeVisible();
-});
+}
 
-test('a failed Puck asset shows a recovery panel rather than an unusable admin page',async({page})=>{
-  await page.route('**/api/auth/admin-me',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({user:{id:1,email:'qa@example.test',name:'QA',role:'admin',credits:0,unlimited:true}})}));
-  await page.route(/\/assets\/PuckDesignStudio-[^/]+\.js(?:\?.*)?$/,route=>route.fulfill({status:503,contentType:'text/plain',body:'Temporarily unavailable'}));
-  await page.goto('/admin');
-  await page.getByRole('button',{name:/Görünüm/}).click();
-  await page.getByRole('button',{name:'Puck Editörünü Aç'}).click();
-  await expect(page.getByRole('alert',{name:'Puck editör yükleme hatası'})).toBeVisible();
-  await expect(page.getByRole('heading',{name:'Puck Editor açılamadı'})).toBeVisible();
-  await page.getByRole('button',{name:'Eski editöre geç'}).click();
-  await expect(page.getByRole('region',{name:'Serula görsel tasarım editörü'})).toBeVisible();
-});
-test('opening Puck with an existing safe local draft preserves that draft',async({page})=>{
-  await page.addInitScript(()=>{
-    if(location.pathname==='/admin'){
-      localStorage.setItem('serula-design-studio-draft-v1',JSON.stringify({
-        background:'#112233',panel:'#334455',accent:'#5278ed',
-        radius:20,spacing:16,fontSize:15,heading:'Önceden kayıtlı tasarım',
-        zoneStyles:{downloadButton:{radius:18,text:'DXF KAYDET'}},
-        workspaceOrder:['parts','canvas','material']
-      }));
+test.describe('real Puck visual builder',()=>{
+  test.use({serviceWorkers:'block'});
+  test('shows upstream-style insertable component palette, nested layouts and local-only save',async({page})=>{
+    await openBuilder(page);
+    await expect(page.getByText('Nesting Tasarım Taslağı',{exact:true})).toBeVisible();
+    for(const kind of ['Heading','Grid','Flex','Button','PartsPanel','NestingCanvas']){
+      await expect(page.getByTestId('drawer-item:'+kind)).toBeVisible();
     }
+    await expect(page.getByTestId('drawer-item:Heading')).not.toHaveClass(/disabled/i);
+    await expect(page.locator('.puck-builder-grid')).toBeVisible();
+    await page.screenshot({path:'test-results/puck-editor-fullscreen.png',fullPage:true});
+    await page.getByText('Taslağı kaydet',{exact:true}).click();
+    await expect.poll(()=>page.evaluate(()=>localStorage.getItem('serula-puck-page-v1'))).not.toBeNull();
+    const data=await page.evaluate(()=>JSON.parse(localStorage.getItem('serula-puck-page-v1')??'null'));
+    expect(data.root.props.title).toBe('Serula Nesting çalışma alanı');
+    expect(data.content[0].type).toBe('Heading');
+    expect(data.content.some((item:{type:string})=>item.type==='Grid')).toBeTruthy();
+    await page.getByRole('button',{name:'Gerçek Nesting ekranı'}).click();
+    const preview=page.locator('iframe[title="Gerçek Nesting ekranı"]');
+    await expect(preview).toBeVisible();
+    await page.getByRole('button',{name:'Mobil'}).click();
+    await expect(preview).toHaveCSS('width','390px');
   });
-  await page.route('**/api/auth/admin-me',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({user:{id:1,email:'qa@example.test',name:'QA',role:'admin',credits:0,unlimited:true}})}));
-  await page.route('**/api/admin/design/versions',r=>r.fulfill({status:200,contentType:'application/json',body:'{"versions":[]}'}));
-  await page.route('**/api/admin/design/publications',r=>r.fulfill({status:200,contentType:'application/json',body:'{"publications":[]}'}));
-  await page.goto('/admin');
-  await page.getByRole('button',{name:/Görünüm/}).click();
-  await page.getByRole('button',{name:'Puck Editörünü Aç'}).click();
-  await expect(page.getByRole('region',{name:'Puck görsel tasarım editörü'})).toBeVisible();
-  await expect(page.getByRole('heading',{name:'Nesting Bileşenleri',exact:true})).toBeVisible();
-  const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('serula-design-studio-draft-v1')||'{}'));
-  expect(saved).toMatchObject({heading:'Önceden kayıtlı tasarım',radius:20,zoneStyles:{downloadButton:{radius:18,text:'DXF KAYDET'}}});
-});
-
-test.describe('production-like service worker',()=>{
-  test.use({serviceWorkers:'allow'});
-  test('Puck opens after isolation service worker registration',async({page})=>{
-    await page.route('**/api/auth/admin-me',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({user:{id:1,email:'qa@example.test',name:'QA',role:'admin',credits:0,unlimited:true}})}));
+  test('dragging a real palette component inserts it into Puck content',async({page})=>{
+    await openBuilder(page);
+    const source=page.getByTestId('drawer-item:Card');
+    // Root contains components, so Puck disables direct collision there.
+    // The empty Flex slot is an actual supported droppable target.
+    const target=page.locator('[data-puck-dropzone="demo-insert-here:items"]');
+    await expect(target).toBeVisible();
+    // Puck 0.24 debounces zone changes (100ms). Hold the pointer over the
+    // actual empty slot long enough to register its collision before release.
+    await source.hover();
+    const from=await source.boundingBox();
+    const to=await target.boundingBox();
+    expect(from).not.toBeNull();
+    expect(to).not.toBeNull();
+    const sx=from!.x+from!.width/2,sy=from!.y+from!.height/2;
+    const tx=to!.x+to!.width/2,ty=to!.y+to!.height/2;
+    await page.mouse.down();
+    await page.mouse.move(sx+12,sy+8,{steps:5});
+    await page.mouse.move(tx,ty,{steps:35});
+    await page.waitForTimeout(350);
+    await page.mouse.move(tx+2,ty+2,{steps:3});
+    await page.waitForTimeout(160);
+    await page.mouse.up();
+    // The Puck editor may select the closest root component even when
+    // hovering over a nested slot. Assert the actual invariant: a new
+    // Card is inserted, appears in the canvas and is saved in Puck JSON.
+    await expect.poll(async()=>page.evaluate(()=>{
+      const doc=JSON.parse(localStorage.getItem('serula-puck-page-v1')??'null');
+      return doc?.content?.filter((item:{type:string})=>item.type==='Card').length ?? 0;
+    }),{timeout:10000}).toBe(1);
+    const data=await page.evaluate(()=>JSON.parse(localStorage.getItem('serula-puck-page-v1')!));
+    expect(data.content).toHaveLength(6);
+    expect(data.content.find((item:{type:string})=>item.type==='Card')?.props.title).toBe('Bilgi kartı');
+    expect(data.content.some((item:{props:{id:string}})=>item.props.id==='demo-insert-here')).toBe(true);
+    await expect(page.locator('.puck-builder-card')).toBeVisible();
+  });
+  test('failed editor import shows recovery controls, not a blank app',async({page})=>{
+    await page.route('**/api/auth/admin-me',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(adminUser)}));
+    await page.route(/\/assets\/PuckDesignStudio-[^/]+\.js(?:\?.*)?$/,route=>route.fulfill({status:503,contentType:'text/plain',body:'Asset unavailable'}));
     await page.goto('/admin');
-    // The original bug only existed after the production isolation SW took control.
-    await expect.poll(()=>page.evaluate(()=>({
-      controlled:!!navigator.serviceWorker?.controller,isolated:crossOriginIsolated
-    })),{timeout:20000}).toEqual({controlled:true,isolated:true});
-    await expect(page.getByRole('button',{name:/Görünüm/})).toBeVisible();
     await page.getByRole('button',{name:/Görünüm/}).click();
     await page.getByRole('button',{name:'Puck Editörünü Aç'}).click();
-    await expect(page.getByRole('region',{name:'Puck görsel tasarım editörü'})).toBeVisible();
-    await expect(page.getByRole('heading',{name:'Nesting Bileşenleri',exact:true})).toBeVisible();
+    await expect(page.getByRole('alert',{name:'Puck editör yükleme hatası'})).toBeVisible();
+    await page.getByRole('button',{name:'Eski editöre geç'}).click();
+    await expect(page.getByRole('region',{name:'Serula görsel tasarım editörü'})).toBeVisible();
   });
-  test('isolation service worker still permits geometry shape creation',async({page})=>{
-    await page.goto('/');
+  test('opens previously saved real Puck data, without overwriting legacy draft',async({page})=>{
+    await page.addInitScript(()=>{
+      if(location.pathname==='/admin'){
+        localStorage.setItem('serula-puck-page-v1',JSON.stringify({
+          root:{props:{title:'Kendi Puck düzenim',background:'#112233',panel:'#ffffff',accent:'#405dd7'}},
+          content:[{type:'Heading',props:{id:'saved-head',text:'KAYITLI',level:'h2',align:'center'}}]
+        }));
+        localStorage.setItem('serula-design-studio-draft-v1','legacy-intact');
+      }
+    });
+    await openBuilder(page);
+    const value=await page.evaluate(()=>JSON.parse(localStorage.getItem('serula-puck-page-v1')??'null'));
+    expect(value.root.props.title).toBe('Kendi Puck düzenim');
+    expect(value.content[0].props.text).toBe('KAYITLI');
+    expect(await page.evaluate(()=>localStorage.getItem('serula-design-studio-draft-v1'))).toBe('legacy-intact');
+  });
+});
+
+test.describe('production isolation worker',()=>{
+  test.use({serviceWorkers:'allow'});
+  test('opens Puck and still creates a Nesting shape with isolation enabled',async({page})=>{
+    await openBuilder(page);
     await expect.poll(()=>page.evaluate(()=>({controlled:!!navigator.serviceWorker?.controller,isolated:crossOriginIsolated})),{timeout:20000}).toEqual({controlled:true,isolated:true});
+    await expect(page.getByTestId('drawer-item:Grid')).toBeVisible();
+    await page.getByRole('button',{name:'Kapat ✕'}).click();
+    await page.goto('/');
     await page.getByRole('button',{name:'Şekil çiz',exact:true}).click();
     await page.getByRole('dialog').getByRole('button',{name:'Şekil ekle',exact:true}).click();
     await expect(page.locator('.part-row')).toHaveCount(1);

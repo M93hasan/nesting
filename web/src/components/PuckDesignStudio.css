@@ -35,3 +35,44 @@
 .puck-zone-lines{display:grid;gap:6px}
 .puck-zone-lines span{height:8px;background:#eef2f6;border-radius:3px}
 @media(max-width:720px){.puck-studio-topbar{align-items:flex-start}.puck-studio-topbar strong{font-size:15px}.puck-studio-devices{flex-wrap:wrap}.puck-studio-live-scroll{justify-content:flex-start}}
+
+
+/* True Puck canvas: the left drawer contains insertable blocks, the canvas
+   contains live editable Puck slots, and the right drawer edits selected props. */
+.puck-studio-hint{background:#f0f4ff;border-bottom:1px solid #cbd6f5;color:#334672;padding:9px 18px;font-size:12px;line-height:1.5}
+.puck-studio-hint strong{font-weight:700}
+.puck-studio-hint span{color:#657490}
+.puck-studio .puck-studio-editor{flex:1}
+.puck-studio :is(button,input,textarea,select){font-family:inherit}
+.puck-builder-page{min-height:100vh;padding:0 22px 48px;color:#1e293b;font:14px/1.5 Inter,system-ui,sans-serif}
+.puck-builder-page-head{margin:0 -22px 22px;background:var(--puck-panel,#fff);border-bottom:1px solid #dce3ed;padding:16px 22px;display:flex;justify-content:space-between;gap:12px;align-items:center}
+.puck-builder-page-head strong{font-size:16px;font-weight:730}
+.puck-builder-page-head span{font-size:11px;color:#738195}
+.puck-builder-page-content{min-height:75vh;display:flex;flex-direction:column;gap:12px}
+.puck-builder-heading{margin:4px 0;font-weight:760;letter-spacing:-.02em}
+.puck-builder-heading:is(h1){font-size:31px}.puck-builder-heading:is(h2){font-size:23px}.puck-builder-heading:is(h3){font-size:17px}
+.puck-builder-text{color:#536279;line-height:1.65;margin:0}
+.puck-builder-button-holder{display:inline-flex;padding:5px}
+.puck-builder-button{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:11px 17px;border:1px solid transparent;border-radius:9px;font:inherit;font-size:13px;font-weight:650;cursor:default;white-space:nowrap}
+.puck-builder-button.is-primary{color:#fff;background:var(--puck-accent,#405dd7)}
+.puck-builder-button.is-secondary{color:#3a50a0;background:#edf1ff;border-color:#cbd5ee}
+.puck-builder-card{display:grid;gap:12px}
+.puck-builder-card strong{font-size:16px}.puck-builder-card p{color:#65728a;margin:0}
+.puck-builder-slot{min-height:124px;padding:6px;border:1px dashed #adbfde;border-radius:12px;background:#f1f5fb;align-items:stretch}
+.puck-builder-flex{display:flex}
+.puck-builder-grid{display:grid}
+.puck-builder-slot:empty:before{content:'Bileşenleri buraya sürükle';color:#7890ab;display:grid;place-items:center;font-size:12px;min-height:95px;grid-column:1/-1}
+.puck-builder-space{border:1px dashed #cad5e8;background:repeating-linear-gradient(45deg,#f6f8fc,#f6f8fc 8px,#edf2f9 8px,#edf2f9 16px);border-radius:6px;min-height:8px}
+.puck-builder-parts,.puck-builder-material,.puck-builder-nesting{display:grid;gap:13px;height:100%;min-height:238px}
+.puck-builder-parts>strong,.puck-builder-material>strong,.puck-builder-nesting>strong{font-size:15px}
+.puck-builder-parts small,.puck-builder-nesting small{font-size:11px;color:#8590a1}
+.puck-builder-item{display:flex;align-items:center;gap:10px;border:1px solid #e5eaf3;border-radius:8px;padding:9px 10px}
+.puck-builder-item>span:first-child{color:#5b78c5}
+.puck-builder-item em{font-style:normal;margin-left:auto;font-size:12px;color:#71809a}
+.puck-builder-sheet{min-height:155px;background:#f8fbfe;border:2px solid #a6bbc7;display:flex;align-items:center;justify-content:center;gap:4px;padding:10px}
+.puck-builder-sheet span{background:#a4bad1;border:1px solid #6d88a7;width:20%;height:70%;transform:rotate(4deg)}
+.puck-builder-sheet span:nth-child(even){height:40%;transform:rotate(-7deg);background:#bfd2e1}
+.puck-builder-material label{display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid #e9eef4;padding:7px 0;color:#607088;font-size:12px}
+.puck-builder-material label span{font-weight:700;color:#25344f}
+.puck-builder-actions{display:flex;align-items:center;flex-wrap:wrap;gap:9px}
+@media(max-width:720px){.puck-builder-page{padding:0 12px 30px}.puck-builder-page-head{margin:0 -12px 14px;padding:12px}.puck-builder-page-head span{display:none}.puck-builder-grid{grid-template-columns:1fr!important}.puck-builder-flex{flex-direction:column!important}}
