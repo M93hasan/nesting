@@ -20,6 +20,28 @@ test('admin opens full-screen editor, selects actual layer, changes styles and u
   await page.getByRole('textbox',{name:'Seçili bölüm başlığı'}).fill('DXF KAYDET');
   await expect(page.getByRole('textbox',{name:'Seçili bölüm başlığı'})).toHaveValue('DXF KAYDET');
   await expect(page.frameLocator('iframe[title="Gerçek Serula Nesting ekranı"]').locator('.export-actions .download-button:not(.corel-transfer-button)')).toContainText('DXF KAYDET');
+  await page.getByRole('slider',{name:'Seçili buton yatay konumu'}).fill('55');
+  await expect(page.frameLocator('iframe[title="Gerçek Serula Nesting ekranı"]').locator('[data-design-zone="downloadButton"]')).toHaveCSS('transform','matrix(1, 0, 0, 1, 55, 0)');
+  await page.getByRole('button',{name:'Geri al'}).click();
+  await expect(page.getByRole('slider',{name:'Seçili buton yatay konumu'})).toHaveValue('0');
+  // Move the actual DXF button through the non-interactive canvas overlay.
+  const realButton=page.frameLocator('iframe[title="Gerçek Serula Nesting ekranı"]').locator('[data-design-zone="downloadButton"]');
+  await realButton.scrollIntoViewIfNeeded();
+  const box=await realButton.boundingBox();
+  const surface=await page.locator('.editor-click-shield').boundingBox();
+  expect(box).not.toBeNull();expect(surface).not.toBeNull();
+  const startX=box!.x+box!.width/2,startY=box!.y+box!.height/2;
+  expect(startX).toBeGreaterThan(surface!.x);
+  expect(startX).toBeLessThan(surface!.x+surface!.width);
+  expect(startY).toBeGreaterThan(surface!.y);
+  expect(startY).toBeLessThan(surface!.y+surface!.height);
+  await page.mouse.move(startX,startY);
+  await page.mouse.down();
+  await page.mouse.move(startX+Math.min(25,surface!.x+surface!.width-startX-5),startY,{steps:4});
+  await page.mouse.up();
+  await expect.poll(async()=>Number(await page.getByRole('slider',{name:'Seçili buton yatay konumu'}).inputValue())).toBeGreaterThan(0);
+  await page.getByRole('button',{name:'Geri al'}).click();
+  await expect(page.getByRole('slider',{name:'Seçili buton yatay konumu'})).toHaveValue('0');
   await page.getByRole('button',{name:'Mobil'}).click();
   await expect(page.locator('.editor-live-mobile')).toBeVisible();
 });
