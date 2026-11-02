@@ -11,6 +11,7 @@ test('production series input is editable and placed in the relevant section onl
   expect(source).toContain("if(e.key==='Enter')");
   expect(source).toContain('<section className="production-series"');
   expect(source).toContain('Toplam üretim: <strong>{displayedProductionPieces}</strong>');
+  expect(source).not.toContain('className="production-series__total" role="status"');
   expect(source).toContain('Toplam malzeme: <strong>{displayedProductionMaterial}');
   const panelHeader=source.slice(source.indexOf('<div className="panel-title">'),source.indexOf('<div className="parts-list">'));
   expect(panelHeader).not.toContain('series-multiplier');
