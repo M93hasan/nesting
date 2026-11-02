@@ -1,10 +1,11 @@
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useRef,useState,type MouseEvent} from 'react';
+import {DESIGN_ZONES,cleanZoneStyles,type DesignZone,type ZoneStyle,type ZoneStyles} from './design-zone-styles';
 import './DesignStudio.css';
 import {DESIGN_COMPONENTS,canReorder} from './design-component-registry';
 import {appearanceToPreviewTokens} from './design-appearance-adapter';
 import {useAppearance} from '../appearance';
 
-type Design = {background:string;panel:string;accent:string;radius:number;spacing:number;fontSize:number;heading:string;hidden?:string[];order?:string[];positions?:Record<string,{x:number;y:number}>;workspaceOrder?:string[]};
+type Design = {background:string;panel:string;accent:string;radius:number;spacing:number;fontSize:number;heading:string;hidden?:string[];order?:string[];positions?:Record<string,{x:number;y:number}>;workspaceOrder?:string[];zoneStyles?:ZoneStyles};
 const initial:Design={background:'#121421',panel:'#242935',accent:'#5278ed',radius:12,spacing:16,fontSize:15,heading:'Serula çalışma alanı'};
 type Device='desktop'|'tablet'|'mobile';
 const samples=['Başlık','Ana panel','Birincil buton'] as const;
@@ -19,6 +20,7 @@ function validDraft(value:unknown):value is Design{
     &&(d.order===undefined||(Array.isArray(d.order)&&d.order.length===samples.length&&new Set(d.order).size===samples.length&&d.order[d.order.length-1]==='Birincil buton'&&d.order.every((name:unknown)=>typeof name==='string'&&isLayer(name))))
     &&(d.positions===undefined||(typeof d.positions==='object'&&d.positions!==null&&!Array.isArray(d.positions)&&Object.keys(d.positions).every(key=>isLayer(key)&&typeof d.positions?.[key]?.x==='number'&&Number.isInteger(d.positions[key].x)&&d.positions[key].x>=0&&d.positions[key].x<=80&&typeof d.positions[key].y==='number'&&Number.isInteger(d.positions[key].y)&&d.positions[key].y>=0&&d.positions[key].y<=80)))
     &&(d.workspaceOrder===undefined||(Array.isArray(d.workspaceOrder)&&d.workspaceOrder.length===3&&new Set(d.workspaceOrder).size===3&&['parts','canvas','material'].every(item=>d.workspaceOrder!.includes(item))))
+    &&(d.zoneStyles===undefined||(typeof d.zoneStyles==='object'&&d.zoneStyles!==null&&!Array.isArray(d.zoneStyles)&&Object.keys(d.zoneStyles).every(key=>DESIGN_ZONES.some(id=>id===key)&&Object.keys(d.zoneStyles?.[key as DesignZone]??{}).every(field=>['background','color','radius','spacing','fontSize','shadow'].includes(field))&&JSON.stringify(cleanZoneStyles({[key]:d.zoneStyles?.[key as DesignZone]}))!=='{}')))
     &&(d.hidden===undefined||(Array.isArray(d.hidden)&&d.hidden.length<=samples.length&&d.hidden.every((name:unknown)=>typeof name==='string'&&isLayer(name))))
     &&([['radius',0,32],['spacing',8,40],['fontSize',12,22]] as const).every(([key,min,max])=>typeof d[key]==='number'&&Number.isFinite(d[key])&&d[key]>=min&&d[key]<=max);
 }
@@ -33,7 +35,12 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
   const [index,setIndex]=useState(0);
   const [selected,setSelected]=useState<(typeof samples)[number]>('Ana panel');
   const [device,setDevice]=useState<Device>('desktop');
-  const [realPreview,setRealPreview]=useState(false);
+  const [realPreview,setRealPreview]=useState(true);
+  const [selectedZone,setSelectedZone]=useState<DesignZone>('canvas');
+  const [selectedDetail,setSelectedDetail]=useState('');
+  const [sidebarTab,setSidebarTab]=useState<'layers'|'history'>('layers');
+  const [showPublish,setShowPublish]=useState(false);
+  const frameRef=useRef<HTMLIFrameElement|null>(null);
   const [locked,setLocked]=useState<Layer[]>([]);
   const [dragging,setDragging]=useState<Layer|null>(null);
   const [placing,setPlacing]=useState<Layer|null>(null);
@@ -198,113 +205,148 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
     window.addEventListener('keydown',handler);
     return()=>window.removeEventListener('keydown',handler);
   },[history.length]);
+  const zoneStyle=design.zoneStyles?.[selectedZone]??{};
+  const changeZoneStyle=(key:keyof ZoneStyle,value:string|number)=>{
+    apply({zoneStyles:{...design.zoneStyles,[selectedZone]:{...zoneStyle,[key]:value}}});
+  };
+  const resetZone=()=>{
+    const copy={...design.zoneStyles};delete copy[selectedZone];
+    apply({zoneStyles:copy});
+  };
+  const selectZone=(zone:DesignZone,detail='')=>{
+    setSelectedZone(zone);setSelectedDetail(detail);
+    try{
+      const doc=frameRef.current?.contentDocument;
+      doc?.querySelectorAll('[data-design-zone]').forEach(node=>(node as HTMLElement).style.removeProperty('outline'));
+      doc?.querySelector('[data-design-zone="'+zone+'"]')?.setAttribute('data-design-active','true');
+      if(doc){
+        doc.querySelectorAll('[data-design-active]').forEach(node=>{if(node.getAttribute('data-design-zone')!==zone)node.removeAttribute('data-design-active');});
+        (doc.querySelector('[data-design-zone="'+zone+'"]') as HTMLElement|null)?.style.setProperty('outline','3px solid #5b7cfa','important');
+      }
+    }catch{/* Ignore missing preview frame. */}
+  };
+  const selectAtPoint=(event:MouseEvent<HTMLDivElement>)=>{
+    const iframe=frameRef.current;if(!iframe)return;
+    try{
+      const doc=iframe.contentDocument;if(!doc)return;
+      const bounds=iframe.getBoundingClientRect();
+      const hit=doc.elementFromPoint(event.clientX-bounds.left,event.clientY-bounds.top);
+      const root=hit?.closest('[data-design-zone]');
+      const id=root?.getAttribute('data-design-zone');
+      if(id&&DESIGN_ZONES.some(zone=>zone===id)){
+        const detail=hit instanceof HTMLElement&&hit.closest('button')?(hit.closest('button')?.textContent??'').trim().slice(0,50):'';
+        selectZone(id as DesignZone,detail);
+      }
+    }catch{setStorageError('Önizleme alanı seçilemedi.');}
+  };
+  const zoneNames:Record<DesignZone,string>={header:'Üst menü',parts:'Parça paneli',canvas:'Çalışma alanı',material:'Malzeme ve ayarlar',actions:'Alt işlem çubuğu'};
+  const shownZoneOrder:DesignZone[]=['header',...(workspaceOrder as DesignZone[]),'actions'];
   const reset=()=>{
     if(window.confirm('Yalnızca bu editördeki yayınlanmamış denemeler sıfırlansın mı?')){
       setHistory([initial]);setIndex(0);setSaved(false);
       try{localStorage.removeItem(DRAFT_KEY);setStorageError('');}catch{setStorageError('Tarayıcıdaki kayıt silinemedi.');}
     }
   };
-  return <section className="design-studio" aria-label="Tasarım editörü">
-    <header className="design-studio-toolbar">
-      <div><strong>Serula Design Studio</strong><small>Yerel tasarım denemesi · Canlı site etkilenmez</small></div>
-      <div className="design-studio-actions">
-        <button type="button" onClick={undo} disabled={index===0} aria-label="Geri al">↶ Ctrl+Z</button>
-        <button type="button" onClick={redo} disabled={index===history.length-1} aria-label="Yinele">↷</button>
-        <button type="button" disabled={!appearanceLoaded} onClick={()=>apply(appearanceToPreviewTokens(appearance))}>Mevcut Serula renklerini al</button>
-        <button type="button" onClick={saveDraft}>Taslağı tarayıcıya kaydet</button>
-        <button type="button" disabled={serverBusy} onClick={()=>void saveServerDraft()}>Sunucuya taslak kaydet</button>
-        <button type="button" disabled={serverBusy} onClick={()=>void loadServerDraft()}>Sunucu taslağını aç</button>
-        <button type="button" onClick={exportJson}>JSON dışa aktar</button>
-        <button type="button" onClick={()=>setImportOpen(v=>!v)}>JSON içe aktar</button>
-        <button type="button" onClick={reset}>Taslağı sıfırla</button>
-        <button type="button" onClick={onClose}>Görünüme dön</button>
+  return <section className="design-studio design-editor-v2" aria-label="Serula görsel tasarım editörü">
+    <header className="editor-topbar">
+      <div className="editor-brand"><div className="editor-brand-mark">S</div><div><strong>Görsel Düzenleyici</strong><small>Serula Nesting / Tasarım alanı</small></div><span className="editor-draft-label">TASLAK</span></div>
+      <div className="editor-toolbar-actions">
+        <button type="button" onClick={undo} disabled={index===0} title="Geri al (Ctrl+Z)" aria-label="Geri al"><span aria-hidden="true">↶</span> Geri al</button>
+        <button type="button" onClick={redo} disabled={index===history.length-1} title="Yinele (Ctrl+Y)" aria-label="Yinele">↷</button>
+        <span className="editor-toolbar-divider"/>
+        <button type="button" onClick={saveDraft}>Taslağı kaydet</button>
+        <button type="button" disabled={serverBusy} onClick={()=>void saveServerDraft()}>Sunucuya kaydet</button>
+        <button type="button" className="editor-publish-button" onClick={()=>setShowPublish(v=>!v)} aria-expanded={showPublish}>Yayınla <span aria-hidden="true">▾</span></button>
+        <button type="button" onClick={onClose} title="Yönetim ekranına dön">Kapat ×</button>
       </div>
     </header>
-    <p className="design-studio-warning" role="status">Bu prototip mevcut Serula renklerini salt okunur biçimde içe alabilir; yalnızca örnek bileşenleri düzenler. Taslağı bu tarayıcıya kaydedebilirsin; başka cihazlara aktarılmaz ve canlı siteye yayınlanmaz. {saved?'Taslak tarayıcıya kaydedildi.':''}{storageError}</p>
-    {serverMessage&&<p role="status" className="design-studio-warning">{serverMessage}</p>}
-    <details className="design-studio-import"><summary>Sunucu sürüm geçmişi ({remoteVersions.length})</summary>
-      <button type="button" disabled={serverBusy} onClick={()=>void refreshVersions().catch(()=>setServerMessage('Sürümler yüklenemedi.'))}>Yenile</button>
-      {remoteVersions.map(version=><div key={version.id}><span>#{version.id} · {version.created_at}</span><button type="button" disabled={serverBusy} onClick={()=>void restoreServerVersion(version.id)}>Taslağa geri yükle</button></div>)}
-    </details>
-    <details className="design-studio-import"><summary>Güvenli yayın ve geri alma (yalnızca yönetici)</summary>
-      <p>Yalnızca kayıtlı ve doğrulanmış bir tasarım sürümü yayınlanabilir. İşlem sunucuda kayıt altına alınır; deploy yapmaz.</p>
-      <label>Yayınlanacak taslak sürümü <select value={releaseId} onChange={e=>setReleaseId(e.target.value)}><option value="">Sürüm seç</option>{remoteVersions.map(version=><option key={version.id} value={version.id}>#{version.id} — {version.created_at}</option>)}</select></label>
-      <button type="button" disabled={serverBusy||!releaseId} onClick={()=>void changePublication('publish')}>Seçilen sürümü yayınla</button>
-      <label>Geri dönülecek yayın <select value={rollbackId} onChange={e=>setRollbackId(e.target.value)}><option value="">Yayın seç</option>{publications.map(pub=><option key={pub.id} value={pub.id}>#{pub.id} — {pub.action} — {pub.created_at}</option>)}</select></label>
-      <button type="button" disabled={serverBusy||!rollbackId} onClick={()=>void changePublication('rollback')}>Eski yayına geri dön</button>
-      <button type="button" disabled={serverBusy} onClick={()=>void refreshPublications().catch(()=>setServerMessage('Yayın geçmişi alınamadı.'))}>Yayın listesini yenile</button>
-    </details>
-    {importOpen&&<div className="design-studio-import">
-      <label htmlFor="design-json-import">Tasarım JSON içeriğini yapıştır</label>
-      <textarea id="design-json-import" rows={5} maxLength={10000} value={importText} onChange={event=>setImportText(event.target.value)}/>
-      <button type="button" onClick={importJson}>Doğrula ve taslağa uygula</button>
-    </div>}
-    <div className="design-studio-workspace">
-      <aside className="design-studio-pane" aria-label="Katmanlar">
-        <h3>Katmanlar</h3><p>Başlık ve paneli sürükleyerek ya da oklarla sırala. Buton panelin alt öğesidir.</p><small>{DESIGN_COMPONENTS.length} izinli bileşen tanımlı; gerçek ekran önizlemesinde yalnızca izinli görsel özellikler denenir.</small>
-        {layerOrder.map(item=><div className="design-layer-row" key={item} draggable={item!=='Birincil buton'&&!locked.includes(item)}
-          onDragStart={event=>{if(item==='Birincil buton'||locked.includes(item)){event.preventDefault();return;}setDragging(item);event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('text/plain',item);}}
-          onDragOver={event=>{if(dragging){event.preventDefault();event.dataTransfer.dropEffect='move';}}}
-          onDrop={event=>{event.preventDefault();if(dragging)moveLayer(dragging,item);setDragging(null);}}
-          onDragEnd={()=>setDragging(null)}> 
-          <button type="button" aria-pressed={selected===item} className={selected===item?'design-selected':''} onClick={()=>setSelected(item)}>{item}</button>
-          <button type="button" aria-label={item+' yukarı taşı'} disabled={item==='Birincil buton'||layerOrder.indexOf(item)===0||locked.includes(item)} onClick={()=>shiftLayer(item,-1)}>↑</button>
-          <button type="button" aria-label={item+' aşağı taşı'} disabled={item==='Birincil buton'||layerOrder.indexOf(item)>=layerOrder.length-2||locked.includes(item)} onClick={()=>shiftLayer(item,1)}>↓</button>
-          <button type="button" aria-label={item+' görünürlüğünü değiştir'} aria-pressed={!(design.hidden??[]).includes(item)} title={(design.hidden??[]).includes(item)?'Göster':'Gizle'} onClick={()=>toggleVisibility(item)}>{(design.hidden??[]).includes(item)?'◌':'◉'}</button>
-          <button type="button" aria-label={item+' kilidini değiştir'} aria-pressed={locked.includes(item)} title={locked.includes(item)?'Kilidi aç':'Kilitle'} onClick={()=>toggleLock(item)}>{locked.includes(item)?'🔒':'🔓'}</button>
-        </div>)}
-      </aside>
-      <div className="design-studio-center">
-        <div className="design-device-switch" role="group" aria-label="Önizleme türü">
-          <button type="button" aria-pressed={!realPreview} onClick={()=>setRealPreview(false)}>Örnek ekran</button>
-          <button type="button" aria-pressed={realPreview} onClick={()=>setRealPreview(true)}>Gerçek Nesting ekranı</button>
+    {showPublish&&<section className="editor-publish-panel" aria-label="Yayınla ve geri al">
+      <div><strong>Yayın ve geri dönüş</strong><p>Taslağı önce sunucuya kaydet. Yayınlama ayrı bir onay gerektirir. Nesting işlemleri değişmez.</p></div>
+      <label>Yayınlanacak sürüm<select value={releaseId} onChange={e=>setReleaseId(e.target.value)}><option value="">Sürüm seç</option>{remoteVersions.map(v=><option key={v.id} value={v.id}>#{v.id} · {v.created_at}</option>)}</select></label>
+      <button type="button" disabled={serverBusy||!releaseId} onClick={()=>void changePublication('publish')}>Onayla ve yayınla</button>
+      <label>Geri dönülecek yayın<select value={rollbackId} onChange={e=>setRollbackId(e.target.value)}><option value="">Yayın seç</option>{publications.map(v=><option key={v.id} value={v.id}>#{v.id} · {v.created_at}</option>)}</select></label>
+      <button type="button" disabled={serverBusy||!rollbackId} onClick={()=>void changePublication('rollback')}>Önceki yayına dön</button>
+    </section>}
+    {(storageError||serverMessage||saved)&&<div className="editor-notice" role="status">{storageError||serverMessage||(saved?'Tarayıcı taslağı kaydedildi.':'')}</div>}
+    <div className="editor-main">
+      <aside className="editor-sidebar" aria-label="Sayfalar ve katmanlar">
+        <div className="editor-sidebar-tabs" role="group" aria-label="Sol panel görünümü">
+          <button type="button" aria-pressed={sidebarTab==='layers'} onClick={()=>setSidebarTab('layers')}>Katmanlar</button>
+          <button type="button" aria-pressed={sidebarTab==='history'} onClick={()=>setSidebarTab('history')}>Geçmiş</button>
         </div>
-        <div className="design-device-switch" role="group" aria-label="Cihaz önizleme">
-          {(['desktop','tablet','mobile'] as const).map(item=><button type="button" key={item} aria-pressed={device===item} onClick={()=>setDevice(item)}>{({desktop:'Masaüstü',tablet:'Tablet',mobile:'Mobil'} as const)[item]}</button>)}
-        </div>
-        <div className="design-device-switch"><button type="button" onClick={()=>apply({positions:{}})}>Konumları sıfırla</button></div>
-        {realPreview&&<div className="design-studio-real-panels" aria-label="Gerçek Nesting panel sırası">
-          <strong>Gerçek ekran panelleri — sürükle veya oklarla sırala</strong>
-          <div className="design-studio-real-panel-row">
-            {workspaceOrder.map((item,index)=><div key={item} draggable onDragStart={event=>{setWorkspaceDragging(item);event.dataTransfer.setData('text/plain',item);event.dataTransfer.effectAllowed='move';}} onDragOver={event=>{if(workspaceDragging)event.preventDefault();}} onDrop={event=>{event.preventDefault();if(workspaceDragging)reorderWorkspace(workspaceDragging,item);setWorkspaceDragging(null);}} onDragEnd={()=>setWorkspaceDragging(null)}>
-              <span>{({parts:'Parçalar',canvas:'Çalışma Alanı',material:'Malzeme ve Yerleşim'} as Record<string,string>)[item]}</span>
-              <button type="button" aria-label={item+' sola taşı'} disabled={index===0} onClick={()=>shiftWorkspace(item,-1)}>←</button>
-              <button type="button" aria-label={item+' sağa taşı'} disabled={index===2} onClick={()=>shiftWorkspace(item,1)}>→</button>
+        {sidebarTab==='layers'?<div className="editor-layer-area">
+          <div className="editor-section-label">SAYFALAR</div>
+          <div className="editor-page-selected"><span aria-hidden="true">▣</span><strong>Nesting Studio</strong><small>Canlı ekran</small></div>
+          <div className="editor-section-label editor-layer-title">BİLEŞEN AĞACI <span>{shownZoneOrder.length}</span></div>
+          <p className="editor-layer-help">Bir katmana tıkla veya ekrandan seç. Orta üç paneli sürükleyerek sırala.</p>
+          <div className="editor-layer-tree">
+            {shownZoneOrder.map((id,index)=><div key={id} className={'editor-layer'+(selectedZone===id?' is-selected':'')} draggable={['parts','canvas','material'].includes(id)}
+              onDragStart={event=>{if(!['parts','canvas','material'].includes(id)){event.preventDefault();return;}setWorkspaceDragging(id);event.dataTransfer.setData('text/plain',id);}}
+              onDragOver={event=>{if(workspaceDragging&&['parts','canvas','material'].includes(id))event.preventDefault();}}
+              onDrop={event=>{event.preventDefault();if(workspaceDragging&&['parts','canvas','material'].includes(id))reorderWorkspace(workspaceDragging,id);setWorkspaceDragging(null);}}
+              onDragEnd={()=>setWorkspaceDragging(null)}>
+              <button type="button" className="editor-layer-select" onClick={()=>selectZone(id)} aria-pressed={selectedZone===id}><span className="editor-layer-icon">{id==='canvas'?'▧':id==='header'?'☰':id==='actions'?'▱':'▤'}</span>{zoneNames[id]}</button>
+              {['parts','canvas','material'].includes(id)&&<div className="editor-layer-order">
+                <button type="button" aria-label={zoneNames[id]+' sola taşı'} disabled={workspaceOrder.indexOf(id)===0} onClick={()=>shiftWorkspace(id,-1)}>‹</button>
+                <button type="button" aria-label={zoneNames[id]+' sağa taşı'} disabled={workspaceOrder.indexOf(id)===2} onClick={()=>shiftWorkspace(id,1)}>›</button>
+              </div>}
             </div>)}
           </div>
-          <button type="button" onClick={()=>apply({workspaceOrder:['parts','canvas','material']})}>Gerçek panel sırasını sıfırla</button>
-          <small>Önizleme ile yayınlanan gerçek ekrana yansır. Parçaların içeriği ve Nesting hesaplaması değişmez.</small>
+          <div className="editor-layer-bottom"><button type="button" onClick={()=>apply({workspaceOrder:['parts','canvas','material']})}>↺ Panel sırasını sıfırla</button></div>
+        </div>:<div className="editor-history">
+          <div className="editor-section-label">SUNUCU SÜRÜMLERİ</div>
+          <button type="button" disabled={serverBusy} onClick={()=>void refreshVersions().catch(()=>setServerMessage('Sürüm geçmişi alınamadı.'))}>Sürümleri yenile ↻</button>
+          {remoteVersions.length===0?<p>Henüz kayıtlı sürüm yok.</p>:remoteVersions.map(v=><div className="editor-history-entry" key={v.id}><div><strong>#{v.id}</strong><small>{v.created_at}</small></div><button type="button" disabled={serverBusy} onClick={()=>void restoreServerVersion(v.id)}>Taslağa al</button></div>)}
+          <div className="editor-section-label">DOSYA İŞLEMLERİ</div>
+          <button type="button" onClick={exportJson}>JSON dışa aktar</button><button type="button" onClick={()=>setImportOpen(v=>!v)}>JSON içe aktar</button>
+          <button type="button" onClick={reset}>Kaydedilmemiş taslağı sıfırla</button>
         </div>}
-        {realPreview?<div className={'design-real-frame design-preview-'+device}>
-          <p>Gerçek Nesting uygulamasının yalnızca görünüm önizlemesi. Ekran etkileşimi kilitlidir; henüz uygulamanın tüm kontrolleri düzenlenemez.</p>
-          <iframe title="Gerçek Serula Nesting tasarım önizlemesi" src={import.meta.env.BASE_URL+'?design-preview=1'} tabIndex={-1}/>
-        </div>:<div className={'design-preview design-preview-'+device} style={{background:design.background,color:'#fff',fontSize:design.fontSize}}>
-          <div className="design-preview-content" style={{position:'relative',minHeight:310}} onDragOver={event=>{if(placing)event.preventDefault();}} onDrop={dropPosition}>
-          {layerOrder.filter(layer=>layer!=='Birincil buton').map(layer=>layer==='Başlık'?(!(design.hidden??[]).includes('Başlık')&&<h2 key={layer} draggable={!locked.includes('Başlık')} onDragStart={event=>{setPlacing('Başlık');event.dataTransfer.setData('text/plain','Başlık');}} onDragEnd={()=>setPlacing(null)} style={{position:'absolute',left:(design.positions?.['Başlık']?.x??0)+'%',top:(design.positions?.['Başlık']?.y??0)+'%',maxWidth:'80%'}} className={selected==='Başlık'?'design-preview-selected':''} onClick={()=>{if(!locked.includes('Başlık'))setSelected('Başlık');}}>{design.heading}</h2>):(!(design.hidden??[]).includes('Ana panel')&&<div key={layer} draggable={!locked.includes('Ana panel')} onDragStart={event=>{setPlacing('Ana panel');event.dataTransfer.setData('text/plain','Ana panel');}} onDragEnd={()=>setPlacing(null)} style={{position:'absolute',left:(design.positions?.['Ana panel']?.x??0)+'%',top:(design.positions?.['Ana panel']?.y??25)+'%',width:'min(75%,400px)',background:design.panel,borderRadius:design.radius,padding:design.spacing}} className={selected==='Ana panel'?'design-preview-panel design-preview-selected':'design-preview-panel'} onClick={()=>{if(!locked.includes('Ana panel'))setSelected('Ana panel');}}  >
-            <strong>Örnek çalışma paneli</strong>
-            <p>Bu alan yalnızca tasarım önizlemesidir. Gerçek hesaplamalar ve kullanıcı verileri değişmez.</p>
-            {!(design.hidden??[]).includes('Birincil buton')&&<button type="button" className={selected==='Birincil buton'?'design-preview-selected':''} onClick={event=>{event.stopPropagation();if(!locked.includes('Birincil buton'))setSelected('Birincil buton');}} style={{background:design.accent,borderRadius:Math.min(design.radius,20),color:'#fff',border:0,padding:'10px 16px'}}>Örnek buton</button>}
-          </div>))}
+      </aside>
+      <main className="editor-stage-area">
+        <div className="editor-stage-toolbar">
+          <div className="editor-crumb"><span>Nesting Studio</span><span aria-hidden="true">›</span><strong>{zoneNames[selectedZone]}</strong></div>
+          <div className="editor-viewport-controls" role="group" aria-label="Ekran boyutu">
+            {(['desktop','tablet','mobile'] as const).map(item=><button type="button" key={item} aria-pressed={device===item} onClick={()=>setDevice(item)}>{({desktop:'▭ Masaüstü',tablet:'▯ Tablet',mobile:'▮ Mobil'} as const)[item]}</button>)}
           </div>
-        </div>}
-      </div>
-      <aside className="design-studio-pane design-studio-properties" aria-label="Özellikler">
-        <h3>Özellikler</h3>
-        <p>Seçili öğe: <strong>{selected}</strong></p>
-        <p>Örnek tuvalde başlık ve panel sürüklenebilir. Gerçek ekran önizlemesi salt okunurdur.</p>
-        <label>Yatay konum: {design.positions?.[selected]?.x??0}% <input type="range" min="0" max="80" disabled={selected==='Birincil buton'} value={design.positions?.[selected]?.x??0} onChange={e=>setPosition(selected,Number(e.target.value),design.positions?.[selected]?.y??0)}/></label>
-        <label>Dikey konum: {design.positions?.[selected]?.y??0}% <input type="range" min="0" max="80" disabled={selected==='Birincil buton'} value={design.positions?.[selected]?.y??0} onChange={e=>setPosition(selected,design.positions?.[selected]?.x??0,Number(e.target.value))}/></label>
-        {locked.includes(selected)&&<p role="status">Bu katman kilitli. Düzenlemek için kilidi aç.</p>}
-        <fieldset disabled={locked.includes(selected)}>
-        <label>Arka plan <input type="color" value={design.background} onChange={e=>apply({background:e.target.value})}/></label>
-        <label>Panel rengi <input type="color" value={design.panel} onChange={e=>apply({panel:e.target.value})}/></label>
-        <label>Vurgu rengi <input type="color" value={design.accent} onChange={e=>apply({accent:e.target.value})}/></label>
-        <label>Köşe yuvarlama: {design.radius}px <input type="range" min="0" max="32" value={design.radius} onChange={e=>apply({radius:Number(e.target.value)})}/></label>
-        <label>İç boşluk: {design.spacing}px <input type="range" min="8" max="40" value={design.spacing} onChange={e=>apply({spacing:Number(e.target.value)})}/></label>
-        <label>Yazı boyutu: {design.fontSize}px <input type="range" min="12" max="22" value={design.fontSize} onChange={e=>apply({fontSize:Number(e.target.value)})}/></label>
-        <label>Başlık <input type="text" maxLength={80} value={design.heading} onChange={e=>apply({heading:e.target.value})}/></label>
-        </fieldset>
+          <div className="editor-stage-percent">{device==='desktop'?'100%':device==='tablet'?'768 px':'390 px'}</div>
+        </div>
+        <div className="editor-stage-scroller">
+          <div className={'editor-live-surface editor-live-'+device}>
+            <div className="editor-frame-top"><span/><span/><span/><span className="editor-frame-url">serula.site / studio</span></div>
+            <div className="editor-iframe-wrap">
+              <iframe ref={frameRef} title="Gerçek Serula Nesting ekranı" src={import.meta.env.BASE_URL+'?design-preview=1'} tabIndex={-1} loading="eager"/>
+              <div className="editor-click-shield" role="button" tabIndex={0} aria-label="Önizlemeden bir öğe seç" onClick={selectAtPoint} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();selectZone('canvas');}}}/>
+            </div>
+          </div>
+        </div>
+        <div className="editor-stage-footer"><span><span className="editor-live-dot"/> Gerçek Serula ekranı · Güvenli seçim modu</span><span>Ekrana tıkla → sağdan düzenle. Canlı site değişmez.</span></div>
+      </main>
+      <aside className="editor-inspector" aria-label="Seçili öğe özellikleri">
+        <div className="editor-inspector-head"><small>ÖZELLİKLER</small><strong>{zoneNames[selectedZone]}</strong><span>{selectedDetail?'Seçilen kontrol: '+selectedDetail:'Gerçek uygulama bileşeni'}</span></div>
+        <div className="editor-inspector-scroll">
+          <div className="editor-property-group"><div className="editor-property-title">Görünüm <span>◫</span></div>
+            <label className="editor-color-field"><span>Arka plan rengi</span><span className="editor-color-control"><input aria-label="Seçili öğe arka plan rengi" type="color" value={zoneStyle.background??design.panel} onChange={e=>changeZoneStyle('background',e.target.value)}/><code>{zoneStyle.background??design.panel}</code></span></label>
+            <label className="editor-color-field"><span>Yazı rengi</span><span className="editor-color-control"><input aria-label="Seçili öğe yazı rengi" type="color" value={zoneStyle.color??'#222a36'} onChange={e=>changeZoneStyle('color',e.target.value)}/><code>{zoneStyle.color??'#222a36'}</code></span></label>
+          </div>
+          <div className="editor-property-group"><div className="editor-property-title">Boyut ve boşluk <span>▦</span></div>
+            <label className="editor-slider-label"><span>İç boşluk</span><output>{zoneStyle.spacing??design.spacing} px</output><input aria-label="Seçili öğe iç boşluk" type="range" min="0" max="48" value={zoneStyle.spacing??design.spacing} onChange={e=>changeZoneStyle('spacing',Number(e.target.value))}/></label>
+            <label className="editor-slider-label"><span>Köşe yuvarlaklığı</span><output>{zoneStyle.radius??design.radius} px</output><input aria-label="Seçili öğe köşe yarıçapı" type="range" min="0" max="32" value={zoneStyle.radius??design.radius} onChange={e=>changeZoneStyle('radius',Number(e.target.value))}/></label>
+          </div>
+          <div className="editor-property-group"><div className="editor-property-title">Tipografi <span>𝘼</span></div>
+            <label className="editor-slider-label"><span>Yazı boyutu</span><output>{zoneStyle.fontSize??design.fontSize} px</output><input aria-label="Seçili öğe yazı boyutu" type="range" min="11" max="24" value={zoneStyle.fontSize??design.fontSize} onChange={e=>changeZoneStyle('fontSize',Number(e.target.value))}/></label>
+          </div>
+          <div className="editor-property-group"><div className="editor-property-title">Efektler <span>◈</span></div>
+            <label className="editor-slider-label"><span>Gölge yoğunluğu</span><output>{zoneStyle.shadow??0}</output><input aria-label="Seçili öğe gölge" type="range" min="0" max="32" value={zoneStyle.shadow??0} onChange={e=>changeZoneStyle('shadow',Number(e.target.value))}/></label>
+          </div>
+          <div className="editor-property-group"><div className="editor-property-title">Genel tema</div>
+            <label className="editor-color-field"><span>Sayfa arka planı</span><span className="editor-color-control"><input type="color" aria-label="Sayfa arka planı" value={design.background} onChange={e=>apply({background:e.target.value})}/><code>{design.background}</code></span></label>
+            <label className="editor-color-field"><span>Vurgu rengi</span><span className="editor-color-control"><input type="color" aria-label="Vurgu rengi" value={design.accent} onChange={e=>apply({accent:e.target.value})}/><code>{design.accent}</code></span></label>
+          </div>
+          <button type="button" className="editor-reset-props" onClick={resetZone}>↺ Seçili bileşenin ayarlarını sıfırla</button>
+        </div>
+        <div className="editor-inspector-footer"><button type="button" disabled={!appearanceLoaded} onClick={()=>apply(appearanceToPreviewTokens(appearance))}>Serula renklerini içe al</button></div>
       </aside>
     </div>
+    {importOpen&&<div className="editor-import-overlay"><div className="editor-import-dialog" role="dialog" aria-modal="true" aria-label="Tasarım JSON içe aktar"><h3>JSON içe aktar</h3><p>Yalnızca doğrulanmış Serula tasarım dosyaları kabul edilir.</p><textarea aria-label="Tasarım JSON içeriği" rows={7} maxLength={10000} value={importText} onChange={e=>setImportText(e.target.value)}/><div><button type="button" onClick={()=>setImportOpen(false)}>Vazgeç</button><button type="button" onClick={importJson}>Doğrula ve taslağa uygula</button></div></div></div>}
   </section>;
 }
