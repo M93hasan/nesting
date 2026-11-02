@@ -38,6 +38,25 @@ function download(name:string,text:BlobPart,type='application/json') {
   link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 export default function App({initialDocument=emptyProject(),initialError='',loadDefaultExample=false}:{initialDocument?:Document;initialError?:string;loadDefaultExample?:boolean}) {
+  // An explicit URL flag is required. The editor preview never changes the normal application.
+  const designPreviewEnabled=typeof window!=='undefined'&&new URLSearchParams(window.location.search).get('design-preview')==='1';
+  const [designPreview,setDesignPreview]=useState<{background:string;panel:string;accent:string;radius:number;spacing:number;fontSize:number}|null>(null);
+  useEffect(()=>{
+    if(!designPreviewEnabled)return;
+    const update=()=>{
+      try{
+        const raw=localStorage.getItem('serula-design-studio-live-preview-v1');
+        const value:unknown=JSON.parse(raw??'null');
+        if(!value||typeof value!=='object')return;
+        const d=value as Record<string,unknown>,color=/^#[0-9a-f]{6}$/i;
+        if(!['background','panel','accent'].every(k=>typeof d[k]==='string'&&color.test(d[k] as string)))return;
+        if(!([['radius',0,32],['spacing',8,40],['fontSize',12,22]] as const).every(([k,lo,hi])=>typeof d[k]==='number'&&(d[k] as number)>=lo&&(d[k] as number)<=hi))return;
+        setDesignPreview({background:d.background as string,panel:d.panel as string,accent:d.accent as string,radius:d.radius as number,spacing:d.spacing as number,fontSize:d.fontSize as number});
+      }catch{/* Keep the original style when preview data is invalid. */}
+    };
+    update();window.addEventListener('storage',update);
+    return()=>window.removeEventListener('storage',update);
+  },[designPreviewEnabled]);
   const [doc,setDoc]=useState<Document>(()=>withDocumentPlacements(initialDocument)),[revision,setRevision]=useState(1),[selectedCopies,setSelectedCopies]=useState<CopyRef[]>([]);
   const [unusedSelection,setUnusedSelection]=useState<string[]>([]);
   // Safari clears the focus selection on mouse-up; preserve it for the first click only.
@@ -614,6 +633,13 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const waste=result?Math.max(0,100-utilization):0;
   const improvement=result&&phaseImprovements(solver.diagnostics.current?.history??[],result.usedLengthMm);
   return <div className="app" onBlurCapture={()=>{fieldEdit.current=undefined;}} onKeyDown={e=>{if(e.key==='Enter'&&e.target instanceof HTMLInputElement&&e.target.hasAttribute('data-undo-field')){e.preventDefault();e.target.blur();}}} onMouseDownCapture={e=>{const target=e.target;focusClick.current=target instanceof HTMLInputElement&&['text','number'].includes(target.type)&&document.activeElement!==target?target:null;}} onMouseUpCapture={e=>{if(focusClick.current===e.target){e.preventDefault();focusClick.current.select();}focusClick.current=null;}} onFocusCapture={e=>{const input=e.target;if(input instanceof HTMLInputElement&&['text','number'].includes(input.type))input.select();}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(!document.querySelector('dialog[open]'))void openFiles(e.dataTransfer.files);}}>
+    {designPreviewEnabled&&designPreview&&<style>{`
+      .app {background:${designPreview.background}!important;font-size:${designPreview.fontSize}px}
+      .app .header,.app .panel,.app .sidebar,.app .settings,.app .parts-panel {background:${designPreview.panel}!important;border-radius:${designPreview.radius}px}
+      .app button:not(:disabled) {border-radius:${designPreview.radius}px}
+      .app .primary,.app .primary-button,.app button[type="submit"] {background:${designPreview.accent}!important}
+    `}</style>}
+    {designPreviewEnabled&&<div role="status" className="design-preview-banner" style={{padding:'8px 12px',background:'#fff1c2',color:'#212121'}}>Tasarım editörü önizlemesi — değişiklikler yalnızca bu sekmede görünür, canlıya yayınlanmaz.</div>}
     <header className="header"><div className="brand-block"><a className="brand serula-brand" aria-label="Serula Nesting Studio" href={import.meta.env.BASE_URL}><img src={`${import.meta.env.BASE_URL}serula-logo.svg`} alt="" /><strong>Serula Nesting</strong><span>/studio · Sürüm {packageInfo.version}</span></a><p className="tagline">Akıllı DXF yerleştirme ve malzeme optimizasyonu</p></div>
       <div className="header-primary project-bar"><details className="project-menu" ref={projectMenu} hidden><summary aria-label={`Proje: ${doc.name}`}>{doc.name}<span aria-hidden="true"> ▾</span></summary><div>
         <button disabled={locked} onClick={()=>{projectMenu.current!.open=false;setProjectAd('Adsız proje');setNameDialog('new');}}>Yeni proje</button>
