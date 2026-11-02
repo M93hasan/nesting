@@ -1,0 +1,31 @@
+import {test,expect} from '@playwright/test';
+test.use({serviceWorkers:'block'});
+test('Puck opens safely and switches to the real non-interactive Nesting preview',async({page})=>{
+  await page.route('**/api/auth/admin-me',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({user:{id:1,email:'qa@example.test',name:'QA',role:'admin',credits:0,unlimited:true}})}));
+  await page.route('**/api/admin/design/versions',r=>r.fulfill({status:200,contentType:'application/json',body:'{"versions":[]}'}));
+  await page.route('**/api/admin/design/publications',r=>r.fulfill({status:200,contentType:'application/json',body:'{"publications":[]}'}));
+  await page.route('**/api/design/published',r=>r.fulfill({status:200,contentType:'application/json',body:'{"published":null}'}));
+  let savedDesign:unknown=null;
+  await page.route('**/api/admin/design/draft',async route=>{
+    if(route.request().method()==='POST')savedDesign=JSON.parse(route.request().postData()??'null');
+    await route.fulfill({status:200,contentType:'application/json',body:'{}'});
+  });
+  await page.goto('/admin');
+  await page.getByRole('button',{name:/Görünüm/}).click();
+  await page.getByRole('button',{name:'Puck Editörünü Aç'}).click();
+  await expect(page.getByRole('region',{name:'Puck görsel tasarım editörü'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Nesting Bileşenleri',exact:true})).toBeVisible();
+  await page.screenshot({path:'test-results/puck-editor-fullscreen.png',fullPage:true});
+  await page.getByText('Sunucu taslağını kaydet',{exact:true}).click();
+  await expect.poll(()=>savedDesign).not.toBeNull();
+  expect(savedDesign).toMatchObject({format:'serula-design-v1',design:{background:'#121421',radius:12}});
+  expect(JSON.stringify(savedDesign)).not.toContain('"content"');
+  await page.getByRole('button',{name:'Gerçek ekran'}).click();
+  const preview=page.locator('iframe[title="Puck gerçek Nesting önizlemesi"]');
+  await expect(preview).toBeVisible();
+  await expect(preview).toHaveAttribute('src',/design-preview=1/);
+  await page.getByRole('button',{name:'Mobil'}).click();
+  await expect(preview).toHaveCSS('width','390px');
+  await page.getByRole('button',{name:'Bileşen editörü'}).click();
+  await expect(page.getByRole('heading',{name:'Nesting Bileşenleri',exact:true})).toBeVisible();
+});
