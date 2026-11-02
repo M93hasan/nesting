@@ -124,7 +124,6 @@ label{color:var(--muted)}
 .material-panel{border:1px solid var(--border);overflow-x:hidden;background:var(--card-surface)}
 .panel-title{padding:18px 16px 14px}.panel-title h2,.material-panel h2{font-size:13px;font-weight:750}
 .panel-title h2>span{background:var(--selected);color:var(--accent);border-radius:7px;padding:2px 7px;font-weight:700}
-.series-multiplier{background:var(--panel-soft);border-color:var(--border);border-radius:10px}
 .part-row{margin:2px 8px;padding:2px 8px;border-radius:11px;border-left-width:2px}
 .part-row.selected{background:var(--selected);border-left-color:var(--accent)}
 .part-select{gap:8px;padding:2px 0;line-height:1.3}
