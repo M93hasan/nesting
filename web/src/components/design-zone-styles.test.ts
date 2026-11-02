@@ -9,6 +9,10 @@ describe('safe real component styles',()=>{
     expect(css).not.toContain('evil');
     expect(css).not.toContain('script');
   });
+  it('accepts ordinary uppercase action labels and rejects HTML controls',()=>{
+    expect(cleanZoneStyles({downloadButton:{text:'DXF KAYDET'}})).toEqual({downloadButton:{text:'DXF KAYDET'}});
+    expect(cleanZoneStyles({downloadButton:{text:'<script>'}})).toEqual({});
+  });
   it('drops malformed colors, unsafe numbers and arbitrary selectors',()=>{
     expect(cleanZoneStyles({canvas:{background:'url(javascript:evil)',spacing:-2,shadow:1000},body:{color:'#ffffff'}})).toEqual({});
   });
