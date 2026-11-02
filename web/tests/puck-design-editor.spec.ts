@@ -81,6 +81,7 @@ test.describe('real Puck visual builder',()=>{
     })).toBe('Düzenlenen kart başlığı');
     await page.getByRole('button',{name:'Kapat ✕'}).click();
     await page.getByRole('button',{name:'Puck Editörünü Aç'}).click();
+    await page.getByRole('button',{name:'Bağımsız Puck taslağı'}).click();
     await expect(page.locator('.puck-builder-card')).toContainText('Düzenlenen kart başlığı');
   });
   test('failed editor import shows recovery controls, not a blank app',async({page})=>{
