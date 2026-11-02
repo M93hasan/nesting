@@ -1,6 +1,6 @@
 import {useEffect,useRef,useState,type MouseEvent,type PointerEvent as ReactPointerEvent} from 'react';
 import {DESIGN_ZONES,cleanZoneStyles,renderZoneCss,type DesignZone,type ZoneStyle,type ZoneStyles} from './design-zone-styles';
-import {BLOCK_KINDS,BLOCK_REGIONS,BLOCK_DEVICES,cleanBlocks,defaultBlock,type BlockKind,type BlockRegion,type DesignBlock} from './design-blocks';
+import {BLOCK_KINDS,BLOCK_REGIONS,BLOCK_DEVICES,cleanBlocks,defaultBlock,isSafeImageSource,type BlockKind,type BlockRegion,type DesignBlock} from './design-blocks';
 import './DesignStudio.css';
 import {DESIGN_COMPONENTS,canReorder} from './design-component-registry';
 import {appearanceToPreviewTokens} from './design-appearance-adapter';
@@ -536,7 +536,10 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
               {selectedBlock.kind!=='divider'&&<label className="editor-text-field">Metin / açıklama<input aria-label="Bileşen metni" type="text" maxLength={160} value={selectedBlock.text} onChange={e=>modifyBlock({text:e.target.value})}/></label>}
               <label className="editor-text-field">Yerleşeceği bölüm<select aria-label="Bileşen bölgesi" value={selectedBlock.region} onChange={e=>modifyBlock({region:e.target.value as BlockRegion,x:0,y:0})}>{BLOCK_REGIONS.map(region=><option key={region} value={region}>{region}</option>)}</select></label>
               {selectedBlock.kind==='button'&&<label className="editor-text-field">Bağlantı adresi (site içi)<input aria-label="Buton bağlantısı" type="text" value={selectedBlock.href??'/'} maxLength={80} onChange={e=>modifyBlock({href:e.target.value})}/></label>}
-              {selectedBlock.kind==='image'&&<label className="editor-text-field">Görsel<select aria-label="Bileşen görseli" value={selectedBlock.src??'/serula-logo.svg'} onChange={e=>modifyBlock({src:e.target.value})}><option value="/serula-logo.svg">Serula logosu</option><option value="/corel-button-logo.svg">CorelDRAW logosu</option></select></label>}
+              {selectedBlock.kind==='image'&&<>
+                <label className="editor-text-field">Hazır görsel<select aria-label="Bileşen görseli" value={['/serula-logo.svg','/corel-button-logo.svg'].includes(selectedBlock.src??'')?selectedBlock.src:'/serula-logo.svg'} onChange={e=>modifyBlock({src:e.target.value})}><option value="/serula-logo.svg">Serula logosu</option><option value="/corel-button-logo.svg">CorelDRAW logosu</option></select></label>
+                <label className="editor-text-field">Görsel adresi (HTTPS veya site içi)<input key={selectedBlock.id+'-image'} aria-label="Özel görsel adresi" type="url" maxLength={300} defaultValue={selectedBlock.src??'/serula-logo.svg'} onBlur={e=>{const value=e.target.value.trim();if(isSafeImageSource(value)){modifyBlock({src:value});setStorageError('');}else setStorageError('Görsel adresi geçersiz. HTTPS PNG/JPG/WebP veya site içi görsel yolu kullan.');}}/></label>
+              </>}
             </div>
             <div className="editor-property-group"><div className="editor-property-title">Görünüm</div>
               <label className="editor-color-field">Yazı rengi<input aria-label="Bileşen yazı rengi" type="color" value={selectedBlock.color??'#24354f'} onChange={e=>modifyBlock({color:e.target.value})}/></label>
