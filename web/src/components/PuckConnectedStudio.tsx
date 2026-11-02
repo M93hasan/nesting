@@ -13,8 +13,9 @@ function load():ConnectedPage{
   return initialConnectedPage;
 }
 function refreshRealPreview(){
-  for(const frame of document.querySelectorAll<HTMLIFrameElement>('iframe[title="Gerçek Nesting canlı önizleme"]'))
+  document.querySelectorAll<HTMLIFrameElement>('iframe[title="Gerçek Nesting canlı önizleme"]').forEach(frame=>{
     frame.contentWindow?.postMessage('serula-design-preview-refresh',window.location.origin);
+  });
 }
 export default function PuckConnectedStudio({onClose}:{onClose:()=>void}){
   const [page,setPage]=useState(load);
