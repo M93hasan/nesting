@@ -23,6 +23,7 @@ const config:Config<Components,RootProps>={
     Zone:{
       label:'Nesting bileşeni',
       fields:{
+        zone:{type:'text',label:'Sabit bileşen kimliği'},
         text:{type:'text',label:'Bölüm veya buton başlığı'},
         background:colorField('Arka plan'),
         color:colorField('Yazı rengi'),
