@@ -15,6 +15,8 @@ export type DesignBlock={
 };
 const HEX=/^#[0-9a-f]{6}$/i;
 export const BLOCK_IMAGE_SOURCES=['/serula-logo.svg','/corel-button-logo.svg'] as const;
+export const IMAGE_URL_PATTERN=/^(?:\/(?!\/)[a-zA-Z0-9/_-]+\.(?:png|jpe?g|webp|svg)|https:\/\/[a-zA-Z0-9.-]+\/[a-zA-Z0-9_./%-]+\.(?:png|jpe?g|webp)(?:\?[a-zA-Z0-9&=_-]{0,80})?)$/i;
+export const isSafeImageSource=(value:unknown):value is string=>typeof value==='string'&&value.length<=300&&IMAGE_URL_PATTERN.test(value)&&!value.includes('..');
 export const BLOCK_LINK_PATTERN=/^\/(?!\/)[a-zA-Z0-9/_-]{0,80}$/;
 const bounded=(v:unknown,a:number,b:number)=>typeof v==='number'&&Number.isInteger(v)&&v>=a&&v<=b;
 export function cleanBlocks(value:unknown):DesignBlock[]{
@@ -27,7 +29,7 @@ export function cleanBlocks(value:unknown):DesignBlock[]{
     if(!BLOCK_KINDS.includes(b.kind as BlockKind)||!BLOCK_REGIONS.includes(b.region as BlockRegion))return [];
     if(typeof b.text!=='string'||b.text.length>160||/[<>\x00-\x1f]/.test(b.text))return [];
     if(b.href!==undefined&&(typeof b.href!=='string'||!BLOCK_LINK_PATTERN.test(b.href)))return [];
-    if(b.src!==undefined&&(typeof b.src!=='string'||!BLOCK_IMAGE_SOURCES.includes(b.src as typeof BLOCK_IMAGE_SOURCES[number])))return [];
+    if(b.src!==undefined&&(typeof b.src!=='string'||!isSafeImageSource(b.src)))return [];
     for(const key of ['color','background','borderColor'])if(b[key]!==undefined&&(typeof b[key]!=='string'||!HEX.test(b[key])))return [];
     for(const [key,a,z] of [['fontSize',10,36],['padding',0,48],['radius',0,40],['width',40,650],['x',-300,300],['y',-300,300],['opacity',0,100],['borderWidth',0,8]] as const){
       if(b[key]!==undefined&&!bounded(b[key],a,z))return [];
@@ -69,7 +71,7 @@ export function DesignBlocks({region,blocks}:{region:BlockRegion;blocks:unknown}
       if(b.kind==='divider')return <div {...props} role="separator"><hr/></div>;
       if(b.kind==='heading')return <h3 {...props}>{b.text}</h3>;
       if(b.kind==='button')return <a {...props} href={b.href&&BLOCK_LINK_PATTERN.test(b.href)?b.href:'/'}>{b.text}</a>;
-      if(b.kind==='image')return <img {...props} src={b.src&&BLOCK_IMAGE_SOURCES.includes(b.src as typeof BLOCK_IMAGE_SOURCES[number])?b.src:'/serula-logo.svg'} alt={b.text}/>;
+      if(b.kind==='image')return <img {...props} src={isSafeImageSource(b.src)?b.src:'/serula-logo.svg'} alt={b.text}/>;
       return <p {...props}>{b.text}</p>;
     })}
   </div>;
