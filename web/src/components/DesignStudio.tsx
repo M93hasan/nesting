@@ -42,8 +42,9 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
   const [showPublish,setShowPublish]=useState(false);
   const frameRef=useRef<HTMLIFrameElement|null>(null);
   const [frameSize,setFrameSize]=useState({width:1100,height:680});
+  const [zoom,setZoom]=useState(100);
   const deviceWidth=device==='desktop'?1440:device==='tablet'?768:390;
-  const previewScale=Math.min(1,frameSize.width/deviceWidth);
+  const previewScale=Math.min(1,frameSize.width/deviceWidth)*(zoom/100);
   useEffect(()=>{
     const el=frameRef.current?.parentElement;if(!el)return;
     const update=()=>setFrameSize({width:el.clientWidth,height:el.clientHeight});
@@ -317,7 +318,7 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
           <div className="editor-viewport-controls" role="group" aria-label="Ekran boyutu">
             {(['desktop','tablet','mobile'] as const).map(item=><button type="button" key={item} aria-label={({desktop:"Masaüstü",tablet:"Tablet",mobile:"Mobil"} as const)[item]} aria-pressed={device===item} onClick={()=>setDevice(item)}>{({desktop:'▭ Masaüstü',tablet:'▯ Tablet',mobile:'▮ Mobil'} as const)[item]}</button>)}
           </div>
-          <div className="editor-stage-percent">{Math.round(previewScale*100)+'% · '+deviceWidth+' px'}</div>
+          <div className="editor-stage-percent"><button type="button" aria-label="Önizlemeyi küçült" disabled={zoom<=50} onClick={()=>setZoom(v=>Math.max(50,v-25))}>−</button><span>{Math.round(previewScale*100)+'% · '+deviceWidth+' px'}</span><button type="button" aria-label="Önizlemeyi büyüt" disabled={zoom>=150} onClick={()=>setZoom(v=>Math.min(150,v+25))}>+</button><button type="button" onClick={()=>setZoom(100)}>Sığdır</button></div>
         </div>
         <div className="editor-stage-scroller">
           <div className={'editor-live-surface editor-live-'+device}>
