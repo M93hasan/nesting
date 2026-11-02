@@ -55,7 +55,7 @@ export function parseDesignDocument(input){
         cleaned[key]=style[key];
       }
       if(Object.prototype.hasOwnProperty.call(style,'text')){
-        if(id==='actions'||typeof style.text!=='string'||style.text.length>80||/[<>\\x00-\\x1f]/.test(style.text))throw new Error('Geçersiz bileşen başlığı.');
+        if(id==='actions'||typeof style.text!=='string'||style.text.length>80||/[<>\x00-\x1f]/.test(style.text))throw new Error('Geçersiz bileşen başlığı.');
         cleaned.text=style.text;
       }
       output.zoneStyles[id]=cleaned;
