@@ -19,6 +19,10 @@ test('admin opens full-screen editor, selects actual layer, changes styles and u
   await page.getByRole('button',{name:'DXF indir butonu',exact:true}).click();
   await page.getByRole('textbox',{name:'Seçili bölüm başlığı'}).fill('DXF KAYDET');
   await expect(page.getByRole('textbox',{name:'Seçili bölüm başlığı'})).toHaveValue('DXF KAYDET');
+  console.log('EDITOR_PREVIEW_DIAGNOSTIC',JSON.stringify({
+    parent:await page.evaluate(()=>{const d=JSON.parse(localStorage.getItem('serula-design-studio-live-preview-v1')||'null');return d?.zoneStyles?.downloadButton??null;}),
+    child:await page.frameLocator('iframe[title="Gerçek Serula Nesting ekranı"]').locator('body').evaluate(()=>{const d=JSON.parse(localStorage.getItem('serula-design-studio-live-preview-v1')||'null');return {style:d?.zoneStyles?.downloadButton??null,preview:new URLSearchParams(location.search).get('design-preview')}})
+  }));
   await expect(page.frameLocator('iframe[title="Gerçek Serula Nesting ekranı"]').locator('.export-actions .download-button:not(.corel-transfer-button)')).toContainText('DXF KAYDET');
   await page.getByRole('button',{name:'Mobil'}).click();
   await expect(page.locator('.editor-live-mobile')).toBeVisible();
