@@ -684,9 +684,8 @@ export default function App({initialDocument=emptyProject(),initialError='',load
 
   return <div className="app" onBlurCapture={()=>{fieldEdit.current=undefined;}} onKeyDown={e=>{if(e.key==='Enter'&&e.target instanceof HTMLInputElement&&e.target.hasAttribute('data-undo-field')){e.preventDefault();e.target.blur();}}} onMouseDownCapture={e=>{const target=e.target;focusClick.current=target instanceof HTMLInputElement&&['text','number'].includes(target.type)&&document.activeElement!==target?target:null;}} onMouseUpCapture={e=>{if(focusClick.current===e.target){e.preventDefault();focusClick.current.select();}focusClick.current=null;}} onFocusCapture={e=>{const input=e.target;if(input instanceof HTMLInputElement&&['text','number'].includes(input.type))input.select();}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(!document.querySelector('dialog[open]'))void openFiles(e.dataTransfer.files);}}>
     {(designPreviewEnabled?designPreview:publishedVisual)&&<style>{`
-       :root #root .app {background:${(designPreviewEnabled?designPreview:publishedVisual)!.background}!important;font-size:${(designPreviewEnabled?designPreview:publishedVisual)!.fontSize}px}
+       :root #root .app {background:${(designPreviewEnabled?designPreview:publishedVisual)!.background}!important;font-size:${(designPreviewEnabled?designPreview:publishedVisual)!.fontSize}px;--design-button-radius:${(designPreviewEnabled?designPreview:publishedVisual)!.radius}px}
        :root #root .app .header,:root #root .app .panel,:root #root .app .sidebar,:root #root .app .settings,:root #root .app .parts-panel {background:${(designPreviewEnabled?designPreview:publishedVisual)!.panel}!important;border-radius:${(designPreviewEnabled?designPreview:publishedVisual)!.radius}px}
-      .app button:not(:disabled) {border-radius:${(designPreviewEnabled?designPreview:publishedVisual)!.radius}px}
       .app .primary,.app .primary-button,.app button[type="submit"] {background:${(designPreviewEnabled?designPreview:publishedVisual)!.accent}!important}
     ${renderZoneCss((designPreviewEnabled?designPreview:publishedVisual)?.zoneStyles)}
     `}</style>}
