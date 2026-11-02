@@ -687,12 +687,25 @@ export default function App({initialDocument=emptyProject(),initialError='',load
       projectStatus:'.app .project-status',
       partsTitle:'.app #parts-settings .panel-title'
     };
-    for(const [id,selector] of Object.entries(selectors)){
-      const element=document.querySelector<HTMLElement>(selector);
-      if(!element)continue;
-      element.dataset.designZone=id;
-      if(id==='parts'||id==='canvas'||id==='material')element.style.order=safeWorkspaceOrder?String(safeWorkspaceOrder.indexOf(id)):'';
-    }
+    const updateLabels=()=>{
+      for(const [id,selector] of Object.entries(selectors)){
+        const element=document.querySelector<HTMLElement>(selector);
+        if(!element)continue;
+        // Conditional controls may be replaced by React; reattach identifiers without
+        // changing their handlers or relying on a one-time initialization.
+        if(element.dataset.designZone!==id)element.dataset.designZone=id;
+        if(id==='parts'||id==='canvas'||id==='material'){
+          const order=safeWorkspaceOrder?String(safeWorkspaceOrder.indexOf(id)):'';
+          if(element.style.order!==order)element.style.order=order;
+        }
+      }
+    };
+    updateLabels();
+    const root=document.querySelector('.app');
+    if(!root)return;
+    const observer=new MutationObserver(updateLabels);
+    observer.observe(root,{childList:true,subtree:true});
+    return()=>observer.disconnect();
   },[safeWorkspaceOrder]);
 
   return <div className="app" onBlurCapture={()=>{fieldEdit.current=undefined;}} onKeyDown={e=>{if(e.key==='Enter'&&e.target instanceof HTMLInputElement&&e.target.hasAttribute('data-undo-field')){e.preventDefault();e.target.blur();}}} onMouseDownCapture={e=>{const target=e.target;focusClick.current=target instanceof HTMLInputElement&&['text','number'].includes(target.type)&&document.activeElement!==target?target:null;}} onMouseUpCapture={e=>{if(focusClick.current===e.target){e.preventDefault();focusClick.current.select();}focusClick.current=null;}} onFocusCapture={e=>{const input=e.target;if(input instanceof HTMLInputElement&&['text','number'].includes(input.type))input.select();}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(!document.querySelector('dialog[open]'))void openFiles(e.dataTransfer.files);}}>
