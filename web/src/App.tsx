@@ -79,8 +79,11 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         setDesignPreview({background:d.background as string,panel:d.panel as string,accent:d.accent as string,radius:d.radius as number,spacing:d.spacing as number,fontSize:d.fontSize as number,workspaceOrder,zoneStyles:cleanZoneStyles(d.zoneStyles)});
       }catch{/* Keep the original style when preview data is invalid. */}
     };
-    update();window.addEventListener('storage',update);
-    return()=>window.removeEventListener('storage',update);
+    const onRefresh=(event:MessageEvent)=>{
+      if(event.origin===window.location.origin&&event.source===window.parent&&event.data==='serula-design-preview-refresh')update();
+    };
+    update();window.addEventListener('storage',update);window.addEventListener('message',onRefresh);
+    return()=>{window.removeEventListener('storage',update);window.removeEventListener('message',onRefresh);};
   },[designPreviewEnabled]);
   const [doc,setDoc]=useState<Document>(()=>withDocumentPlacements(initialDocument)),[revision,setRevision]=useState(1),[selectedCopies,setSelectedCopies]=useState<CopyRef[]>([]);
   const [unusedSelection,setUnusedSelection]=useState<string[]>([]);
@@ -663,7 +666,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     // Keep Nesting's source markup and event handlers unchanged. Only attach safe editor
     // identifiers and optional CSS flex ordering after the application is mounted.
     const selectors:Record<string,string>={
-      header:'.app > .header',parts:'.app > #parts-settings',
+      header:'.app > .header',parts:'.app > .main-workspace > #parts-settings',
       canvas:'.app > .main-workspace > .drawing-panel',
       material:'.app > .main-workspace > .material-panel',
       actions:'.app > .statusbar',
