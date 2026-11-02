@@ -75,7 +75,7 @@ export function parseDesignDocument(input){
       if(typeof block.id!=='string'||!/^widget-[a-z0-9-]{8,64}$/.test(block.id)||ids.has(block.id))throw new Error('Geçersiz bileşen kimliği.');
       if(!kinds.includes(block.kind)||!regions.includes(block.region)||typeof block.text!=='string'||block.text.length>160||/[<>\x00-\x1f]/.test(block.text))throw new Error('Geçersiz tasarım bileşeni.');
       if(has(block,'href')&&(typeof block.href!=='string'||!/^\/(?!\/)[a-zA-Z0-9/_-]{0,80}$/.test(block.href)))throw new Error('Geçersiz düğme bağlantısı.');
-      if(has(block,'src')&&!['/serula-logo.svg','/corel-button-logo.svg'].includes(block.src))throw new Error('İzin verilmeyen görsel adresi.');
+      if(has(block,'src')&&!(typeof block.src==='string'&&block.src.length<=300&&/^(?:\/(?!\/)[a-zA-Z0-9/_-]+\.(?:png|jpe?g|webp|svg)|https:\/\/[a-zA-Z0-9.-]+\/[a-zA-Z0-9_./%-]+\.(?:png|jpe?g|webp)(?:\?[a-zA-Z0-9&=_-]{0,80})?)$/i.test(block.src)&&!block.src.includes('..')))throw new Error('İzin verilmeyen görsel adresi.');
       for(const key of ['color','background','borderColor'])if(has(block,key)&&(typeof block[key]!=='string'||!COLOR.test(block[key])))throw new Error('Geçersiz bileşen rengi.');
       for(const [key,min,max] of [['fontSize',10,36],['padding',0,48],['radius',0,40],['width',40,650],['x',-300,300],['y',-300,300],['opacity',0,100],['borderWidth',0,8]])if(has(block,key)&&(!Number.isInteger(block[key])||block[key]<min||block[key]>max))throw new Error('Geçersiz bileşen ölçüsü.');
       if(has(block,'fontFamily')&&!['system','serif','mono'].includes(block.fontFamily))throw new Error('Geçersiz yazı tipi.');
