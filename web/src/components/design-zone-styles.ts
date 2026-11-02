@@ -1,6 +1,6 @@
 // Only explicitly named structural UI zones can be styled by an admin design draft.
 // Never accept arbitrary selectors, HTML, or CSS from browser/server payloads.
-export const DESIGN_ZONES=['header','parts','canvas','material','actions','runButton','corelButton','downloadButton'] as const;
+export const DESIGN_ZONES=['header','parts','canvas','material','actions','runButton','corelButton','downloadButton','brand','projectBar','partsList','canvasHeading','rotationSettings','materialSettings','runControls','exportActions','projectStatus','partsTitle'] as const;
 export type DesignZone=typeof DESIGN_ZONES[number];
 export type ZoneStyle={background?:string;color?:string;radius?:number;spacing?:number;fontSize?:number;shadow?:number;text?:string;offsetX?:number;offsetY?:number};
 export type ZoneStyles=Partial<Record<DesignZone,ZoneStyle>>;
@@ -26,7 +26,7 @@ export function cleanZoneStyles(value:unknown):ZoneStyles{
         if(typeof n==='number'&&Number.isInteger(n)&&n>=-80&&n<=80)out[key]=n;
       }
     }
-    if(id!=='actions'&&typeof record.text==='string'&&record.text.length<=80&&!/[<>\x00-\x1f]/.test(record.text))out.text=record.text;
+    if(['header','parts','canvas','material','runButton','corelButton','downloadButton'].includes(id)&&typeof record.text==='string'&&record.text.length<=80&&!/[<>\x00-\x1f]/.test(record.text))out.text=record.text;
     if(Object.keys(out).length)result[id]=out;
   }
   return result;
