@@ -3,13 +3,14 @@ on:
   push:
     branches:
       - feature/admin-visual-design-studio-20261102
+      - feature/real-workspace-layout-20261102
   pull_request:
     branches:
       - main
   workflow_dispatch:
 jobs:
   design-e2e:
-    if: github.event_name != 'pull_request' || github.head_ref == 'feature/admin-visual-design-studio-20261102'
+    if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'feature/')
     runs-on: ubuntu-latest
     defaults:
       run:
