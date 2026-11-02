@@ -21,7 +21,8 @@ export function canReorder(source:DesignComponentId,target:DesignComponentId):bo
 export function reorderRoot(order:readonly DesignComponentId[],source:DesignComponentId,target:DesignComponentId):DesignComponentId[]{
   const safe=normalizeRootOrder(order);
   if(!canReorder(source,target))return safe;
+  const sourceIndex=safe.indexOf(source),targetIndex=safe.indexOf(target);
   const next=safe.filter(id=>id!==source);
-  next.splice(next.indexOf(target),0,source);
+  next.splice(next.indexOf(target)+(sourceIndex<targetIndex?1:0),0,source);
   return next;
 }
