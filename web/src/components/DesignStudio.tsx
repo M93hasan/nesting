@@ -4,7 +4,7 @@ import {DESIGN_COMPONENTS,canReorder} from './design-component-registry';
 import {appearanceToPreviewTokens} from './design-appearance-adapter';
 import {useAppearance} from '../appearance';
 
-type Design = {background:string;panel:string;accent:string;radius:number;spacing:number;fontSize:number;heading:string;hidden?:string[];order?:string[];positions?:Record<string,{x:number;y:number}>};
+type Design = {background:string;panel:string;accent:string;radius:number;spacing:number;fontSize:number;heading:string;hidden?:string[];order?:string[];positions?:Record<string,{x:number;y:number}>;workspaceOrder?:string[]};
 const initial:Design={background:'#121421',panel:'#242935',accent:'#5278ed',radius:12,spacing:16,fontSize:15,heading:'Serula çalışma alanı'};
 type Device='desktop'|'tablet'|'mobile';
 const samples=['Başlık','Ana panel','Birincil buton'] as const;
@@ -18,6 +18,7 @@ function validDraft(value:unknown):value is Design{
     &&typeof d.heading==='string'&&d.heading.length<=80
     &&(d.order===undefined||(Array.isArray(d.order)&&d.order.length===samples.length&&new Set(d.order).size===samples.length&&d.order[d.order.length-1]==='Birincil buton'&&d.order.every((name:unknown)=>typeof name==='string'&&isLayer(name))))
     &&(d.positions===undefined||(typeof d.positions==='object'&&d.positions!==null&&!Array.isArray(d.positions)&&Object.keys(d.positions).every(key=>isLayer(key)&&typeof d.positions?.[key]?.x==='number'&&Number.isInteger(d.positions[key].x)&&d.positions[key].x>=0&&d.positions[key].x<=80&&typeof d.positions[key].y==='number'&&Number.isInteger(d.positions[key].y)&&d.positions[key].y>=0&&d.positions[key].y<=80)))
+    &&(d.workspaceOrder===undefined||(Array.isArray(d.workspaceOrder)&&d.workspaceOrder.length===3&&new Set(d.workspaceOrder).size===3&&['parts','canvas','material'].every(item=>d.workspaceOrder!.includes(item))))
     &&(d.hidden===undefined||(Array.isArray(d.hidden)&&d.hidden.length<=samples.length&&d.hidden.every((name:unknown)=>typeof name==='string'&&isLayer(name))))
     &&([['radius',0,32],['spacing',8,40],['fontSize',12,22]] as const).every(([key,min,max])=>typeof d[key]==='number'&&Number.isFinite(d[key])&&d[key]>=min&&d[key]<=max);
 }
@@ -36,6 +37,7 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
   const [locked,setLocked]=useState<Layer[]>([]);
   const [dragging,setDragging]=useState<Layer|null>(null);
   const [placing,setPlacing]=useState<Layer|null>(null);
+  const [workspaceDragging,setWorkspaceDragging]=useState<string|null>(null);
   const [saved,setSaved]=useState(false);
   const [storageError,setStorageError]=useState('');
   const [importText,setImportText]=useState('');
@@ -151,6 +153,18 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
     setHistory(updated);setIndex(updated.length-1);setSaved(false);
   };
   const layerOrder=(design.order??[...samples]) as Layer[];
+  const workspaceOrder=design.workspaceOrder??['parts','canvas','material'];
+  const reorderWorkspace=(source:string,target:string)=>{
+    if(source===target||!workspaceOrder.includes(source)||!workspaceOrder.includes(target))return;
+    const from=workspaceOrder.indexOf(source),to=workspaceOrder.indexOf(target);
+    const next=workspaceOrder.filter(item=>item!==source);
+    next.splice(next.indexOf(target)+(from<to?1:0),0,source);
+    apply({workspaceOrder:next});
+  };
+  const shiftWorkspace=(source:string,direction:number)=>{
+    const target=workspaceOrder[workspaceOrder.indexOf(source)+direction];
+    if(target)reorderWorkspace(source,target);
+  };
   const setPosition=(layer:Layer,x:number,y:number)=>apply({positions:{...design.positions,[layer]:{x:Math.max(0,Math.min(80,Math.round(x))),y:Math.max(0,Math.min(80,Math.round(y)))}}});
   const dropPosition=(event:import('react').DragEvent<HTMLDivElement>)=>{
     event.preventDefault();
@@ -249,6 +263,18 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
           {(['desktop','tablet','mobile'] as const).map(item=><button type="button" key={item} aria-pressed={device===item} onClick={()=>setDevice(item)}>{({desktop:'Masaüstü',tablet:'Tablet',mobile:'Mobil'} as const)[item]}</button>)}
         </div>
         <div className="design-device-switch"><button type="button" onClick={()=>apply({positions:{}})}>Konumları sıfırla</button></div>
+        {realPreview&&<div className="design-studio-real-panels" aria-label="Gerçek Nesting panel sırası">
+          <strong>Gerçek ekran panelleri — sürükle veya oklarla sırala</strong>
+          <div className="design-studio-real-panel-row">
+            {workspaceOrder.map((item,index)=><div key={item} draggable onDragStart={event=>{setWorkspaceDragging(item);event.dataTransfer.setData('text/plain',item);event.dataTransfer.effectAllowed='move';}} onDragOver={event=>{if(workspaceDragging)event.preventDefault();}} onDrop={event=>{event.preventDefault();if(workspaceDragging)reorderWorkspace(workspaceDragging,item);setWorkspaceDragging(null);}} onDragEnd={()=>setWorkspaceDragging(null)}>
+              <span>{({parts:'Parçalar',canvas:'Çalışma Alanı',material:'Malzeme ve Yerleşim'} as Record<string,string>)[item]}</span>
+              <button type="button" aria-label={item+' sola taşı'} disabled={index===0} onClick={()=>shiftWorkspace(item,-1)}>←</button>
+              <button type="button" aria-label={item+' sağa taşı'} disabled={index===2} onClick={()=>shiftWorkspace(item,1)}>→</button>
+            </div>)}
+          </div>
+          <button type="button" onClick={()=>apply({workspaceOrder:['parts','canvas','material']})}>Gerçek panel sırasını sıfırla</button>
+          <small>Önizleme ile yayınlanan gerçek ekrana yansır. Parçaların içeriği ve Nesting hesaplaması değişmez.</small>
+        </div>}
         {realPreview?<div className={'design-real-frame design-preview-'+device}>
           <p>Gerçek Nesting uygulamasının yalnızca görünüm önizlemesi. Ekran etkileşimi kilitlidir; henüz uygulamanın tüm kontrolleri düzenlenemez.</p>
           <iframe title="Gerçek Serula Nesting tasarım önizlemesi" src={import.meta.env.BASE_URL+'?design-preview=1'} tabIndex={-1}/>
