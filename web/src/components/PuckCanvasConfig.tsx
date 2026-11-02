@@ -41,14 +41,14 @@ export const puckBuilderConfig:Config<BuilderBlocks,BuilderRoot>={
       panel:{type:'text',label:'Panel rengi (#RRGGBB)'},
       accent:{type:'text',label:'Vurgu rengi (#RRGGBB)'}
     },
-    render:({children,title,background,panel,accent})=>
+    render:({puck:{renderDropZone:DropZone},title,background,panel,accent})=>
       <main className="puck-builder-page" style={{
         background:/^#[a-f0-9]{6}$/i.test(background)?background:swatches.background,
         '--puck-panel':/^#[a-f0-9]{6}$/i.test(panel)?panel:swatches.panel,
         '--puck-accent':/^#[a-f0-9]{6}$/i.test(accent)?accent:swatches.accent
       } as CSSProperties}>
         <div className="puck-builder-page-head"><strong>{title}</strong><span>Görsel tasarım taslağı · Puck</span></div>
-        <div className="puck-builder-page-content">{children}</div>
+        <DropZone zone="default-zone" className="puck-builder-page-content"/>
       </main>
   },
   components:{
