@@ -41,6 +41,26 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   // An explicit URL flag is required. The editor preview never changes the normal application.
   const designPreviewEnabled=typeof window!=='undefined'&&new URLSearchParams(window.location.search).get('design-preview')==='1';
   const [designPreview,setDesignPreview]=useState<{background:string;panel:string;accent:string;radius:number;spacing:number;fontSize:number}|null>(null);
+  const [publishedVisual,setPublishedVisual]=useState<{background:string;panel:string;accent:string;radius:number;spacing:number;fontSize:number}|null>(null);
+  useEffect(()=>{
+    if(designPreviewEnabled)return;
+    let active=true;
+    const read=async()=>{
+      try{
+        const response=await fetch('/api/design/published',{credentials:'same-origin',cache:'no-store'});
+        if(!response.ok)return;
+        const data:unknown=await response.json();
+        const d=(data as {published?:{design?:Record<string,unknown>}|null})?.published?.design;
+        if(!d){if(active)setPublishedVisual(null);return;}
+        const color=/^#[0-9a-f]{6}$/i;
+        if(!['background','panel','accent'].every(k=>typeof d[k]==='string'&&color.test(d[k] as string)))return;
+        if(!([['radius',0,32],['spacing',8,40],['fontSize',12,22]] as const).every(([k,lo,hi])=>typeof d[k]==='number'&&Number.isFinite(d[k])&&(d[k] as number)>=lo&&(d[k] as number)<=hi))return;
+        if(active)setPublishedVisual({background:d.background as string,panel:d.panel as string,accent:d.accent as string,radius:d.radius as number,spacing:d.spacing as number,fontSize:d.fontSize as number});
+      }catch{/* Published design failure must never block Nesting functionality. */}
+    };
+    void read();window.addEventListener('focus',read);
+    return()=>{active=false;window.removeEventListener('focus',read);};
+  },[designPreviewEnabled]);
   useEffect(()=>{
     if(!designPreviewEnabled)return;
     const update=()=>{
@@ -633,11 +653,11 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const waste=result?Math.max(0,100-utilization):0;
   const improvement=result&&phaseImprovements(solver.diagnostics.current?.history??[],result.usedLengthMm);
   return <div className="app" onBlurCapture={()=>{fieldEdit.current=undefined;}} onKeyDown={e=>{if(e.key==='Enter'&&e.target instanceof HTMLInputElement&&e.target.hasAttribute('data-undo-field')){e.preventDefault();e.target.blur();}}} onMouseDownCapture={e=>{const target=e.target;focusClick.current=target instanceof HTMLInputElement&&['text','number'].includes(target.type)&&document.activeElement!==target?target:null;}} onMouseUpCapture={e=>{if(focusClick.current===e.target){e.preventDefault();focusClick.current.select();}focusClick.current=null;}} onFocusCapture={e=>{const input=e.target;if(input instanceof HTMLInputElement&&['text','number'].includes(input.type))input.select();}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(!document.querySelector('dialog[open]'))void openFiles(e.dataTransfer.files);}}>
-    {designPreviewEnabled&&designPreview&&<style>{`
-      .app {background:${designPreview.background}!important;font-size:${designPreview.fontSize}px}
-      .app .header,.app .panel,.app .sidebar,.app .settings,.app .parts-panel {background:${designPreview.panel}!important;border-radius:${designPreview.radius}px}
-      .app button:not(:disabled) {border-radius:${designPreview.radius}px}
-      .app .primary,.app .primary-button,.app button[type="submit"] {background:${designPreview.accent}!important}
+    {(designPreviewEnabled?designPreview:publishedVisual)&&<style>{`
+      .app {background:${(designPreviewEnabled?designPreview:publishedVisual)!.background}!important;font-size:${(designPreviewEnabled?designPreview:publishedVisual)!.fontSize}px}
+      .app .header,.app .panel,.app .sidebar,.app .settings,.app .parts-panel {background:${(designPreviewEnabled?designPreview:publishedVisual)!.panel}!important;border-radius:${(designPreviewEnabled?designPreview:publishedVisual)!.radius}px}
+      .app button:not(:disabled) {border-radius:${(designPreviewEnabled?designPreview:publishedVisual)!.radius}px}
+      .app .primary,.app .primary-button,.app button[type="submit"] {background:${(designPreviewEnabled?designPreview:publishedVisual)!.accent}!important}
     `}</style>}
     {designPreviewEnabled&&<div role="status" className="design-preview-banner" style={{padding:'8px 12px',background:'#fff1c2',color:'#212121'}}>Tasarım editörü önizlemesi — değişiklikler yalnızca bu sekmede görünür, canlıya yayınlanmaz.</div>}
     <header className="header"><div className="brand-block"><a className="brand serula-brand" aria-label="Serula Nesting Studio" href={import.meta.env.BASE_URL}><img src={`${import.meta.env.BASE_URL}serula-logo.svg`} alt="" /><strong>Serula Nesting</strong><span>/studio · Sürüm {packageInfo.version}</span></a><p className="tagline">Akıllı DXF yerleştirme ve malzeme optimizasyonu</p></div>
