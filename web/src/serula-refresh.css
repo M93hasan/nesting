@@ -1,7 +1,7 @@
 /* Serula UI refresh — visual-only layer.
  * Loaded last so the existing CAD/editor behavior, personalization and dynamic
- * published design overrides remain functional. Avoid changing geometry SVGs.
- * The same surfaces and focus affordances are shared across app/auth/admin.
+ * existing CAD behavior is unchanged. Avoid changing geometry SVGs.
+ * Shared surfaces and focus affordances cover app, auth and admin.
  */
 
 /* 1. One visual language, with native light/dark contrast */
@@ -370,7 +370,7 @@ body { background: var(--page) !important; background-image: none !important; }
   background: var(--panel-soft);
 }
 
-/* 8. Administration and visual editing: same language, controls unchanged */
+/* 8. Administration: same language, controls unchanged */
 #root .admin-page { background: var(--page); }
 #root .admin-topbar { background: var(--panel); border-bottom: 1px solid var(--border); box-shadow: none; }
 #root .admin-sidebar { background: var(--panel); }
@@ -387,25 +387,6 @@ body { background: var(--page) !important; background-image: none !important; }
 #root .admin-page .admin-card-head h2 { font-size: 16px; font-weight: 800; }
 #root .admin-page .admin-user-row { background: var(--panel); }
 #root .admin-page .admin-table-head { background: var(--panel-soft); }
-#root .design-editor-v2 {
-  --editor-brand: #3658cf;
-  --editor-ink: #17243a;
-  --editor-muted: #69788f;
-  --editor-line: #dfe6f0;
-  background: #f3f6fb;
-}
-#root .design-editor-v2 .editor-topbar,
-#root .design-editor-v2 .editor-sidebar,
-#root .design-editor-v2 .editor-inspector { background: #fff; }
-#root .design-editor-v2 .editor-stage-area { background: #e9eef8; }
-#root .design-editor-v2 :is(.editor-layer,.editor-live-surface,.editor-color-control) { border-radius: 11px; }
-#root .design-editor-v2 .editor-live-surface { box-shadow: 0 22px 55px rgb(13 33 61 / .13); }
-#root .design-editor-v2 button.editor-publish-button {
-  background: #3658cf !important;
-  color: #fff !important;
-  border-color: #3658cf !important;
-}
-
 /* 9. Workable compact layouts, no hidden actions or horizontal clipping */
 @media (min-width: 1100px) and (max-width: 1440px) {
   :root #root .app > .header .brand-block { width: 240px; flex-basis: 240px; }

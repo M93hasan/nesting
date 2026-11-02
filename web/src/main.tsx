@@ -14,11 +14,22 @@ import {I18nProvider} from './i18n';
 import {AppearanceProvider} from './appearance';
 import './premium-theme.css'
 import './theme.css';
-// Final visual layer: preserves functional components and user design previews.
+// Visual refresh; the removed visual-editor subsystem stays removed.
 import './serula-refresh.css';
 
 const ADMIN_EMAIL='m93hasan@icloud.com';
 const GOOGLE_CLIENT_ID='207092733568-2h2751l65c8cbnb3o6qfpvl4uug9f975.apps.googleusercontent.com';
+
+// Remove only obsolete visual-editor drafts from this browser. Do not touch
+// any saved Nesting project, account, credit or appearance preference.
+try{
+  for(const key of [
+    'serula-puck-page-v1',
+    'serula-puck-real-nesting-v1',
+    'serula-design-studio-draft-v1',
+    'serula-design-studio-live-preview-v1'
+  ])localStorage.removeItem(key);
+}catch{/* Some browsers deny storage access; do not block the application. */}
 
 void prepareIsolation().catch(()=>{}).then(async () => {
   if (import.meta.env.PROD && ['serula.site', 'www.serula.site'].includes(location.hostname)) {
