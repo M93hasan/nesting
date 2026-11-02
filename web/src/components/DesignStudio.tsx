@@ -446,7 +446,7 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
   };
   return <section className="design-studio design-editor-v2" aria-label="Serula görsel tasarım editörü">
     <header className="editor-topbar">
-      <div className="editor-brand"><div className="editor-brand-mark">S</div><div><strong>Görsel Düzenleyici</strong><small>Serula Nesting / Tasarım alanı</small></div><span className="editor-draft-label">TASLAK</span></div>
+      <div className="editor-brand"><div className="editor-brand-mark">S</div><div><strong>Görsel Düzenleyici</strong><small>Serula Nesting / Tasarım alanı</small></div><span className="editor-draft-label">TASLAK</span><button type="button" className="editor-pane-toggle" aria-label={leftOpen?'Katman panelini gizle':'Katman panelini göster'} onClick={()=>setLeftOpen(v=>!v)}>☰</button><button type="button" className="editor-pane-toggle" aria-label={rightOpen?'Özellik panelini gizle':'Özellik panelini göster'} onClick={()=>setRightOpen(v=>!v)}>▤</button></div>
       <div className="editor-toolbar-actions">
         <button type="button" onClick={undo} disabled={index===0} title="Geri al (Ctrl+Z)" aria-label="Geri al"><span aria-hidden="true">↶</span> Geri al</button>
         <button type="button" onClick={redo} disabled={index===history.length-1} title="Yinele (Ctrl+Y)" aria-label="Yinele">↷</button>
@@ -523,12 +523,12 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
       </aside>
       <main className="editor-stage-area">
         <div className="editor-stage-toolbar">
-          <button type="button" className="editor-pane-toggle" aria-label={leftOpen?'Katman panelini gizle':'Katman panelini göster'} onClick={()=>setLeftOpen(v=>!v)}>☰</button>
+          
           <div className="editor-crumb"><span>Nesting Studio</span><span aria-hidden="true">›</span><strong>{zoneNames[selectedZone]}</strong></div>
           <div className="editor-viewport-controls" role="group" aria-label="Ekran boyutu">
             {(['desktop','tablet','mobile'] as const).map(item=><button type="button" key={item} aria-label={({desktop:"Masaüstü",tablet:"Tablet",mobile:"Mobil"} as const)[item]} aria-pressed={device===item} onClick={()=>setDevice(item)}>{({desktop:'▭ Masaüstü',tablet:'▯ Tablet',mobile:'▮ Mobil'} as const)[item]}</button>)}
           </div>
-          <button type="button" className="editor-pane-toggle" aria-label={rightOpen?'Özellik panelini gizle':'Özellik panelini göster'} onClick={()=>setRightOpen(v=>!v)}>▤</button><div className="editor-stage-percent"><button type="button" aria-label="Önizlemeyi küçült" disabled={zoom<=30} onClick={()=>setZoom(v=>Math.max(30,v-10))}>−</button><span>{Math.round(previewScale*100)+'% · '+deviceWidth+' px'}</span><button type="button" aria-label="Önizlemeyi büyüt" disabled={zoom>=200} onClick={()=>setZoom(v=>Math.min(200,v+10))}>+</button><button type="button" onClick={()=>{const scroller=frameRef.current?.closest('.editor-stage-area')?.querySelector('.editor-stage-scroller');const width=scroller?.clientWidth??760;setZoom(Math.max(30,Math.min(100,Math.floor((width-48)/deviceWidth*100))));}}>Sığdır</button></div>
+          <div className="editor-stage-percent"><button type="button" aria-label="Önizlemeyi küçült" disabled={zoom<=30} onClick={()=>setZoom(v=>Math.max(30,v-10))}>−</button><span>{Math.round(previewScale*100)+'% · '+deviceWidth+' px'}</span><button type="button" aria-label="Önizlemeyi büyüt" disabled={zoom>=200} onClick={()=>setZoom(v=>Math.min(200,v+10))}>+</button><button type="button" onClick={()=>{const scroller=frameRef.current?.closest('.editor-stage-area')?.querySelector('.editor-stage-scroller');const width=scroller?.clientWidth??760;setZoom(Math.max(30,Math.min(100,Math.floor((width-48)/deviceWidth*100))));}}>Sığdır</button></div>
         </div>
         <div className="editor-stage-scroller">
           <div className={'editor-live-surface editor-live-'+device} style={{width:Math.ceil(deviceWidth*previewScale),minWidth:Math.ceil(deviceWidth*previewScale),maxWidth:'none',height:760,flex:'none'}}>
