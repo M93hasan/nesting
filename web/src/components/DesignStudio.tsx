@@ -1,11 +1,12 @@
 import {useEffect,useRef,useState,type MouseEvent,type PointerEvent as ReactPointerEvent} from 'react';
 import {DESIGN_ZONES,cleanZoneStyles,renderZoneCss,type DesignZone,type ZoneStyle,type ZoneStyles} from './design-zone-styles';
+import {BLOCK_KINDS,BLOCK_REGIONS,BLOCK_DEVICES,cleanBlocks,defaultBlock,type BlockKind,type BlockRegion,type DesignBlock} from './design-blocks';
 import './DesignStudio.css';
 import {DESIGN_COMPONENTS,canReorder} from './design-component-registry';
 import {appearanceToPreviewTokens} from './design-appearance-adapter';
 import {useAppearance} from '../appearance';
 
-type Design = {background:string;panel:string;accent:string;radius:number;spacing:number;fontSize:number;heading:string;hidden?:string[];order?:string[];positions?:Record<string,{x:number;y:number}>;workspaceOrder?:string[];zoneStyles?:ZoneStyles};
+type Design = {background:string;panel:string;accent:string;radius:number;spacing:number;fontSize:number;heading:string;hidden?:string[];order?:string[];positions?:Record<string,{x:number;y:number}>;workspaceOrder?:string[];zoneStyles?:ZoneStyles;blocks?:DesignBlock[]};
 const initial:Design={background:'#121421',panel:'#242935',accent:'#5278ed',radius:12,spacing:16,fontSize:15,heading:'Serula çalışma alanı'};
 type Device='desktop'|'tablet'|'mobile';
 const samples=['Başlık','Ana panel','Birincil buton'] as const;
@@ -21,6 +22,7 @@ function validDraft(value:unknown):value is Design{
     &&(d.positions===undefined||(typeof d.positions==='object'&&d.positions!==null&&!Array.isArray(d.positions)&&Object.keys(d.positions).every(key=>isLayer(key)&&typeof d.positions?.[key]?.x==='number'&&Number.isInteger(d.positions[key].x)&&d.positions[key].x>=0&&d.positions[key].x<=80&&typeof d.positions[key].y==='number'&&Number.isInteger(d.positions[key].y)&&d.positions[key].y>=0&&d.positions[key].y<=80)))
     &&(d.workspaceOrder===undefined||(Array.isArray(d.workspaceOrder)&&d.workspaceOrder.length===3&&new Set(d.workspaceOrder).size===3&&['parts','canvas','material'].every(item=>d.workspaceOrder!.includes(item))))
     &&(d.zoneStyles===undefined||(typeof d.zoneStyles==='object'&&d.zoneStyles!==null&&!Array.isArray(d.zoneStyles)&&Object.keys(d.zoneStyles).every(key=>DESIGN_ZONES.some(id=>id===key)&&Object.keys(d.zoneStyles?.[key as DesignZone]??{}).every(field=>['background','color','radius','spacing','fontSize','shadow','text','offsetX','offsetY'].includes(field))&&JSON.stringify(cleanZoneStyles({[key]:d.zoneStyles?.[key as DesignZone]}))!=='{}')))
+    &&(d.blocks===undefined||(Array.isArray(d.blocks)&&d.blocks.length<=100&&cleanBlocks(d.blocks).length===d.blocks.length))
     &&(d.hidden===undefined||(Array.isArray(d.hidden)&&d.hidden.length<=samples.length&&d.hidden.every((name:unknown)=>typeof name==='string'&&isLayer(name))))
     &&([['radius',0,32],['spacing',8,40],['fontSize',12,22]] as const).every(([key,min,max])=>typeof d[key]==='number'&&Number.isFinite(d[key])&&d[key]>=min&&d[key]<=max);
 }
@@ -38,7 +40,8 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
   const [realPreview,setRealPreview]=useState(true);
   const [selectedZone,setSelectedZone]=useState<DesignZone>('canvas');
   const [selectedDetail,setSelectedDetail]=useState('');
-  const [sidebarTab,setSidebarTab]=useState<'layers'|'history'>('layers');
+  const [sidebarTab,setSidebarTab]=useState<'layers'|'elements'|'history'>('layers');
+  const [selectedBlockId,setSelectedBlockId]=useState<string|null>(null);
   const [showPublish,setShowPublish]=useState(false);
   const frameRef=useRef<HTMLIFrameElement|null>(null);
   const buttonDragRef=useRef<{zone:DesignZone;pointerId:number;startX:number;startY:number;x:number;y:number}|null>(null);
@@ -197,6 +200,47 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
     stateRef.current={history:updated,index:updated.length-1};
     setHistory(updated);setIndex(updated.length-1);setSaved(false);
   };
+  const blocks=cleanBlocks(design.blocks);
+  const selectedBlock=blocks.find(b=>b.id===selectedBlockId);
+  const selectBlock=(id:string)=>{
+    setSelectedBlockId(id);setSelectedDetail('');
+    try{
+      const doc=frameRef.current?.contentDocument;
+      doc?.querySelectorAll('[data-design-block-id]').forEach(el=>(el as HTMLElement).style.removeProperty('outline'));
+      doc?.querySelector('[data-design-block-id="'+id+'"]')?.setAttribute('data-design-active-block','true');
+      (doc?.querySelector('[data-design-block-id="'+id+'"]') as HTMLElement|null)?.style.setProperty('outline','3px solid #4d63ed');
+    }catch{}
+  };
+  const modifyBlock=(patch:Partial<DesignBlock>)=>{
+    if(!selectedBlockId)return;
+    apply({blocks:blocks.map(b=>b.id===selectedBlockId?{...b,...patch}:b)});
+  };
+  const addBlock=(kind:BlockKind)=>{
+    if(blocks.length>=100){setStorageError('Bir tasarımda en fazla 100 ek bileşen kullanılabilir.');return;}
+    const id='widget-'+crypto.randomUUID();
+    const region=BLOCK_REGIONS.includes(selectedZone as BlockRegion)?selectedZone as BlockRegion:'canvas';
+    apply({blocks:[...blocks,defaultBlock(kind,region,id)]});
+    setSelectedBlockId(id);setSidebarTab('layers');
+  };
+  const removeBlock=()=>{
+    if(!selectedBlockId)return;
+    apply({blocks:blocks.filter(b=>b.id!==selectedBlockId)});setSelectedBlockId(null);
+  };
+  const duplicateBlock=()=>{
+    if(!selectedBlock||blocks.length>=100)return;
+    const id='widget-'+crypto.randomUUID();
+    const copy={...selectedBlock,id,x:Math.min(300,(selectedBlock.x??0)+16),y:Math.min(300,(selectedBlock.y??0)+16)};
+    const i=blocks.findIndex(b=>b.id===selectedBlockId);
+    const next=[...blocks];next.splice(i+1,0,copy);
+    apply({blocks:next});setSelectedBlockId(id);
+  };
+  const shiftBlock=(delta:number)=>{
+    if(!selectedBlockId)return;
+    const i=blocks.findIndex(b=>b.id===selectedBlockId),to=i+delta;
+    if(i<0||to<0||to>=blocks.length)return;
+    const next=[...blocks];[next[i],next[to]]=[next[to],next[i]];
+    apply({blocks:next});
+  };
   const layerOrder=(design.order??[...samples]) as Layer[];
   const workspaceOrder=design.workspaceOrder??['parts','canvas','material'];
   const reorderWorkspace=(source:string,target:string)=>{
@@ -252,6 +296,7 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
     apply({zoneStyles:copy});
   };
   const selectZone=(zone:DesignZone,detail='')=>{
+    setSelectedBlockId(null);
     setSelectedZone(zone);setSelectedDetail(detail);
     try{
       const doc=frameRef.current?.contentDocument;
