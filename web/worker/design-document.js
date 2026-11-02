@@ -40,7 +40,7 @@ export function parseDesignDocument(input){
   }
   if(has(input,'zoneStyles')){
     const zones=['header','parts','canvas','material','actions'];
-    const allowed=['background','color','radius','spacing','fontSize','shadow'];
+    const allowed=['background','color','radius','spacing','fontSize','shadow','text'];
     if(!input.zoneStyles||typeof input.zoneStyles!=='object'||Array.isArray(input.zoneStyles)||Object.keys(input.zoneStyles).some(id=>!zones.includes(id)))throw new Error('Geçersiz bileşen kimliği.');
     output.zoneStyles={};
     for(const [id,style] of Object.entries(input.zoneStyles)){
@@ -53,6 +53,10 @@ export function parseDesignDocument(input){
       for(const [key,min,max] of [['radius',0,32],['spacing',0,48],['fontSize',11,24],['shadow',0,32]])if(Object.prototype.hasOwnProperty.call(style,key)){
         if(!Number.isInteger(style[key])||style[key]<min||style[key]>max)throw new Error('Geçersiz bileşen ölçüsü.');
         cleaned[key]=style[key];
+      }
+      if(Object.prototype.hasOwnProperty.call(style,'text')){
+        if(id==='actions'||typeof style.text!=='string'||style.text.length>80||/[<>\\x00-\\x1f]/.test(style.text))throw new Error('Geçersiz bileşen başlığı.');
+        cleaned.text=style.text;
       }
       output.zoneStyles[id]=cleaned;
     }
