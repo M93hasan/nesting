@@ -31,5 +31,7 @@ jobs:
         if: always()
         with:
           name: design-editor-visual-qa
-          path: web/test-results/design-editor-fullscreen.png
+          path: |
+            web/test-results/design-editor-fullscreen.png
+            web/test-results/puck-editor-fullscreen.png
           if-no-files-found: ignore
