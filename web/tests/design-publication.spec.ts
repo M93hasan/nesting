@@ -44,3 +44,15 @@ test('real Nesting structural panels use the editor panel order and safe per-zon
   await expect(page.locator('[data-design-zone="parts"]')).toHaveCSS('order','2');
   await expect(page.getByRole('button',{name:'Şekil çiz',exact:true})).toBeVisible();
 });
+
+test('published reusable text and button are rendered in actual Nesting panels',async({page})=>{
+  const blocks=[
+    {id:'widget-abc12345',kind:'heading',region:'canvas',text:'Yeni üretim duyurusu',color:'#223344',devices:['desktop','tablet','mobile']},
+    {id:'widget-def67890',kind:'button',region:'material',text:'Yönetimi aç',href:'/admin',devices:['desktop','tablet','mobile']}
+  ];
+  await page.route('**/api/design/published',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({published:{...published,design:{...published.design,blocks}}})}));
+  await page.goto('/');
+  await expect(page.locator('.drawing-panel [data-design-block-id="widget-abc12345"]')).toContainText('Yeni üretim duyurusu');
+  await expect(page.locator('.material-panel [data-design-block-id="widget-def67890"]')).toHaveAttribute('href','/admin');
+  await expect(page.getByRole('button',{name:'Şekil çiz',exact:true})).toBeVisible();
+});
