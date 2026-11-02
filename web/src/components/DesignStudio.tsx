@@ -20,7 +20,7 @@ function validDraft(value:unknown):value is Design{
     &&(d.order===undefined||(Array.isArray(d.order)&&d.order.length===samples.length&&new Set(d.order).size===samples.length&&d.order[d.order.length-1]==='Birincil buton'&&d.order.every((name:unknown)=>typeof name==='string'&&isLayer(name))))
     &&(d.positions===undefined||(typeof d.positions==='object'&&d.positions!==null&&!Array.isArray(d.positions)&&Object.keys(d.positions).every(key=>isLayer(key)&&typeof d.positions?.[key]?.x==='number'&&Number.isInteger(d.positions[key].x)&&d.positions[key].x>=0&&d.positions[key].x<=80&&typeof d.positions[key].y==='number'&&Number.isInteger(d.positions[key].y)&&d.positions[key].y>=0&&d.positions[key].y<=80)))
     &&(d.workspaceOrder===undefined||(Array.isArray(d.workspaceOrder)&&d.workspaceOrder.length===3&&new Set(d.workspaceOrder).size===3&&['parts','canvas','material'].every(item=>d.workspaceOrder!.includes(item))))
-    &&(d.zoneStyles===undefined||(typeof d.zoneStyles==='object'&&d.zoneStyles!==null&&!Array.isArray(d.zoneStyles)&&Object.keys(d.zoneStyles).every(key=>DESIGN_ZONES.some(id=>id===key)&&Object.keys(d.zoneStyles?.[key as DesignZone]??{}).every(field=>['background','color','radius','spacing','fontSize','shadow'].includes(field))&&JSON.stringify(cleanZoneStyles({[key]:d.zoneStyles?.[key as DesignZone]}))!=='{}')))
+    &&(d.zoneStyles===undefined||(typeof d.zoneStyles==='object'&&d.zoneStyles!==null&&!Array.isArray(d.zoneStyles)&&Object.keys(d.zoneStyles).every(key=>DESIGN_ZONES.some(id=>id===key)&&Object.keys(d.zoneStyles?.[key as DesignZone]??{}).every(field=>['background','color','radius','spacing','fontSize','shadow','text'].includes(field))&&JSON.stringify(cleanZoneStyles({[key]:d.zoneStyles?.[key as DesignZone]}))!=='{}')))
     &&(d.hidden===undefined||(Array.isArray(d.hidden)&&d.hidden.length<=samples.length&&d.hidden.every((name:unknown)=>typeof name==='string'&&isLayer(name))))
     &&([['radius',0,32],['spacing',8,40],['fontSize',12,22]] as const).every(([key,min,max])=>typeof d[key]==='number'&&Number.isFinite(d[key])&&d[key]>=min&&d[key]<=max);
 }
@@ -342,6 +342,8 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
             <label className="editor-slider-label"><span>Köşe yuvarlaklığı</span><output>{zoneStyle.radius??design.radius} px</output><input aria-label="Seçili öğe köşe yarıçapı" type="range" min="0" max="32" value={zoneStyle.radius??design.radius} onChange={e=>changeZoneStyle('radius',Number(e.target.value))}/></label>
           </div>
           <div className="editor-property-group"><div className="editor-property-title">Tipografi <span>𝘼</span></div>
+            {selectedZone!=='actions'&&<label className="editor-text-field">Bölüm başlığı / metni<input type="text" aria-label="Seçili bölüm başlığı" maxLength={80} value={zoneStyle.text??''} placeholder={zoneNames[selectedZone]} onChange={e=>changeZoneStyle('text',e.target.value)}/></label>}
+
             <label className="editor-slider-label"><span>Yazı boyutu</span><output>{zoneStyle.fontSize??design.fontSize} px</output><input aria-label="Seçili öğe yazı boyutu" type="range" min="11" max="24" value={zoneStyle.fontSize??design.fontSize} onChange={e=>changeZoneStyle('fontSize',Number(e.target.value))}/></label>
           </div>
           <div className="editor-property-group"><div className="editor-property-title">Efektler <span>◈</span></div>
