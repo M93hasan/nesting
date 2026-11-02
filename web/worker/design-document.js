@@ -1,7 +1,7 @@
 // Versioned, allowlisted Serula design drafts. Never accepts executable markup or styles.
 const COLOR=/^#[0-9a-f]{6}$/i;
 const LABELS=['Başlık','Ana panel','Birincil buton'];
-const EXACT=['background','panel','accent','radius','spacing','fontSize','heading','hidden','order','positions'];
+const EXACT=['background','panel','accent','radius','spacing','fontSize','heading','hidden','order','positions','workspaceOrder'];
 const has=(obj,key)=>Object.prototype.hasOwnProperty.call(obj,key);
 export function parseDesignDocument(input){
   if(!input||typeof input!=='object'||Array.isArray(input))throw new Error('Tasarım nesnesi gerekli.');
@@ -32,6 +32,11 @@ export function parseDesignDocument(input){
       if(!value||typeof value!=='object'||!Number.isInteger(value.x)||!Number.isInteger(value.y)||value.x<0||value.x>80||value.y<0||value.y>80||Object.keys(value).some(field=>!['x','y'].includes(field)))throw new Error('Geçersiz konum.');
       output.positions[key]={x:value.x,y:value.y};
     }
+  }
+  if(has(input,'workspaceOrder')){
+    const allowed=['parts','canvas','material'];
+    if(!Array.isArray(input.workspaceOrder)||input.workspaceOrder.length!==allowed.length||new Set(input.workspaceOrder).size!==allowed.length||!allowed.every(id=>input.workspaceOrder.includes(id)))throw new Error('Geçersiz gerçek panel sırası.');
+    output.workspaceOrder=[...input.workspaceOrder];
   }
   return output;
 }
