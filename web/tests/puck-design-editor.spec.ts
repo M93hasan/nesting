@@ -6,6 +6,8 @@ async function openBuilder(page:import('@playwright/test').Page){
   await page.goto('/admin');
   await page.getByRole('button',{name:/Görünüm/}).click();
   await page.getByRole('button',{name:'Puck Editörünü Aç'}).click();
+  await expect(page.getByRole('button',{name:'Bağımsız Puck taslağı'})).toBeVisible();
+  await page.getByRole('button',{name:'Bağımsız Puck taslağı'}).click();
   await expect(page.getByRole('region',{name:'Puck görsel tasarım editörü'})).toBeVisible();
 }
 
@@ -69,7 +71,7 @@ test.describe('real Puck visual builder',()=>{
     await expect(page.locator('.puck-builder-card')).toBeVisible();
     // Merely inserting an element is not sufficient: its real field must edit
     // Puck JSON, and that edit must survive opening the editor again.
-    await page.locator('.puck-builder-card').click();
+    await page.locator('[data-puck-component^="Card-"]').last().click();
     const titleField=page.getByRole('textbox',{name:'Kart başlığı',exact:true});
     await expect(titleField).toBeVisible();
     await titleField.fill('Düzenlenen kart başlığı');
@@ -79,6 +81,7 @@ test.describe('real Puck visual builder',()=>{
     })).toBe('Düzenlenen kart başlığı');
     await page.getByRole('button',{name:'Kapat ✕'}).click();
     await page.getByRole('button',{name:'Puck Editörünü Aç'}).click();
+    await page.getByRole('button',{name:'Bağımsız Puck taslağı'}).click();
     await expect(page.locator('.puck-builder-card')).toContainText('Düzenlenen kart başlığı');
   });
   test('failed editor import shows recovery controls, not a blank app',async({page})=>{
@@ -122,6 +125,7 @@ test('native Puck desktop fields edit existing content and persist across reload
   await page.reload();
   await page.getByRole('button',{name:/Görünüm/}).click();
   await page.getByRole('button',{name:'Puck Editörünü Aç'}).click();
+  await page.getByRole('button',{name:'Bağımsız Puck taslağı'}).click();
   await expect(page.locator('.puck-builder-heading').first()).toContainText('PC ile düzenlendi');
 });
 

@@ -90,3 +90,24 @@
 .puck-builder-template h3{margin:0;font-size:20px}
 .puck-builder-template p{color:#64748b}
 @media(max-width:999px){.puck-studio-desktop-required{display:block;padding:24px;color:#17233a;background:#fff;border:1px solid #d8e0ec;border-radius:12px;margin:24px}.puck-studio-desktop-content{display:none}}
+
+
+/* Connected real Nesting editor. The original generic Puck document stays separate. */
+.puck-mode-shell{position:fixed;inset:0;z-index:1200;display:flex;flex-direction:column;min-width:0;background:#f3f5f9}
+.puck-mode-switch{position:relative;z-index:1;display:flex;align-items:center;flex-wrap:wrap;gap:9px;min-height:44px;padding:6px 16px;background:#e9eef8;border-bottom:1px solid #cbd5e1}
+.puck-mode-switch button{padding:6px 12px;background:#fff;color:#28344b;border:1px solid #c5cede;border-radius:7px;cursor:pointer}
+.puck-mode-switch button[aria-pressed=true]{background:#334dba;color:#fff;border-color:#334dba}
+.puck-mode-switch span{font-size:11px;color:#52627a}
+.puck-mode-shell>.puck-studio{position:relative;inset:auto;z-index:auto;flex:1;min-height:0;width:100%}
+.puck-connected-canvas{min-height:1100px;background:#f7f9fe;padding:14px;display:flex;flex-direction:column;gap:15px}
+.puck-connected-intro{display:grid;gap:4px;background:#e9efff;border-radius:9px;padding:12px;color:#263d6a}
+.puck-connected-intro span{font-size:12px}
+.puck-connected-sections{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;min-height:120px;border:1px dashed #aab9d5;border-radius:9px;padding:8px}
+.puck-connected-region{border:1px solid #cdd8e9;border-radius:8px;background:#fff;padding:9px 11px;display:flex;flex-direction:column;gap:3px;overflow-wrap:anywhere}
+.puck-connected-region strong{font-size:13px;color:#18263a}
+.puck-connected-region span{font-size:11px;color:#536884}
+.puck-connected-region small{font-size:10px;color:#788aa3}
+.puck-connected-real-app{display:flex;flex-direction:column;gap:7px;overflow-x:auto;background:#e4e9f1;border:1px solid #b8c5d8;padding:10px;border-radius:9px}
+.puck-connected-real-app>strong{font-size:12px;color:#243752}
+.puck-connected-real-app iframe{align-self:flex-start;max-width:none;border:1px solid #b2c2d6;background:#fff;box-shadow:0 5px 22px #18294326}
+@media(max-width:999px){.puck-mode-switch span{display:none}.puck-connected-canvas{display:none}}
