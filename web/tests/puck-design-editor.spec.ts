@@ -19,16 +19,26 @@ test.describe('real Puck visual builder',()=>{
     }
     await expect(page.getByTestId('drawer-item:Heading')).not.toHaveClass(/disabled/i);
     await expect(page.frameLocator('iframe').locator('.puck-builder-grid')).toBeVisible();
+    await page.screenshot({path:'test-results/puck-editor-fullscreen.png',fullPage:true});
     await page.getByText('Taslağı kaydet',{exact:true}).click();
     await expect.poll(()=>page.evaluate(()=>localStorage.getItem('serula-puck-page-v1'))).not.toBeNull();
     const data=await page.evaluate(()=>JSON.parse(localStorage.getItem('serula-puck-page-v1')??'null'));
-    expect(data).toMatchObject({root:{props:{title:'Serula Nesting çalışma alanı'}},content:[{type:'Heading'}]});
+    expect(data.root.props.title).toBe('Serula Nesting çalışma alanı');
+    expect(data.content[0].type).toBe('Heading');
     expect(data.content.some((item:{type:string})=>item.type==='Grid')).toBeTruthy();
     await page.getByRole('button',{name:'Gerçek Nesting ekranı'}).click();
     const preview=page.locator('iframe[title="Gerçek Nesting ekranı"]');
     await expect(preview).toBeVisible();
     await page.getByRole('button',{name:'Mobil'}).click();
     await expect(preview).toHaveCSS('width','390px');
+  });
+  test('dragging a real palette component inserts it into Puck content',async({page})=>{
+    await openBuilder(page);
+    const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('serula-puck-page-v1')??'null')?.content?.length ?? 4);
+    const source=page.getByTestId('drawer-item:Card');
+    const target=page.frameLocator('iframe').locator('.puck-builder-page-content');
+    await source.dragTo(target,{targetPosition:{x:110,y:220}});
+    await expect.poll(async()=>page.evaluate(()=>JSON.parse(localStorage.getItem('serula-puck-page-v1')??'null')?.content?.length ?? 0),{timeout:10000}).toBe(before+1);
   });
   test('failed editor import shows recovery controls, not a blank app',async({page})=>{
     await page.route('**/api/auth/admin-me',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(adminUser)}));
