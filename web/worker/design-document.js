@@ -39,7 +39,7 @@ export function parseDesignDocument(input){
     output.workspaceOrder=[...input.workspaceOrder];
   }
   if(has(input,'zoneStyles')){
-    const zones=['header','parts','canvas','material','actions'];
+    const zones=['header','parts','canvas','material','actions','runButton','corelButton','downloadButton'];
     const allowed=['background','color','radius','spacing','fontSize','shadow','text'];
     if(!input.zoneStyles||typeof input.zoneStyles!=='object'||Array.isArray(input.zoneStyles)||Object.keys(input.zoneStyles).some(id=>!zones.includes(id)))throw new Error('Geçersiz bileşen kimliği.');
     output.zoneStyles={};
