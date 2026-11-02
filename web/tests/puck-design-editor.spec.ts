@@ -35,18 +35,18 @@ test.describe('real Puck visual builder',()=>{
   test('dragging a real palette component inserts it into Puck content',async({page})=>{
     await openBuilder(page);
     const source=page.getByTestId('drawer-item:Card');
-    // The real Puck root renderDropZone accepts dragged content and updates data.
-    const target=page.locator('[data-puck-dropzone]').first();
+    // Root contains components, so Puck disables direct collision there.
+    // The empty Flex slot is an actual supported droppable target.
+    const target=page.locator('[data-puck-dropzone="demo-insert-here:items"]');
     await expect(target).toBeVisible();
-    const box=await target.boundingBox();
-    expect(box).not.toBeNull();
-    await source.dragTo(target,{targetPosition:{x:Math.max(35,box!.width/2),y:box!.height-35}});
-    console.log('PUCK_TARGET',JSON.stringify(await target.evaluate(el=>({zone:el.getAttribute('data-puck-dropzone'),height:el.getBoundingClientRect().height}))));
-    console.log('PUCK_DND_DIAGNOSTIC',JSON.stringify({status:await page.locator('[role="status"]').allTextContents(),cardCount:await page.locator('.puck-builder-card').count(),storage:await page.evaluate(()=>localStorage.getItem('serula-puck-page-v1'))}));
+    await source.dragTo(target,{targetPosition:{x:Math.min(65,(await target.boundingBox())!.width/2),y:65}});
     await expect.poll(async()=>page.evaluate(()=>{
       const doc=JSON.parse(localStorage.getItem('serula-puck-page-v1')??'null');
-      return doc?.content?.length ?? 0;
-    }),{timeout:10000}).toBe(5);
+      return doc?.content?.find((item:{props:{id:string}})=>item.props.id==='demo-insert-here')?.props?.items?.length ?? 0;
+    }),{timeout:10000}).toBe(1);
+    const data=await page.evaluate(()=>JSON.parse(localStorage.getItem('serula-puck-page-v1')!));
+    expect(data.content.find((item:{props:{id:string}})=>item.props.id==='demo-insert-here').props.items[0].type).toBe('Card');
+    await expect(page.locator('.puck-builder-card')).toBeVisible();
   });
   test('failed editor import shows recovery controls, not a blank app',async({page})=>{
     await page.route('**/api/auth/admin-me',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(adminUser)}));
