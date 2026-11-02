@@ -20,7 +20,7 @@ export function cleanZoneStyles(value:unknown):ZoneStyles{
       const num=record[key],bounds=NUMBER_BOUNDS[key];
       if(typeof num==='number'&&Number.isInteger(num)&&num>=bounds[0]&&num<=bounds[1])out[key]=num;
     }
-    if(id!=='actions'&&typeof record.text==='string'&&record.text.length<=80&&!/[<>\\x00-\\x1f]/.test(record.text))out.text=record.text;
+    if(id!=='actions'&&typeof record.text==='string'&&record.text.length<=80&&!/[<>\x00-\x1f]/.test(record.text))out.text=record.text;
     if(Object.keys(out).length)result[id]=out;
   }
   return result;
