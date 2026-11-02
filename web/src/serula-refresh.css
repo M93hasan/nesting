@@ -312,13 +312,15 @@ body { background: var(--page) !important; background-image: none !important; }
 #root .app .run-controls { padding: 0 12px 0 0; }
 #root .app .run-controls .run-button { width: 100%; min-height: 46px; font-size: 13px; }
 /* Keep the existing premium-theme action contract while other accents use blue. */
-:root #root .run-controls .reference-launch {
-  background: #17191c !important;
+/* Stronger than the legacy :is() action rule in theme.css. */
+:root #root .app .run-controls button.reference-launch {
+  background-color: #17191c !important;
+  background-image: none !important;
   border-color: #17191c !important;
   color: #fff !important;
 }
-:root #root .run-controls .reference-launch:hover:enabled {
-  background: #363940 !important;
+:root #root .app .run-controls button.reference-launch:hover:enabled {
+  background-color: #363940 !important;
   border-color: #363940 !important;
 }
 
