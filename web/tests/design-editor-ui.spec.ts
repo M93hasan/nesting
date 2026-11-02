@@ -21,7 +21,7 @@ test('admin opens full-screen editor, selects actual layer, changes styles and u
   await expect(page.getByRole('textbox',{name:'Seçili bölüm başlığı'})).toHaveValue('DXF KAYDET');
   console.log('EDITOR_PREVIEW_DIAGNOSTIC',JSON.stringify({
     parent:await page.evaluate(()=>{const d=JSON.parse(localStorage.getItem('serula-design-studio-live-preview-v1')||'null');return d?.zoneStyles?.downloadButton??null;}),
-    child:await page.frameLocator('iframe[title="Gerçek Serula Nesting ekranı"]').locator('body').evaluate(()=>{const d=JSON.parse(localStorage.getItem('serula-design-studio-live-preview-v1')||'null');return {style:d?.zoneStyles?.downloadButton??null,preview:new URLSearchParams(location.search).get('design-preview')}})
+    child:await page.frameLocator('iframe[title="Gerçek Serula Nesting ekranı"]').locator('body').evaluate(()=>{const d=JSON.parse(localStorage.getItem('serula-design-studio-live-preview-v1')||'null');return {style:d?.zoneStyles?.downloadButton??null,preview:new URLSearchParams(location.search).get('design-preview'),background:d?.background,panel:d?.panel,accent:d?.accent,radius:d?.radius,spacing:d?.spacing,fontSize:d?.fontSize,keys:Object.keys(d??{})}})
   }));
   await page.frameLocator('iframe[title="Gerçek Serula Nesting ekranı"]').locator('body').evaluate(()=>window.dispatchEvent(new Event('storage')));
   await expect(page.frameLocator('iframe[title="Gerçek Serula Nesting ekranı"]').locator('.export-actions .download-button:not(.corel-transfer-button)')).toContainText('DXF KAYDET');
