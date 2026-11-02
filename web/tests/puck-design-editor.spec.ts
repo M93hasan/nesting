@@ -63,3 +63,16 @@ test('opening Puck with an existing safe local draft preserves that draft',async
   const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('serula-design-studio-draft-v1')||'{}'));
   expect(saved).toMatchObject({heading:'Önceden kayıtlı tasarım',radius:20,zoneStyles:{downloadButton:{radius:18,text:'DXF KAYDET'}}});
 });
+
+test.describe('production-like service worker',()=>{
+  test.use({serviceWorkers:'allow'});
+  test('Puck opens after isolation service worker registration',async({page})=>{
+    await page.route('**/api/auth/admin-me',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({user:{id:1,email:'qa@example.test',name:'QA',role:'admin',credits:0,unlimited:true}})}));
+    await page.goto('/admin');
+    await expect(page.getByRole('button',{name:/Görünüm/})).toBeVisible();
+    await page.getByRole('button',{name:/Görünüm/}).click();
+    await page.getByRole('button',{name:'Puck Editörünü Aç'}).click();
+    await expect(page.getByRole('region',{name:'Puck görsel tasarım editörü'})).toBeVisible();
+    await expect(page.getByRole('heading',{name:'Nesting Bileşenleri',exact:true})).toBeVisible();
+  });
+});
