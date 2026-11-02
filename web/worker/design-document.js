@@ -1,7 +1,7 @@
 // Versioned, allowlisted Serula design drafts. Never accepts executable markup or styles.
 const COLOR=/^#[0-9a-f]{6}$/i;
 const LABELS=['Başlık','Ana panel','Birincil buton'];
-const EXACT=['background','panel','accent','radius','spacing','fontSize','heading','hidden','order','positions','workspaceOrder','zoneStyles'];
+const EXACT=['background','panel','accent','radius','spacing','fontSize','heading','hidden','order','positions','workspaceOrder','zoneStyles','blocks'];
 const has=(obj,key)=>Object.prototype.hasOwnProperty.call(obj,key);
 export function parseDesignDocument(input){
   if(!input||typeof input!=='object'||Array.isArray(input))throw new Error('Tasarım nesnesi gerekli.');
@@ -64,6 +64,26 @@ export function parseDesignDocument(input){
       }
       output.zoneStyles[id]=cleaned;
     }
+  }
+  if(has(input,'blocks')){
+    const kinds=['text','heading','button','image','divider'],regions=['header','parts','canvas','material','actions'],devices=['desktop','tablet','mobile'];
+    const allowed=['id','kind','region','text','href','src','color','background','fontSize','padding','radius','width','x','y','opacity','align','hidden','devices'];
+    if(!Array.isArray(input.blocks)||input.blocks.length>100)throw new Error('Çok fazla tasarım bileşeni.');
+    const ids=new Set();
+    output.blocks=input.blocks.map(block=>{
+      if(!block||typeof block!=='object'||Array.isArray(block)||Object.keys(block).some(k=>!allowed.includes(k)))throw new Error('Geçersiz bileşen alanı.');
+      if(typeof block.id!=='string'||!/^widget-[a-z0-9-]{8,64}$/.test(block.id)||ids.has(block.id))throw new Error('Geçersiz bileşen kimliği.');
+      if(!kinds.includes(block.kind)||!regions.includes(block.region)||typeof block.text!=='string'||block.text.length>160||/[<>\x00-\x1f]/.test(block.text))throw new Error('Geçersiz tasarım bileşeni.');
+      if(has(block,'href')&&(typeof block.href!=='string'||!/^\/(?!\/)[a-zA-Z0-9/_-]{0,80}$/.test(block.href)))throw new Error('Geçersiz düğme bağlantısı.');
+      if(has(block,'src')&&!['/serula-logo.svg','/corel-button-logo.svg'].includes(block.src))throw new Error('İzin verilmeyen görsel adresi.');
+      for(const key of ['color','background'])if(has(block,key)&&(typeof block[key]!=='string'||!COLOR.test(block[key])))throw new Error('Geçersiz bileşen rengi.');
+      for(const [key,min,max] of [['fontSize',10,36],['padding',0,48],['radius',0,40],['width',40,650],['x',-300,300],['y',-300,300],['opacity',0,100]])if(has(block,key)&&(!Number.isInteger(block[key])||block[key]<min||block[key]>max))throw new Error('Geçersiz bileşen ölçüsü.');
+      if(has(block,'align')&&!['left','center','right'].includes(block.align))throw new Error('Geçersiz hizalama.');
+      if(has(block,'hidden')&&typeof block.hidden!=='boolean')throw new Error('Geçersiz görünürlük.');
+      if(has(block,'devices')&&(!Array.isArray(block.devices)||!block.devices.length||new Set(block.devices).size!==block.devices.length||!block.devices.every(d=>devices.includes(d))))throw new Error('Geçersiz cihaz görünürlüğü.');
+      ids.add(block.id);
+      return {...block};
+    });
   }
   return output;
 }
