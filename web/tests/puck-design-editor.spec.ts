@@ -70,7 +70,7 @@ test.describe('real Puck visual builder',()=>{
     // Merely inserting an element is not sufficient: its real field must edit
     // Puck JSON, and that edit must survive opening the editor again.
     await page.locator('.puck-builder-card').click();
-    const titleField=page.getByLabel('Kart başlığı',{exact:true});
+    const titleField=page.getByRole('textbox',{name:'Kart başlığı',exact:true});
     await expect(titleField).toBeVisible();
     await titleField.fill('Düzenlenen kart başlığı');
     await expect.poll(async()=>page.evaluate(()=>{
@@ -112,7 +112,7 @@ test.describe('real Puck visual builder',()=>{
 test('native Puck desktop fields edit existing content and persist across reload',async({page})=>{
   await openBuilder(page);
   await page.locator('.puck-builder-heading').first().click();
-  const textField=page.getByLabel('Başlık',{exact:true});
+  const textField=page.getByRole('textbox',{name:'Başlık',exact:true});
   await expect(textField).toBeVisible();
   await textField.fill('PC ile düzenlendi');
   await expect.poll(()=>page.evaluate(()=>{
