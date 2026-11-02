@@ -107,7 +107,11 @@ export default function PuckDesignStudio({onClose}:{onClose:()=>void}){
     if(vr.ok)setVersions(((await vr.json()) as {versions?:Version[]}).versions??[]);
     if(pr.ok)setPublications(((await pr.json()) as {publications?:Publication[]}).publications??[]);
   };
-  useEffect(()=>{putPreview(initial);void refresh().catch(()=>{});},[]);
+  useEffect(()=>{
+    // Opening the editor must not overwrite a previously saved local draft.
+    try{localStorage.setItem(PREVIEW_KEY,JSON.stringify(initial));}catch{/* Preview remains optional. */}
+    void refresh().catch(()=>{});
+  },[]);
   const restore=(design:StudioDesign)=>{
     putPreview(design);
     setSnapshot(toPuckData(design));
@@ -200,7 +204,7 @@ export default function PuckDesignStudio({onClose}:{onClose:()=>void}){
         config={config}
         data={snapshot as Data<Components,RootProps>}
         headerTitle="Nesting Bileşenleri"
-        dictionary={{'header-publish':'Sunucu taslağını kaydet'}}
+        dictionary={{'header-publish':'Sunucu taslağını kaydet','label-page':'Genel görünüm','outline-header-title':'Katmanlar','drawer-category-other':'Bileşenler','field-readonly':'Salt okunur','header-undo':'Geri al','header-redo':'Yinele'}}
         onChange={onChange}
         onPublish={onSave}
         permissions={{insert:false,delete:false,duplicate:false}}
