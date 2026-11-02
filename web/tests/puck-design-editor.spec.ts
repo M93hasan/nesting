@@ -39,7 +39,9 @@ test.describe('real Puck visual builder',()=>{
     // The empty Flex slot is an actual supported droppable target.
     const target=page.locator('[data-puck-dropzone="demo-insert-here:items"]');
     await expect(target).toBeVisible();
+    page.on('console',msg=>{if(msg.text().startsWith('PUCK_DOC_CHANGE'))console.log('PUCK_DOC_BROWSER',msg.text());});
     await source.dragTo(target,{targetPosition:{x:Math.min(65,(await target.boundingBox())!.width/2),y:65}});
+    console.log('PUCK_DROP_RESULT',JSON.stringify({status:await page.locator('[role="status"]').allTextContents(),cardCount:await page.locator('.puck-builder-card').count(),dropZone:await target.evaluate(el=>({id:el.getAttribute('data-puck-dropzone'),box:el.getBoundingClientRect().toJSON()})),persisted:await page.evaluate(()=>localStorage.getItem('serula-puck-page-v1'))}));
     await expect.poll(async()=>page.evaluate(()=>{
       const doc=JSON.parse(localStorage.getItem('serula-puck-page-v1')??'null');
       return doc?.content?.find((item:{props:{id:string}})=>item.props.id==='demo-insert-here')?.props?.items?.length ?? 0;
