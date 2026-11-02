@@ -342,7 +342,597 @@ async function handleApi(request,env){
       const rows=await env.DB.prepare('SELECT id,created_at FROM design_revision_store ORDER BY id DESC LIMIT 30').all();
       return json({versions:rows.results??[]});
     }
-    const match=path.match(/^\\/api\\/admin\\/design\\/versions\\/(\\d+)$/);
+    const match=path.match(new RegExp('^/api/admin/design/versions/([0-9]+)
+    if(match&&request.method==='GET'){
+      const row=await env.DB.prepare('SELECT document_json FROM design_revision_store WHERE id=?').bind(Number(match[1])).first();
+      return row?json({document:JSON.parse(row.document_json)}):json({error:'Sürüm bulunamadı.'},404);
+    }
+    if(path==='/api/admin/design/draft'&&request.method==='POST'){
+      const raw=await request.text();
+      if(raw.length>12000)return json({error:'Tasarım fazla büyük.'},413);
+      let document;try{document=parseDesignPayload(JSON.parse(raw));}catch(error){return json({error:error.message},400);}
+      const encoded=JSON.stringify(document);
+      await env.DB.prepare("INSERT INTO system_settings(key,value_json,updated_at) VALUES('design_draft_v1',?,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json,updated_at=CURRENT_TIMESTAMP").bind(encoded).run();
+      await env.DB.prepare('INSERT INTO design_revision_store(document_json) VALUES(?)').bind(encoded).run();
+      await audit(env,'design_draft_saved',{actorType:'admin',detail:'Draft revision recorded'});
+      return json({draft:document});
+    }
+    if(path==='/api/admin/design/restore'&&request.method==='POST'){
+      const data=await body(request),id=data?.versionId;
+      if(!Number.isSafeInteger(id)||id<=0)return json({error:'Geçersiz sürüm.'},400);
+      const row=await env.DB.prepare('SELECT document_json FROM design_revision_store WHERE id=?').bind(id).first();
+      if(!row)return json({error:'Sürüm bulunamadı.'},404);
+      let document;try{document=parseDesignPayload(JSON.parse(row.document_json));}catch{return json({error:'Sürüm geçersiz.'},400);}
+      const encoded=JSON.stringify(document);
+      await env.DB.prepare("INSERT INTO system_settings(key,value_json,updated_at) VALUES('design_draft_v1',?,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json,updated_at=CURRENT_TIMESTAMP").bind(encoded).run();
+      await env.DB.prepare('INSERT INTO design_revision_store(document_json) VALUES(?)').bind(encoded).run();
+      await audit(env,'design_draft_restored',{actorType:'admin',detail:String(id)});
+      return json({draft:document});
+    }
+    return json({error:'İşlem desteklenmiyor.'},405);
+  }
+  if(path==='/api/admin/appearance'&&request.method==='POST'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const value=(await body(request))?.appearance;
+    if(typeof value?.background!=='string'||typeof value?.panel!=='string'||!/^#[0-9a-f]{6}$/i.test(value.background)||!/^#[0-9a-f]{6}$/i.test(value.panel))return json({error:'Geçerli renkler seçin.'},400);
+    let buttons,customCss;try{buttons=parseButtonStyles(value.buttons);customCss=validateCustomCss(value.customCss??'');}catch(error){return json({error:error.message},400);}
+    const appearance={background:value.background.toLowerCase(),panel:value.panel.toLowerCase(),buttons,customCss};
+    await env.DB.prepare("INSERT INTO system_settings(key,value_json,updated_at) VALUES('appearance',?,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json,updated_at=CURRENT_TIMESTAMP").bind(JSON.stringify(appearance)).run();
+    await audit(env,'appearance_changed',{actorType:'admin',detail:JSON.stringify(appearance)});
+    return json({appearance});
+  }
+  if(path==='/api/transfer/access'&&request.method==='GET'){
+    const user=await sessionUser(request,env);
+    if(!user||licenseExpired(user))return json({corel:false,rdworks:false});
+    return json({corel:await corelAllowed(user.id,env),rdworks:false});
+  }
+  if(path==='/api/transfer/ticket'&&request.method==='POST'){
+    const user=await sessionUser(request,env);
+    if(!user||licenseExpired(user))return json({error:'Giriş ve geçerli lisans gerekli.'},403);
+    const data=await body(request),target=data.target;
+    if(target!=='corel')return json({error:'RDWorks otomatik aktarımı desteklenmiyor.'},403);
+    if(!await corelAllowed(user.id,env))return json({error:'Bu aktarım yetkisi yönetici tarafından kapatılmış.'},403);
+    const ticket=randomToken(),expiresAt=new Date(Date.now()+120000).toISOString();
+    await env.DB.prepare("DELETE FROM transfer_tickets WHERE datetime(expires_at)<datetime('now','-1 day')").run();
+    await env.DB.prepare("INSERT INTO transfer_tickets(token_hash,user_id,target,expires_at) VALUES(?,?,?,?)").bind(await sha256(ticket),user.id,target,expiresAt).run();
+    return json({ticket,expiresAt});
+  }
+  if(path==='/api/transfer/redeem'&&request.method==='POST'){
+    const data=await body(request),ticket=String(data.ticket||''),target=data.target;
+    if(!/^[a-f0-9]{64}$/.test(ticket)||target!=='corel')return json({ok:false},403);
+    const found=await env.DB.prepare('SELECT user_id,target,redeemed_at,expires_at FROM transfer_tickets WHERE token_hash=?').bind(await sha256(ticket)).first();
+    if(!found||found.target!==target||found.redeemed_at||Date.parse(String(found.expires_at))<=Date.now())return json({ok:false},403);
+    const user=await env.DB.prepare('SELECT u.id,u.role,l.expires_at license_expires_at FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.id=?').bind(found.user_id).first();
+    if(!user||licenseExpired(user))return json({ok:false},403);
+    if(!await corelAllowed(user.id,env))return json({ok:false},403);
+    const redeemed=await env.DB.prepare("UPDATE transfer_tickets SET redeemed_at=CURRENT_TIMESTAMP WHERE token_hash=? AND redeemed_at IS NULL AND datetime(expires_at)>datetime('now')").bind(await sha256(ticket)).run();
+    if(!redeemed.meta.changes)return json({ok:false},403);
+    await audit(env,'local_transfer_authorized',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:target});
+    return json({ok:true});
+  }
+  if(path==='/api/test-dxf'&&request.method==='GET'){
+    const user=await sessionUser(request,env);if(!user)return json({allowed:false},401);
+    const allowed=await testDxfAllowed(user.id,env);
+    return allowed?json({allowed:true,files:TEST_DXF_FILES}):json({allowed:false},403);
+  }
+    if(path==='/api/auth/me'&&request.method==='GET'){
+    const user=await sessionUser(request,env);
+    if(!user)return json({user:null},401);
+    await touchPresence(env,user.id);
+    return json({user:publicUser(user)});
+  }
+  if(path==='/api/auth/register'&&request.method==='POST'){
+    const data=await body(request),email=String(data.email||'').trim().toLowerCase(),name=String(data.name||'').trim().slice(0,120),password=String(data.password||''),locale=cleanLocale(data.locale);
+    if(!validEmail(email)||!passwordOk(password))return json({error:'Geçerli e-posta ve en az 8 karakter parola gerekli.'},400);
+    if(await env.DB.prepare('SELECT id FROM users WHERE email=?').bind(email).first())return json({error:'Bu e-posta zaten kayıtlı.'},409);
+    const result=await env.DB.prepare(`INSERT INTO users(email,name,password_hash,role,nesting_credits,unlimited,last_login_at)
+      VALUES(?,?,?,'user',5,0,CURRENT_TIMESTAMP)`).bind(email,name,await hashPassword(password)).run();
+    const userId=Number(result.meta.last_row_id);
+    await env.DB.prepare(`INSERT INTO user_preferences(user_id,locale,updated_at) VALUES(?,?,CURRENT_TIMESTAMP)
+      ON CONFLICT(user_id) DO UPDATE SET locale=excluded.locale,updated_at=CURRENT_TIMESTAMP`).bind(userId,locale).run();
+    const user=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,l.started_at license_started_at,l.expires_at license_expires_at
+      FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.id=?`).bind(userId).first();
+    return json({user:publicUser(user)},201,{'set-cookie':cookie(await makeSession(user.id,env))});
+  }
+  if(path==='/api/auth/admin-me'&&request.method==='GET'){
+    return await adminSessionValid(request,env)?json({user:{id:0,email:'',name:'Admin',role:'admin',credits:0,unlimited:true}}):json({user:null},401);
+  }
+  if(path==='/api/auth/admin-login'&&request.method==='POST'){
+    const data=await body(request),email=String(data.email||'').trim().toLowerCase(),password=String(data.password||'');
+    if(!validEmail(email)||!password)return json({error:'E-posta veya parola hatalı.'},401);
+    let valid=false;
+    const admin=await env.DB.prepare("SELECT id,email,name,password_hash FROM users WHERE lower(email)=? AND role='admin' LIMIT 1").bind(email).first();
+    if(admin?.password_hash)valid=await verifyPassword(password,admin.password_hash);
+    if(!valid&&email===ADMIN_LOGIN_EMAIL&&env.ADMIN_PASSWORD)valid=await secureEqual(password,env.ADMIN_PASSWORD);
+    if(!valid)return json({error:'E-posta veya parola hatalı. Admin hesabının role=admin olduğundan ve parolasının tanımlı olduğundan emin olun.'},401);
+    return json({user:{id:Number(admin?.id||0),email:admin?.email||ADMIN_LOGIN_EMAIL,name:admin?.name||'Admin',role:'admin',credits:0,unlimited:true}},200,{'set-cookie':adminCookie(await makeAdminSession(env))});
+  }
+    if(path==='/api/auth/login'&&request.method==='POST'){
+    const data=await body(request),email=String(data.email||'').trim().toLowerCase(),password=String(data.password||'');
+    const user=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,u.password_hash,
+      l.started_at license_started_at,l.expires_at license_expires_at
+      FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.email=?`).bind(email).first();
+    if(!user||!await verifyPassword(password,user.password_hash)){await audit(env,'login_failed',{actorType:'user',detail:email,success:false});return json({error:'E-posta veya parola hatalı.'},401);}
+    await env.DB.prepare('UPDATE users SET last_login_at=CURRENT_TIMESTAMP WHERE id=?').bind(user.id).run();
+    await audit(env,'login',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:'E-posta ile giriş'});
+    return json({user:publicUser(user)},200,{'set-cookie':cookie(await makeSession(user.id,env))});
+  }
+  if(path==='/api/auth/google'&&request.method==='POST'){
+    const data=await body(request),credential=String(data.credential||''),result=await googleUserFromCredential(credential,env,data.locale);
+    if(result.error)return json({error:result.error},result.status);
+    return json({user:publicUser(result.user)},200,{'set-cookie':cookie(await makeSession(result.user.id,env))});
+  }
+  if(path==='/api/auth/reset-password'&&request.method==='POST'){
+    const data=await body(request),token=String(data.token||''),newPassword=String(data.password||'');
+    if(!token||!passwordOk(newPassword))return json({error:'Geçerli bağlantı ve en az 8 karakter parola gerekli.'},400);
+    const tokenHash=await sha256(token);
+    const reset=await env.DB.prepare("SELECT user_id FROM password_reset_tokens WHERE token_hash=? AND used_at IS NULL AND datetime(expires_at)>datetime('now')").bind(tokenHash).first();
+    if(!reset)return json({error:'Şifre sıfırlama bağlantısı geçersiz veya süresi dolmuş.'},400);
+    await env.DB.prepare('UPDATE users SET password_hash=? WHERE id=?').bind(await hashPassword(newPassword),reset.user_id).run();
+    await env.DB.prepare('UPDATE password_reset_tokens SET used_at=CURRENT_TIMESTAMP WHERE token_hash=?').bind(tokenHash).run();
+    await env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(reset.user_id).run();
+    await audit(env,'password_changed',{actorType:'user',actorUserId:reset.user_id,targetUserId:reset.user_id});
+    return json({ok:true});
+  }
+  if(path==='/api/preferences'&&request.method==='GET'){
+    const user=await sessionUser(request,env);if(!user)return json({locale:null},401);
+    const row=await env.DB.prepare('SELECT locale FROM user_preferences WHERE user_id=?').bind(user.id).first();
+    return json({locale:row?.locale||'tr'});
+  }
+  if(path==='/api/preferences'&&request.method==='POST'){
+    const user=await sessionUser(request,env);if(!user)return json({error:'Giriş gerekli.'},401);
+    const data=await body(request),locale=String(data.locale||'');
+    if(!['tr','en','ar','fa'].includes(locale))return json({error:'Geçersiz dil.'},400);
+    await env.DB.prepare(`INSERT INTO user_preferences(user_id,locale,updated_at) VALUES(?,?,CURRENT_TIMESTAMP)
+      ON CONFLICT(user_id) DO UPDATE SET locale=excluded.locale,updated_at=CURRENT_TIMESTAMP`).bind(user.id,locale).run();
+    await audit(env,'language_changed',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:locale});
+    return json({ok:true,locale});
+  }
+    if(path==='/api/auth/logout'&&request.method==='POST'){
+    const current=await sessionUser(request,env),raw=cookieToken(request);if(raw)await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(await sha256(raw)).run();
+    if(current)await audit(env,'logout',{actorType:'user',actorUserId:current.id,targetUserId:current.id});
+    return json({ok:true},200,{'set-cookie':cookie('',0)});
+  }
+  if(path==='/api/chat'&&request.method==='GET'){
+    const user=await sessionUser(request,env);if(!user)return json({error:'Canlı destek için giriş yapmalısınız.'},401);
+    await touchPresence(env,user.id);
+    await env.DB.prepare("UPDATE chat_messages SET read_at=CURRENT_TIMESTAMP WHERE user_id=? AND sender='admin' AND read_at IS NULL").bind(user.id).run();
+    const rows=await env.DB.prepare("SELECT id,sender,body,created_at,read_at FROM chat_messages WHERE user_id=? ORDER BY id ASC LIMIT 300").bind(user.id).all();
+    return json({messages:rows.results.map(m=>({id:m.id,sender:m.sender,body:m.body,createdAt:m.created_at,readAt:m.read_at||null}))});
+  }
+  if(path==='/api/chat'&&request.method==='POST'){
+    const user=await sessionUser(request,env);if(!user)return json({error:'Canlı destek için giriş yapmalısınız.'},401);
+    const data=await body(request),message=String(data.message||'').trim();
+    if(!message)return json({error:'Mesaj boş olamaz.'},400);
+    if(message.length>2000)return json({error:'Mesaj en fazla 2000 karakter olabilir.'},400);
+    await touchPresence(env,user.id);
+    const result=await env.DB.prepare("INSERT INTO chat_messages(user_id,sender,body) VALUES(?,'user',?)").bind(user.id,message).run();
+    return json({ok:true,id:Number(result.meta.last_row_id)});
+  }
+  if(path==='/api/nesting/start'&&request.method==='POST'){
+    // Nesting is a free local preview; only a persisted export consumes a credit.
+    return json({error:'Bu uç nokta kaldırıldı. Haklar yalnızca DXF dışa aktarımında kullanılır.'},410);
+  }
+  if(path==='/api/project/autosave'&&request.method==='PUT'){
+    const user=await sessionUser(request,env);if(!user)return json({error:'Bulut kayıt için giriş yapmalısınız.'},401);
+    const data=await body(request),projectJson=typeof data.projectJson==='string'?data.projectJson:'';
+    const projectName=String(data.projectName||'').trim().slice(0,200);
+    if(!projectJson.trim())return json({error:'Proje kaydı boş olamaz.'},400);
+    const encoded=encodeExportChunks(projectJson);
+    if(encoded.byteSize>12*1024*1024)return json({error:'Proje bulut kaydı için 12 MiB sınırını aşıyor.'},413);
+    const statements=[
+      env.DB.prepare('DELETE FROM cloud_project_chunks WHERE user_id=?').bind(user.id),
+      env.DB.prepare(`INSERT INTO cloud_projects(user_id,label,project_name,byte_size,updated_at) VALUES(?,?,?,?,CURRENT_TIMESTAMP)
+        ON CONFLICT(user_id) DO UPDATE SET label=excluded.label,project_name=excluded.project_name,byte_size=excluded.byte_size,updated_at=CURRENT_TIMESTAMP`)
+        .bind(user.id,'Serula Nesting En Temiz Hali',projectName,encoded.byteSize),
+      ...encoded.chunks.map((chunk,index)=>env.DB.prepare('INSERT INTO cloud_project_chunks(user_id,chunk_index,data) VALUES(?,?,?)').bind(user.id,index,chunk))
+    ];
+    try{await env.DB.batch(statements)}
+    catch(error){await audit(env,'cloud_autosave_failed',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:projectName,success:false});return json({error:'Bulut kaydı tamamlanamadı.'},500)}
+    return json({ok:true,label:'Serula Nesting En Temiz Hali'});
+  }
+  if(path==='/api/project/autosave'&&request.method==='GET'){
+    const user=await sessionUser(request,env);if(!user)return json({error:'Bulut kaydı görmek için giriş yapmalısınız.'},401);
+    const row=await env.DB.prepare('SELECT label,project_name,byte_size,updated_at FROM cloud_projects WHERE user_id=?').bind(user.id).first();
+    if(!row)return json({item:null});
+    if(url.searchParams.get('content')==='1'){
+      const project=await readCloudProjectText(env,user.id);
+      if(!project)return json({error:'Bulut proje verisi bulunamadı.'},404);
+      return new Response(project,{headers:{'content-type':'application/json; charset=utf-8','cache-control':'private, no-store'}});
+    }
+    return json({item:{label:row.label||'Serula Nesting En Temiz Hali',projectName:row.project_name||'',byteSize:Number(row.byte_size||0),updatedAt:row.updated_at}});
+  }
+  if(path==='/api/export/authorize'&&request.method==='POST'){
+    const user=await sessionUser(request,env);if(!user)return json({error:'DXF indirmek için giriş yapmalısınız.'},401);
+    if(licenseExpired(user))return json({error:'Lisans süreniz doldu. DXF indirmek için yöneticinizden lisans süresini uzatmasını isteyin.'},403);
+    const data=await body(request);
+    const projectName=String(data.projectName||'').trim().slice(0,200);
+    const sourceFileName=String(data.sourceFileName||'').trim().slice(0,255);
+    const dxf=typeof data.dxf==='string'?data.dxf:'';
+    const projectJson=typeof data.projectJson==='string'?data.projectJson:'';
+    let fileName=String(data.fileName||sourceFileName||'serula-export.dxf').trim().replace(/[<>:"/\\|?*\x00-\x1f]/g,'-').replace(/[. ]+$/g,'').slice(0,240)||'serula-export.dxf';
+    if(!/\.dxf$/i.test(fileName))fileName+='.dxf';
+    if(!dxf.trim())return json({error:'Buluta kaydedilecek DXF verisi boş.'},400);
+    const encodedDxf=encodeExportChunks(dxf),encodedProject=encodeExportChunks(projectJson);
+    if(encodedDxf.byteSize>10*1024*1024)return json({error:'DXF dosyası bulut kaydı için 10 MiB sınırını aşıyor.'},413);
+    if(encodedProject.byteSize>12*1024*1024)return json({error:'Proje kaydı bulut için 12 MiB sınırını aşıyor.'},413);
+    // A random safe integer lets every insert share the same ID in one D1
+    // transaction. The database trigger checks/debits credits and writes history.
+    const bytes=crypto.getRandomValues(new Uint32Array(2));
+    const exportId=(bytes[0]&0x1fffff)*4294967296+bytes[1]||1;
+    try{
+      await env.DB.batch([
+        env.DB.prepare('INSERT INTO export_files(id,user_id,project_name,source_file_name,file_name,dxf_text,project_json,byte_size) VALUES(?,?,?,?,?,?,?,?)')
+          .bind(exportId,user.id,projectName,sourceFileName,fileName,'',null,encodedDxf.byteSize),
+        ...encodedDxf.chunks.map((chunk,index)=>env.DB.prepare('INSERT INTO export_file_chunks(export_id,kind,chunk_index,data) VALUES(?,?,?,?)').bind(exportId,'dxf',index,chunk)),
+        ...encodedProject.chunks.map((chunk,index)=>env.DB.prepare('INSERT INTO export_file_chunks(export_id,kind,chunk_index,data) VALUES(?,?,?,?)').bind(exportId,'project',index,chunk))
+      ]);
+    }catch(error){
+      if(String(error).includes('serula_no_credits'))return json({error:'Nesting hakkınız kalmadı. Admin yeni hak verebilir.'},402);
+      await audit(env,'export_save_failed',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:fileName,success:false});
+      return json({error:'DXF buluta kaydedilemedi. Hak düşülmedi. Lütfen yeniden deneyin.'},500);
+    }
+    const fresh=await env.DB.prepare('SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,l.started_at license_started_at,l.expires_at license_expires_at FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.id=?').bind(user.id).first();
+    await audit(env,'export_saved',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:fileName});
+    return json({ok:true,exportId,user:publicUser(fresh)});
+  }
+  if(path==='/api/exports'&&request.method==='GET'){
+    const user=await sessionUser(request,env);if(!user)return json({error:'Geçmişi görmek için giriş yapmalısınız.'},401);
+    const rows=await env.DB.prepare(`SELECT id,project_name,source_file_name,file_name,byte_size,created_at
+      FROM export_files WHERE user_id=? ORDER BY created_at DESC,id DESC LIMIT 200`).bind(user.id).all();
+    return json({items:rows.results.map(row=>({id:Number(row.id),projectName:row.project_name||'',sourceFileName:row.source_file_name||'',fileName:row.file_name||'',byteSize:Number(row.byte_size||0),createdAt:row.created_at}))});
+  }
+  const exportFileMatch=path.match(/^\/api\/exports\/(\d+)$/);
+  if(exportFileMatch&&request.method==='GET'){
+    const user=await sessionUser(request,env);if(!user)return json({error:'Giriş gerekli.'},401);
+    const id=Number(exportFileMatch[1]);
+    const row=await env.DB.prepare('SELECT id,file_name,dxf_text,project_json FROM export_files WHERE id=? AND user_id=?').bind(id,user.id).first();
+    if(!row)return json({error:'Kayıt bulunamadı.'},404);
+    if(url.searchParams.get('kind')==='project'){
+      const project=await readExportText(env,id,'project',row.project_json||'');
+      if(!project)return json({error:'Bu kaydın proje verisi bulunmuyor.'},404);
+      return new Response(project,{headers:{'content-type':'application/json; charset=utf-8','cache-control':'private, no-store'}});
+    }
+    const dxfText=await readExportText(env,id,'dxf',row.dxf_text||'');
+    if(!dxfText)return json({error:'DXF verisi bulunamadı.'},404);
+    const safeName=String(row.file_name||'serula-export.dxf').replace(/[\r\n"]/g,'_');
+    return new Response(dxfText,{headers:{'content-type':'application/dxf; charset=utf-8','content-disposition':`attachment; filename="${safeName}"`,'cache-control':'private, no-store'}});
+  }
+  if(exportFileMatch&&request.method==='DELETE'){
+    const user=await sessionUser(request,env);if(!user)return json({error:'Giriş gerekli.'},401);
+    const id=Number(exportFileMatch[1]);
+    const row=await env.DB.prepare('SELECT id,file_name FROM export_files WHERE id=? AND user_id=?').bind(id,user.id).first();
+    if(!row)return json({error:'Kayıt bulunamadı.'},404);
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM export_file_chunks WHERE export_id=?').bind(id),
+      env.DB.prepare('DELETE FROM export_files WHERE id=? AND user_id=?').bind(id,user.id)
+    ]);
+    await audit(env,'export_deleted',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:String(row.file_name||id)});
+    return json({ok:true});
+  }
+  if(path==='/api/admin/users'&&request.method==='GET'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const rows=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,u.google_id,u.created_at,u.last_login_at,
+      COALESCE(f.test_dxf_enabled,0) test_dxf_enabled,COALESCE(ct.enabled,1) corel_enabled,p.last_seen,l.started_at license_started_at,l.expires_at license_expires_at,
+      CASE WHEN ${onlineSql} THEN 1 ELSE 0 END online
+      FROM users u
+      LEFT JOIN user_features f ON f.user_id=u.id
+      LEFT JOIN user_corel_transfer_access ct ON ct.user_id=u.id
+      LEFT JOIN user_presence p ON p.user_id=u.id
+      LEFT JOIN user_licenses l ON l.user_id=u.id
+      ORDER BY u.created_at DESC LIMIT 500`).all();
+    const online=await env.DB.prepare("SELECT COUNT(*) n FROM user_presence WHERE datetime(last_seen)>=datetime('now','-15 seconds')").first();
+    return json({onlineCount:Number(online?.n||0),users:rows.results.map(u=>({...publicUser(u),testDxfEnabled:!!u.test_dxf_enabled,corelTransferEnabled:!!u.corel_enabled,authProvider:u.google_id?'google':'email',createdAt:u.created_at,lastLoginAt:u.last_login_at,lastSeen:u.last_seen||null,online:!!u.online}))});
+  }
+  if(path==='/api/admin/chats'&&request.method==='GET'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const rows=await env.DB.prepare(`SELECT u.id,u.email,u.name,MAX(m.created_at) last_message_at,
+      SUM(CASE WHEN m.sender='user' AND m.read_at IS NULL THEN 1 ELSE 0 END) unread,
+      p.last_seen,CASE WHEN ${onlineSql} THEN 1 ELSE 0 END online
+      FROM users u JOIN chat_messages m ON m.user_id=u.id LEFT JOIN user_presence p ON p.user_id=u.id
+      GROUP BY u.id,u.email,u.name,p.last_seen ORDER BY MAX(m.id) DESC LIMIT 500`).all();
+    const online=await env.DB.prepare("SELECT COUNT(*) n FROM user_presence WHERE datetime(last_seen)>=datetime('now','-15 seconds')").first();
+    return json({onlineCount:Number(online?.n||0),conversations:rows.results.map(r=>({userId:r.id,email:r.email,name:r.name||'',lastMessageAt:r.last_message_at,unread:Number(r.unread||0),lastSeen:r.last_seen||null,online:!!r.online}))});
+  }
+  const adminChatMatch=path.match(/^\/api\/admin\/chats\/(\d+)$/);
+  if(adminChatMatch&&request.method==='GET'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const id=Number(adminChatMatch[1]),target=await env.DB.prepare('SELECT id,email,name FROM users WHERE id=?').bind(id).first();
+    if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
+    await env.DB.prepare("UPDATE chat_messages SET read_at=CURRENT_TIMESTAMP WHERE user_id=? AND sender='user' AND read_at IS NULL").bind(id).run();
+    const rows=await env.DB.prepare("SELECT id,sender,body,created_at,read_at FROM chat_messages WHERE user_id=? ORDER BY id ASC LIMIT 300").bind(id).all();
+    const presence=await env.DB.prepare("SELECT last_seen,CASE WHEN datetime(last_seen)>=datetime('now','-15 seconds') THEN 1 ELSE 0 END online FROM user_presence WHERE user_id=?").bind(id).first();
+    return json({user:{id:target.id,email:target.email,name:target.name||'',online:!!presence?.online,lastSeen:presence?.last_seen||null},messages:rows.results.map(m=>({id:m.id,sender:m.sender,body:m.body,createdAt:m.created_at,readAt:m.read_at||null}))});
+  }
+  if(adminChatMatch&&request.method==='POST'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const id=Number(adminChatMatch[1]),target=await env.DB.prepare('SELECT id,email FROM users WHERE id=?').bind(id).first();
+    if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
+    const data=await body(request),message=String(data.message||'').trim();
+    if(!message)return json({error:'Mesaj boş olamaz.'},400);
+    if(message.length>2000)return json({error:'Mesaj en fazla 2000 karakter olabilir.'},400);
+    const result=await env.DB.prepare("INSERT INTO chat_messages(user_id,sender,body) VALUES(?,'admin',?)").bind(id,message).run();
+    return json({ok:true,id:Number(result.meta.last_row_id)});
+  }
+  const deleteUserMatch=path.match(/^\/api\/admin\/users\/(\d+)$/);
+  if(deleteUserMatch&&request.method==='DELETE'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const id=Number(deleteUserMatch[1]),target=await env.DB.prepare('SELECT id,email,name,role FROM users WHERE id=?').bind(id).first();
+    if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM chat_messages WHERE user_id=?').bind(id),
+      env.DB.prepare('DELETE FROM user_presence WHERE user_id=?').bind(id),
+      env.DB.prepare('DELETE FROM support_frames WHERE user_id=?').bind(id),
+      env.DB.prepare('DELETE FROM support_signals WHERE session_id IN (SELECT id FROM support_sessions WHERE user_id=?)').bind(id),
+      env.DB.prepare('DELETE FROM support_sessions WHERE user_id=?').bind(id),
+      env.DB.prepare('DELETE FROM transfer_tickets WHERE user_id=?').bind(id),
+      env.DB.prepare('DELETE FROM user_corel_transfer_access WHERE user_id=?').bind(id),
+      env.DB.prepare('DELETE FROM user_features WHERE user_id=?').bind(id),
+      env.DB.prepare('DELETE FROM user_preferences WHERE user_id=?').bind(id),
+      env.DB.prepare('DELETE FROM user_licenses WHERE user_id=?').bind(id),
+      env.DB.prepare('DELETE FROM user_settings WHERE user_id=?').bind(id),
+      env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(id),
+      env.DB.prepare('DELETE FROM password_reset_tokens WHERE user_id=?').bind(id),
+      env.DB.prepare('DELETE FROM cloud_project_chunks WHERE user_id=?').bind(id),
+      env.DB.prepare('DELETE FROM cloud_projects WHERE user_id=?').bind(id),
+      env.DB.prepare('DELETE FROM export_file_chunks WHERE export_id IN (SELECT id FROM export_files WHERE user_id=?)').bind(id),
+      env.DB.prepare('DELETE FROM export_files WHERE user_id=?').bind(id),
+      env.DB.prepare('DELETE FROM nesting_history WHERE user_id=?').bind(id),
+      env.DB.prepare('DELETE FROM audit_logs WHERE actor_user_id=? OR target_user_id=?').bind(id,id),
+      env.DB.prepare('DELETE FROM users WHERE id=?').bind(id)
+    ]);
+    await audit(env,'user_deleted',{actorType:'admin',detail:String(target.email||id)});
+    return json({ok:true});
+  }
+  if(path==='/api/admin/health'&&request.method==='GET'){
+    const auth=await adminSessionValid(request,env);if(!auth)return json({error:'Yetkisiz.'},403);
+    let userStore=false;try{await env.DB.prepare('SELECT COUNT(*) AS n FROM users').first();userStore=true}catch{}
+    return json({adminApi:true,auth:true,userStore});
+  }
+  if(path==='/api/admin/logs'&&request.method==='GET'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const rows=await env.DB.prepare(`SELECT l.id,l.actor_type,l.action,l.detail,l.success,l.created_at,au.email actor_email,tu.email target_email
+      FROM audit_logs l LEFT JOIN users au ON au.id=l.actor_user_id LEFT JOIN users tu ON tu.id=l.target_user_id
+      WHERE datetime(l.created_at)>=datetime('now','-10 days')
+      ORDER BY l.id DESC LIMIT 250`).all();
+    return json({retentionDays:10,logs:rows.results.map(r=>({id:r.id,actorType:r.actor_type,actorEmail:r.actor_email||'',targetEmail:r.target_email||'',action:r.action,detail:r.detail||'',success:!!r.success,createdAt:r.created_at}))});
+  }
+  if(path==='/api/support/status'&&request.method==='GET'){
+    const user=await sessionUser(request,env);if(!user)return json({support:null},401);
+    await touchPresence(env,user.id);
+    const row=await env.DB.prepare(`SELECT s.id,s.status,s.expires_at,s.created_at,s.approved_at,COALESCE(g.mode,'settings') mode,g.offer_json,g.answer_json
+      FROM support_sessions s LEFT JOIN support_signals g ON g.session_id=s.id
+      WHERE s.user_id=? AND s.status IN ('pending','approved') AND datetime(s.expires_at)>datetime('now') ORDER BY s.id DESC LIMIT 1`).bind(user.id).first();
+    return json({support:row?{id:row.id,status:row.status,mode:row.mode,expiresAt:row.expires_at,createdAt:row.created_at,approvedAt:row.approved_at,offer:row.offer_json?JSON.parse(row.offer_json):null,answer:row.answer_json?JSON.parse(row.answer_json):null}:null});
+  }
+  if(path==='/api/support/respond'&&request.method==='POST'){
+    const user=await sessionUser(request,env);if(!user)return json({error:'Giriş gerekli.'},401);
+    const data=await body(request),id=Number(data.id),approve=!!data.approve;
+    const row=await env.DB.prepare("SELECT s.id,COALESCE(g.mode,'settings') mode FROM support_sessions s LEFT JOIN support_signals g ON g.session_id=s.id WHERE s.id=? AND s.user_id=? AND s.status='pending' AND datetime(s.expires_at)>datetime('now')").bind(id,user.id).first();
+    if(!row)return json({error:'Destek isteği bulunamadı veya süresi dolmuş.'},404);
+    if(approve){
+      const expires=new Date(Date.now()+60*60*1000).toISOString();
+      await env.DB.prepare("UPDATE support_sessions SET status='approved',approved_at=CURRENT_TIMESTAMP,expires_at=? WHERE id=?").bind(expires,id).run();
+      await audit(env,'remote_support_approved',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:'60 dakika'});
+      return json({support:{id,status:'approved',mode:row.mode,expiresAt:expires}});
+    }
+    await env.DB.prepare("UPDATE support_sessions SET status='declined',ended_at=CURRENT_TIMESTAMP WHERE id=?").bind(id).run();
+    await env.DB.prepare('DELETE FROM support_frames WHERE session_id=?').bind(id).run();
+    await audit(env,'remote_support_declined',{actorType:'user',actorUserId:user.id,targetUserId:user.id});
+    return json({support:null});
+  }
+  if(path==='/api/support/signal'&&request.method==='POST'){
+    const user=await sessionUser(request,env);if(!user)return json({error:'Giriş gerekli.'},401);
+    const data=await body(request),id=Number(data.id),offer=data.offer;
+    const row=await env.DB.prepare("SELECT s.id FROM support_sessions s JOIN support_signals g ON g.session_id=s.id WHERE s.id=? AND s.user_id=? AND s.status='approved' AND g.mode='screen' AND datetime(s.expires_at)>datetime('now')").bind(id,user.id).first();
+    if(!row)return json({error:'Aktif ekran desteği bulunamadı.'},404);
+    if(!offer||typeof offer!=='object')return json({error:'Geçersiz ekran paylaşım teklifi.'},400);
+    await env.DB.prepare("UPDATE support_signals SET offer_json=?,answer_json=NULL,updated_at=CURRENT_TIMESTAMP WHERE session_id=?").bind(JSON.stringify(offer).slice(0,200000),id).run();
+    await audit(env,'screen_share_offer',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:String(id)});
+    return json({ok:true});
+  }
+  if(path==='/api/support/frame'&&request.method==='POST'){
+    const user=await sessionUser(request,env);if(!user)return json({error:'Giriş gerekli.'},401);
+    const data=await body(request),id=Number(data.id),frame=String(data.frame||'');
+    if(!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(frame)||frame.length>450000)return json({error:'Geçersiz ekran karesi.'},400);
+    const row=await env.DB.prepare("SELECT s.id FROM support_sessions s JOIN support_signals g ON g.session_id=s.id WHERE s.id=? AND s.user_id=? AND s.status='approved' AND g.mode='screen' AND datetime(s.expires_at)>datetime('now')").bind(id,user.id).first();
+    if(!row)return json({error:'Aktif ekran desteği bulunamadı.'},404);
+    await env.DB.prepare(`INSERT INTO support_frames(session_id,user_id,frame_data,updated_at) VALUES(?,?,?,CURRENT_TIMESTAMP)
+      ON CONFLICT(session_id) DO UPDATE SET frame_data=excluded.frame_data,user_id=excluded.user_id,updated_at=CURRENT_TIMESTAMP`).bind(id,user.id,frame).run();
+    return json({ok:true});
+  }
+  if(path==='/api/support/end'&&request.method==='POST'){
+    const user=await sessionUser(request,env);if(!user)return json({error:'Giriş gerekli.'},401);
+    const data=await body(request),id=Number(data.id);
+    await env.DB.prepare("UPDATE support_sessions SET status='ended',ended_at=CURRENT_TIMESTAMP WHERE id=? AND user_id=? AND status='approved'").bind(id,user.id).run();
+    await env.DB.prepare('DELETE FROM support_frames WHERE session_id=? AND user_id=?').bind(id,user.id).run();
+    await audit(env,'remote_support_ended_by_user',{actorType:'user',actorUserId:user.id,targetUserId:user.id});
+    return json({ok:true});
+  }
+  const adminSupportMatch=path.match(/^\/api\/admin\/users\/(\d+)\/support$/);
+  if(adminSupportMatch&&request.method==='GET'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const id=Number(adminSupportMatch[1]),target=await env.DB.prepare('SELECT id,email FROM users WHERE id=?').bind(id).first();if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
+    const row=await env.DB.prepare(`SELECT s.id,s.status,s.expires_at,s.created_at,s.approved_at,s.ended_at,COALESCE(g.mode,'settings') mode,g.offer_json,g.answer_json
+      FROM support_sessions s LEFT JOIN support_signals g ON g.session_id=s.id WHERE s.user_id=? ORDER BY s.id DESC LIMIT 1`).bind(id).first();
+    return json({support:row?{id:row.id,status:row.status,mode:row.mode,expiresAt:row.expires_at,createdAt:row.created_at,approvedAt:row.approved_at,endedAt:row.ended_at,offer:row.offer_json?JSON.parse(row.offer_json):null,answer:row.answer_json?JSON.parse(row.answer_json):null}:null});
+  }
+  if(adminSupportMatch&&request.method==='POST'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const id=Number(adminSupportMatch[1]),data=await body(request),mode=data.mode==='screen'?'screen':'settings',target=await env.DB.prepare('SELECT id,email FROM users WHERE id=?').bind(id).first();if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
+    await env.DB.prepare("DELETE FROM support_frames WHERE user_id=?").bind(id).run();
+    await env.DB.prepare("UPDATE support_sessions SET status='ended',ended_at=CURRENT_TIMESTAMP WHERE user_id=? AND status IN ('pending','approved')").bind(id).run();
+    const expires=new Date(Date.now()+15*60*1000).toISOString();
+    const result=await env.DB.prepare("INSERT INTO support_sessions(user_id,status,expires_at) VALUES(?,'pending',?)").bind(id,expires).run();
+    const supportId=Number(result.meta.last_row_id);
+    await env.DB.prepare("INSERT INTO support_signals(session_id,mode) VALUES(?,?)").bind(supportId,mode).run();
+    await audit(env,mode==='screen'?'screen_support_requested':'remote_support_requested',{actorType:'admin',targetUserId:id,detail:target.email});
+    return json({support:{id:supportId,status:'pending',mode,expiresAt:expires}});
+  }
+  const adminSupportFrameMatch=path.match(/^\/api\/admin\/users\/(\d+)\/support\/frame$/);
+  if(adminSupportFrameMatch&&request.method==='GET'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const id=Number(adminSupportFrameMatch[1]),sessionId=Number(url.searchParams.get('id')||0);
+    const active=await env.DB.prepare("SELECT s.id FROM support_sessions s JOIN support_signals g ON g.session_id=s.id WHERE s.id=? AND s.user_id=? AND s.status='approved' AND g.mode='screen' AND datetime(s.expires_at)>datetime('now')").bind(sessionId,id).first();
+    if(!active)return json({frame:null});
+    const row=await env.DB.prepare("SELECT frame_data,updated_at FROM support_frames WHERE session_id=? AND user_id=? AND datetime(updated_at)>datetime('now','-15 seconds')").bind(sessionId,id).first();
+    return json({frame:row?.frame_data||null,updatedAt:row?.updated_at||null});
+  }
+  const adminSupportSignalMatch=path.match(/^\/api\/admin\/users\/(\d+)\/support\/signal$/);
+  if(adminSupportSignalMatch&&request.method==='POST'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const id=Number(adminSupportSignalMatch[1]),data=await body(request),sessionId=Number(data.id),answer=data.answer;
+    const row=await env.DB.prepare("SELECT s.id FROM support_sessions s JOIN support_signals g ON g.session_id=s.id WHERE s.id=? AND s.user_id=? AND s.status='approved' AND g.mode='screen' AND datetime(s.expires_at)>datetime('now')").bind(sessionId,id).first();
+    if(!row)return json({error:'Aktif ekran desteği bulunamadı.'},404);
+    if(!answer||typeof answer!=='object')return json({error:'Geçersiz ekran paylaşım yanıtı.'},400);
+    await env.DB.prepare("UPDATE support_signals SET answer_json=?,updated_at=CURRENT_TIMESTAMP WHERE session_id=?").bind(JSON.stringify(answer).slice(0,200000),sessionId).run();
+    await audit(env,'screen_share_answer',{actorType:'admin',targetUserId:id,detail:String(sessionId)});
+    return json({ok:true});
+  }
+  if(adminSupportMatch&&request.method==='DELETE'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const id=Number(adminSupportMatch[1]);
+    await env.DB.prepare("UPDATE support_sessions SET status='ended',ended_at=CURRENT_TIMESTAMP WHERE user_id=? AND status IN ('pending','approved')").bind(id).run();
+    await env.DB.prepare('DELETE FROM support_frames WHERE user_id=?').bind(id).run();
+    await audit(env,'remote_support_ended_by_admin',{actorType:'admin',targetUserId:id});
+    return json({ok:true});
+  }
+  if(path==='/api/admin/settings'&&request.method==='GET'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    return json({settings:await systemDefaults(env)});
+  }
+  if(path==='/api/admin/settings'&&request.method==='POST'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const data=await body(request),settings=cleanSettings(data.settings);
+    await env.DB.prepare("INSERT INTO system_settings(key,value_json,updated_at) VALUES('defaults',?,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json,updated_at=CURRENT_TIMESTAMP").bind(JSON.stringify(settings)).run();
+    await audit(env,'system_defaults_changed',{actorType:'admin',detail:JSON.stringify(settings)});
+    return json({settings});
+  }
+  if(path==='/api/settings/effective'&&request.method==='GET'){
+    const user=await sessionUser(request,env),defaults=await systemDefaults(env);if(!user)return json({settings:defaults});
+    const row=await env.DB.prepare('SELECT settings_json FROM user_settings WHERE user_id=?').bind(user.id).first();
+    if(!row?.settings_json)return json({settings:defaults});
+    try{return json({settings:{...defaults,...cleanSettings(JSON.parse(row.settings_json))}})}catch{return json({settings:defaults})}
+  }
+  const corelToggleMatch=path.match(/^\/api\/admin\/users\/(\d+)\/transfer$/);
+  if(corelToggleMatch&&request.method==='POST'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const id=Number(corelToggleMatch[1]),data=await body(request);
+    if(data.target!=='corel'||typeof data.enabled!=='boolean')return json({error:'Geçersiz aktarım yetkisi.'},400);
+    const user=await env.DB.prepare('SELECT id FROM users WHERE id=?').bind(id).first();
+    if(!user)return json({error:'Kullanıcı bulunamadı.'},404);
+    await env.DB.prepare('INSERT INTO user_corel_transfer_access (user_id,enabled,updated_at) VALUES (?,?,CURRENT_TIMESTAMP) ON CONFLICT(user_id) DO UPDATE SET enabled=excluded.enabled,updated_at=CURRENT_TIMESTAMP').bind(id,data.enabled?1:0).run();
+    await audit(env,'corel_transfer_permission_changed',{actorType:'admin',targetUserId:id,detail:data.enabled?'enabled':'disabled'});
+    return json({ok:true,corel:data.enabled});
+  }
+  const userSettingsMatch=path.match(/^\/api\/admin\/users\/(\d+)\/settings$/);
+  if(userSettingsMatch&&request.method==='GET'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const id=Number(userSettingsMatch[1]),target=await env.DB.prepare('SELECT id FROM users WHERE id=?').bind(id).first();if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
+    const defaults=await systemDefaults(env),row=await env.DB.prepare('SELECT settings_json FROM user_settings WHERE user_id=?').bind(id).first();
+    if(!row?.settings_json)return json({settings:defaults,custom:false});
+    try{return json({settings:{...defaults,...cleanSettings(JSON.parse(row.settings_json))},custom:true})}catch{return json({settings:defaults,custom:false})}
+  }
+  if(userSettingsMatch&&request.method==='POST'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const id=Number(userSettingsMatch[1]),data=await body(request),settings=cleanSettings(data.settings),target=await env.DB.prepare('SELECT id FROM users WHERE id=?').bind(id).first();if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
+    await env.DB.prepare('INSERT INTO user_settings(user_id,settings_json,updated_at) VALUES(?,?,CURRENT_TIMESTAMP) ON CONFLICT(user_id) DO UPDATE SET settings_json=excluded.settings_json,updated_at=CURRENT_TIMESTAMP').bind(id,JSON.stringify(settings)).run();
+    await audit(env,'user_settings_changed',{actorType:'admin',targetUserId:id,detail:JSON.stringify(settings)});return json({settings,custom:true});
+  }
+  if(userSettingsMatch&&request.method==='DELETE'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const id=Number(userSettingsMatch[1]);await env.DB.prepare('DELETE FROM user_settings WHERE user_id=?').bind(id).run();await audit(env,'user_settings_reset',{actorType:'admin',targetUserId:id});return json({settings:await systemDefaults(env),custom:false});
+  }
+  const licenseMatch=path.match(/^\/api\/admin\/users\/(\d+)\/license$/);
+  if(licenseMatch&&request.method==='POST'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const id=Number(licenseMatch[1]),data=await body(request),target=await env.DB.prepare('SELECT id,email FROM users WHERE id=?').bind(id).first();
+    if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
+    if(data.days===null||data.days===''){
+      await env.DB.prepare('DELETE FROM user_licenses WHERE user_id=?').bind(id).run();
+      await audit(env,'license_changed',{actorType:'admin',targetUserId:id,detail:'Süresiz'});
+      return json({ok:true,licenseStartedAt:null,licenseExpiresAt:null,licenseExpired:false});
+    }
+    const days=Math.trunc(Number(data.days));
+    if(!Number.isFinite(days)||days<1||days>36500)return json({error:'Lisans süresi 1 ile 36500 gün arasında olmalıdır.'},400);
+    const startedAt=new Date(),expiresAt=new Date(startedAt.getTime()+days*86400000);
+    await env.DB.prepare(`INSERT INTO user_licenses(user_id,started_at,expires_at,updated_at) VALUES(?,?,?,CURRENT_TIMESTAMP)
+      ON CONFLICT(user_id) DO UPDATE SET started_at=excluded.started_at,expires_at=excluded.expires_at,updated_at=CURRENT_TIMESTAMP`)
+      .bind(id,startedAt.toISOString(),expiresAt.toISOString()).run();
+    await audit(env,'license_changed',{actorType:'admin',targetUserId:id,detail:`${days} gün · ${expiresAt.toISOString()}`});
+    return json({ok:true,licenseStartedAt:startedAt.toISOString(),licenseExpiresAt:expiresAt.toISOString(),licenseExpired:false});
+  }
+  const testDxfMatch=path.match(/^\/api\/admin\/users\/(\d+)\/test-dxf$/);
+  if(testDxfMatch&&request.method==='POST'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const id=Number(testDxfMatch[1]),data=await body(request),enabled=!!data.enabled;
+    const target=await env.DB.prepare('SELECT id FROM users WHERE id=?').bind(id).first();
+    if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
+    await env.DB.prepare(`INSERT INTO user_features(user_id,test_dxf_enabled,updated_at) VALUES(?,?,CURRENT_TIMESTAMP) ON CONFLICT(user_id) DO UPDATE SET test_dxf_enabled=excluded.test_dxf_enabled,updated_at=CURRENT_TIMESTAMP`).bind(id,enabled?1:0).run();
+    await audit(env,'test_dxf_changed',{actorType:'admin',targetUserId:id,detail:enabled?'Açık':'Kapalı'});
+    return json({ok:true,enabled});
+  }
+    const unlimitedMatch=path.match(/^\/api\/admin\/users\/(\d+)\/unlimited$/);
+  if(unlimitedMatch&&request.method==='POST'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const id=Number(unlimitedMatch[1]),data=await body(request),unlimited=!!data.unlimited,target=await env.DB.prepare('SELECT id FROM users WHERE id=?').bind(id).first();if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
+    await env.DB.prepare('UPDATE users SET unlimited=? WHERE id=?').bind(unlimited?1:0,id).run();await audit(env,'unlimited_changed',{actorType:'admin',targetUserId:id,detail:unlimited?'Açık':'Kapalı'});return json({ok:true,unlimited});
+  }
+  const resetMatch=path.match(/^\/api\/admin\/users\/(\d+)\/password-reset$/);
+  if(resetMatch&&request.method==='POST'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const id=Number(resetMatch[1]),target=await env.DB.prepare('SELECT id,email FROM users WHERE id=?').bind(id).first();
+    if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
+    if(!env.EMAIL)return json({error:'E-posta gönderim servisi yapılandırılmamış.'},503);
+    const raw=randomToken(),expires=new Date(Date.now()+3600000).toISOString();
+    await env.DB.prepare('INSERT INTO password_reset_tokens(token_hash,user_id,expires_at) VALUES(?,?,?)').bind(await sha256(raw),id,expires).run();
+    const resetUrl=new URL(request.url).origin+'/?reset='+encodeURIComponent(raw);
+    await env.EMAIL.send({to:target.email,from:'noreply@serula.site',subject:'Serula Nesting - Şifre Sıfırlama',text:'Şifrenizi yenilemek için bu bağlantıyı 1 saat içinde açın: '+resetUrl});
+    await audit(env,'password_reset_sent',{actorType:'admin',targetUserId:id,detail:target.email});
+    return json({ok:true});
+  }
+  const m=path.match(/^\/api\/admin\/users\/(\d+)\/credits$/);
+  if(m&&request.method==='POST'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const data=await body(request),id=Number(m[1]),credits=Math.max(0,Math.min(100000,Math.trunc(Number(data.credits)||0)));
+    const target=await env.DB.prepare('SELECT id,role FROM users WHERE id=?').bind(id).first();
+    if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
+    await env.DB.prepare('UPDATE users SET nesting_credits=? WHERE id=?').bind(credits,id).run();
+    await audit(env,'credits_changed',{actorType:'admin',targetUserId:id,detail:String(credits)});
+    return json({ok:true});
+  }
+  return json({error:'Bulunamadı.'},404);
+}
+
+export default {
+async fetch(request,env){
+  const url=new URL(request.url);
+  if(url.pathname.startsWith('/api/'))return handleApi(request,env);
+  let decodedPath=url.pathname;try{decodedPath=decodeURIComponent(url.pathname)}catch{}
+  if(decodedPath.startsWith('/examples/test klasoru dxf/')){
+    await ensureSchema(env);
+    const user=await sessionUser(request,env);
+    const file=decodedPath.split('/').pop()||'';
+    if(!user||!TEST_DXF_FILES.includes(file)||!await testDxfAllowed(user.id,env)){
+      return new Response('Test DXF yetkisi kapalı.',{status:403,headers:{'cache-control':'no-store'}});
+    }
+  }
+  const response=await env.ASSETS.fetch(request);
+  const contentType=response.headers.get('content-type')||'';
+  if(request.mode==='navigate'||contentType.includes('text/html')){
+    const headers=new Headers(response.headers);
+    headers.set('Cache-Control','no-store, no-cache, must-revalidate');
+    headers.set('Pragma','no-cache');
+    headers.set('Expires','0');
+    return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
+  }
+  return response;
+},
+async scheduled(_event,env,ctx){
+  ctx.waitUntil(cleanupExpiredHistory(env));
+}
+};
+));
     if(match&&request.method==='GET'){
       const row=await env.DB.prepare('SELECT document_json FROM design_revision_store WHERE id=?').bind(Number(match[1])).first();
       return row?json({document:JSON.parse(row.document_json)}):json({error:'Sürüm bulunamadı.'},404);
