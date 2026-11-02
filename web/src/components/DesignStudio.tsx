@@ -25,6 +25,26 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
   const [device,setDevice]=useState<Device>('desktop');
   const [saved,setSaved]=useState(false);
   const [storageError,setStorageError]=useState('');
+  const [importText,setImportText]=useState('');
+  const [importOpen,setImportOpen]=useState(false);
+  const exportJson=()=>{
+    const payload=JSON.stringify({format:'serula-design-v1',design},null,2);
+    const blob=new Blob([payload],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const anchor=document.createElement('a');anchor.href=url;anchor.download='serula-design-draft.json';anchor.click();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+  };
+  const importJson=()=>{
+    try{
+      if(importText.length>10000)throw Error('Dosya çok büyük.');
+      const value:unknown=JSON.parse(importText);
+      if(!value||typeof value!=='object'||(value as {format?:unknown}).format!=='serula-design-v1')throw Error('Tanınmayan tasarım biçimi.');
+      const candidate=(value as {design?:unknown}).design;
+      if(!validDraft(candidate))throw Error('Tasarım alanları geçersiz.');
+      apply(candidate);
+      setImportOpen(false);setImportText('');setStorageError('');
+    }catch(e){setStorageError(e instanceof Error?e.message:'Tasarım içe aktarılamadı.');}
+  };
   const saveDraft=()=>{
     try{localStorage.setItem(DRAFT_KEY,JSON.stringify(design));setSaved(true);setStorageError('');}
     catch{setSaved(false);setStorageError('Tarayıcı taslağı kaydedemedi.');}
@@ -65,11 +85,18 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
         <button type="button" onClick={undo} disabled={index===0} aria-label="Geri al">↶ Ctrl+Z</button>
         <button type="button" onClick={redo} disabled={index===history.length-1} aria-label="Yinele">↷</button>
         <button type="button" onClick={saveDraft}>Taslağı tarayıcıya kaydet</button>
+        <button type="button" onClick={exportJson}>JSON dışa aktar</button>
+        <button type="button" onClick={()=>setImportOpen(v=>!v)}>JSON içe aktar</button>
         <button type="button" onClick={reset}>Taslağı sıfırla</button>
         <button type="button" onClick={onClose}>Görünüme dön</button>
       </div>
     </header>
     <p className="design-studio-warning" role="status">Bu prototip yalnızca örnek bileşenleri düzenler. Taslağı bu tarayıcıya kaydedebilirsin; başka cihazlara aktarılmaz ve canlı siteye yayınlanmaz. {saved?'Taslak tarayıcıya kaydedildi.':''}{storageError}</p>
+    {importOpen&&<div className="design-studio-import">
+      <label htmlFor="design-json-import">Tasarım JSON içeriğini yapıştır</label>
+      <textarea id="design-json-import" rows={5} maxLength={10000} value={importText} onChange={event=>setImportText(event.target.value)}/>
+      <button type="button" onClick={importJson}>Doğrula ve taslağa uygula</button>
+    </div>}
     <div className="design-studio-workspace">
       <aside className="design-studio-pane" aria-label="Katmanlar">
         <h3>Katmanlar</h3>
