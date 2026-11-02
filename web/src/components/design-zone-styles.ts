@@ -2,7 +2,7 @@
 // Never accept arbitrary selectors, HTML, or CSS from browser/server payloads.
 export const DESIGN_ZONES=['header','parts','canvas','material','actions'] as const;
 export type DesignZone=typeof DESIGN_ZONES[number];
-export type ZoneStyle={background?:string;color?:string;radius?:number;spacing?:number;fontSize?:number;shadow?:number};
+export type ZoneStyle={background?:string;color?:string;radius?:number;spacing?:number;fontSize?:number;shadow?:number;text?:string};
 export type ZoneStyles=Partial<Record<DesignZone,ZoneStyle>>;
 const COLOR=/^#[0-9a-f]{6}$/i;
 const NUMBER_BOUNDS={radius:[0,32],spacing:[0,48],fontSize:[11,24],shadow:[0,32]} as const;
@@ -20,6 +20,7 @@ export function cleanZoneStyles(value:unknown):ZoneStyles{
       const num=record[key],bounds=NUMBER_BOUNDS[key];
       if(typeof num==='number'&&Number.isInteger(num)&&num>=bounds[0]&&num<=bounds[1])out[key]=num;
     }
+    if(id!=='actions'&&typeof record.text==='string'&&record.text.length<=80&&!/[<>\\x00-\\x1f]/.test(record.text))out.text=record.text;
     if(Object.keys(out).length)result[id]=out;
   }
   return result;
