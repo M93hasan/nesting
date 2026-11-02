@@ -658,6 +658,23 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const waste=result?Math.max(0,100-utilization):0;
   const improvement=result&&phaseImprovements(solver.diagnostics.current?.history??[],result.usedLengthMm);
   const safeWorkspaceOrder=(designPreviewEnabled?designPreview:publishedVisual)?.workspaceOrder;
+  useEffect(()=>{
+    // Keep Nesting's source markup and event handlers unchanged. Only attach safe editor
+    // identifiers and optional CSS flex ordering after the application is mounted.
+    const selectors:Record<string,string>={
+      header:'.app > .header',parts:'.app > #parts-settings',
+      canvas:'.app > .main-workspace > .drawing-panel',
+      material:'.app > .main-workspace > .material-panel',
+      actions:'.app > .statusbar'
+    };
+    for(const [id,selector] of Object.entries(selectors)){
+      const element=document.querySelector<HTMLElement>(selector);
+      if(!element)continue;
+      element.dataset.designZone=id;
+      if(id==='parts'||id==='canvas'||id==='material')element.style.order=safeWorkspaceOrder?String(safeWorkspaceOrder.indexOf(id)):'';
+    }
+  },[safeWorkspaceOrder]);
+
   return <div className="app" onBlurCapture={()=>{fieldEdit.current=undefined;}} onKeyDown={e=>{if(e.key==='Enter'&&e.target instanceof HTMLInputElement&&e.target.hasAttribute('data-undo-field')){e.preventDefault();e.target.blur();}}} onMouseDownCapture={e=>{const target=e.target;focusClick.current=target instanceof HTMLInputElement&&['text','number'].includes(target.type)&&document.activeElement!==target?target:null;}} onMouseUpCapture={e=>{if(focusClick.current===e.target){e.preventDefault();focusClick.current.select();}focusClick.current=null;}} onFocusCapture={e=>{const input=e.target;if(input instanceof HTMLInputElement&&['text','number'].includes(input.type))input.select();}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(!document.querySelector('dialog[open]'))void openFiles(e.dataTransfer.files);}}>
     {(designPreviewEnabled?designPreview:publishedVisual)&&<style>{`
        :root #root .app {background:${(designPreviewEnabled?designPreview:publishedVisual)!.background}!important;font-size:${(designPreviewEnabled?designPreview:publishedVisual)!.fontSize}px}
@@ -667,7 +684,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     ${renderZoneCss((designPreviewEnabled?designPreview:publishedVisual)?.zoneStyles)}
     `}</style>}
     {designPreviewEnabled&&<div role="status" className="design-preview-banner" style={{padding:'8px 12px',background:'#fff1c2',color:'#212121'}}>Tasarım editörü önizlemesi — değişiklikler yalnızca bu sekmede görünür, canlıya yayınlanmaz.</div>}
-    <header className="header" data-design-zone="header"><div className="brand-block"><a className="brand serula-brand" aria-label="Serula Nesting Studio" href={import.meta.env.BASE_URL}><img src={`${import.meta.env.BASE_URL}serula-logo.svg`} alt="" /><strong>Serula Nesting</strong><span>/studio · Sürüm {packageInfo.version}</span></a><p className="tagline">Akıllı DXF yerleştirme ve malzeme optimizasyonu</p></div>
+    <header className="header"><div className="brand-block"><a className="brand serula-brand" aria-label="Serula Nesting Studio" href={import.meta.env.BASE_URL}><img src={`${import.meta.env.BASE_URL}serula-logo.svg`} alt="" /><strong>Serula Nesting</strong><span>/studio · Sürüm {packageInfo.version}</span></a><p className="tagline">Akıllı DXF yerleştirme ve malzeme optimizasyonu</p></div>
       <div className="header-primary project-bar"><details className="project-menu" ref={projectMenu} hidden><summary aria-label={`Proje: ${doc.name}`}>{doc.name}<span aria-hidden="true"> ▾</span></summary><div>
         <button disabled={locked} onClick={()=>{projectMenu.current!.open=false;setProjectAd('Adsız proje');setNameDialog('new');}}>Yeni proje</button>
         <button disabled={locked} onClick={()=>{projectMenu.current!.open=false;projectInput.current?.click();}}>Proje aç</button>
@@ -681,7 +698,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     {(error||solver.error)&&<div className="error-banner" role="alert">{error||solver.error}</div>}
     {recoveryError&&<div className="error-banner" role="alert">{recoveryError}</div>}
     <main className="main-workspace">
-      <aside id="parts-settings" className={`sidebar ${panel?'open':''}`} data-design-zone="parts" style={safeWorkspaceOrder?{order:safeWorkspaceOrder.indexOf('parts')}:undefined}>
+      <aside id="parts-settings" className={`sidebar ${panel?'open':''}`}>
         <div className="panel-title"><h2>Parçalar <span>{displayedPieceCount(doc.parts)}</span></h2><div className="panel-title-actions"><div className="series-multiplier" title="Yerleşim bir seriye göre hesaplanır; bu değer üretim serisi sayısıdır"><span aria-hidden="true">×</span><input aria-label="Proje seri adedi" inputMode="numeric" type="text" pattern="[0-9]*" value={seriesDraft??String(seriesMultiplier)} disabled={locked||!doc.parts.length} onFocus={e=>{setSeriesDraft(String(seriesMultiplier));e.currentTarget.select();}} onChange={e=>{if(/^\d*$/.test(e.target.value))setSeriesDraft(e.target.value)}} onBlur={finishSeriesEdit} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();e.currentTarget.blur()}}}/></div><button onClick={()=>setInfo('help')}>Yardım</button></div></div>
         <div className="parts-list">{doc.parts.map((p,i)=>{const b=bounds(p.outer);return <div key={p.id} className={`part-row ${selected.includes(p.id)?'selected':''}`}>
           <button className="part-select" aria-pressed={selected.includes(p.id)} onClick={e=>{
@@ -716,7 +733,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
 
         </>:<p className="muted">Özelliklerini görmek için bir parça seçin.</p>}</div></details>
       </aside>
-      <section className="drawing-panel" data-design-zone="canvas" style={safeWorkspaceOrder?{order:safeWorkspaceOrder.indexOf('canvas')}:undefined}>
+      <section className="drawing-panel">
         <div className="studio-canvas-heading"><div><span className="studio-canvas-eyebrow">STÜDYO / YERLEŞİM</span><h1>Çalışma alanı</h1></div><span className="studio-canvas-context">Malzeme üzerinde parçaları düzenleyin ve yerleşimi önizleyin.</span></div>
         <Workspace optimizing={running} onSelectCopies={kopya=>{setUnusedSelection([]);setSelectedCopies(kopya);}} materialWidthFocused={materialWidthFocused} unit={unit} fitRequest={fitRequest} document={canvasDocument} result={visibleResult} live={showingLive?live:undefined} selected={selected} selectedCopies={selectedCopies} disabled={locked} onTransform={transformSelection}
           polygon={polygon} onDraw={point=>{if(!locked)setPolygon(p=>[...(p??[]),point]);}}
@@ -727,7 +744,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         {(live||result)&&<div className={`result-details${showingLive?' live-details':''}`}><div className="result-mode" role="group" aria-label="Sonuç görünümü"><button aria-pressed={resultMode==='live'} disabled={!live} onClick={()=>setResultMode('live')}>{running&&<i className="live-dot" aria-hidden="true"/>}Canlı arama</button><button aria-pressed={resultMode==='checked'} disabled={!result} onClick={()=>setResultMode('checked')}>En iyi geçerli yerleşim</button></div>{showingLive&&<div className="result-copy"><span><i className="overlap-key"/>Çakışmalar kırmızı</span><p>Ara yerleşimlerde geçici çakışmalar olabilir.</p></div>}</div>}
         {solver.liveError&&<p className="field-error">Canlı önizleme kullanılamıyor: {solver.liveError}</p>}
       </section>
-      <aside className="material-panel" data-design-zone="material" aria-label="Malzeme ve Yerleşim" style={safeWorkspaceOrder?{order:safeWorkspaceOrder.indexOf('material')}:undefined}>
+      <aside className="material-panel" aria-label="Malzeme ve Yerleşim">
         <div className="panel-title"><h2>Malzeme ve Yerleşim</h2></div>
         <section className="settings material-settings">
           <div className="material-rotation">
@@ -749,7 +766,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
       </aside>
 
     </main>
-    <footer className="statusbar" data-design-zone="actions"><div className="run-controls"><span id="compression-tooltip" role="tooltip" className="compression-tooltip"><strong>Sıkıştırmaya geç</strong>Keşfi bitir ve en iyi yerleşimi sıkıştır.</span>{running?<><button className="run-button stop-button" onClick={solver.stop}>Durdur</button>{solver.canSkip&&(solver.state==='Initializing'||solver.state==='Running'&&solver.phase==='Exploration')&&<button className="run-button skip-compression" aria-label="Sıkıştırmaya geç" disabled={solver.state!=='Running'||solver.skipping||!solver.result} aria-describedby="compression-tooltip" onClick={solver.skipToCompression}><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3 5v14l9-7zM12 5v14l9-7z"/></svg></button>}</>:<button className="run-button reference-launch" disabled={locked||invalidSettings||!doc.parts.some(part=>part.quantity>0)||!!polygon} onClick={()=>void run()}><svg className="launch-rocket" aria-hidden="true" width="23" height="23" viewBox="0 0 24 24" fill="currentColor"><path d="M5 13c0-5.088 2.903-9.436 7-11.182C16.097 3.564 19 7.912 19 13c0 .823-.076 1.626-.22 2.403l1.94 1.832a.5.5 0 0 1 .095.603l-2.495 4.575a.5.5 0 0 1-.793.114l-2.234-2.234a1 1 0 0 0-.707-.293H9.414a1 1 0 0 0-.707.293l-2.234 2.234a.5.5 0 0 1-.793-.114l-2.495-4.575a.5.5 0 0 1 .095-.603l1.94-1.832A12.5 12.5 0 0 1 5 13Zm1.476 6.696.817-.817A3 3 0 0 1 9.414 18h5.172a3 3 0 0 1 2.121.879l.817.817.982-1.8-1.1-1.04a2 2 0 0 1-.593-1.82c.124-.664.187-1.345.187-2.036 0-3.87-1.995-7.3-5-8.96C8.995 5.7 7 9.13 7 13c0 .691.063 1.372.187 2.037a2 2 0 0 1-.593 1.82l-1.1 1.039.982 1.8ZM12 13a2 2 0 1 1 0-4 2 2 0 0 1 0 4Z"/></svg><span>{result?'Yeniden yerleştir':'Parçaları yerleştir'}</span></button>}</div>
+    <footer className="statusbar"><div className="run-controls"><span id="compression-tooltip" role="tooltip" className="compression-tooltip"><strong>Sıkıştırmaya geç</strong>Keşfi bitir ve en iyi yerleşimi sıkıştır.</span>{running?<><button className="run-button stop-button" onClick={solver.stop}>Durdur</button>{solver.canSkip&&(solver.state==='Initializing'||solver.state==='Running'&&solver.phase==='Exploration')&&<button className="run-button skip-compression" aria-label="Sıkıştırmaya geç" disabled={solver.state!=='Running'||solver.skipping||!solver.result} aria-describedby="compression-tooltip" onClick={solver.skipToCompression}><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3 5v14l9-7zM12 5v14l9-7z"/></svg></button>}</>:<button className="run-button reference-launch" disabled={locked||invalidSettings||!doc.parts.some(part=>part.quantity>0)||!!polygon} onClick={()=>void run()}><svg className="launch-rocket" aria-hidden="true" width="23" height="23" viewBox="0 0 24 24" fill="currentColor"><path d="M5 13c0-5.088 2.903-9.436 7-11.182C16.097 3.564 19 7.912 19 13c0 .823-.076 1.626-.22 2.403l1.94 1.832a.5.5 0 0 1 .095.603l-2.495 4.575a.5.5 0 0 1-.793.114l-2.234-2.234a1 1 0 0 0-.707-.293H9.414a1 1 0 0 0-.707.293l-2.234 2.234a.5.5 0 0 1-.793-.114l-2.495-4.575a.5.5 0 0 1 .095-.603l1.94-1.832A12.5 12.5 0 0 1 5 13Zm1.476 6.696.817-.817A3 3 0 0 1 9.414 18h5.172a3 3 0 0 1 2.121.879l.817.817.982-1.8-1.1-1.04a2 2 0 0 1-.593-1.82c.124-.664.187-1.345.187-2.036 0-3.87-1.995-7.3-5-8.96C8.995 5.7 7 9.13 7 13c0 .691.063 1.372.187 2.037a2 2 0 0 1-.593 1.82l-1.1 1.039.982 1.8ZM12 13a2 2 0 1 1 0-4 2 2 0 0 1 0 4Z"/></svg><span>{result?'Yeniden yerleştir':'Parçaları yerleştir'}</span></button>}</div>
       <div className="run-status"><span className="status-symbol" aria-hidden="true"><i className={running||busy?'active':undefined}/></span><span role="status" className="run-state"><span>{busy?'Girdiler kontrol ediliyor':loadingExample?'Örnek yükleniyor…':solver.state==='Running'&&solver.phase?(solver.skipping?'Geçiliyor…':solver.phase):solver.state}</span>{(running||solver.state==='Complete'||solver.state==='Stopped')&&<span className="run-elapsed">{solver.elapsed.toFixed(1)} s</span>}</span>{solver.workers&&<small className="worker-status" title={solver.workers.reason} data-worker-count={solver.workers.actual}>{`${solver.workers.actual} çözücü işçisi`}{solver.workers.requested?` / ${solver.workers.requested} istendi`:' · otomatik'}{solver.workers.reason&&' · yedek'}</small>}</div>
       <div className="metrics"><span>{doc.settings.materialType==='sheet'?'Kullanılan plaka':showingLive?'En iyi geçerli uzunluk':'Kullanılan uzunluk'} <strong>{result?(doc.settings.materialType==='sheet'?String(result.sheetCount??1):`${length(result.usedLengthMm)} ${unit}`):'—'}</strong></span><span>Malzeme verimliliği <strong>{result?`${utilization.toFixed(2)}%`:'—'}</strong></span><span>Fire <strong>{result?`${waste.toFixed(2)}%`:'—'}</strong></span>{improvement&&doc.settings.materialType!=='sheet'&&<span title="Keşif: ilk geçerli uzunluktan azalma. Sıkıştırma: en iyi keşif uzunluğundan ek azalma.">İyileştirme keşfet / sıkıştır <strong>{improvement.explore.toFixed(1)}% / {improvement.compress.toFixed(1)}%</strong></span>}</div>
       <div className="export-actions"><div className="corel-transfer-control">
