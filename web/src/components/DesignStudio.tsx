@@ -235,6 +235,14 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
     const next=[...blocks];next.splice(i+1,0,copy);
     apply({blocks:next});setSelectedBlockId(id);
   };
+  const reorderBlock=(source:string,target:string)=>{
+    if(source===target)return;
+    const from=blocks.findIndex(b=>b.id===source),to=blocks.findIndex(b=>b.id===target);
+    if(from<0||to<0)return;
+    const next=blocks.filter(b=>b.id!==source);
+    next.splice(from<to?to:to,0,blocks[from]);
+    apply({blocks:next});
+  };
   const shiftBlock=(delta:number)=>{
     if(!selectedBlockId)return;
     const i=blocks.findIndex(b=>b.id===selectedBlockId),to=i+delta;
@@ -482,7 +490,11 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
           </div>
           <div className="editor-section-label editor-layer-title">EKLENEN ÖĞELER <span>{blocks.length}</span></div>
           <div className="editor-layer-tree">
-            {blocks.map(block=><div key={block.id} className={'editor-layer'+(selectedBlockId===block.id?' is-selected':'')}>
+            {blocks.map(block=><div key={block.id} draggable
+              onDragStart={event=>{event.dataTransfer.setData('application/x-serula-layer',block.id);event.dataTransfer.effectAllowed='move';}}
+              onDragOver={event=>{if(event.dataTransfer.types.includes('application/x-serula-layer'))event.preventDefault();}}
+              onDrop={event=>{event.preventDefault();const id=event.dataTransfer.getData('application/x-serula-layer');if(id)reorderBlock(id,block.id);}}
+              className={'editor-layer'+(selectedBlockId===block.id?' is-selected':'')}>
               <button type="button" className="editor-layer-select" onClick={()=>selectBlock(block.id)} aria-label={'Öğe: '+block.text}>{block.kind==='button'?'▣':block.kind==='image'?'▧':'T'} {block.text||'Ayraç'}</button>
               <button type="button" aria-label={block.text+' görünürlüğünü değiştir'} onClick={()=>{apply({blocks:blocks.map(b=>b.id===block.id?{...b,hidden:!b.hidden}:b)});}}>{block.hidden?'◌':'◉'}</button>
             </div>)}
