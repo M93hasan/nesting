@@ -1,6 +1,8 @@
 import {useEffect,useRef,useState} from 'react';
 import './DesignStudio.css';
 import {DESIGN_COMPONENTS,canReorder} from './design-component-registry';
+import {appearanceToPreviewTokens} from './design-appearance-adapter';
+import {useAppearance} from '../appearance';
 
 type Design = {background:string;panel:string;accent:string;radius:number;spacing:number;fontSize:number;heading:string;hidden?:string[];order?:string[]};
 const initial:Design={background:'#121421',panel:'#242935',accent:'#5278ed',radius:12,spacing:16,fontSize:15,heading:'Serula çalışma alanı'};
@@ -24,6 +26,7 @@ function loadDraft():Design{
 }
 
 export default function DesignStudio({onClose}:{onClose:()=>void}){
+  const {appearance,loaded:appearanceLoaded}=useAppearance();
   const [history,setHistory]=useState<Design[]>(()=>[loadDraft()]);
   const [index,setIndex]=useState(0);
   const [selected,setSelected]=useState<(typeof samples)[number]>('Ana panel');
@@ -104,6 +107,7 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
       <div className="design-studio-actions">
         <button type="button" onClick={undo} disabled={index===0} aria-label="Geri al">↶ Ctrl+Z</button>
         <button type="button" onClick={redo} disabled={index===history.length-1} aria-label="Yinele">↷</button>
+        <button type="button" disabled={!appearanceLoaded} onClick={()=>apply(appearanceToPreviewTokens(appearance))}>Mevcut Serula renklerini al</button>
         <button type="button" onClick={saveDraft}>Taslağı tarayıcıya kaydet</button>
         <button type="button" onClick={exportJson}>JSON dışa aktar</button>
         <button type="button" onClick={()=>setImportOpen(v=>!v)}>JSON içe aktar</button>
@@ -111,7 +115,7 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
         <button type="button" onClick={onClose}>Görünüme dön</button>
       </div>
     </header>
-    <p className="design-studio-warning" role="status">Bu prototip yalnızca örnek bileşenleri düzenler. Taslağı bu tarayıcıya kaydedebilirsin; başka cihazlara aktarılmaz ve canlı siteye yayınlanmaz. {saved?'Taslak tarayıcıya kaydedildi.':''}{storageError}</p>
+    <p className="design-studio-warning" role="status">Bu prototip mevcut Serula renklerini salt okunur biçimde içe alabilir; yalnızca örnek bileşenleri düzenler. Taslağı bu tarayıcıya kaydedebilirsin; başka cihazlara aktarılmaz ve canlı siteye yayınlanmaz. {saved?'Taslak tarayıcıya kaydedildi.':''}{storageError}</p>
     {importOpen&&<div className="design-studio-import">
       <label htmlFor="design-json-import">Tasarım JSON içeriğini yapıştır</label>
       <textarea id="design-json-import" rows={5} maxLength={10000} value={importText} onChange={event=>setImportText(event.target.value)}/>
