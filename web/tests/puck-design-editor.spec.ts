@@ -9,7 +9,7 @@ test('Puck opens safely and switches to the real non-interactive Nesting preview
   await page.getByRole('button',{name:/Görünüm/}).click();
   await page.getByRole('button',{name:'Puck Editörünü Aç'}).click();
   await expect(page.getByRole('region',{name:'Puck görsel tasarım editörü'})).toBeVisible();
-  await expect(page.getByText('Nesting Bileşenleri')).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Nesting Bileşenleri',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Gerçek ekran'}).click();
   const preview=page.locator('iframe[title="Puck gerçek Nesting önizlemesi"]');
   await expect(preview).toBeVisible();
@@ -17,5 +17,5 @@ test('Puck opens safely and switches to the real non-interactive Nesting preview
   await page.getByRole('button',{name:'Mobil'}).click();
   await expect(preview).toHaveCSS('width','390px');
   await page.getByRole('button',{name:'Bileşen editörü'}).click();
-  await expect(page.getByText('Nesting Bileşenleri')).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Nesting Bileşenleri',exact:true})).toBeVisible();
 });
