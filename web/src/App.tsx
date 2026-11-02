@@ -658,6 +658,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const waste=result?Math.max(0,100-utilization):0;
   const improvement=result&&phaseImprovements(solver.diagnostics.current?.history??[],result.usedLengthMm);
   const safeWorkspaceOrder=(designPreviewEnabled?designPreview:publishedVisual)?.workspaceOrder;
+  const editableHeadings=(designPreviewEnabled?designPreview:publishedVisual)?.zoneStyles;
   useEffect(()=>{
     // Keep Nesting's source markup and event handlers unchanged. Only attach safe editor
     // identifiers and optional CSS flex ordering after the application is mounted.
@@ -684,7 +685,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     ${renderZoneCss((designPreviewEnabled?designPreview:publishedVisual)?.zoneStyles)}
     `}</style>}
     {designPreviewEnabled&&window.self===window.top&&<div role="status" className="design-preview-banner" style={{padding:'8px 12px',background:'#fff1c2',color:'#212121'}}>Tasarım editörü önizlemesi — değişiklikler yalnızca bu sekmede görünür, canlıya yayınlanmaz.</div>}
-    <header className="header"><div className="brand-block"><a className="brand serula-brand" aria-label="Serula Nesting Studio" href={import.meta.env.BASE_URL}><img src={`${import.meta.env.BASE_URL}serula-logo.svg`} alt="" /><strong>Serula Nesting</strong><span>/studio · Sürüm {packageInfo.version}</span></a><p className="tagline">Akıllı DXF yerleştirme ve malzeme optimizasyonu</p></div>
+    <header className="header"><div className="brand-block"><a className="brand serula-brand" aria-label="Serula Nesting Studio" href={import.meta.env.BASE_URL}><img src={`${import.meta.env.BASE_URL}serula-logo.svg`} alt="" /><strong>Serula Nesting</strong><span>/studio · Sürüm {packageInfo.version}</span></a><p className="tagline">{editableHeadings?.header?.text??"Akıllı DXF yerleştirme ve malzeme optimizasyonu"}</p></div>
       <div className="header-primary project-bar"><details className="project-menu" ref={projectMenu} hidden><summary aria-label={`Proje: ${doc.name}`}>{doc.name}<span aria-hidden="true"> ▾</span></summary><div>
         <button disabled={locked} onClick={()=>{projectMenu.current!.open=false;setProjectAd('Adsız proje');setNameDialog('new');}}>Yeni proje</button>
         <button disabled={locked} onClick={()=>{projectMenu.current!.open=false;projectInput.current?.click();}}>Proje aç</button>
@@ -699,7 +700,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     {recoveryError&&<div className="error-banner" role="alert">{recoveryError}</div>}
     <main className="main-workspace">
       <aside id="parts-settings" className={`sidebar ${panel?'open':''}`}>
-        <div className="panel-title"><h2>Parçalar <span>{displayedPieceCount(doc.parts)}</span></h2><div className="panel-title-actions"><div className="series-multiplier" title="Yerleşim bir seriye göre hesaplanır; bu değer üretim serisi sayısıdır"><span aria-hidden="true">×</span><input aria-label="Proje seri adedi" inputMode="numeric" type="text" pattern="[0-9]*" value={seriesDraft??String(seriesMultiplier)} disabled={locked||!doc.parts.length} onFocus={e=>{setSeriesDraft(String(seriesMultiplier));e.currentTarget.select();}} onChange={e=>{if(/^\d*$/.test(e.target.value))setSeriesDraft(e.target.value)}} onBlur={finishSeriesEdit} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();e.currentTarget.blur()}}}/></div><button onClick={()=>setInfo('help')}>Yardım</button></div></div>
+        <div className="panel-title"><h2>{editableHeadings?.parts?.text??"Parçalar"} <span>{displayedPieceCount(doc.parts)}</span></h2><div className="panel-title-actions"><div className="series-multiplier" title="Yerleşim bir seriye göre hesaplanır; bu değer üretim serisi sayısıdır"><span aria-hidden="true">×</span><input aria-label="Proje seri adedi" inputMode="numeric" type="text" pattern="[0-9]*" value={seriesDraft??String(seriesMultiplier)} disabled={locked||!doc.parts.length} onFocus={e=>{setSeriesDraft(String(seriesMultiplier));e.currentTarget.select();}} onChange={e=>{if(/^\d*$/.test(e.target.value))setSeriesDraft(e.target.value)}} onBlur={finishSeriesEdit} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();e.currentTarget.blur()}}}/></div><button onClick={()=>setInfo('help')}>Yardım</button></div></div>
         <div className="parts-list">{doc.parts.map((p,i)=>{const b=bounds(p.outer);return <div key={p.id} className={`part-row ${selected.includes(p.id)?'selected':''}`}>
           <button className="part-select" aria-pressed={selected.includes(p.id)} onClick={e=>{
             const additive=e.metaKey||e.ctrlKey;
@@ -734,7 +735,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         </>:<p className="muted">Özelliklerini görmek için bir parça seçin.</p>}</div></details>
       </aside>
       <section className="drawing-panel">
-        <div className="studio-canvas-heading"><div><span className="studio-canvas-eyebrow">STÜDYO / YERLEŞİM</span><h1>Çalışma alanı</h1></div><span className="studio-canvas-context">Malzeme üzerinde parçaları düzenleyin ve yerleşimi önizleyin.</span></div>
+        <div className="studio-canvas-heading"><div><span className="studio-canvas-eyebrow">STÜDYO / YERLEŞİM</span><h1>{editableHeadings?.canvas?.text??"Çalışma alanı"}</h1></div><span className="studio-canvas-context">Malzeme üzerinde parçaları düzenleyin ve yerleşimi önizleyin.</span></div>
         <Workspace optimizing={running} onSelectCopies={kopya=>{setUnusedSelection([]);setSelectedCopies(kopya);}} materialWidthFocused={materialWidthFocused} unit={unit} fitRequest={fitRequest} document={canvasDocument} result={visibleResult} live={showingLive?live:undefined} selected={selected} selectedCopies={selectedCopies} disabled={locked} onTransform={transformSelection}
           polygon={polygon} onDraw={point=>{if(!locked)setPolygon(p=>[...(p??[]),point]);}}
           onSelect={(copy,toggle)=>{setUnusedSelection([]);if(!copy){setSelectedCopies([]);return;}const key=`${copy.partId}:${copy.copyIndex}`,already=selectedCopies.some(p=>`${p.partId}:${p.copyIndex}`===key);const nextCopies=toggle?(already?selectedCopies.filter(p=>`${p.partId}:${p.copyIndex}`!==key):[...selectedCopies,copy]):already?selectedCopies:[copy];setSelectedCopies(nextCopies);}}
@@ -745,7 +746,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         {solver.liveError&&<p className="field-error">Canlı önizleme kullanılamıyor: {solver.liveError}</p>}
       </section>
       <aside className="material-panel" aria-label="Malzeme ve Yerleşim">
-        <div className="panel-title"><h2>Malzeme ve Yerleşim</h2></div>
+        <div className="panel-title"><h2>{editableHeadings?.material?.text??"Malzeme ve Yerleşim"}</h2></div>
         <section className="settings material-settings">
           <div className="material-rotation">
           <RotationControl key={JSON.stringify([selected,mixedRotations,chosen?.rotations])} rule={chosen?normalizedRotationRule(chosen.rotations):DEFAULT_ROTATIONS} mixed={!!chosen&&!!mixedRotations} disabled={locked||!chosen} required onChange={rotations=>{if(chosen)editPart({rotations})}}/>
