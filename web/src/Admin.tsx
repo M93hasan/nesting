@@ -374,7 +374,7 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
     <div className="admin-shell">
       <aside className="admin-sidebar" aria-label="Yönetim menüsü">
         <div className="sd-sidebar-caption">ÇALIŞMA ALANI</div>
-        <nav>{nav.map(item=><button key={item.id} type="button" className={section===item.id?'active':''} aria-current={section===item.id?'page':undefined} onClick={()=>setSection(item.id)}><span className="sd-nav-icon"><DashboardIcon name={item.id}/></span><span className="sd-nav-label">{item.label}</span></button>)}</nav>
+        <nav>{nav.map(item=><button key={item.id} type="button" className={section===item.id?'sd-nav-button active':'sd-nav-button'} aria-current={section===item.id?'page':undefined} onClick={()=>setSection(item.id)}><span className="sd-nav-icon"><DashboardIcon name={item.id}/></span><span className="sd-nav-label">{item.label}</span></button>)}</nav>
         <div className="admin-security-note"><strong>Güvenli yönetim</strong><small>Kullanıcı ve yetki değişiklikleri sunucu kimlik doğrulaması olmadan uygulanmaz.</small></div>
       </aside>
 

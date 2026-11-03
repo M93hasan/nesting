@@ -112,11 +112,11 @@
  color:var(--sd-ink);background:#fff;box-shadow:0 1px 2px rgb(0 0 0 / 2%);
 }
 #root .admin-page.shadcn-dashboard :is(input:not([type="checkbox"]),select,textarea):disabled{background:#f4f4f5;color:#71717a}
-#root .admin-page.shadcn-dashboard button:not(.active):not(.primary):not(.danger-button):not(.corel-transfer-toggle){
+#root .admin-page.shadcn-dashboard button:not(.active):not(.primary):not(.danger-button):not(.corel-transfer-toggle):not(.sd-nav-button){
  border:1px solid var(--sd-border);border-radius:7px;
  background:#fff;color:var(--sd-ink);box-shadow:0 1px 2px rgb(0 0 0 / 3%);
 }
-#root .admin-page.shadcn-dashboard button:not(.active):not(.primary):not(.danger-button):not(.corel-transfer-toggle):hover:enabled{background:var(--sd-hover)}
+#root .admin-page.shadcn-dashboard button:not(.active):not(.primary):not(.danger-button):not(.corel-transfer-toggle):not(.sd-nav-button):hover:enabled{background:var(--sd-hover)}
 #root .admin-page.shadcn-dashboard button.primary{
  background:var(--sd-primary);color:#fff;border:1px solid var(--sd-primary);border-radius:7px;
 }
@@ -150,7 +150,7 @@
 #root .app.shadcn-studio :is(input:not([type="checkbox"]),select,textarea){
  border:1px solid #d4d4d8;border-radius:7px;background:#fff;color:var(--sd-ink);
 }
-#root .app.shadcn-studio button:not(.part-select):not(.text-button):not(.run-button):not(.download-button):not(.corel-transfer-button){
+#root .app.shadcn-studio button:not(.part-select):not(.text-button):not(.run-button):not(.download-button):not(.corel-transfer-button):not(.primary){
  border:1px solid var(--sd-border);border-radius:7px;background:#fff;color:#27272a;
 }
 #root .app.shadcn-studio button.primary,
@@ -173,4 +173,46 @@
  #root .app.shadcn-studio :is(.sidebar,.material-panel){
   border:0;border-top:1px solid var(--sd-border);
  }
+}
+
+/* Session UI: keep all existing password, Google and admin auth flows. */
+#root .auth-screen.shadcn-auth{
+ --sd-auth-border:#e4e4e7;--sd-auth-ink:#18181b;
+ --sd-auth-muted:#71717a;--sd-auth-primary:#18181b;
+ background:#f8fafc;color:var(--sd-auth-ink);
+ font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+#root .auth-screen.shadcn-auth.auth-overlay{background:rgb(24 24 27 / 42%);backdrop-filter:none}
+#root .auth-screen.shadcn-auth .auth-card{
+ background:#fff;border:1px solid var(--sd-auth-border);border-radius:13px;
+ box-shadow:0 12px 40px rgb(0 0 0 / 8%);color:var(--sd-auth-ink);
+}
+#root .auth-screen.shadcn-auth .auth-card h1{font-weight:730;letter-spacing:-.045em}
+#root .auth-screen.shadcn-auth .auth-card p{color:var(--sd-auth-muted)}
+#root .auth-screen.shadcn-auth .auth-card label{color:#3f3f46;font-weight:580}
+#root .auth-screen.shadcn-auth .auth-card input{
+ border:1px solid #d4d4d8;border-radius:8px;background:#fff;color:var(--sd-auth-ink);
+}
+#root .auth-screen.shadcn-auth .auth-card button{
+ border:1px solid var(--sd-auth-border);border-radius:8px;
+ background:#fff;color:var(--sd-auth-ink);font-weight:600;
+}
+#root .auth-screen.shadcn-auth .auth-card :is(form button,.primary){
+ background:var(--sd-auth-primary);color:#fff;border-color:var(--sd-auth-primary);
+}
+#root .auth-screen.shadcn-auth .auth-card .auth-google-button{
+ background:#fff;color:var(--sd-auth-ink);border-color:var(--sd-auth-border);
+}
+#root .auth-screen.shadcn-auth .auth-tabs{
+ padding:4px;border-radius:9px;background:#f4f4f5;
+}
+#root .auth-screen.shadcn-auth .auth-tabs button{border-color:transparent;background:transparent}
+#root .auth-screen.shadcn-auth .auth-tabs button.active{
+ background:#fff;color:var(--sd-auth-ink);box-shadow:0 1px 3px rgb(0 0 0 / 8%);
+}
+#root .auth-screen.shadcn-auth .auth-or{color:var(--sd-auth-muted)}
+#root .auth-screen.shadcn-auth .auth-or span{background:var(--sd-auth-border)}
+#root .auth-screen.shadcn-auth .auth-error{color:#b91c1c}
+#root .auth-screen.shadcn-auth :is(button,input,select):focus-visible{
+ outline:2px solid #52525b;outline-offset:2px;
 }
