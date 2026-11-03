@@ -176,7 +176,7 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
     finally{setUsersLoading(false)}
   }
   useEffect(()=>{if(auth==='allowed'){void loadUsers();void loadHealth();void loadSystemSettings();void loadChats()}},[auth]);
-  useEffect(()=>{if(section==='logs')void loadLogs();if(section==='system')void loadHealth();if(section==='messages')void loadChats()},[section]);
+  useEffect(()=>{if(section==='logs'||section==='overview')void loadLogs();if(section==='system')void loadHealth();if(section==='messages')void loadChats()},[section]);
   useEffect(()=>{
     if(auth!=='allowed')return;
     const timer=window.setInterval(()=>{void loadUsers();if(section==='messages'||section==='overview')void loadChats()},6000);
@@ -409,9 +409,15 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
           </section>
           <section className="admin-grid-two">
             <article className="admin-card"><div className="admin-card-head"><h2>Hızlı Durum</h2><span className="admin-badge">İstemci</span></div>
-              <dl className="admin-status-list"><div><dt>Uygulama</dt><dd>Çalışıyor</dd></div><div><dt>Yönetici yolu</dt><dd>{adminPath}</dd></div><div><dt>Kimlik doğrulama</dt><dd>{localDevelopment?'Yerel test modu':'E-posta + parola'}</dd></div><div><dt>Kalıcı veritabanı</dt><dd>D1 bağlı</dd></div></dl>
+              <dl className="admin-status-list"><div><dt>Uygulama</dt><dd>Çalışıyor</dd></div><div><dt>Yönetici yolu</dt><dd>{adminPath}</dd></div><div><dt>Kimlik doğrulama</dt><dd>{localDevelopment?'Yerel test modu':'E-posta + parola'}</dd></div><div><dt>Kalıcı veritabanı</dt><dd>{health?.userStore?'Bağlı':health?'Bağlantı hatası':'Kontrol ediliyor'}</dd></div></dl>
             </article>
-            <article className="admin-card"><div className="admin-card-head"><h2>Son İşlemler</h2></div><Empty title="Henüz veri yok">Kalıcı işlem geçmişi bağlandığında burada kullanıcı, proje, nesting ve dışa aktarma kayıtları gösterilecek.</Empty></article>
+            <article className="admin-card sd-activity-card"><div className="admin-card-head"><h2>Son İşlemler</h2><button type="button" onClick={()=>setSection('logs')}>Tüm loglar</button></div>
+              {logs.length?<ol className="sd-activity-list">{logs.slice(0,5).map(log=><li key={log.id}>
+                <span className={'sd-activity-marker '+(log.success?'is-success':'is-error')} aria-hidden="true"/>
+                <div><strong>{log.action}</strong><small>{log.actorEmail||log.actorType}{log.targetEmail?' → '+log.targetEmail:''}</small></div>
+                <time dateTime={log.createdAt}>{new Date(log.createdAt).toLocaleString(localeTag(locale))}</time>
+              </li>)}</ol>:<Empty title="Henüz işlem kaydı yok">Yönetim işlemleri kaydedildikçe burada son olaylar görünecek.</Empty>}
+            </article>
           </section>
         </>}
 
@@ -482,7 +488,7 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
             </div>
             <small>{screenFrame&&!screenStream?'Yedek bağlantı üzerinden ekran görüntüsü · yaklaşık 1–2 saniye gecikmeli':'Kullanıcının paylaştığı ekran · “Tam ekran” ile büyütebilirsiniz.'}</small>
           </div>}
-          <div className="admin-settings-grid">
+          <div className="admin-settings-grid" role="group" aria-label="Kullanıcı varsayılanları">
             <label>Malzeme genişliği (mm)<input type="number" min="1" value={userSettings.materialWidthMm} onChange={e=>setUserSettings({...userSettings,materialWidthMm:e.target.valueAsNumber})}/></label>
             <label>Parça aralığı (mm)<input type="number" min="0" step="0.1" value={userSettings.clearanceMm} onChange={e=>setUserSettings({...userSettings,clearanceMm:e.target.valueAsNumber})}/></label>
             
@@ -494,7 +500,7 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
 
         {section==='defaults'&&<section className="admin-card">
           <div className="admin-card-head"><div><h2>Sistem Varsayılanları</h2><p>Yeni kullanıcı ve projeler için başlangıç ayarları. Ana uygulamadaki gerçek kullanıcı seçenekleriyle senkron çalışır.</p></div><span className="admin-badge">Aktif</span></div>
-          <div className="admin-settings-grid">
+          <div className="admin-settings-grid" role="group" aria-label="Sistem varsayılanları">
             <label>Varsayılan malzeme genişliği (mm)<input type="number" min="1" value={systemSettings.materialWidthMm} onChange={e=>setSystemSettings({...systemSettings,materialWidthMm:e.target.valueAsNumber})}/></label>
             <label>Parça aralığı (mm)<input type="number" min="0" step="0.1" value={systemSettings.clearanceMm} onChange={e=>setSystemSettings({...systemSettings,clearanceMm:e.target.valueAsNumber})}/></label>
             

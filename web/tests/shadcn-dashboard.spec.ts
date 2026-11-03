@@ -97,3 +97,22 @@ test('user management table and filters remain inside the viewport at phone widt
   await expect(page.getByLabel('Kullanıcı rolü')).toBeVisible();
   await expect(page.getByLabel('Kullanıcı sıralaması')).toBeVisible();
 });
+
+test('overview shows actual recent audit activity rather than a demo placeholder',async({page})=>{
+  await page.route('**/api/auth/admin-me',route=>route.fulfill({
+    status:200,contentType:'application/json',body:JSON.stringify(adminUser)
+  }));
+  await page.route('**/api/admin/logs',route=>route.fulfill({
+    status:200,contentType:'application/json',
+    body:JSON.stringify({logs:[{
+      id:901,actorType:'admin',actorEmail:'qa@example.test',
+      targetEmail:'operator@example.test',action:'Kota güncellendi',
+      detail:'Test action',success:true,createdAt:'2026-11-03T14:10:00Z'
+    }]})
+  }));
+  await page.goto('/admin');
+  await expect(page.getByRole('heading',{name:'Son İşlemler'})).toBeVisible();
+  await expect(page.locator('.sd-activity-list')).toContainText('Kota güncellendi');
+  await page.getByRole('button',{name:'Tüm loglar'}).click();
+  await expect(page.getByRole('heading',{name:'Sistem Logları'}).first()).toBeVisible();
+});

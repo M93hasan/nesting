@@ -20,3 +20,7 @@ License text: web/public/licenses/shadcn-dashboard-MIT.txt
 ## Administration improvements (stage 2)
 
 The user table has an accessible semantic table structure, a scoped search control, filters for role and online status, deterministic sorting by name / last login / credits, a visible result counter, individual status badges and a reset action. All existing account mutations continue through authenticated Serula APIs; no client-side privilege changes or data rewriting are introduced. Browser tests cover interactions and the narrow-screen table.
+
+## Dashboard activity and settings (stage 3)
+
+The overview now requests the existing `/api/admin/logs` audit endpoint and renders up to five most recent action entries; the full logs page remains available. Backend connection text is derived from the existing health check instead of a hard-coded D1 success label. User/system defaults have semantic field groups and Shadcn-style form layouts, without changing any values, API endpoints or save handlers. Playwright covers the audit activity and navigation.

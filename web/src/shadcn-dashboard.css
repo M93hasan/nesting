@@ -286,3 +286,73 @@
  #root .admin-page.shadcn-dashboard .sd-search-field{grid-column:auto}
  #root .admin-page.shadcn-dashboard .sd-user-summary>button{margin-left:0}
 }
+
+/* Live admin activity sourced from Serula's existing audit log endpoint. */
+#root .admin-page.shadcn-dashboard .sd-activity-list{
+ list-style:none;padding:0;margin:0;display:grid;
+}
+#root .admin-page.shadcn-dashboard .sd-activity-list li{
+ display:grid;grid-template-columns:12px minmax(0,1fr) auto;
+ align-items:center;gap:12px;padding:13px 0;border-top:1px solid #f4f4f5;
+}
+#root .admin-page.shadcn-dashboard .sd-activity-list li:first-child{border-top:0}
+#root .admin-page.shadcn-dashboard .sd-activity-marker{
+ display:block;width:9px;height:9px;border-radius:50%;
+ background:#16a34a;box-shadow:0 0 0 4px #f0fdf4;
+}
+#root .admin-page.shadcn-dashboard .sd-activity-marker.is-error{
+ background:#dc2626;box-shadow:0 0 0 4px #fef2f2;
+}
+#root .admin-page.shadcn-dashboard .sd-activity-list li>div{
+ display:grid;gap:3px;min-width:0;
+}
+#root .admin-page.shadcn-dashboard .sd-activity-list strong{
+ font-size:13px;color:#18181b;font-weight:630;overflow-wrap:anywhere;
+}
+#root .admin-page.shadcn-dashboard .sd-activity-list small{
+ font-size:12px;color:#71717a;overflow-wrap:anywhere;
+}
+#root .admin-page.shadcn-dashboard .sd-activity-list time{
+ text-align:right;color:#71717a;font-size:11px;max-width:135px;
+}
+/* Form fieldsets follow the dashboard's aligned field/card system. */
+#root .admin-page.shadcn-dashboard .admin-settings-grid{
+ padding:18px;gap:18px;
+ border:1px solid #e4e4e7;border-radius:11px;background:#fafafa;
+}
+#root .admin-page.shadcn-dashboard .admin-settings-grid>label{
+ display:grid;align-content:start;gap:8px;min-width:0;
+ color:#3f3f46;font-size:13px;font-weight:600;
+}
+#root .admin-page.shadcn-dashboard .admin-settings-grid :is(input,select){
+ width:100%;min-width:0;min-height:43px;font-size:14px;
+}
+#root .admin-page.shadcn-dashboard .admin-settings-grid :is(input,select):focus-visible{
+ outline:2px solid #52525b;outline-offset:2px;
+}
+#root .admin-page.shadcn-dashboard .admin-save-row{
+ margin-top:18px;padding-top:18px;
+ border-top:1px solid #e4e4e7;
+}
+#root .admin-page.shadcn-dashboard .admin-save-row>.primary{min-height:40px;padding:9px 16px}
+#root .admin-page.shadcn-dashboard .admin-support-box{align-items:center}
+#root .admin-page.shadcn-dashboard .admin-selected-user{
+ display:flex;flex-wrap:wrap;gap:10px;
+ background:#f8fafc;border-color:#e4e4e7;
+}
+#root .admin-page.shadcn-dashboard .admin-chat-card .admin-conversation-list{
+ border-color:#e4e4e7;
+}
+#root .admin-page.shadcn-dashboard .admin-chat-card .admin-chat-compose textarea{
+ min-height:96px;resize:vertical;
+}
+@media(max-width:720px){
+ #root .admin-page.shadcn-dashboard .sd-activity-list li{
+  grid-template-columns:12px minmax(0,1fr);
+ }
+ #root .admin-page.shadcn-dashboard .sd-activity-list time{
+  grid-column:2;text-align:left;max-width:none;
+ }
+ #root .admin-page.shadcn-dashboard .admin-settings-grid{padding:13px;gap:14px}
+ #root .admin-page.shadcn-dashboard .admin-save-row{flex-wrap:wrap}
+}
