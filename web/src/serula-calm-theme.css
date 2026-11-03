@@ -1,0 +1,156 @@
+/*
+ * Serula Calm — deliberately restrained production UI.
+ * No glow, fake refraction, ambient gradients, blurred panels or bouncing buttons.
+ * Non-visual CAD geometry, nesting algorithms and user appearance storage are untouched.
+ * Existing system/light/dark selection stays in control.
+ */
+:root {
+  --calm-page: light-dark(#f1f3f6,#11151c);
+  --calm-header: light-dark(#f9fafc,#191f28);
+  --calm-rail: light-dark(#f7f8fa,#1c232d);
+  --calm-panel: light-dark(#ffffff,#222b36);
+  --calm-panel-soft: light-dark(#eff2f6,#27313e);
+  --calm-canvas: light-dark(#f8fafc,#171f29);
+  --calm-stroke: light-dark(#d8dfe8,#374354);
+  --calm-stroke-strong: light-dark(#b9c6d8,#4b5c72);
+  --calm-ink: light-dark(#202b3a,#edf1f7);
+  --calm-muted: light-dark(#627082,#aebacc);
+  --calm-accent: light-dark(#3156ae,#99b5ef);
+  --calm-selected: light-dark(#e7eefb,#293a54);
+  --calm-control: light-dark(#ffffff,#202834);
+  --calm-primary-ink: light-dark(#ffffff,#101b2e);
+  --calm-shadow: 0 3px 12px rgb(0 0 0 / .06);
+}
+/* One quiet, opaque frame, identical language for studio and administration. */
+:root #root .app,
+:root #root .admin-page {background:var(--calm-page);color:var(--calm-ink);}
+:root #root .app > .header,
+:root #root .admin-page .admin-topbar {
+  background:var(--calm-header) !important;
+  background-image:none !important;
+  border-color:var(--calm-stroke) !important;
+  box-shadow:none !important;
+  backdrop-filter:none !important;
+  -webkit-backdrop-filter:none !important;
+}
+:root #root .app .brand-block {
+  background:var(--calm-header) !important;
+  background-image:none !important;
+  border-right:1px solid var(--calm-stroke);
+}
+:root #root .app .serula-brand strong {color:var(--calm-ink) !important;text-shadow:none !important;}
+:root #root .app :is(.sidebar,.material-panel),
+:root #root .admin-page .admin-sidebar {
+  background:var(--calm-rail) !important;
+  background-image:none !important;
+  border-color:var(--calm-stroke) !important;
+  box-shadow:none !important;
+  backdrop-filter:none !important;
+}
+:root #root .app :is(.sidebar,.material-panel) > .panel-title {
+  background:var(--calm-panel-soft) !important;
+  background-image:none !important;
+  border-bottom:1px solid var(--calm-stroke) !important;
+  box-shadow:none !important;
+}
+:root #root .app .panel-title h2 {color:var(--calm-ink);letter-spacing:-.015em;font-weight:700;}
+:root #root .app .studio-canvas-heading,
+:root #root .app > .statusbar {
+  background:var(--calm-header) !important;
+  background-image:none !important;
+  border-color:var(--calm-stroke) !important;
+  box-shadow:none !important;
+}
+:root #root .app .studio-canvas-heading h1 {color:var(--calm-ink) !important;font-weight:730;letter-spacing:-.02em;}
+/* The CAD viewport remains visually unobstructed. Do not alter SVG dimensions. */
+:root #root .app .canvas-wrap {background:var(--calm-canvas) !important;backdrop-filter:none !important;}
+:root #root .app .workspace-svg {backdrop-filter:none !important;}
+:root #root .app .part-row {
+  background:var(--calm-panel) !important;
+  background-image:none !important;
+  border:1px solid var(--calm-stroke) !important;
+  border-left:3px solid transparent !important;
+  border-radius:9px !important;
+  box-shadow:none !important;
+}
+:root #root .app .part-row.selected {
+  background:var(--calm-selected) !important;
+  border-color:var(--calm-stroke-strong) !important;
+  border-left:3px solid var(--calm-accent) !important;
+}
+:root #root .app :is(.part-properties-disclosure,.material-panel .solver-options) {
+  background:var(--calm-panel) !important;
+  border:1px solid var(--calm-stroke) !important;
+  border-radius:10px !important;
+  box-shadow:none !important;
+}
+:root #root .app .part-properties-disclosure > summary {
+  background:var(--calm-panel-soft) !important;
+  background-image:none !important;
+  color:var(--calm-ink);
+}
+:root #root .app .material-panel .settings {background:transparent !important;}
+/* Quiet controls: predictable focus, no radial illumination or active scale. */
+:root #root .app :is(.canvas-tools > button,.cad-snapping,.project-menu > summary),
+:root #root .auth-account-menu > summary,
+:root #root .admin-page .admin-sidebar nav button.active {
+  background:var(--calm-control) !important;
+  background-image:none !important;
+  border:1px solid var(--calm-stroke) !important;
+  box-shadow:none !important;
+  -webkit-backdrop-filter:none !important;
+  backdrop-filter:none !important;
+  text-shadow:none !important;
+}
+:root #root .app .canvas-tools > button[aria-pressed="true"] {
+  background:var(--calm-selected) !important;
+  border-color:var(--calm-accent) !important;
+  color:var(--calm-ink) !important;
+}
+:root #root .app .cad-snapping > div {
+  background:var(--calm-panel) !important;
+  border-color:var(--calm-stroke) !important;
+  box-shadow:var(--calm-shadow) !important;
+}
+:root #root .app .material-panel .settings :is(input:not([type=checkbox]):not([type=radio]),select),
+:root #root .app .part-properties-inline :is(input:not([type=checkbox]):not([type=radio]),select),
+:root #root .admin-page :is(input:not([type=checkbox]):not([type=radio]),select,textarea) {
+  background:var(--calm-control) !important;
+  background-image:none !important;
+  border-color:var(--calm-stroke) !important;
+  box-shadow:none !important;
+}
+:root #root :is(input,select,textarea,button,summary,a):focus-visible {
+  outline:2px solid var(--calm-accent) !important;
+  outline-offset:2px;
+}
+:root #root .app input[aria-invalid="true"],
+:root #root .admin-page input[aria-invalid="true"] {border-color:var(--error) !important;}
+/* Keep the intentional hierarchy of primary actions; don't repaint brand CTAs. */
+:root #root .app :is(.canvas-tools > button,.project-menu > summary):hover:not(:disabled) {
+  border-color:var(--calm-stroke-strong) !important;
+  box-shadow:none !important;
+}
+:root #root .admin-page .admin-sidebar nav button.active {
+  background:var(--calm-selected) !important;
+  border-color:var(--calm-stroke-strong) !important;
+  color:var(--calm-ink) !important;
+}
+:root #root .admin-page :is(.admin-card,.admin-metric,.admin-security-note) {
+  background:var(--calm-panel) !important;
+  background-image:none !important;
+  border:1px solid var(--calm-stroke) !important;
+  box-shadow:none !important;
+}
+:root #root :is(.auth-card,.modal,.auth-account-dropdown,.auth-support-card,.support-chat) {
+  background:var(--calm-panel) !important;
+  background-image:none !important;
+  border:1px solid var(--calm-stroke) !important;
+  box-shadow:0 10px 32px rgb(0 0 0 / .12) !important;
+  backdrop-filter:none !important;
+}
+:root #root .auth-screen {background:var(--calm-page) !important;background-image:none !important;}
+:root #root .appearance-color {background:var(--calm-panel-soft) !important;border-color:var(--calm-stroke) !important;}
+@media(prefers-reduced-motion:reduce) {
+  :root #root .app :is(.part-row,.canvas-tools button),:root #root .admin-page .admin-sidebar nav button {transition:none !important;}
+}
