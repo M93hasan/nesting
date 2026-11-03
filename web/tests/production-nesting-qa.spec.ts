@@ -37,7 +37,7 @@ test('live release marker and headless browser access diagnostic',async({page,re
   console.log('NESTING_QA '+JSON.stringify({event:'live-browser',status:'accessible',url:LIVE_URL,version:deploySha,httpStatus}));
 });
 
-test('local DXF import, real WASM nesting and safe mocked export authorization',async({page})=>{
+test('anonymous local preview DXF import, real WASM nesting and safe mocked export authorization',async({page})=>{
   test.setTimeout(115000);
   const response=await page.goto('/',{waitUntil:'domcontentloaded',timeout:45000});
   expect(response?.status()).toBe(200);
