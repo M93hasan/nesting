@@ -111,6 +111,21 @@ describe('Worker accounts and credit transactions',()=>{
     expect((await call(env,'/api/nesting/start',{},cookie)).status).toBe(410);
     env.sqlite.close();
   });
+  it('rejects unauthenticated, cross-origin and out-of-credit export attempts without storage writes',async()=>{
+    const env=database(),cookie=await account(env);
+    expect((await call(env,'/api/export/authorize',payload)).status).toBe(401);
+    const foreign=await worker.fetch(new Request('https://serula.site/api/export/authorize',{
+      method:'POST',headers:{'content-type':'application/json',origin:'https://untrusted.example',cookie},
+      body:JSON.stringify(payload)
+    }),env);
+    expect(foreign.status).toBe(403);
+    expect(env.sqlite.prepare('SELECT nesting_credits FROM users').get()?.nesting_credits).toBe(5);
+    env.sqlite.exec('UPDATE users SET nesting_credits=0');
+    expect((await call(env,'/api/export/authorize',payload,cookie)).status).toBe(402);
+    for(const table of ['nesting_history','export_files','export_file_chunks'])
+      expect(env.sqlite.prepare(`SELECT count(*) n FROM ${table}`).get()?.n).toBe(0);
+    env.sqlite.close();
+  });
   it('rejects an expired license without debiting credit or persisting export files',async()=>{
     const env=database(),cookie=await account(env);
     env.sqlite.exec("INSERT INTO user_licenses(user_id,started_at,expires_at) SELECT id,'2026-01-01T00:00:00.000Z','2026-01-02T00:00:00.000Z' FROM users");
@@ -138,6 +153,17 @@ describe('Worker accounts and credit transactions',()=>{
     const ownerFile=await call(env,`/api/exports/${exportId}`,undefined,owner);
     expect(ownerFile.status).toBe(200);
     expect(await ownerFile.text()).toBe(payload.dxf);
+    expect(ownerFile.headers.get('cache-control')).toContain('no-store');
+    for(let i=0;i<2;i++){
+      const repeated=await call(env,`/api/exports/${exportId}`,undefined,owner);
+      expect(repeated.status).toBe(200);
+      expect(await repeated.text()).toBe(payload.dxf);
+    }
+    const project=await call(env,`/api/exports/${exportId}?kind=project`,undefined,owner);
+    expect(project.status).toBe(200);
+    expect(await project.text()).toBe(payload.projectJson);
+    expect((await call(env,`/api/exports/${exportId}?kind=project`,undefined,other)).status).toBe(404);
+    expect((await call(env,`/api/exports/${exportId}`)).status).toBe(401);
     expect(env.sqlite.prepare("SELECT nesting_credits FROM users WHERE email='test@example.com'").get()?.nesting_credits).toBe(4);
     expect(env.sqlite.prepare("SELECT nesting_credits FROM users WHERE email='other@example.com'").get()?.nesting_credits).toBe(5);
     expect(env.sqlite.prepare('SELECT count(*) n FROM export_files').get()?.n).toBe(1);
