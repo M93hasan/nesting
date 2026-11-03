@@ -269,10 +269,8 @@ test('Shadcn comparison: active admin navigation uses the reference dark treatme
 test('imported DXF stays in front of the material outside-mask instead of looking like a background layer',async({page})=>{
   await page.goto('/');
   await page.locator('input[type="file"]').first().setInputFiles('tests/fixtures/blocks.dxf');
-  await page.getByRole('button',{name:'İçe aktarmayı önizle'}).click();
-  const accept=page.getByRole('button',{name:/^\d+ şekli projeye ekle$/});
-  await expect(accept).toBeEnabled();
-  await accept.click();
+  // Valid DXF parts are now added automatically; no preview modal is shown.
+  await expect(page.getByRole('dialog',{name:'İçe aktarmayı gözden geçir'})).toHaveCount(0);
   const drawing=page.locator('.workspace-svg g[data-part][data-copy-index]');
   await expect(drawing).toHaveCount(2);
   await expect(page.locator('.workspace-svg .material-width-outside')).toBeAttached();
