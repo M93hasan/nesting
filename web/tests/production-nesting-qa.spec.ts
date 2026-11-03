@@ -73,6 +73,13 @@ test('anonymous local preview DXF import, real WASM nesting and safe mocked expo
   });
   const downloadPromise=page.waitForEvent('download',{timeout:30000});
   await exportButton.click();
+  await expect.poll(async()=>{
+    const error=await page.locator('.error-banner').first().textContent().catch(()=>'');
+    if(error)throw Error('Export UI error before authorization: '+error);
+    return Boolean(postedDxf);
+  },{timeout:10000,message:'Export UI must POST to the mocked authorization endpoint'}).toBe(true);
+  console.log('NESTING_QA '+JSON.stringify({event:'local-export-authorization',called:true,
+    dxfBytes:Buffer.byteLength(postedDxf??''),projectJsonBytes:Buffer.byteLength(postedProject??'')}));
   const downloaded=await downloadPromise;
   const exported=await readFile(await downloaded.path(),'utf8');
   expect(exported).toContain('$INSUNITS');
