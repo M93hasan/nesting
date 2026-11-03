@@ -100,7 +100,7 @@ describe('independent layout validation',()=>{
     {name:'mirrorX with packed sheet',mirrorX:true,mirrorY:false,angleDeg:0,sheetIndex:undefined},
     {name:'mirrorY after a quarter-turn',mirrorX:false,mirrorY:true,angleDeg:90,sheetIndex:0},
   ])('anchors $name to the requested right-bottom corner',({mirrorX,mirrorY,angleDeg,sheetIndex})=>{
-    const part={...newPart([[0,0],[2,0],[2,1],[0,1]]),id:'mirror-corner',quantity:1};
+    const part={...newPart([[0,0],[2,0],[2,1],[0,1]]),id:'mirror-corner',quantity:1,rotations:{kind:'discrete' as const,degrees:[0,90,180,270]}};
     const doc:Document={name:'mirror-corner',parts:[part],
       settings:{...DEFAULT_SETTINGS,materialType:'sheet',materialWidthMm:10,materialLengthMm:8,clearanceMm:0,startCorner:'right-bottom'}};
     const raw:Result={documentRevision:1,solverRevision:'test',seed:'42',elapsedSeconds:1,usedLengthMm:8,sheetCount:1,
