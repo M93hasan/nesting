@@ -3,8 +3,9 @@ import {candidateResult} from '../src/workers/useSolver';
 import type {Candidate} from '../src/workers/protocol';
 import {it,expect} from 'vitest';
 import {DEFAULT_SETTINGS,newPart,type Document} from '../src/model';
-import {normalizeDocument} from '../src/geometry/normalize';
-import {documentPlacements,duplicateCopies,removeCopies,rotateToNextOrientation,rotatePlacements,syncQuantity,updatePlacements,withDocumentPlacements} from '../src/geometry/placements';
+import {bounds,normalizeDocument} from '../src/geometry/normalize';
+import {worldParts} from '../src/geometry/validate';
+import {documentPlacements,duplicateCopies,mirrorPlacements,removeCopies,rotateToNextOrientation,rotatePlacements,syncQuantity,updatePlacements,withDocumentPlacements} from '../src/geometry/placements';
 
 const source=():Document=>({name:'Copies',settings:DEFAULT_SETTINGS,parts:[{
   ...newPart([[0,0],[20,0],[20,10],[0,10]]),id:'plate',quantity:2,preparationPosition:[10,20]
@@ -57,6 +58,27 @@ it('R cycles discrete allowed orientations and uses quarter turns for free rotat
   doc={...doc,parts:doc.parts.map(part=>({...part,rotations:{kind:'continuous'}}))};
   doc=rotateToNextOrientation(doc,[ref]);expect(doc.placements![0].angleDeg).toBe(120);
   expect(doc.placements![1].angleDeg).toBe(0);
+});
+
+it.each(['x','y'] as const)('R orientation cycling preserves the physical center of a %s-mirrored copy',axis=>{
+  const ref={partId:'plate',copyIndex:0};
+  let doc=withDocumentPlacements(source());
+  doc={...doc,parts:doc.parts.map(part=>({...part,rotations:{kind:'discrete' as const,degrees:[0,90,180,270]}}))};
+  doc=mirrorPlacements(doc,[ref],axis);
+  const position=()=>{
+    const part=worldParts(doc,{placements:documentPlacements(doc)})[0];
+    const b=bounds(part.outer);
+    return [(b[0]+b[2])/2,(b[1]+b[3])/2];
+  };
+  const first=position(),other=documentPlacements(doc)[1];
+  for(const angle of [90,180,270,0]){
+    doc=rotateToNextOrientation(doc,[ref]);
+    expect(documentPlacements(doc)[0].angleDeg).toBe(angle);
+    const current=position();
+    expect(current[0]).toBeCloseTo(first[0],6);
+    expect(current[1]).toBeCloseTo(first[1],6);
+    expect(documentPlacements(doc)[1]).toEqual(other);
+  }
 });
 
 it('zero-demand types stay in the project but solver IDs remain dense and map back correctly',()=>{
