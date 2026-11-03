@@ -80,7 +80,7 @@ jobs:
           tests/critical-smoke.spec.ts
           tests/premium-theme.spec.ts
           --reporter=line --max-failures=1
-      - name: Production smoke — anonymous DXF import and nesting (no paid export)
+      - name: Local DXF functional smoke and production WAF diagnostic (no paid export)
         continue-on-error: true
         run: npx playwright test tests/production-nesting-qa.spec.ts --project=chromium --reporter=line --max-failures=1
       - name: Run legacy Sparrow compatibility suite (manual migration audit)
