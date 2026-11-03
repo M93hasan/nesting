@@ -87,7 +87,7 @@ it('measures genuine WASM waste across three seeds and two DXF part orders',()=>
       let best:Result|undefined;
       let firstValidMs:number|undefined;
       const before=performance.now();
-      wasmRun(input,2,seed,doc.settings.clearanceMm,'fast',(json:string)=>{
+      wasmRun(input,10,seed,doc.settings.clearanceMm,'fast',(json:string)=>{
         const raw=JSON.parse(json) as Candidate;
         if(raw.type!=='candidate'&&raw.type!=='live')return;
         reported++;
