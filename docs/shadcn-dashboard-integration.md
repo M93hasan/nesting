@@ -49,3 +49,11 @@ The fix lives in the isolated `studio-dashboard.css` file: non-interactive SVG m
 Visual regression tests now assert the SVG fill, mobile control/card bounding-box separation and that the bottom action bar follows the material panel. The CI artifact also captures /admin on mobile and desktop and attempts a reference screenshot from the public Shadcn Dashboard demo.
 
 This aims at visual consistency with Shadcn Dashboard, not exact pixel equivalence between unrelated dashboard and CAD layouts. Final production publication requires user approval.
+
+## Exact source screenshot comparison (stage 7)
+
+Source capture: public Shadcn Dashboard React demo at https://shadcndashboard-demo.vercel.app/ (GitHub Actions run 41663696783). Serula admin screenshots at widths 1440px and 390px were checked against it. The Shadcn reference uses a mostly white content surface, dark/black active sidebar item, outlined cards and buttons and a compact copyright/footer link. Serula previously had a pale-gray selected menu item, a stronger gray main background, oversized empty registration bars and a status badge incorrectly showing a green dot even on server failure.
+
+The correction restores the reference black active selection, white canvas, readable muted inactive links, truthful error/checking status colors, a graceful real-zero registration empty state, and a source attribution link in the admin footer. Non-empty registration data still produces the original live seven-day chart. The CAD ruler's remaining black SVG default fill is corrected without changing canvas geometry or hit areas.
+
+Functional parity to Serula's CAD tools takes priority over pixel-perfect copying of the reference's unrelated demo marketing data, widgets and site structure.

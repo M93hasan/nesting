@@ -16,12 +16,16 @@ export function RegistrationChart({registrations}:{registrations:ReadonlyArray<s
   const max=Math.max(1,...days.map(day=>day.count));
   return <section className="admin-card sd-registration-card" aria-label="Haftalık yeni kullanıcı kayıtları">
     <div className="admin-card-head"><div><h2>Yeni kullanıcı kayıtları</h2><p>Son 7 gün · Gerçek kayıt tarihlerine göre</p></div><span className="sd-chart-total">{total} kayıt</span></div>
-    <div className="sd-chart-bars" role="img" aria-label={`Son 7 günde toplam ${total} kayıt. ${days.map(day=>day.label+' '+day.count).join(', ')}`}>
+    {total===0?<div className="sd-chart-empty" role="status">
+      <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18M7 15l4-4 4 3 5-6"/></svg>
+      <strong>Bu hafta henüz yeni kayıt yok</strong>
+      <small>Kayıt yapıldığında günlük dağılım burada gösterilecek.</small>
+    </div>:<div className="sd-chart-bars" role="img" aria-label={`Son 7 günde toplam ${total} kayıt. ${days.map(day=>day.label+' '+day.count).join(', ')}`}>
       {days.map(day=><div className="sd-chart-day" key={day.key}>
         <span className="sd-chart-count" aria-hidden="true">{day.count}</span>
         <div className="sd-chart-track"><span className="sd-chart-bar" title={day.label+': '+day.count+' kayıt'} style={{height:(day.count/max*100)+'%'}}/></div>
         <small aria-hidden="true">{day.label}</small>
       </div>)}
-    </div>
+    </div>}
   </section>;
 }

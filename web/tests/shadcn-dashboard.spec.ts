@@ -245,3 +245,23 @@ test('visual reference capture from original Shadcn Dashboard demo',async({page}
     test.skip(true,'External reference demo could not be captured from the CI runner');
   }
 });
+
+test('CAD coordinate rulers adopt Shadcn neutral surfaces rather than black SVG defaults',async({page})=>{
+  await page.goto('/');
+  const first=page.locator('.app.shadcn-studio .coordinate-rulers>rect').first();
+  await expect(first).toBeAttached();
+  await expect(first).toHaveCSS('fill','rgb(244, 244, 245)');
+  await expect(page.locator('.app.shadcn-studio .coordinate-rulers>path')).toHaveCSS('stroke','rgb(161, 161, 170)');
+});
+test('Shadcn comparison: active admin navigation uses the reference dark treatment',async({page})=>{
+  await page.route('**/api/auth/admin-me',route=>route.fulfill({
+    status:200,contentType:'application/json',body:JSON.stringify(adminUser)
+  }));
+  await page.goto('/admin');
+  const nav=page.getByRole('button',{name:'Genel Bakış'});
+  await expect(nav).toHaveAttribute('aria-current','page');
+  await expect(nav).toHaveCSS('background-color','rgb(24, 24, 27)');
+  await expect(nav).toHaveCSS('color','rgb(255, 255, 255)');
+  await expect(page.getByRole('link',{name:'Shadcn Dashboard'})).toHaveAttribute('href','https://shadcndashboard.dev/');
+  await expect(page.locator('.sd-chart-empty')).toContainText('Bu hafta henüz yeni kayıt yok');
+});

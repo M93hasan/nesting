@@ -394,3 +394,68 @@
  #root .admin-page.shadcn-dashboard .sd-chart-track{min-height:110px}
  #root .admin-page.shadcn-dashboard .sd-chart-day small{font-size:9px}
 }
+
+/* Comparison against the original Shadcn Dashboard demo screenshot:
+   near-white content, black active navigation, restrained muted links. */
+#root .admin-page.shadcn-dashboard,
+#root .admin-page.shadcn-dashboard .admin-main{
+  background:#fff;
+}
+:root #root .admin-page.shadcn-dashboard .admin-sidebar nav button[aria-current="page"]{
+  border-color:#18181b;
+  background:#18181b;
+  color:#fff;
+  box-shadow:none;
+  font-weight:650;
+}
+:root #root .admin-page.shadcn-dashboard .admin-sidebar nav button[aria-current="page"]:hover{
+  background:#27272a;
+  color:#fff;
+}
+:root #root .admin-page.shadcn-dashboard .admin-sidebar nav button:not([aria-current="page"]){
+  background:transparent;
+  box-shadow:none;
+  font-weight:500;
+  color:#52525b;
+}
+:root #root .admin-page.shadcn-dashboard .admin-sidebar nav button:not([aria-current="page"]):hover{
+  background:#f4f4f5;
+  color:#18181b;
+}
+#root .admin-page.shadcn-dashboard .admin-sidebar{
+  background:#fff;
+}
+#root .admin-page.shadcn-dashboard .admin-connection[data-status="error"]{
+  border-color:#fecaca;background:#fef2f2;color:#991b1b;
+}
+#root .admin-page.shadcn-dashboard .admin-connection[data-status="error"] i{
+  background:#dc2626;
+}
+#root .admin-page.shadcn-dashboard .admin-connection[data-status="checking"] i{
+  background:#f59e0b;
+}
+#root .admin-page.shadcn-dashboard .sd-chart-empty{
+  min-height:156px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:9px;padding:24px;color:#71717a;text-align:center;
+  background:#fafafa;border:1px dashed #e4e4e7;border-radius:9px;
+}
+#root .admin-page.shadcn-dashboard .sd-chart-empty strong{
+  color:#52525b;font-size:14px;font-weight:620;
+}
+#root .admin-page.shadcn-dashboard .sd-chart-empty small{
+  font-size:12px;
+}
+#root .admin-page.shadcn-dashboard .sd-attribution{
+  display:flex;justify-content:space-between;align-items:center;
+  flex-wrap:wrap;gap:8px;
+  padding:18px 2px 8px;margin-top:20px;
+  border-top:1px solid #f4f4f5;
+  color:#71717a;font-size:12px;
+}
+#root .admin-page.shadcn-dashboard .sd-attribution a{
+  color:#52525b;text-decoration:none;
+}
+#root .admin-page.shadcn-dashboard .sd-attribution a:hover{
+  color:#18181b;text-decoration:underline;
+}
