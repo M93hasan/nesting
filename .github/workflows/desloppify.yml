@@ -1,0 +1,55 @@
+name: Desloppify code quality baseline
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/desloppify.yml'
+      - 'docs/desloppify.md'
+      - '.gitignore'
+      - 'web/.gitignore'
+
+permissions:
+  contents: read
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Desloppify
+        run: python -m pip install "desloppify[full]==1.0"
+      - name: Analyze TypeScript application and Worker
+        shell: bash
+        run: |
+          mkdir -p desloppify-reports
+          desloppify --lang typescript scan --path web --profile ci --no-badge > desloppify-reports/typescript-scan.log 2>&1
+          result=$?
+          cat desloppify-reports/typescript-scan.log
+          desloppify --lang typescript status --json > desloppify-reports/typescript-status.json 2>&1 || true
+          desloppify --lang typescript show security > desloppify-reports/typescript-security.log 2>&1 || true
+          exit "$result"
+      - name: Analyze Rust nesting engine
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p desloppify-reports
+          desloppify --lang rust scan --path web/wasm --profile ci --no-badge > desloppify-reports/rust-scan.log 2>&1
+          result=$?
+          cat desloppify-reports/rust-scan.log
+          desloppify --lang rust status --json > desloppify-reports/rust-status.json 2>&1 || true
+          desloppify --lang rust show security > desloppify-reports/rust-security.log 2>&1 || true
+          exit "$result"
+      - name: Publish diagnostic reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desloppify-baseline
+          path: desloppify-reports/
+          if-no-files-found: warn
+          retention-days: 14
