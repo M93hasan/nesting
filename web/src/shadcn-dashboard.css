@@ -1,0 +1,176 @@
+/*
+ * Serula adaptation of Shadcn Dashboard's neutral layout and controls.
+ * Source: https://github.com/shadcndashboard/shadcndashboard (MIT).
+ * No upstream router, mock API, global Tailwind reset or theme provider.
+ */
+#root .admin-page.shadcn-dashboard,
+#root .app.shadcn-studio{
+ --sd-page:#f8fafc;--sd-card:#fff;--sd-ink:#18181b;--sd-muted:#71717a;
+ --sd-border:#e4e4e7;--sd-primary:#18181b;--sd-hover:#f4f4f5;
+ background:var(--sd-page);color:var(--sd-ink);
+ font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+ -webkit-font-smoothing:antialiased;
+}
+#root .admin-page.shadcn-dashboard :is(button,input,select,textarea,a):focus-visible,
+#root .app.shadcn-studio :is(button,input,select,textarea,a):focus-visible{
+ outline:2px solid #52525b;outline-offset:2px;
+}
+#root .admin-page.shadcn-dashboard :is(button,input,select,textarea){font:inherit}
+:root #root .admin-page.shadcn-dashboard .admin-topbar{
+ background:var(--sd-card);border-bottom:1px solid var(--sd-border);
+ box-shadow:none;min-height:68px;gap:22px;
+}
+#root .admin-page.shadcn-dashboard .admin-brand{flex:none;gap:10px}
+#root .admin-page.shadcn-dashboard .admin-brand strong{font-size:15px;font-weight:700;letter-spacing:-.03em;color:var(--sd-ink)}
+#root .admin-page.shadcn-dashboard .admin-brand span{font-size:11px;color:var(--sd-muted)}
+#root .admin-page.shadcn-dashboard .sd-breadcrumb{
+ display:flex;align-items:center;gap:9px;min-width:0;margin-right:auto;
+ font-size:13px;color:var(--sd-muted);
+}
+#root .admin-page.shadcn-dashboard .sd-breadcrumb strong{
+ color:var(--sd-ink);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+#root .admin-page.shadcn-dashboard .admin-top-actions{flex-wrap:wrap;justify-content:flex-end}
+#root .admin-page.shadcn-dashboard .admin-version,
+#root .admin-page.shadcn-dashboard .admin-badge{border:1px solid var(--sd-border);border-radius:6px;background:#fafafa;color:var(--sd-muted);font-size:12px}
+#root .admin-page.shadcn-dashboard .admin-workspace-link{
+ display:inline-flex;align-items:center;justify-content:center;
+ min-height:36px;text-decoration:none;border:1px solid var(--sd-primary);
+ border-radius:7px;background:var(--sd-primary);color:#fafafa;
+ font-size:13px;font-weight:600;
+}
+#root .admin-page.shadcn-dashboard .admin-workspace-link:hover{background:#3f3f46}
+:root #root .admin-page.shadcn-dashboard:not(.admin-mobile-page) .admin-shell{max-width:none;margin:0;gap:0}
+:root #root .admin-page.shadcn-dashboard:not(.admin-mobile-page) .admin-sidebar{
+ background:#fafafa;border-right:1px solid var(--sd-border);border-radius:0;
+ box-shadow:none;margin:0;top:68px;padding:18px 10px 14px;gap:10px;
+}
+#root .admin-page.shadcn-dashboard .sd-sidebar-caption{
+ padding:8px 12px 6px;color:#a1a1aa;font-size:10px;letter-spacing:.09em;font-weight:750;
+}
+#root .admin-page.shadcn-dashboard .admin-sidebar nav{gap:3px}
+:root #root .admin-page.shadcn-dashboard .admin-sidebar nav button{
+ display:flex;align-items:center;justify-content:flex-start;gap:10px;
+ border:1px solid transparent;border-radius:8px;min-height:42px;min-width:0;
+ padding:9px 11px;text-align:left;white-space:normal;box-shadow:none;
+ background:transparent;color:#52525b;font-size:13px;font-weight:550;transform:none;
+}
+:root #root .admin-page.shadcn-dashboard .admin-sidebar nav button:hover{background:#e9e9ec;color:var(--sd-ink)}
+:root #root .admin-page.shadcn-dashboard .admin-sidebar nav button.active,
+:root #root .admin-page.shadcn-dashboard .admin-sidebar nav button[aria-current="page"]{
+ background:#e9e9ed;color:var(--sd-ink);font-weight:700;
+}
+:root #root .admin-page.shadcn-dashboard .admin-sidebar nav button>.sd-nav-icon{
+ display:grid;place-items:center;flex:0 0 25px;width:25px;height:25px;color:inherit;
+}
+:root #root .admin-page.shadcn-dashboard .admin-sidebar nav button>.sd-nav-label{
+ flex:1;width:auto;min-width:0;text-align:left;
+}
+#root .admin-page.shadcn-dashboard .admin-security-note{
+ background:#fff;border:1px solid var(--sd-border);border-radius:9px;
+ box-shadow:none;color:var(--sd-ink);
+}
+#root .admin-page.shadcn-dashboard .admin-security-note small{color:var(--sd-muted)}
+#root .admin-page.shadcn-dashboard .admin-main{min-width:0;max-width:1680px;background:var(--sd-page)}
+#root .admin-page.shadcn-dashboard .admin-heading{align-items:center}
+#root .admin-page.shadcn-dashboard .admin-heading-copy>p{
+ font-size:11px;color:var(--sd-muted);letter-spacing:.08em;font-weight:700;
+}
+#root .admin-page.shadcn-dashboard .admin-heading h1{
+ font-size:clamp(24px,2.3vw,32px);font-weight:720;letter-spacing:-.045em;color:var(--sd-ink);
+}
+#root .admin-page.shadcn-dashboard .admin-heading small{color:var(--sd-muted)}
+#root .admin-page.shadcn-dashboard .admin-connection{
+ display:inline-flex;align-items:center;gap:7px;
+ border:1px solid var(--sd-border);border-radius:999px;
+ background:#fff;color:#52525b;font-size:12px;padding:7px 10px;white-space:nowrap;
+}
+#root .admin-page.shadcn-dashboard .admin-connection i{background:#16a34a;border-radius:50%}
+#root .admin-page.shadcn-dashboard :is(.admin-card,.admin-metric,.admin-selected-user,.admin-support-box,.admin-screen-view){
+ border:1px solid var(--sd-border);border-radius:12px;
+ background:var(--sd-card);color:var(--sd-ink);
+ box-shadow:0 1px 2px rgb(0 0 0 / 3%);
+}
+#root .admin-page.shadcn-dashboard .admin-metric:hover{transform:none}
+#root .admin-page.shadcn-dashboard .admin-metric>span:not(.admin-metric-icon){color:var(--sd-muted);font-size:13px;font-weight:500}
+#root .admin-page.shadcn-dashboard .admin-metric strong{
+ font-size:clamp(25px,2vw,30px);font-weight:700;letter-spacing:-.045em;color:var(--sd-ink);
+}
+#root .admin-page.shadcn-dashboard .admin-metric small{color:var(--sd-muted)}
+#root .admin-page.shadcn-dashboard .admin-metric-icon{
+ border:1px solid var(--sd-border);border-radius:9px;
+ background:#fafafa;color:#52525b;
+}
+#root .admin-page.shadcn-dashboard .admin-card-head h2{font-weight:650;letter-spacing:-.025em}
+#root .admin-page.shadcn-dashboard :is(.admin-card-head p,.admin-empty p,.admin-user-row small){color:var(--sd-muted)}
+#root .admin-page.shadcn-dashboard :is(.admin-status-list>div,.admin-user-row,.admin-table-head){border-color:var(--sd-border)}
+#root .admin-page.shadcn-dashboard .admin-table-head{background:#f9fafb;color:#71717a;font-size:12px;font-weight:650}
+#root .admin-page.shadcn-dashboard .admin-user-row:nth-child(odd){background:#fafafa}
+#root .admin-page.shadcn-dashboard .admin-user-row:hover{background:#f9fafb}
+#root .admin-page.shadcn-dashboard :is(input:not([type="checkbox"]),select,textarea){
+ border:1px solid #d4d4d8;border-radius:7px;
+ color:var(--sd-ink);background:#fff;box-shadow:0 1px 2px rgb(0 0 0 / 2%);
+}
+#root .admin-page.shadcn-dashboard :is(input:not([type="checkbox"]),select,textarea):disabled{background:#f4f4f5;color:#71717a}
+#root .admin-page.shadcn-dashboard button:not(.active):not(.primary):not(.danger-button):not(.corel-transfer-toggle){
+ border:1px solid var(--sd-border);border-radius:7px;
+ background:#fff;color:var(--sd-ink);box-shadow:0 1px 2px rgb(0 0 0 / 3%);
+}
+#root .admin-page.shadcn-dashboard button:not(.active):not(.primary):not(.danger-button):not(.corel-transfer-toggle):hover:enabled{background:var(--sd-hover)}
+#root .admin-page.shadcn-dashboard button.primary{
+ background:var(--sd-primary);color:#fff;border:1px solid var(--sd-primary);border-radius:7px;
+}
+#root .admin-page.shadcn-dashboard button.danger-button{
+ color:#b91c1c;border:1px solid #fecaca;background:#fff;border-radius:7px;
+}
+#root .admin-page.shadcn-dashboard button:disabled{opacity:.55;cursor:not-allowed}
+#root .admin-page.shadcn-dashboard .admin-notice{
+ border:1px solid #bbf7d0;border-radius:8px;background:#f0fdf4;color:#166534;
+}
+/* CAD screen: paint-only; do not alter canvas sizing, columns or event handlers. */
+#root .app.shadcn-studio>.header{
+ background:#fff;border-bottom:1px solid var(--sd-border);color:var(--sd-ink);box-shadow:none;
+}
+#root .app.shadcn-studio :is(.sidebar,.material-panel){background:#fff;color:var(--sd-ink)}
+#root .app.shadcn-studio .sidebar{border-right:1px solid var(--sd-border)}
+#root .app.shadcn-studio .material-panel{border-left:1px solid var(--sd-border)}
+#root .app.shadcn-studio .drawing-panel{background:var(--sd-page)}
+#root .app.shadcn-studio .studio-canvas-heading{color:var(--sd-ink)}
+#root .app.shadcn-studio :is(.studio-canvas-context,.import-formats,.muted,.production-series small){color:var(--sd-muted)}
+#root .app.shadcn-studio .part-row{border-bottom:1px solid #f1f1f3}
+#root .app.shadcn-studio .part-row:hover{background:var(--sd-hover)}
+#root .app.shadcn-studio .part-properties-disclosure{
+ border:1px solid var(--sd-border);border-radius:9px;background:#fff;
+}
+#root .app.shadcn-studio .part-properties-disclosure>summary{font-weight:600}
+#root .app.shadcn-studio .canvas-wrap{background:#fff}
+#root .app.shadcn-studio>.statusbar{
+ background:#fff;border-top:1px solid var(--sd-border);color:var(--sd-ink);box-shadow:none;
+}
+#root .app.shadcn-studio :is(input:not([type="checkbox"]),select,textarea){
+ border:1px solid #d4d4d8;border-radius:7px;background:#fff;color:var(--sd-ink);
+}
+#root .app.shadcn-studio button:not(.part-select):not(.text-button):not(.run-button):not(.download-button):not(.corel-transfer-button){
+ border:1px solid var(--sd-border);border-radius:7px;background:#fff;color:#27272a;
+}
+#root .app.shadcn-studio button.primary,
+#root .app.shadcn-studio .reference-launch,
+#root .app.shadcn-studio .download-button{
+ border:1px solid #27272a;border-radius:7px;background:#27272a;color:#fff;
+}
+@media(max-width:1000px){
+ #root .admin-page.shadcn-dashboard .sd-sidebar-caption{display:none}
+ :root #root .admin-page.shadcn-dashboard:not(.admin-mobile-page) .admin-sidebar{
+  position:relative;top:auto;height:auto;max-height:none;
+  border-right:0;border-bottom:1px solid var(--sd-border);padding:9px 12px;
+ }
+ #root .admin-page.shadcn-dashboard .admin-sidebar nav button{white-space:nowrap}
+}
+@media(max-width:699px){
+ #root .admin-page.shadcn-dashboard .sd-breadcrumb{display:none}
+ #root .admin-page.shadcn-dashboard .admin-brand span{display:none}
+ #root .admin-page.shadcn-dashboard .admin-heading{align-items:flex-start}
+ #root .app.shadcn-studio :is(.sidebar,.material-panel){
+  border:0;border-top:1px solid var(--sd-border);
+ }
+}

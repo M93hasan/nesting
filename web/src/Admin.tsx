@@ -1,5 +1,6 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
 import packageInfo from '../package.json';
+import {DashboardIcon} from './components/dashboard/DashboardIcon';
 import {LanguageSelect,localeTag,useI18n} from './i18n';
 
 type Section='overview'|'users'|'messages'|'roles'|'user-settings'|'defaults'|'history'|'logs'|'system';
@@ -52,7 +53,7 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
   const localDevelopment=import.meta.env.DEV&&(location.hostname==='127.0.0.1'||location.hostname==='localhost');
   const bypassAuth=skipAuth||localDevelopment;
   const adminPath=mobileMode?'/admin2':'/admin';
-  const adminPageClass='admin-page'+(mobileMode?' admin-mobile-page':'');
+  const adminPageClass='admin-page shadcn-dashboard'+(mobileMode?' admin-mobile-page':'');
   const [auth,setAuth]=useState<'loading'|'signed-out'|'allowed'|'denied'>(bypassAuth?'allowed':'loading');
   const [signedEmail,setSignedEmail]=useState('');
   const googleButton=useRef<HTMLDivElement>(null);
@@ -366,12 +367,14 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
   return <div className={adminPageClass}>
     <header className="admin-topbar">
       <div className="admin-brand"><img src={import.meta.env.BASE_URL+'serula-logo.svg'} alt="" /><div><strong>Serula</strong><span>Yönetim Paneli</span></div></div>
+      <div className="sd-breadcrumb" aria-label="Gezinme yolu"><span>Yönetim</span><span aria-hidden="true">/</span><strong>{title}</strong></div>
       <div className="admin-top-actions"><LanguageSelect compact/>{localDevelopment&&<span className="admin-badge">Yerel test</span>}<span className="admin-version">v{packageInfo.version}</span><a className="admin-workspace-link" href={import.meta.env.BASE_URL}>Çalışma alanına dön</a></div>
     </header>
 
     <div className="admin-shell">
       <aside className="admin-sidebar" aria-label="Yönetim menüsü">
-        <nav>{nav.map(item=><button key={item.id} className={section===item.id?'active':''} onClick={()=>setSection(item.id)}><span>{item.icon}</span>{item.label}</button>)}</nav>
+        <div className="sd-sidebar-caption">ÇALIŞMA ALANI</div>
+        <nav>{nav.map(item=><button key={item.id} type="button" className={section===item.id?'active':''} aria-current={section===item.id?'page':undefined} onClick={()=>setSection(item.id)}><span className="sd-nav-icon"><DashboardIcon name={item.id}/></span><span className="sd-nav-label">{item.label}</span></button>)}</nav>
         <div className="admin-security-note"><strong>Güvenli yönetim</strong><small>Kullanıcı ve yetki değişiklikleri sunucu kimlik doğrulaması olmadan uygulanmaz.</small></div>
       </aside>
 
