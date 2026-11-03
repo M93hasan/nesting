@@ -1,0 +1,251 @@
+/*
+ * Serula Liquid Studio — visual identity layer.
+ *
+ * Previous UI release polished a few controls but left the actual
+ * application shell nearly unchanged. This release deliberately changes
+ * the shell and panels, including admin, while keeping CAD content opaque.
+ * Native Apple Liquid Glass refraction is unavailable on the web.
+ *
+ * Preserve existing theme preference (data-theme), saved appearance,
+ * keyboard behavior, layout geometry, numeric editing and DXF drawing.
+ */
+:root {
+  --liquid-hero: light-dark(#eef4ff, #182233);
+  --liquid-rail: light-dark(#f1f5fd, #1b2738);
+  --liquid-rail-heading: light-dark(#e3ecfb, #233349);
+  --liquid-accent-wash: light-dark(#dceaff, #293f65);
+  --liquid-ink: light-dark(#173056, #eef5ff);
+  --liquid-muted: light-dark(#496382, #c1d0e5);
+  --liquid-edge: light-dark(#c7d6ea, #435a78);
+  --liquid-edge-strong: light-dark(#91acd4, #7c98bb);
+  --liquid-shine: light-dark(rgb(255 255 255 / .94), rgb(255 255 255 / .12));
+  --liquid-raised-shadow: 0 7px 24px rgb(14 44 81 / .12), inset 0 1px var(--liquid-shine);
+  --liquid-frost: light-dark(rgb(248 251 255 / .88), rgb(32 47 69 / .91));
+  --liquid-active: light-dark(#244fc9, #96baff);
+  --liquid-radius: 14px;
+  --liquid-radius-lg: 20px;
+}
+
+/* Make the top-level workspace noticeably different, not just button hover. */
+:root #root .app > .header {
+  background: var(--liquid-hero) !important;
+  background-image: linear-gradient(120deg, color-mix(in srgb,var(--liquid-accent-wash) 70%,transparent),transparent 62%) !important;
+  border-bottom: 1px solid var(--liquid-edge) !important;
+  box-shadow: 0 3px 18px rgb(19 47 85 / .09) !important;
+}
+:root #root .app .brand-block {
+  background: var(--liquid-rail-heading) !important;
+  border-right: 1px solid var(--liquid-edge);
+}
+:root #root .app .serula-brand strong {
+  color: var(--liquid-ink);
+  font-weight: 800;
+  letter-spacing: -.04em;
+}
+:root #root .app .header nav :is(a,button):not(.primary):not(.reference-settings) {
+  border: 1px solid var(--liquid-edge) !important;
+  background: var(--liquid-frost) !important;
+  color: var(--liquid-ink) !important;
+  box-shadow: inset 0 1px 0 var(--liquid-shine);
+}
+:root #root .app .header nav :is(a,button):hover:not(:disabled) {
+  border-color: var(--liquid-edge-strong) !important;
+}
+
+/* Rails: a deliberate visual separation from the white/black CAD canvas. */
+:root #root .app :is(.sidebar,.material-panel) {
+  background: var(--liquid-rail) !important;
+  border-color: var(--liquid-edge) !important;
+}
+:root #root .app :is(.sidebar,.material-panel) > .panel-title {
+  background: var(--liquid-rail-heading) !important;
+  border-bottom: 1px solid var(--liquid-edge) !important;
+  box-shadow: inset 0 1px 0 var(--liquid-shine);
+}
+:root #root .app :is(.sidebar,.material-panel) > .panel-title h2 {
+  color: var(--liquid-ink);
+  font-weight: 800;
+}
+:root #root .app .part-row {
+  background: color-mix(in srgb,var(--panel) 84%,var(--liquid-accent-wash)) !important;
+  border: 1px solid var(--liquid-edge) !important;
+  border-left: 3px solid transparent !important;
+  border-radius: var(--liquid-radius);
+  box-shadow: 0 2px 7px rgb(15 35 69 / .035);
+}
+:root #root .app .part-row.selected {
+  background: var(--liquid-accent-wash) !important;
+  border-color: var(--liquid-edge-strong) !important;
+  border-left: 3px solid var(--liquid-active) !important;
+  box-shadow: 0 3px 11px rgb(15 50 90 / .11);
+}
+:root #root .app .part-properties-disclosure {
+  background: var(--panel);
+  border: 1px solid var(--liquid-edge) !important;
+  border-radius: var(--liquid-radius);
+  box-shadow: var(--liquid-raised-shadow);
+}
+:root #root .app .part-properties-disclosure > summary {
+  background: var(--liquid-rail-heading) !important;
+  color: var(--liquid-ink);
+}
+:root #root .app .material-panel .settings {
+  background: transparent !important;
+}
+:root #root .app .material-panel .settings :is(input:not([type=checkbox]):not([type=radio]),select),
+:root #root .app .part-properties-inline :is(input:not([type=checkbox]):not([type=radio]),select) {
+  background: var(--panel) !important;
+  border: 1px solid var(--liquid-edge) !important;
+  border-radius: 10px !important;
+}
+:root #root .app .material-panel .settings :is(input,select):focus-visible,
+:root #root .app .part-properties-inline :is(input,select):focus-visible {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 2px;
+}
+:root #root .app .part-properties-inline input[aria-invalid="true"] {
+  border-color: var(--error) !important;
+}
+
+/* The canvas and SVG stay flat/opaque; navigation above them may be glass. */
+:root #root .app .studio-canvas-heading {
+  background: var(--liquid-hero) !important;
+  border-bottom: 1px solid var(--liquid-edge) !important;
+}
+:root #root .app .studio-canvas-heading h1 {
+  color: var(--liquid-ink) !important;
+  font-weight: 780;
+  letter-spacing: -.035em;
+}
+:root #root .app .canvas-tools > button:not([aria-pressed="true"]),
+:root #root .app .cad-snapping {
+  background: var(--liquid-frost) !important;
+  border: 1px solid var(--liquid-edge) !important;
+  box-shadow: var(--liquid-raised-shadow) !important;
+  border-radius: 12px;
+}
+:root #root .app .canvas-tools > button[aria-pressed="true"] {
+  background: var(--liquid-accent-wash) !important;
+  border: 1px solid var(--liquid-active) !important;
+  color: var(--liquid-ink) !important;
+}
+:root #root .app > .statusbar {
+  background: var(--liquid-hero) !important;
+  border-top: 1px solid var(--liquid-edge) !important;
+  box-shadow: 0 -4px 18px rgb(14 40 74 / .08) !important;
+}
+/* Preserve the recognizable primary actions and existing button geometry. */
+
+/* Admin: a real style change visible before opening any popup. */
+:root #root .admin-page .admin-topbar {
+  background: var(--liquid-hero) !important;
+  border-bottom: 1px solid var(--liquid-edge) !important;
+  box-shadow: 0 4px 18px rgb(12 30 64 / .1), inset 0 1px var(--liquid-shine);
+}
+:root #root .admin-page .admin-sidebar {
+  background: var(--liquid-rail) !important;
+  border-right: 1px solid var(--liquid-edge) !important;
+}
+:root #root .admin-page .admin-sidebar nav button {
+  color: var(--liquid-muted);
+  border-radius: 12px;
+  min-height: 40px;
+}
+:root #root .admin-page .admin-sidebar nav button.active {
+  color: var(--liquid-ink) !important;
+  background: var(--liquid-accent-wash) !important;
+  border: 1px solid var(--liquid-edge-strong);
+  box-shadow: inset 0 1px 0 var(--liquid-shine);
+}
+:root #root .admin-page .admin-heading h1 {
+  letter-spacing: -.035em;
+}
+:root #root .admin-page :is(.admin-card,.admin-metric) {
+  border: 1px solid var(--liquid-edge) !important;
+  border-radius: var(--liquid-radius-lg);
+  box-shadow: 0 5px 20px rgb(14 39 76 / .075), inset 0 1px var(--liquid-shine) !important;
+}
+:root #root .admin-page .admin-card-head {
+  border-color: var(--liquid-edge);
+}
+:root #root .admin-page .admin-metric-icon {
+  background: var(--liquid-accent-wash);
+}
+
+/* Login, account, settings, support and all app dialogs share the same finish. */
+:root #root :is(.auth-card,.modal,.auth-account-dropdown,.auth-support-card,.support-chat) {
+  background: var(--panel) !important;
+  border: 1px solid var(--liquid-edge) !important;
+  border-radius: var(--liquid-radius-lg);
+  box-shadow: 0 20px 48px rgb(12 35 70 / .16), inset 0 1px var(--liquid-shine) !important;
+}
+:root #root :is(.auth-tabs,.auth-account-menu > summary,.support-chat-head) {
+  background: var(--liquid-rail-heading) !important;
+  border: 1px solid var(--liquid-edge) !important;
+}
+:root #root :is(.auth-tabs button.active,.appearance-presets button[aria-pressed="true"]) {
+  background: var(--liquid-accent-wash) !important;
+  color: var(--liquid-ink) !important;
+  border-color: var(--liquid-edge-strong) !important;
+}
+:root #root .appearance-color {
+  background: var(--liquid-rail);
+  border-color: var(--liquid-edge);
+}
+
+/* No compositor blur on CAD content, tables or the numeric edit layer. */
+:root #root .app :is(.workspace-svg,.canvas-wrap,.part-row,.material-panel,.sidebar),
+:root #root .admin-page :is(.admin-card,.admin-metric,.admin-user-row,.admin-table) {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+@media (max-width: 699px) {
+  :root #root .app .part-row { margin-inline: 5px; }
+  :root #root .app .studio-canvas-heading { padding-inline: 13px; }
+  :root #root .admin-page :is(.admin-card,.admin-metric) { border-radius: 16px; }
+}
+@media (prefers-reduced-transparency: reduce), (forced-colors: active), (prefers-contrast: more) {
+  :root #root .app .canvas-tools > button,
+  :root #root .app .cad-snapping,
+  :root #root .admin-page .admin-topbar {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    background: var(--panel) !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root #root .app .part-row,
+  :root #root .admin-page .admin-sidebar nav button {
+    transition: none !important;
+  }
+}
+
+/* Entry points: the logged-out login and admin authentication screens also
+   need to look new, not just the authenticated workspace. */
+:root #root .auth-screen {
+  background-color: var(--page);
+  background-image:
+    radial-gradient(ellipse at 10% 15%, color-mix(in srgb,var(--liquid-active) 14%,transparent),transparent 54%),
+    radial-gradient(ellipse at 93% 85%, color-mix(in srgb,var(--liquid-active) 11%,transparent),transparent 50%) !important;
+  background-attachment: fixed;
+}
+:root #root .auth-card,
+:root #root .auth-support-card {
+  background: var(--liquid-frost) !important;
+  border: 1px solid var(--liquid-edge) !important;
+  box-shadow: 0 24px 65px rgb(12 35 70 / .17),inset 0 1px 0 var(--liquid-shine) !important;
+}
+:root #root .auth-card h1 {
+  color: var(--liquid-ink);
+  letter-spacing: -.035em;
+}
+:root #root .auth-card .auth-tabs {
+  background: var(--liquid-rail-heading) !important;
+  border: 1px solid var(--liquid-edge) !important;
+}
+@media (prefers-reduced-transparency: reduce), (forced-colors: active) {
+  :root #root .auth-card,
+  :root #root .auth-support-card {
+    background: var(--panel) !important;
+  }
+}
