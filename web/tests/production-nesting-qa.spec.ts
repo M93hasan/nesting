@@ -64,7 +64,11 @@ test('anonymous local preview DXF import, real WASM nesting and safe mocked expo
   const metrics=await page.locator('.metrics').innerText();
   expect(metrics).toMatch(/Malzeme verimliliği\s+\d/);
   console.log('NESTING_QA '+JSON.stringify({event:'local-dxf-nesting',elapsedMs:Date.now()-started,parts:2,hasHole:true,metrics}));
+  // A valid candidate can appear while the solver is still running.
+  // Wait until its automatic 10-second run ends before beginning export.
+  await expect(page.locator('.run-state')).toContainText('Tamamlandı',{timeout:25000});
   await page.getByRole('button',{name:'En iyi geçerli yerleşim',exact:true}).click();
+  await expect(page.getByRole('button',{name:'En iyi geçerli yerleşim',exact:true})).toHaveAttribute('aria-pressed','true');
   const exportButton=page.getByRole('button',{name:'DXF İndir',exact:true});
   await expect(exportButton).toBeEnabled({timeout:30000});
   // Only the local preview runs this; the real billed API never receives a request.
@@ -85,6 +89,18 @@ test('anonymous local preview DXF import, real WASM nesting and safe mocked expo
   expect(probe,'The local authorization stub must answer an explicit browser request').toBe(200);
   posted=undefined;
   observedRequests.length=0;
+  await page.evaluate(()=>{
+    const state=window as typeof window & {__qaExportClicks?:number;__qaGeometryRequests?:number};
+    state.__qaExportClicks=0;state.__qaGeometryRequests=0;
+    const element=Array.from(document.querySelectorAll('button')).find(b=>b.textContent?.includes('DXF İndir'));
+    element?.addEventListener('click',()=>{state.__qaExportClicks=(state.__qaExportClicks??0)+1});
+    const original=Worker.prototype.postMessage;
+    Worker.prototype.postMessage=function(...args){
+      if((args[0] as {type?:string}|null)?.type==='export')
+        state.__qaGeometryRequests=(state.__qaGeometryRequests??0)+1;
+      return original.apply(this,args);
+    };
+  });
   const downloadPromise=page.waitForEvent('download',{timeout:40000});
   await exportButton.click();
   try{
@@ -97,7 +113,9 @@ test('anonymous local preview DXF import, real WASM nesting and safe mocked expo
     console.log('NESTING_QA '+JSON.stringify({event:'local-export-diagnostic',apiRequests:observedRequests,
       errors:await page.locator('.error-banner').allTextContents(),
       buttonDisabled:await exportButton.isDisabled(),buttonVisible:await exportButton.isVisible(),
-      state:await page.locator('.run-state').innerText().catch(()=>'')}));
+      state:await page.locator('.run-state').innerText().catch(()=>''),
+      eventCounts:await page.evaluate(()=>({clicks:(window as typeof window & {__qaExportClicks?:number}).__qaExportClicks,
+        workerExports:(window as typeof window & {__qaGeometryRequests?:number}).__qaGeometryRequests}))}));
     throw error;
   }
   expect(posted).toBeDefined();
