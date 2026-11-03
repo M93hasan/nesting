@@ -84,6 +84,60 @@ describe('independent layout validation',()=>{
     expect(validate(doc,result).status).toBe('passed');
     result.placements[1].yMm=1.98;expect(validate(doc,result).status).toBe('failed');
   });
+  it('checks overlapping copies when the same first sheet uses omitted and explicit zero indices',()=>{
+    const {doc,result}=fixture();
+    doc.settings={...doc.settings,materialType:'sheet',materialLengthMm:2,clearanceMm:0};
+    result.usedLengthMm=2;
+    result.sheetCount=1;
+    result.placements[0].sheetIndex=undefined;
+    result.placements[1]={...result.placements[1],sheetIndex:0,xMm:0};
+    const checked=validate(doc,result);
+    expect(checked.status).toBe('failed');
+    expect(checked.overlapAreaMm2).toBeGreaterThan(.9);
+  });
+  it('enforces clearance between first-sheet copies with omitted and explicit zero sheet indexes',()=>{
+    const {doc,result}=fixture();
+    doc.settings={...doc.settings,materialType:'sheet',materialLengthMm:2,materialWidthMm:3,clearanceMm:.3};
+    result.sheetCount=1;result.usedLengthMm=2;
+    result.placements[0].sheetIndex=undefined;
+    result.placements[1]={...result.placements[1],sheetIndex:0,xMm:1.2};
+    const checked=validate(doc,result);
+    expect(checked.status).toBe('failed');
+    expect(checked.overlapAreaMm2).toBe(0);
+    expect(checked.minClearanceMm).toBeCloseTo(.2,6);
+    expect(checked.errors.some(error=>error.includes('Minimum clearance'))).toBe(true);
+  });
+  it.each([
+    {name:'zero vs one',first:0 as number|undefined,second:1},
+    {name:'omitted zero vs one',first:undefined as number|undefined,second:1}
+  ])('allows coincident X/Y coordinates on separate physical sheets ($name)',({first,second})=>{
+    const {doc,result}=fixture();
+    doc.settings={...doc.settings,materialType:'sheet',materialLengthMm:2,clearanceMm:.3};
+    result.sheetCount=2;result.usedLengthMm=4;
+    result.placements[0].sheetIndex=first;
+    result.placements[1]={...result.placements[1],sheetIndex:second,xMm:0};
+    const checked=validate(doc,result);
+    expect(checked.status).toBe('passed');
+    expect(checked.overlapAreaMm2).toBe(0);
+    expect(checked.minClearanceMm).toBeNull();
+  });
+  it.each([
+    {name:'mirrorX with assigned sheet',mirrorX:true,mirrorY:false,angleDeg:0,sheetIndex:0},
+    {name:'mirrorX with packed sheet',mirrorX:true,mirrorY:false,angleDeg:0,sheetIndex:undefined},
+    {name:'mirrorY after a quarter-turn',mirrorX:false,mirrorY:true,angleDeg:90,sheetIndex:0},
+  ])('anchors $name to the requested right-bottom corner',({mirrorX,mirrorY,angleDeg,sheetIndex})=>{
+    const part={...newPart([[0,0],[2,0],[2,1],[0,1]]),id:'mirror-corner',quantity:1,rotations:{kind:'discrete' as const,degrees:[0,90,180,270]}};
+    const doc:Document={name:'mirror-corner',parts:[part],
+      settings:{...DEFAULT_SETTINGS,materialType:'sheet',materialWidthMm:10,materialLengthMm:8,clearanceMm:0,startCorner:'right-bottom'}};
+    const raw:Result={documentRevision:1,solverRevision:'test',seed:'42',elapsedSeconds:1,usedLengthMm:8,sheetCount:1,
+      placements:[{partId:part.id,copyIndex:0,xMm:0,yMm:0,angleDeg,mirrorX,mirrorY,
+        ...(sheetIndex===undefined?{}:{sheetIndex})}],
+      validation:{status:'pending',overlapAreaMm2:0,maxBoundaryViolationMm:0,minClearanceMm:null,errors:[]}};
+    const packed=packResultIntoSheets(doc,raw),corners=worldParts(doc,packed)[0].outer;
+    expect(Math.max(...corners.map(([x])=>x))).toBeCloseTo(10,6);
+    expect(Math.min(...corners.map(([,y])=>y))).toBeCloseTo(0,6);
+    expect(validate(doc,packed).status).toBe('passed');
+  });
   it('rejects self-crossing contours and invalid holes',()=>{
     expect(()=>normalizeRing([[0,0],[2,2],[0,2],[2,0]])).toThrow();
     const {doc}=fixture();expect(()=>normalizePart({...doc.parts[0],holes:[[[0,0],[.5,0],[.5,.5]]]})).toThrow();

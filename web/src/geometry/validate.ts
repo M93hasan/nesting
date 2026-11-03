@@ -116,7 +116,7 @@ export function validate(doc: Document, result: Result, serialized?: WorldPart[]
     if(v.maxBoundaryViolationMm>RESULT_LINEAR_TOLERANCE_MM) v.errors.push(`Material boundary exceeded by ${v.maxBoundaryViolationMm} mm.`);
     let operations=0;
     for(let i=0;i<world.length;i++) for(let j=0;j<i;j++) {
-      if(doc.settings.materialType==='sheet' && result.placements[i].sheetIndex!==result.placements[j].sheetIndex)continue;
+      if(doc.settings.materialType==='sheet' && (result.placements[i].sheetIndex??0)!==(result.placements[j].sheetIndex??0))continue;
       const a=boxes[i],b=boxes[j];
       const boxDistance=Math.hypot(Math.max(0,a[0]-b[2],b[0]-a[2]),Math.max(0,a[1]-b[3],b[1]-a[3]));
       if(boxDistance===0) {

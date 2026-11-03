@@ -208,9 +208,6 @@ export function rotateToNextOrientation(document: Document, refs: CopyRef[]): Do
     const allowed=part.rotations.kind==='discrete'?[...new Set(part.rotations.degrees.map(angle=>((angle%360)+360)%360))].sort((a,b)=>a-b):undefined;
     const next=allowed?(allowed.find(angle=>angle>current+1e-7)??allowed[0]):current+90;
     if(Math.abs(next-current)<1e-7)return copy;
-    const b=bounds(part.outer),x=(b[0]+b[2])/2,y=(b[1]+b[3])/2;
-    const before=copy.angleDeg*Math.PI/180,after=next*Math.PI/180;
-    return {...copy,angleDeg:next,xMm:copy.xMm+x*(Math.cos(before)-Math.cos(after))-y*(Math.sin(before)-Math.sin(after)),
-      yMm:copy.yMm+x*(Math.sin(before)-Math.sin(after))+y*(Math.cos(before)-Math.cos(after))};
+    return keepCopyCenter(part,copy,{...copy,angleDeg:next});
   }));
 }
