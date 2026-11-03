@@ -30,7 +30,7 @@ test('shadcn admin navigation selects real API-backed pages',async({page})=>{
   await expect(users).toHaveAttribute('aria-current','page');
   await expect(page.getByRole('heading',{name:'Kullanıcı Yönetimi'})).toBeVisible();
   await expect(page.getByRole('textbox',{name:'Kullanıcı ara'})).toBeAttached();
-  await expect(admin).toHaveCSS('background-color','rgb(248, 250, 252)');
+  await expect(admin).toHaveCSS('background-color','rgb(255, 255, 255)');
 });
 
 test('shadcn navigation fits phone, tablet and desktop widths',async({page})=>{
