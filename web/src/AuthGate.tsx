@@ -24,8 +24,9 @@ export function UserGate({children}:{children:ReactNode}){
   const {locale}=useI18n();
   const [user,setUser]=useState<SessionUser|null|undefined>(undefined);
   const resetToken=new URLSearchParams(location.search).get('reset')||'';
-  const [open,setOpen]=useState(!!resetToken),[mode,setMode]=useState<'login'|'register'|'reset'>(resetToken?'reset':'login');
+  const [open,setOpen]=useState(!!resetToken),[mode,setMode]=useState<'login'|'register'|'reset'|'verify'>(resetToken?'reset':'login');
   const [email,setEmail]=useState(''),[password,setPassword]=useState(''),[name,setName]=useState('');
+  const [otp,setOtp]=useState(''),[otpSuccess,setOtpSuccess]=useState(false);
   const [error,setError]=useState(''),[busy,setBusy]=useState(false);
   const [support,setSupport]=useState<SupportSession|null>(null);
   const lastRemoteSettings=useRef('');
@@ -166,8 +167,27 @@ export function UserGate({children}:{children:ReactNode}){
     stopScreenSupport();setSupport(null);
   }
 
+  async function verifyOtp(code:string){
+    if(code.length!==4||busy)return;
+    setBusy(true);setError('');
+    try{
+      const data=await request('/api/auth/verify-email',{method:'POST',body:JSON.stringify({email,code})});
+      setOtpSuccess(true);setUser(data.user);window.dispatchEvent(new Event('serula-auth-updated'));
+      setTimeout(()=>setOpen(false),800);
+    }catch(e){setError(e instanceof Error?e.message:String(e));setOtp('');}
+    finally{setBusy(false);}
+  }
+  function updateOtp(index:number,value:string,target:HTMLInputElement){
+    const numbers=value.replace(/\\D/g,'');
+    const next=(otp.padEnd(4,' ').split(''));
+    for(let n=0;n<numbers.length&&index+n<4;n++)next[index+n]=numbers[n];
+    const joined=next.join('').replace(/ /g,'');
+    setOtp(joined);
+    if(joined.length===4){void verifyOtp(joined);}
+    else if(numbers.length)target.parentElement?.querySelectorAll('input')[Math.min(index+numbers.length,3)]?.focus();
+  }
   async function submit(e:React.FormEvent){    e.preventDefault();setBusy(true);setError('');
-    try{if(mode==='reset'){await request('/api/auth/reset-password',{method:'POST',body:JSON.stringify({token:resetToken,password})});history.replaceState({},'',location.pathname);setMode('login');setPassword('');setError('Parolanız yenilendi. Şimdi giriş yapabilirsiniz.');return;}const data=await request(mode==='register'?'/api/auth/register':'/api/auth/login',{method:'POST',body:JSON.stringify({email,password,name,locale})});setUser(data.user);setOpen(false);window.dispatchEvent(new Event('serula-auth-updated'))}
+    try{if(mode==='verify'){await verifyOtp(otp);return;}if(mode==='reset'){await request('/api/auth/reset-password',{method:'POST',body:JSON.stringify({token:resetToken,password})});history.replaceState({},'',location.pathname);setMode('login');setPassword('');setError('Parolanız yenilendi. Şimdi giriş yapabilirsiniz.');return;}const data=await request(mode==='register'?'/api/auth/register':'/api/auth/login',{method:'POST',body:JSON.stringify({email,password,name,locale})});if(data.verificationRequired){setMode('verify');setOtp('');setPassword('');return;}setUser(data.user);setOpen(false);window.dispatchEvent(new Event('serula-auth-updated'))}
     catch(e){setError(e instanceof Error?e.message:String(e))}finally{setBusy(false)}
   }
   return <>{children}
@@ -181,8 +201,9 @@ export function UserGate({children}:{children:ReactNode}){
     {support?.status==='pending'&&<div className="auth-screen auth-overlay"><div className="auth-card auth-support-card"><img src="/serula-logo.svg" alt=""/><h2>{support.mode==='screen'?'Ekran paylaşımı isteği':'Uzaktan destek isteği'}</h2><p>{support.mode==='screen'?'Serula yöneticisi ekranınızı canlı görmek istiyor. Paylaşılacak ekranı siz seçersiniz; izin vermeden görüntü aktarılmaz ve istediğiniz an durdurabilirsiniz.':'Serula yöneticisi yalnızca bu uygulamanın ayarlarını uzaktan düzenlemek istiyor. Tarayıcınızın diğer sekmelerine, dosyalarınıza veya cihazınıza erişim verilmez.'}</p>{error&&<p className="auth-error">{error}</p>}<div className="auth-support-actions"><button disabled={busy} onClick={()=>void declineSupport()}>Reddet</button><button disabled={busy} className="primary" onClick={()=>void approveSupport()}>{busy?'Bağlanıyor…':support.mode==='screen'?'Onayla ve ekranı paylaş':'Onayla'}</button></div></div></div>}
     {open&&!user&&<div className="auth-screen auth-overlay" onMouseDown={e=>{if(e.currentTarget===e.target)setOpen(false)}}><div className="auth-card">
       <img src="/serula-logo.svg" alt=""/><h1>Serula Nesting</h1><LanguageSelect/><p>DXF indirmek için giriş yapın. Dosya içe aktarma ve yerleştirme giriş yapmadan kullanılabilir.</p>
-      {mode!=='reset'&&<div className="auth-tabs"><button className={mode==='login'?'active':''} onClick={()=>setMode('login')}>Giriş yap</button><button className={mode==='register'?'active':''} onClick={()=>setMode('register')}>Kayıt ol</button></div>}{mode==='reset'&&<h2>Yeni parola belirle</h2>}
-      <form onSubmit={submit}>{mode==='register'&&<label>Adınız<input required value={name} onChange={e=>setName(e.target.value)}/></label>}{mode!=='reset'&&<label>E-posta<input type="email" required value={email} onChange={e=>setEmail(e.target.value)}/></label>}<label>{mode==='reset'?'Yeni parola':'Parola'}<input type="password" minLength={8} required value={password} onChange={e=>setPassword(e.target.value)}/></label><button disabled={busy}>{busy?'Bekleyin…':mode==='reset'?'Parolayı değiştir':mode==='register'?'Hesap oluştur':'Giriş yap'}</button></form>
+      {mode!=='reset'&&mode!=='verify'&&<div className="auth-tabs"><button className={mode==='login'?'active':''} onClick={()=>setMode('login')}>Giriş yap</button><button className={mode==='register'?'active':''} onClick={()=>setMode('register')}>Kayıt ol</button></div>}{mode==='reset'&&<h2>Yeni parola belirle</h2>}
+      {mode==='verify'&&<div className="serula-otp-form"><span className="serula-otp-glow" aria-hidden="true"/><h2 className="serula-otp-title">E-postanı doğrula</h2><p className="serula-otp-hint">{email} adresine gönderilen dört haneli kodu gir. Kod 5 dakika geçerli.</p><div className="serula-otp-inputs" role="group" aria-label="Doğrulama kodu">{Array.from({length:4},(_,i)=><input key={i} className="serula-otp-input" aria-label={`Kod rakamı ${i+1}`} value={otp[i]||''} disabled={busy||otpSuccess} inputMode="numeric" pattern="[0-9]*" autoComplete={i===0?'one-time-code':'off'} maxLength={4} onChange={e=>updateOtp(i,e.target.value,e.currentTarget)} onKeyDown={e=>{if(e.key==='Backspace'&&!otp[i]&&i>0){setOtp(otp.slice(0,-1));(e.currentTarget.previousElementSibling as HTMLInputElement)?.focus();}}}/>)}</div><p role="status">{otpSuccess?'OK ✓ Doğrulandı':busy?'Kontrol ediliyor…':''}</p><button type="button" className="serula-otp-submit" onClick={()=>{setMode('register');setOtp('');setError('');}}>Kodu tekrar gönder / kayıt bilgilerini düzenle</button></div>}
+      {mode!=='verify'&&<form onSubmit={submit}>{mode==='register'&&<label>Adınız<input required value={name} onChange={e=>setName(e.target.value)}/></label>}{mode!=='reset'&&<label>E-posta<input type="email" required value={email} onChange={e=>setEmail(e.target.value)}/></label>}<label>{mode==='reset'?'Yeni parola':'Parola'}<input type="password" minLength={8} required value={password} onChange={e=>setPassword(e.target.value)}/></label><button disabled={busy}>{busy?'Bekleyin…':mode==='reset'?'Parolayı değiştir':mode==='register'?'Hesap oluştur' :'Giriş yap'}</button></form>}
       {error&&<p className="auth-error">{error}</p>}<div className="auth-or"><span/>veya<span/></div><div className="auth-google"><button type="button" className="auth-google-button" onClick={()=>{location.href="/google-login.html?locale="+encodeURIComponent(locale)}}><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path fill="#4285F4" d="M21.35 11.1H12v3.8h5.35c-.23 1.25-.93 2.3-1.98 3l3.2 2.49c1.87-1.73 2.95-4.28 2.95-7.32 0-.73-.06-1.43-.17-2.1z"/><path fill="#34A853" d="M12 22c2.7 0 4.96-.9 6.61-2.44l-3.2-2.49c-.9.6-2.05.95-3.41.95-2.62 0-4.84-1.77-5.63-4.15H3.06v2.55A10 10 0 0 0 12 22z"/><path fill="#FBBC05" d="M6.37 13.87A6.02 6.02 0 0 1 6.05 12c0-.65.11-1.28.32-1.87V7.58H3.06A10 10 0 0 0 2 12c0 1.61.39 3.13 1.06 4.42l3.31-2.55z"/><path fill="#EA4335" d="M12 5.98c1.47 0 2.78.51 3.82 1.51l2.86-2.86A9.68 9.68 0 0 0 12 2a10 10 0 0 0-8.94 5.58l3.31 2.55C7.16 7.75 9.38 5.98 12 5.98z"/></svg><span>Google ile devam et</span></button></div><small>Yeni normal kullanıcılar 5 indirme/yerleştirme hakkıyla başlar.</small>
       <button onClick={()=>setOpen(false)}>Şimdilik kapat</button>
     </div></div>}
