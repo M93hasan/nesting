@@ -1,0 +1,275 @@
+/*
+ * Serula Slate Ambience (post-Shadcn UI refinement).
+ * Neutral graphite + layered blue-gray instead of white on white.
+ * Scoped paint and compact parts controls; geometry, CAD events and exports stay unchanged.
+ */
+/* Only desktop and tablet get the new palette and compact Parçalar UI.
+   Mobile continues using the previously published styling, unchanged. */
+@media (min-width: 700px) {
+#root .admin-page.shadcn-dashboard{
+ --sd-page:#dce5ee;--sd-card:#ecf2f7;--sd-ink:#243447;
+ --sd-muted:#50687c;--sd-border:#c5d1dc;--sd-primary:#456b86;
+ --sd-hover:#d5e3ee;
+ background:#dce5ee;color:var(--sd-ink);
+}
+#root .admin-page.shadcn-dashboard .admin-main{background:#dce5ee}
+:root #root .admin-page.shadcn-dashboard .admin-topbar{
+ background:#26394e;color:#eef5fb;border-color:#4c6176;
+ box-shadow:0 4px 17px rgb(25 45 64 / 12%);
+}
+#root .admin-page.shadcn-dashboard .admin-brand strong,
+#root .admin-page.shadcn-dashboard .sd-breadcrumb strong{color:#eff5fc}
+#root .admin-page.shadcn-dashboard .admin-brand span,
+#root .admin-page.shadcn-dashboard .sd-breadcrumb{color:#c0d0dd}
+#root .admin-page.shadcn-dashboard .admin-version,
+#root .admin-page.shadcn-dashboard .admin-badge{
+ background:#364b60;color:#e5edf4;border-color:#536b81;
+}
+#root .admin-page.shadcn-dashboard .admin-workspace-link{
+ background:#526f86;border-color:#728ba0;color:#fff;
+}
+#root .admin-page.shadcn-dashboard .admin-workspace-link:hover{background:#658398}
+:root #root .admin-page.shadcn-dashboard:not(.admin-mobile-page) .admin-sidebar,
+#root .admin-page.shadcn-dashboard .admin-sidebar{
+ background:#2d4055;border-color:#4a627a;color:#e8f0f7;
+}
+#root .admin-page.shadcn-dashboard .sd-sidebar-caption{color:#aebfd0}
+:root #root .admin-page.shadcn-dashboard .admin-sidebar nav button:not([aria-current="page"]){
+ background:transparent;border-color:transparent;color:#d6e2ed;
+}
+:root #root .admin-page.shadcn-dashboard .admin-sidebar nav button:not([aria-current="page"]):hover{
+ background:#3e5770;color:#fff;
+}
+:root #root .admin-page.shadcn-dashboard .admin-sidebar nav button[aria-current="page"]{
+ background:#4e7593;border-color:#789bb4;color:#fff;
+ box-shadow:inset 3px 0 #c0d8e9;
+}
+:root #root .admin-page.shadcn-dashboard .admin-sidebar nav button[aria-current="page"]:hover{
+ background:#597f9b;color:#fff;
+}
+#root .admin-page.shadcn-dashboard .admin-security-note{
+ background:#374e65;border-color:#526a81;color:#eff5fa;
+}
+#root .admin-page.shadcn-dashboard .admin-security-note small{color:#c5d4e0}
+#root .admin-page.shadcn-dashboard :is(.admin-card,.admin-metric,.admin-selected-user,.admin-support-box,.admin-screen-view){
+ background:#edf3f8;border-color:#bfcedb;box-shadow:0 2px 7px rgb(37 60 81 / 6%);
+ color:var(--sd-ink);
+}
+#root .admin-page.shadcn-dashboard .admin-card-head,
+#root .admin-page.shadcn-dashboard .admin-metric-icon{color:#33516a}
+#root .admin-page.shadcn-dashboard .admin-metric-icon{
+ background:#dce8f2;border-color:#c1d0de;
+}
+#root .admin-page.shadcn-dashboard .admin-settings-grid,
+#root .admin-page.shadcn-dashboard .sd-chart-empty{
+ background:#e3ecf4;border-color:#c7d6e3;
+}
+#root .admin-page.shadcn-dashboard .admin-table-head{
+ background:#d9e5ef;color:#425970;border-color:#c1d1df;
+}
+#root .admin-page.shadcn-dashboard .admin-user-row:nth-child(odd){background:#e5eef5}
+#root .admin-page.shadcn-dashboard .admin-user-row:hover{background:#dce9f3}
+#root .admin-page.shadcn-dashboard .sd-search-field,
+#root .admin-page.shadcn-dashboard :is(input:not([type="checkbox"]),select,textarea){
+ background:#f5f8fb;border-color:#b9cad8;color:#26394e;
+}
+#root .admin-page.shadcn-dashboard button:not(.active):not(.primary):not(.danger-button):not(.corel-transfer-toggle):not(.sd-nav-button){
+ background:#e1ebf3;border-color:#bbcbd9;color:#2a445b;
+}
+#root .admin-page.shadcn-dashboard button:not(.active):not(.primary):not(.danger-button):not(.corel-transfer-toggle):not(.sd-nav-button):hover:enabled{
+ background:#d1e0eb;
+}
+#root .admin-page.shadcn-dashboard button.primary{
+ background:#456b86;border-color:#456b86;color:#fff;
+}
+#root .admin-page.shadcn-dashboard .sd-chart-total,
+#root .admin-page.shadcn-dashboard .sd-user-online{
+ background:#dde9f2;border-color:#c4d2df;color:#345069;
+}
+#root .admin-page.shadcn-dashboard .sd-chart-bar{background:#557991}
+#root .admin-page.shadcn-dashboard .sd-chart-track{
+ background:linear-gradient(to top,#e2ebf4,#f2f7fb);
+}
+/* Studio: draw tools against calm slate surfaces, not three white panels. */
+#root .app.shadcn-studio{
+ --sd-page:#dce5ee;--sd-card:#edf3f8;--sd-border:#c2d0dc;
+ --sd-ink:#25394d;--sd-muted:#52697e;--sd-primary:#456b86;
+ --studio-ink:#26394d;--studio-muted:#506579;
+ --studio-border:#c4d0dc;--studio-surface:#e9f0f6;
+ --studio-soft:#d7e4ee;--studio-ring:#527fa2;
+ --studio-primary:#456e89;
+ --material-fill:#eaf1f7;
+ background:#dce5ee;color:#26394d;
+}
+#root .app.shadcn-studio>.header{
+ background:#283b50;border-color:#4d647b;color:#e7eff6;
+ box-shadow:0 4px 16px rgb(24 45 63 / 13%);
+}
+#root .app.shadcn-studio .serula-brand,
+#root .app.shadcn-studio .serula-brand strong{color:#f1f6fb}
+#root .app.shadcn-studio .serula-brand>span,
+#root .app.shadcn-studio .tagline{color:#bcd0df}
+#root .app.shadcn-studio>.header nav>button{
+ background:#344c63;border-color:#577188;color:#eaf2f8;
+}
+#root .app.shadcn-studio>.header nav>button:hover:enabled{
+ background:#46627c;border-color:#7e9aae;color:#fff;
+}
+#root .app.shadcn-studio .project-status{
+ background:#344c62;border-color:#617990;color:#e4eff7;
+}
+#root .app.shadcn-studio>.main-workspace{background:#d6e0e9}
+#root .app.shadcn-studio>.main-workspace>:is(.sidebar,.drawing-panel,.material-panel){
+ background:#e7eef4;border-color:#b7c8d7;box-shadow:0 1px 7px rgb(44 69 88 / 6%);
+}
+#root .app.shadcn-studio .panel-title,
+#root .app.shadcn-studio .studio-canvas-heading{
+ background:#d9e5ef;border-color:#bdcddc;color:#273e53;
+}
+#root .app.shadcn-studio .panel-title h2,
+#root .app.shadcn-studio .studio-canvas-heading h1{color:#273d53}
+#root .app.shadcn-studio .panel-title h2>span{
+ background:#bfcfdd;border-color:#afc1d1;color:#29465e;
+}
+#root .app.shadcn-studio .parts-list{background:#e7eef4}
+#root .app.shadcn-studio .part-row{background:#eaf1f6}
+#root .app.shadcn-studio .part-row:hover{background:#dce8f1;border-color:#b3c7d8}
+#root .app.shadcn-studio :is(.part-row.selected,.part-row:has(.part-select[aria-pressed="true"])){
+ background:#cbdfed;border-color:#85abc6;
+}
+#root .app.shadcn-studio .production-series,
+#root .app.shadcn-studio :is(.part-properties-disclosure,.solver-options){
+ background:#dce7f0;border-color:#bccfdf;
+}
+#root .app.shadcn-studio .material-panel .settings>label{color:#314a60}
+#root .app.shadcn-studio :is(input:not([type="checkbox"]),select,textarea){
+ background:#f4f8fb;border-color:#b7c9d8;color:#263a4e;
+}
+#root .app.shadcn-studio :is(.add-shape,.row-actions,.panel-title-actions)>button:not(.primary),
+#root .app.shadcn-studio .material-panel button:not(.primary){
+ background:#dae6ef;border-color:#b7c9d8;color:#2d4860;
+}
+#root .app.shadcn-studio :is(.add-shape,.row-actions,.panel-title-actions)>button:not(.primary):hover:enabled,
+#root .app.shadcn-studio .material-panel button:not(.primary):hover:enabled{background:#c9dce9}
+#root .app.shadcn-studio .add-shape>.primary,
+#root .app.shadcn-studio .empty-project-actions>.primary,
+#root .app.shadcn-studio .statusbar .run-button:not(.stop-button){
+ background:#456e89;border-color:#456e89;color:#fff;
+}
+#root .app.shadcn-studio .canvas-wrap{background:#eaf1f7}
+#root .app.shadcn-studio .material-width-band>rect{fill:#eaf1f7}
+#root .app.shadcn-studio .material-width-outside>rect{fill:#cfdae6}
+#root .app.shadcn-studio .material-frame>rect{
+ fill:#eaf1f7;stroke:#8ea6bb;
+}
+#root .app.shadcn-studio .coordinate-grid>path{stroke:#bfcdd9}
+#root .app.shadcn-studio .coordinate-grid>path.origin{stroke:#7f9ab0}
+#root .app.shadcn-studio .coordinate-rulers>rect{
+ fill:#d0deea;stroke:#b3c6d8;
+}
+#root .app.shadcn-studio .coordinate-rulers>path{stroke:#829eb4}
+#root .app.shadcn-studio .coordinate-rulers>text{fill:#36556d}
+#root .app.shadcn-studio .canvas-tools{
+ background:rgb(224 234 243 / 97%);border-color:#aebfcd;
+}
+#root .app.shadcn-studio .canvas-tools>button:hover:enabled{background:#cfdfeb}
+#root .app.shadcn-studio .canvas-tools>button[aria-pressed="true"]{
+ background:#456e89;border-color:#456e89;color:#fff;
+}
+#root .app.shadcn-studio .canvas-tools>button[aria-pressed="true"]:hover:enabled{
+ background:#3a607a;color:#fff;
+}
+#root .app.shadcn-studio .material-size-badge{
+ background:#dce8f1;border-color:#b5c8d9;color:#314c62;
+}
+#root .app.shadcn-studio .empty-project{
+ background:rgb(232 240 246 / 97%);border-color:#b5c9d9;color:#263e53;
+}
+#root .app.shadcn-studio .canvas-hint{background:rgb(221 233 242 / 91%)}
+#root .app.shadcn-studio .result-details{background:#e1ebf3;border-color:#c0d0de}
+#root .app.shadcn-studio .result-mode{background:#d0e0eb;border-color:#b2c5d4}
+#root .app.shadcn-studio>.statusbar{
+ background:#dae6ef;border-color:#b7c9d9;color:#2d4357;
+}
+#root .app.shadcn-studio .statusbar .metrics>span{
+ background:#e7f0f6;border-color:#c0d0de;color:#496176;
+}
+#root .app.shadcn-studio dialog.modal{
+ background:#eaf1f7;border-color:#b6cadb;color:#273e52;
+}
+/* Compact ONLY the contents under the "Parçalar" tab.
+   Touch targets stay at least 40px on smaller screens. */
+#root .app.shadcn-studio #parts-settings .parts-list{
+ padding:5px 7px;max-height:32vh;
+}
+#root .app.shadcn-studio #parts-settings .part-row{
+ gap:5px;margin:2px 0;padding:4px 5px;
+}
+#root .app.shadcn-studio #parts-settings .part-select{
+ gap:6px;padding:2px 0;line-height:1.2;
+}
+#root .app.shadcn-studio #parts-settings .part-select svg{
+ width:30px;height:32px;padding:2px;
+}
+#root .app.shadcn-studio #parts-settings .part-select>span{
+ font-size:12px;line-height:1.2;
+}
+#root .app.shadcn-studio #parts-settings .part-select small{
+ font-size:10px;line-height:1.2;
+}
+#root .app.shadcn-studio #parts-settings .part-row>input{
+ width:39px;min-height:32px;padding:3px;text-align:center;font-size:12px;
+}
+#root .app.shadcn-studio #parts-settings .part-row>.remove-part{
+ min-width:29px;width:29px;min-height:32px;padding:3px;
+}
+#root .app.shadcn-studio #parts-settings .production-series{
+ margin:4px 8px 7px;padding:8px 10px;gap:4px;
+}
+#root .app.shadcn-studio #parts-settings .production-series__row>label{
+ font-size:11px;
+}
+#root .app.shadcn-studio #parts-settings .production-series>small{
+ font-size:10px;line-height:1.3;
+}
+#root .app.shadcn-studio #parts-settings .series-multiplier>input{
+ width:34px;min-height:30px;
+}
+#root .app.shadcn-studio #parts-settings .add-shape{
+ padding:7px 10px 4px;gap:6px;
+}
+#root .app.shadcn-studio #parts-settings .add-shape>button{
+ min-height:36px;padding:6px;font-size:12px;
+}
+#root .app.shadcn-studio #parts-settings .import-formats{
+ padding:0 10px 4px;font-size:10px;
+}
+#root .app.shadcn-studio #parts-settings .history{
+ padding:5px 10px;gap:6px;
+}
+#root .app.shadcn-studio #parts-settings .history>button{
+ min-height:34px;padding:5px;font-size:11px;
+}
+#root .app.shadcn-studio #parts-settings .clear-all-parts{
+ margin:3px 10px 8px;width:calc(100% - 20px);
+ min-height:34px;padding:5px;font-size:11px;
+}
+#root .app.shadcn-studio #parts-settings .part-properties-disclosure{
+ margin:6px 9px 10px;width:calc(100% - 18px);
+}
+#root .app.shadcn-studio #parts-settings .part-properties-disclosure>summary{
+ padding:9px 11px;font-size:12px;
+}
+#root .auth-screen.shadcn-auth{
+ background:#dbe5ee;color:#263a4e;
+}
+#root .auth-screen.shadcn-auth .auth-card{
+ background:#eaf1f7;border-color:#bccedc;
+}
+#root .auth-screen.shadcn-auth .auth-card input{
+ background:#f4f8fb;border-color:#b8cad8;
+}
+#root .auth-screen.shadcn-auth .auth-tabs{background:#d9e6f0}
+#root .auth-screen.shadcn-auth .auth-tabs button.active{background:#eff5fa}
+
+}

@@ -13,7 +13,7 @@ test('new shadcn studio appearance preserves CAD and export actions',async({page
   await expect(page.locator('.material-panel')).toBeAttached();
   await expect(page.locator('.corel-transfer-button')).toBeAttached();
   await expect(page.locator('#parts-settings').getByRole('button',{name:'DXF İçe Aktar'})).toBeAttached();
-  await expect(studio).toHaveCSS('background-color','rgb(248, 250, 252)');
+  await expect(studio).toHaveCSS('background-color','rgb(220, 229, 238)');
 });
 
 test('shadcn admin navigation selects real API-backed pages',async({page})=>{
@@ -30,7 +30,7 @@ test('shadcn admin navigation selects real API-backed pages',async({page})=>{
   await expect(users).toHaveAttribute('aria-current','page');
   await expect(page.getByRole('heading',{name:'Kullanıcı Yönetimi'})).toBeVisible();
   await expect(page.getByRole('textbox',{name:'Kullanıcı ara'})).toBeAttached();
-  await expect(admin).toHaveCSS('background-color','rgb(255, 255, 255)');
+  await expect(admin).toHaveCSS('background-color','rgb(220, 229, 238)');
 });
 
 test('shadcn navigation fits phone, tablet and desktop widths',async({page})=>{
@@ -146,11 +146,11 @@ test('Shadcn Studio surfaces preserve the desktop CAD three-column order',async(
   expect(p).not.toBeNull();expect(d).not.toBeNull();expect(m).not.toBeNull();
   expect(p!.x+p!.width).toBeLessThanOrEqual(d!.x+2);
   expect(d!.x+d!.width).toBeLessThanOrEqual(m!.x+2);
-  await expect(parts).toHaveCSS('background-color','rgb(255, 255, 255)');
+  await expect(parts).toHaveCSS('background-color','rgb(231, 238, 244)');
   await expect(drawing).toHaveCSS('border-top-style','solid');
   await expect(material).toHaveCSS('border-top-style','solid');
-  await expect(studio.locator('.canvas-tools')).toHaveCSS('background-color','rgba(255, 255, 255, 0.96)');
-  await expect(studio.locator('.statusbar')).toHaveCSS('background-color','rgb(255, 255, 255)');
+  await expect(studio.locator('.canvas-tools')).toHaveCSS('background-color','rgba(224, 234, 243, 0.97)');
+  await expect(studio.locator('.statusbar')).toHaveCSS('background-color','rgb(218, 230, 239)');
   await page.screenshot({path:info.outputPath('shadcn-studio-desktop.png'),fullPage:true});
 });
 
@@ -196,8 +196,8 @@ test('CAD surface never falls back to black SVG rectangles after theme removal',
   const band=page.locator('.app.shadcn-studio .material-width-band > rect');
   const outside=page.locator('.app.shadcn-studio .material-width-outside > rect').first();
   await expect(band).toBeVisible();
-  await expect(band).toHaveCSS('fill','rgb(255, 255, 255)');
-  await expect(outside).toHaveCSS('fill','rgb(241, 245, 249)');
+  await expect(band).toHaveCSS('fill','rgb(234, 241, 247)');
+  await expect(outside).toHaveCSS('fill','rgb(207, 218, 230)');
 });
 
 test('phone CAD toolbar and empty project message never overlap',async({page},testInfo)=>{
@@ -250,8 +250,8 @@ test('CAD coordinate rulers adopt Shadcn neutral surfaces rather than black SVG 
   await page.goto('/');
   const first=page.locator('.app.shadcn-studio .coordinate-rulers>rect').first();
   await expect(first).toBeAttached();
-  await expect(first).toHaveCSS('fill','rgb(244, 244, 245)');
-  await expect(page.locator('.app.shadcn-studio .coordinate-rulers>path')).toHaveCSS('stroke','rgb(161, 161, 170)');
+  await expect(first).toHaveCSS('fill','rgb(208, 222, 234)');
+  await expect(page.locator('.app.shadcn-studio .coordinate-rulers>path')).toHaveCSS('stroke','rgb(130, 158, 180)');
 });
 test('Shadcn comparison: active admin navigation uses the reference dark treatment',async({page})=>{
   await page.route('**/api/auth/admin-me',route=>route.fulfill({
@@ -260,8 +260,57 @@ test('Shadcn comparison: active admin navigation uses the reference dark treatme
   await page.goto('/admin');
   const nav=page.getByRole('button',{name:'Genel Bakış'});
   await expect(nav).toHaveAttribute('aria-current','page');
-  await expect(nav).toHaveCSS('background-color','rgb(24, 24, 27)');
+  await expect(nav).toHaveCSS('background-color','rgb(78, 117, 147)');
   await expect(nav).toHaveCSS('color','rgb(255, 255, 255)');
   await expect(page.getByRole('link',{name:'Shadcn Dashboard'})).toHaveAttribute('href','https://shadcndashboard.dev/');
   await expect(page.locator('.sd-chart-empty')).toContainText('Bu hafta henüz yeni kayıt yok');
+});
+
+test('imported DXF stays in front of the material outside-mask instead of looking like a background layer',async({page})=>{
+  await page.goto('/');
+  await page.locator('input[type="file"]').first().setInputFiles('tests/fixtures/blocks.dxf');
+  // Valid DXF parts are now added automatically; no preview modal is shown.
+  await expect(page.getByRole('dialog',{name:'İçe aktarmayı gözden geçir'})).toHaveCount(0);
+  const drawing=page.locator('.workspace-svg g[data-part][data-copy-index]');
+  await expect(drawing).toHaveCount(2);
+  await expect(page.locator('.workspace-svg .material-width-outside')).toBeAttached();
+  const order=await page.locator('.workspace-svg').evaluate(svg=>{
+    const mask=svg.querySelector('.material-width-outside');
+    const copies=[...svg.querySelectorAll('g[data-part][data-copy-index]')];
+    return !!mask&&copies.length===2&&copies.every(copy=>
+      Boolean(mask.compareDocumentPosition(copy)&Node.DOCUMENT_POSITION_FOLLOWING)
+    );
+  });
+  expect(order).toBe(true);
+  await expect(drawing.first().locator('path').first()).toHaveAttribute('d',/./);
+});
+
+test('Parçalar panel keeps its actions accessible in a compact layout',async({page})=>{
+  await page.setViewportSize({width:1440,height:900});
+  await page.goto('/');
+  const parts=page.locator('#parts-settings');
+  await expect(parts.locator('.add-shape>button')).toHaveCount(2);
+  await expect(parts.locator('.add-shape>button').first()).toHaveCSS('min-height','36px');
+  await expect(parts.locator('.production-series')).toHaveCSS('padding-top','8px');
+  await page.getByRole('button',{name:'Şekil çiz'}).click();
+  await page.getByRole('button',{name:'Şekil ekle',exact:true}).click();
+  await expect(parts.locator('.part-row')).toHaveCount(1);
+  await expect(parts.locator('.part-select svg')).toHaveCSS('width','30px');
+  await expect(parts.locator('.part-row>input')).toHaveCSS('width','39px');
+  await expect(page.getByLabel('Proje seri adedi')).toBeEnabled();
+  await expect(page.getByRole('button',{name:'Geri al'})).toBeEnabled();
+});
+
+
+test('mobile keeps the original Serula palette while desktop uses new slate appearance',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.goto('/');
+  await expect(page.locator('.app.shadcn-studio')).toHaveCSS('background-color','rgb(248, 250, 252)');
+  await expect(page.locator('.canvas-tools')).toHaveCSS('background-color','rgb(255, 255, 255)');
+  await expect(page.locator('#parts-settings .add-shape>button')).toHaveCount(2);
+  await page.route('**/api/auth/admin-me',route=>route.fulfill({
+    status:200,contentType:'application/json',body:JSON.stringify(adminUser)
+  }));
+  await page.goto('/admin');
+  await expect(page.locator('.admin-page.shadcn-dashboard')).toHaveCSS('background-color','rgb(255, 255, 255)');
 });

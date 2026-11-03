@@ -3,6 +3,7 @@ import App from './App';
 import Admin from './Admin';
 import './shadcn-dashboard.css';
 import './studio-dashboard.css';
+import './slate-ambience.css';
 
 
 
