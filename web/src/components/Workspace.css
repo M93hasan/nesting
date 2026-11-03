@@ -20,3 +20,57 @@
 .material-frame text{fill:var(--muted);font-family:ui-monospace,monospace}
 .material-size-badge{position:absolute;left:28px;top:30px;z-index:2;pointer-events:none;padding:6px 9px;border:1px solid var(--border);border-radius:7px;background:color-mix(in srgb,var(--panel) 92%,transparent);color:var(--muted);font:11px ui-monospace,monospace;box-shadow:0 2px 5px #0001}
 @media(max-width:699px){.material-size-badge{left:24px;top:28px;max-width:calc(100% - 150px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+
+/* CAD toolbar polish: visible feedback without delaying high-frequency canvas actions. */
+#root .app .cad-snapping {
+  min-width: 0;
+  z-index: 1;
+  box-shadow: 0 2px 8px rgb(15 33 61 / .06);
+}
+#root .app .cad-snapping[open] { z-index: 12; }
+#root .app .cad-snapping > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: inherit;
+  font-weight: 650;
+  line-height: 1.35;
+  user-select: none;
+}
+#root .app .cad-snapping > summary::-webkit-details-marker { display: none; }
+#root .app .cad-snapping > summary::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+}
+#root .app .cad-snapping[open] > summary {
+  background: var(--panel-soft);
+}
+#root .app .cad-snapping[open] > summary::after {
+  transform: rotate(225deg);
+}
+#root .app .cad-snapping > div {
+  box-sizing: border-box;
+  width: 240px;
+  max-width: calc(100vw - 32px);
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgb(15 33 61 / .16);
+}
+#root .app .cad-snapping > div :is(input, select) { min-width: 0; }
+#root .app .cad-snapping > div label { min-width: 0; }
+#root .app .cad-snapping > summary:focus-visible,
+#root .app .canvas-tools > button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+@media (max-width: 699px) {
+  #root .app .cad-snapping > div { width: min(240px, calc(100vw - 32px)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #root .app .cad-snapping > summary,
+  #root .app .canvas-tools > button { transition: none !important; }
+}
