@@ -1,0 +1,40 @@
+name: DXF export UI (isolated)
+on:
+  pull_request:
+    paths:
+      - 'web/src/App.tsx'
+      - 'web/src/workers/geometryTask.ts'
+      - 'web/tests/export-ui-regression.spec.ts'
+      - '.github/workflows/export-ui-regression.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  export-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit --no-fund
+      - name: Build application
+        run: npm run build
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Anonymous DXF export - no credits charged
+        run: npx playwright test tests/export-ui-regression.spec.ts --project=chromium --reporter=line
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: export-ui-failure
+          path: web/test-results/
+          retention-days: 7
