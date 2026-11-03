@@ -24,3 +24,7 @@ The user table has an accessible semantic table structure, a scoped search contr
 ## Dashboard activity and settings (stage 3)
 
 The overview now requests the existing `/api/admin/logs` audit endpoint and renders up to five most recent action entries; the full logs page remains available. Backend connection text is derived from the existing health check instead of a hard-coded D1 success label. User/system defaults have semantic field groups and Shadcn-style form layouts, without changing any values, API endpoints or save handlers. Playwright covers the audit activity and navigation.
+
+## Real data visualization (stage 4)
+
+The admin overview includes a responsive, accessible seven-day user registration chart. It uses only the existing D1-backed `createdAt` timestamps already supplied by the admin-users endpoint; users without valid registration timestamps are not counted. No additional API, dependency, chart mock or tracking is added. Semantic roles are assigned to every cell in the user data grid.

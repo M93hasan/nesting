@@ -116,3 +116,21 @@ test('overview shows actual recent audit activity rather than a demo placeholder
   await page.getByRole('button',{name:'Tüm loglar'}).click();
   await expect(page.getByRole('heading',{name:'Sistem Logları'}).first()).toBeVisible();
 });
+
+test('overview chart counts real registration dates, without demo metrics',async({page})=>{
+  await page.route('**/api/auth/admin-me',route=>route.fulfill({
+    status:200,contentType:'application/json',body:JSON.stringify(adminUser)
+  }));
+  await page.route('**/api/admin/users',route=>route.fulfill({
+    status:200,contentType:'application/json',body:JSON.stringify({users:[
+      {id:201,email:'today@example.test',name:'Today',role:'operator',credits:0,unlimited:false,createdAt:new Date().toISOString()},
+      {id:202,email:'unknown@example.test',name:'Unknown',role:'operator',credits:0,unlimited:false}
+    ],onlineCount:0})
+  }));
+  await page.goto('/admin');
+  const chart=page.getByRole('region',{name:'Haftalık yeni kullanıcı kayıtları'});
+  await expect(chart).toBeVisible();
+  await expect(chart.locator('.sd-chart-day')).toHaveCount(7);
+  await expect(chart.locator('.sd-chart-total')).toHaveText('1 kayıt');
+  await expect(chart.getByRole('img')).toHaveAttribute('aria-label',/toplam 1 kayıt/);
+});
