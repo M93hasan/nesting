@@ -13,14 +13,15 @@ const input=['0','SECTION','2','HEADER','9','$INSUNITS','70','4','0','ENDSEC',
 
 test('anonymous imported DXF download calls the stubbed authorization API and produces a file',async({page})=>{
  test.setTimeout(90000);
- const traces:string[]=[],errors:string[]=[],api:string[]=[];
- page.on('console',m=>{if(m.text().startsWith('EXPORT_QA'))traces.push(m.text())});
+ const errors:string[]=[],api:string[]=[];
+ let authorizedPayload:{dxf:string;projectJson:string}|undefined;
  page.on('pageerror',e=>errors.push(String(e)));
  await page.route('**/api/export/authorize',async route=>{
-   api.push('POST');
+   api.push(route.request().method());
+   authorizedPayload=route.request().postDataJSON() as {dxf:string;projectJson:string};
    await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,exportId:4242})});
  });
- await page.goto('/?__qa_export=1',{waitUntil:'domcontentloaded'});
+ await page.goto('/',{waitUntil:'domcontentloaded'});
  await expect(page.locator('.add-shape').getByRole('button',{name:'DXF İçe Aktar',exact:true})).toBeVisible();
  const clear=page.getByRole('button',{name:'Tümünü sil'});
  if(await clear.isEnabled())await clear.click();
@@ -39,7 +40,7 @@ test('anonymous imported DXF download calls the stubbed authorization API and pr
  const downloadPromise=page.waitForEvent('download',{timeout:16000}).catch(()=>null);
  await button.click();
  const downloaded=await downloadPromise;
- console.log('DXF_EXPORT_DIAG '+JSON.stringify({traces,errors,authCalls:api.length,download:!!downloaded,errorBanners:await page.locator('.error-banner').allTextContents()}));
+ console.log('DXF_EXPORT_QA '+JSON.stringify({errors,authCalls:api.length,download:!!downloaded,errorBanners:await page.locator('.error-banner').allTextContents()}));
  expect(errors).toEqual([]);
  expect(api).toEqual(['POST']);
  expect(downloaded,'Download should be emitted after authorizing').not.toBeNull();
@@ -47,6 +48,9 @@ test('anonymous imported DXF download calls the stubbed authorization API and pr
    const dxf=await readFile(await downloaded.path(),'utf8');
    expect(dxf).toContain('$INSUNITS');
    expect(dxf).toContain('LWPOLYLINE');
+   expect(dxf.match(/LWPOLYLINE/g)?.length).toBeGreaterThanOrEqual(2);
+   expect(authorizedPayload?.dxf).toBe(dxf);
+   expect(JSON.parse(authorizedPayload!.projectJson)).toHaveProperty('parts');
    expect(downloaded.suggestedFilename()).toMatch(/\.dxf$/i);
  }
 });
