@@ -1,5 +1,5 @@
 import {useEffect,useId,useLayoutEffect,useRef,useState} from 'react';
-import './PrecisionControls.css';
+
 import {displayLength,unitScale,type DisplayUnit} from '../units';
 
 export default function SelectionControls({

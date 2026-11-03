@@ -2,17 +2,16 @@ import {test,expect} from '@playwright/test';
 
 test.use({serviceWorkers:'block'});
 
-test('admin appearance has no Puck or visual design editors',async({page})=>{
+test('admin has no appearance customization or visual design editors',async({page})=>{
   await page.route('**/api/auth/admin-me',route=>route.fulfill({
     status:200,contentType:'application/json',
     body:JSON.stringify({user:{id:1,email:'qa@example.test',name:'QA',role:'admin',credits:0,unlimited:true}})
   }));
   await page.goto('/admin');
-  await page.getByRole('button',{name:/Görünüm/}).click();
   await expect(page.getByRole('button',{name:'Puck Editörünü Aç'})).toHaveCount(0);
   await expect(page.getByRole('button',{name:'Tasarım Editörünü Aç'})).toHaveCount(0);
   await expect(page.getByText('Puck Tasarım Editörü')).toHaveCount(0);
-  await expect(page.getByRole('button',{name:/Görünüm/})).toBeVisible();
+  await expect(page.getByRole('button',{name:/Görünüm/})).toHaveCount(0);
 });
 
 test('Nesting does not fetch or apply retired published visual designs',async({page})=>{

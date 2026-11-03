@@ -20,7 +20,7 @@ Use the relevant skill when reviewing or changing the UI. For Serula-specific co
 
 ## Scope and verification
 - UI entrypoints: `web/src/App.tsx`, `web/src/Admin.tsx`, `web/src/components/`.
-- Styles: `web/src/styles.css`, `web/src/theme.css`, `web/src/premium-theme.css`, and other stylesheets in `web/src/`.
+- Styles: `web/src/layout.css` (structural layout only; do not reintroduce theme layers).
 - Do not assume a design skill changes application appearance by itself: skills guide future work.
 - For actual UI changes run `cd web && npm ci && npm run typecheck && npm test && npm run build`; run relevant Playwright tests where feasible.
 - Verify DXF/nesting operations remain intact after any UI work, including canvas interactions, input values, export and keyboard shortcuts.
