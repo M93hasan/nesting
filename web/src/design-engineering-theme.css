@@ -137,3 +137,99 @@
     transition: none !important;
   }
 }
+
+/*
+ * Distinct Serula Studio visual identity, applied on top of the existing
+ * design-engineering interaction refinements. This intentionally changes
+ * broad visible surfaces, unlike the earlier micro-polish-only release.
+ * Inherits appearance tokens and does not affect the SVG canvas geometry.
+ */
+:root {
+  --serula-studio-rail: light-dark(#f1f4f9, #1b2431);
+  --serula-studio-rail-head: light-dark(#e8eef7, #202d3e);
+  --serula-studio-toolbar: light-dark(#f4f7fc, #202b3b);
+  --serula-studio-line: light-dark(#d5deea, #3e5067);
+  --serula-studio-accent-wash: color-mix(in srgb, var(--accent) 10%, var(--panel));
+}
+:root #root .app > .header {
+  background: var(--serula-studio-toolbar);
+  border-bottom: 2px solid var(--serula-studio-line);
+}
+:root #root .app .brand-block {
+  background: var(--serula-studio-rail-head);
+}
+:root #root .app :is(.sidebar,.material-panel) {
+  background: var(--serula-studio-rail);
+  border-color: var(--serula-studio-line);
+}
+:root #root .app :is(.sidebar,.material-panel) > .panel-title {
+  background: var(--serula-studio-rail-head);
+  border-bottom: 1px solid var(--serula-studio-line);
+  min-height: 58px;
+}
+:root #root .app :is(.sidebar,.material-panel) > .panel-title h2 {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -.018em;
+}
+:root #root .app .material-panel .settings {
+  background: transparent;
+}
+:root #root .app .material-panel .settings :is(input:not([type=checkbox]):not([type=radio]),select) {
+  background: var(--panel);
+  border: 1px solid var(--serula-studio-line);
+}
+:root #root .app .part-row {
+  margin-inline: 8px;
+  border: 1px solid transparent;
+  border-left: 3px solid transparent;
+  background: color-mix(in srgb,var(--panel) 76%,transparent);
+  border-radius: 11px;
+  padding-block: 9px;
+}
+:root #root .app .part-row:hover {
+  background: var(--panel);
+  border-color: var(--serula-studio-line);
+}
+:root #root .app .part-row.selected {
+  background: var(--serula-studio-accent-wash);
+  border: 1px solid color-mix(in srgb,var(--accent) 35%,var(--serula-studio-line));
+  border-left: 3px solid var(--accent);
+}
+:root #root .app .part-properties-disclosure {
+  border-color: var(--serula-studio-line);
+  background: var(--panel);
+  border-radius: 13px;
+}
+:root #root .app .part-properties-disclosure > summary {
+  background: var(--serula-studio-rail-head);
+}
+:root #root .app .studio-canvas-heading {
+  background: var(--serula-studio-toolbar);
+  border-bottom: 1px solid var(--serula-studio-line);
+}
+:root #root .app .studio-canvas-heading h1 {
+  font-size: 20px;
+  font-weight: 780;
+  letter-spacing: -.025em;
+}
+:root #root .app .studio-canvas-eyebrow {
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 750;
+}
+:root #root .app .canvas-tools > button,
+:root #root .app .cad-snapping {
+  border: 1px solid var(--serula-studio-line) !important;
+  box-shadow: 0 4px 12px rgb(13 30 60 / .09) !important;
+}
+:root #root .app > .statusbar {
+  background: var(--serula-studio-toolbar);
+  border-top: 2px solid var(--serula-studio-line);
+}
+@media (max-width: 699px) {
+  :root #root .app .part-row { margin-inline: 5px; }
+  :root #root .app :is(.sidebar,.material-panel) > .panel-title {
+    min-height: 50px;
+  }
+}
