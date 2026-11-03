@@ -23,7 +23,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install Desloppify
-        run: python -m pip install --upgrade "desloppify[full]"
+        run: python -m pip install "desloppify[full]==1.0"
       - name: Analyze TypeScript application and Worker
         shell: bash
         run: |
