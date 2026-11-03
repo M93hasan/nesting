@@ -33,13 +33,13 @@ test('admin dashboard shares neutral surfaces and actions on desktop and mobile'
   await expect(page.locator('.admin-sidebar')).toHaveCSS('border-radius','0px');
   const pageBackground=()=>admin.evaluate(el=>getComputedStyle(el).backgroundColor);
   const surface=()=>page.locator('.admin-sidebar').evaluate(el=>getComputedStyle(el).backgroundColor);
-  await expect.poll(pageBackground).toBe('rgb(16, 17, 20)');
+  await expect.poll(pageBackground).toBe('rgb(17, 21, 28)');
   await expect.poll(surface).toBe('rgb(28, 35, 45)');
   await page.screenshot({path:testInfo.outputPath('admin-dark.png')});
   await page.evaluate(()=>localStorage.setItem('serula-theme','light'));
   await page.reload();
   await expect(admin).toBeVisible();
-  await expect.poll(pageBackground).toBe('rgb(255, 255, 255)');
+  await expect.poll(pageBackground).toBe('rgb(241, 243, 246)');
   await expect.poll(surface).toBe('rgb(247, 248, 250)');
   const metric=page.locator('.admin-metric').first();
   const icon=metric.locator('.admin-metric-icon');
