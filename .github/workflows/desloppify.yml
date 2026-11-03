@@ -31,7 +31,8 @@ jobs:
           desloppify --lang typescript scan --path web --profile ci --no-badge > desloppify-reports/typescript-scan.log 2>&1
           result=$?
           cat desloppify-reports/typescript-scan.log
-          desloppify status --json > desloppify-reports/typescript-status.json 2>&1 || true
+          desloppify --lang typescript status --json > desloppify-reports/typescript-status.json 2>&1 || true
+          desloppify --lang typescript show security > desloppify-reports/typescript-security.log 2>&1 || true
           exit "$result"
       - name: Analyze Rust nesting engine
         if: always()
@@ -41,7 +42,8 @@ jobs:
           desloppify --lang rust scan --path web/wasm --profile ci --no-badge > desloppify-reports/rust-scan.log 2>&1
           result=$?
           cat desloppify-reports/rust-scan.log
-          desloppify status --json > desloppify-reports/rust-status.json 2>&1 || true
+          desloppify --lang rust status --json > desloppify-reports/rust-status.json 2>&1 || true
+          desloppify --lang rust show security > desloppify-reports/rust-security.log 2>&1 || true
           exit "$result"
       - name: Publish diagnostic reports
         if: always()
