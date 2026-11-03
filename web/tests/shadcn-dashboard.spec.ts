@@ -226,6 +226,9 @@ test('mobile export footer follows workbench instead of hiding part controls',as
   await expect(page.locator('.corel-transfer-button')).toBeAttached();
 });
 test('visual QA captures the actual admin panel at mobile and desktop sizes',async({page},testInfo)=>{
+  await page.route('**/api/auth/admin-me',route=>route.fulfill({
+    status:200,contentType:'application/json',body:JSON.stringify(adminUser)
+  }));
   for(const width of [390,1440]){
     await page.setViewportSize({width,height:900});
     await page.goto('/admin');
