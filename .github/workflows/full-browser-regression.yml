@@ -80,6 +80,9 @@ jobs:
           tests/critical-smoke.spec.ts
           tests/premium-theme.spec.ts
           --reporter=line --max-failures=1
+      - name: Production smoke — anonymous DXF import and nesting (no paid export)
+        continue-on-error: true
+        run: npx playwright test tests/production-nesting-qa.spec.ts --project=chromium --reporter=line --max-failures=1
       - name: Run legacy Sparrow compatibility suite (manual migration audit)
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_legacy_suite }}
         run: npx playwright test --reporter=line --max-failures=10
