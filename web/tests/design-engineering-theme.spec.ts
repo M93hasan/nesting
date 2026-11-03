@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {workshop} from './project-helpers';
 test.use({serviceWorkers:'block'});
 
 test('design-engineering skin preserves theme preference and input focus feedback',async({page})=>{
@@ -33,10 +34,8 @@ test('design-engineering theme keeps the workspace and tools usable at 390px',as
 test('reduced motion disables decorative transitions on part rows',async({page})=>{
   await page.emulateMedia({reducedMotion:'reduce'});
   await page.goto('/');
-  const reduced=await page.evaluate(()=>{
-    const stylesheet=Array.from(document.styleSheets).find(s=>s.href?.includes('design-engineering-theme'));
-    if(!stylesheet)return false;
-    return Array.from(stylesheet.cssRules).some(rule=>rule.cssText.includes('prefers-reduced-motion'));
-  });
-  expect(reduced).toBe(true);
+  await workshop(page);
+  const row=page.locator('.part-row').first();
+  await expect(row).toBeVisible();
+  await expect(row).toHaveCSS('transition-duration','0s');
 });
