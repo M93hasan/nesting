@@ -158,7 +158,9 @@ test('Shadcn Studio disclosure focus and toggles remain functional on a phone',a
   await page.setViewportSize({width:390,height:844});
   await page.goto('/');
   const studio=page.locator('.app.shadcn-studio');
-  await studio.getByRole('button',{name:'Parçalar & ayarlar'}).click();
+  const partsToggle=studio.getByRole('button',{name:'Parçalar & ayarlar'});
+  if(await partsToggle.getAttribute('aria-expanded')==='false')await partsToggle.click();
+  await expect(partsToggle).toHaveAttribute('aria-expanded','true');
   await expect(page.locator('#parts-settings')).toBeVisible();
   await expect(page.getByLabel('Proje seri adedi')).toBeAttached();
   const summary=studio.locator('.material-panel .solver-options > summary');
@@ -170,6 +172,7 @@ test('Shadcn Studio disclosure focus and toggles remain functional on a phone',a
   const contour=studio.getByRole('button',{name:'Kontur modu'});
   await contour.click();
   await expect(contour).toHaveAttribute('aria-pressed','true');
+  await expect(contour).toHaveCSS('background-color','rgb(39, 39, 42)');
   await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await page.screenshot({path:info.outputPath('shadcn-studio-mobile.png'),fullPage:true});
 });
