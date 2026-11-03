@@ -23,7 +23,12 @@ test('live release marker and headless browser access diagnostic',async({page,re
   const response=await page.goto(LIVE_URL,{waitUntil:'domcontentloaded',timeout:45000});
   const httpStatus=response?.status();
   if(httpStatus===403){
-    console.log('NESTING_QA '+JSON.stringify({event:'live-browser',status:'blocked-by-http-403',assetStatus:version.status(),deploySha,httpStatus}));
+    // Capture only non-sensitive response diagnostics, never challenge cookies or full HTML.
+    const headers=response?.headers()??{};
+    const diagnostic={event:'live-browser',status:'blocked-by-http-403',assetStatus:version.status(),deploySha,httpStatus,
+      cfRay:headers['cf-ray']??null,cfMitigated:headers['cf-mitigated']??null,server:headers['server']??null,
+      contentType:headers['content-type']??null,cacheStatus:headers['cf-cache-status']??null};
+    console.log('NESTING_QA '+JSON.stringify(diagnostic));
     // GitHub's headless CI address can be denied by Cloudflare. This is not a
     // successful functional smoke; local-preview acceptance runs separately.
     return;

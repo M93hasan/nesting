@@ -111,6 +111,38 @@ describe('Worker accounts and credit transactions',()=>{
     expect((await call(env,'/api/nesting/start',{},cookie)).status).toBe(410);
     env.sqlite.close();
   });
+  it('rejects an expired license without debiting credit or persisting export files',async()=>{
+    const env=database(),cookie=await account(env);
+    env.sqlite.exec("INSERT INTO user_licenses(user_id,started_at,expires_at) SELECT id,'2026-01-01T00:00:00.000Z','2026-01-02T00:00:00.000Z' FROM users");
+    const denied=await call(env,'/api/export/authorize',payload,cookie);
+    expect(denied.status).toBe(403);
+    expect((await denied.json()).error).toMatch(/Lisans süreniz doldu/);
+    expect(env.sqlite.prepare('SELECT nesting_credits FROM users').get()?.nesting_credits).toBe(5);
+    expect(env.sqlite.prepare('SELECT count(*) n FROM export_files').get()?.n).toBe(0);
+    expect(env.sqlite.prepare('SELECT count(*) n FROM nesting_history').get()?.n).toBe(0);
+    env.sqlite.close();
+  });
+  it('protects export retrieval between accounts and leaves credits untouched for read-only operations',async()=>{
+    const env=database(),owner=await account(env);
+    const saved=await call(env,'/api/export/authorize',payload,owner);
+    expect(saved.status).toBe(200);
+    const {exportId}=await saved.json();
+    const otherResponse=await call(env,'/api/auth/register',{email:'other@example.com',name:'Other',password:'different-password'});
+    expect(otherResponse.status).toBe(201);
+    const other=otherResponse.headers.get('set-cookie')!.split(';')[0];
+    const foreign=await call(env,`/api/exports/${exportId}`,undefined,other);
+    expect(foreign.status).toBe(404);
+    const foreignList=await call(env,'/api/exports',undefined,other);
+    expect(foreignList.status).toBe(200);
+    expect((await foreignList.json()).items).toEqual([]);
+    const ownerFile=await call(env,`/api/exports/${exportId}`,undefined,owner);
+    expect(ownerFile.status).toBe(200);
+    expect(await ownerFile.text()).toBe(payload.dxf);
+    expect(env.sqlite.prepare("SELECT nesting_credits FROM users WHERE email='test@example.com'").get()?.nesting_credits).toBe(4);
+    expect(env.sqlite.prepare("SELECT nesting_credits FROM users WHERE email='other@example.com'").get()?.nesting_credits).toBe(5);
+    expect(env.sqlite.prepare('SELECT count(*) n FROM export_files').get()?.n).toBe(1);
+    env.sqlite.close();
+  });
   it('blocks protected example DXF assets until user permission is granted',async()=>{
     let assetReads=0;
     const env={...database(),ASSETS:{fetch:async()=>{assetReads++;return new Response('DXF DATA',{status:200})}}};
