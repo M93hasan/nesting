@@ -63,29 +63,41 @@ test('anonymous local preview DXF import, real WASM nesting and safe mocked expo
   await page.getByRole('button',{name:'En iyi geçerli yerleşim',exact:true}).click();
   const exportButton=page.getByRole('button',{name:'DXF İndir',exact:true});
   await expect(exportButton).toBeEnabled({timeout:30000});
-  // Intercept the chargeable API BEFORE clicking; only the local preview runs
-  // this test. It can never write exports or deduct production account credits.
-  let postedDxf:string|undefined,postedProject:string|undefined;
-  await page.route('**/api/export/authorize',async route=>{
-    const request=route.request().postDataJSON() as {dxf:string;projectJson:string};
-    postedDxf=request.dxf;postedProject=request.projectJson;
-    await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,exportId:4242})});
+  // The editor installs a same-origin isolation service worker, which
+  // intercepts /api/export/authorize before Playwright page.route can see it.
+  // Stub window.fetch solely for this endpoint in the local preview browser;
+  // no test request can charge credits or write to the production database.
+  await page.evaluate(()=>{
+    const realFetch=window.fetch.bind(window);
+    window.fetch=(input,init)=>{
+      const target=typeof input==='string'?input:input instanceof Request?input.url:input.toString();
+      if(new URL(target,location.href).pathname==='/api/export/authorize'){
+        (window as typeof window & {__nestingQaExportBody?:string}).__nestingQaExportBody=String(init?.body??'');
+        return Promise.resolve(new Response(JSON.stringify({ok:true,exportId:4242}),{
+          status:200,headers:{'content-type':'application/json'}
+        }));
+      }
+      return realFetch(input,init);
+    };
   });
   const downloadPromise=page.waitForEvent('download',{timeout:30000});
   await exportButton.click();
   await expect.poll(async()=>{
     const error=await page.locator('.error-banner').first().textContent().catch(()=>'');
     if(error)throw Error('Export UI error before authorization: '+error);
-    return Boolean(postedDxf);
-  },{timeout:10000,message:'Export UI must POST to the mocked authorization endpoint'}).toBe(true);
+    return page.evaluate(()=>(window as typeof window & {__nestingQaExportBody?:string}).__nestingQaExportBody??'');
+  },{timeout:10000,message:'Export UI must POST to the stubbed authorization endpoint'}).toBeTruthy();
+  const posted=JSON.parse(await page.evaluate(()=>
+    (window as typeof window & {__nestingQaExportBody?:string}).__nestingQaExportBody??'')
+  ) as {dxf:string;projectJson:string};
   console.log('NESTING_QA '+JSON.stringify({event:'local-export-authorization',called:true,
-    dxfBytes:Buffer.byteLength(postedDxf??''),projectJsonBytes:Buffer.byteLength(postedProject??'')}));
+    dxfBytes:Buffer.byteLength(posted.dxf),projectJsonBytes:Buffer.byteLength(posted.projectJson)}));
   const downloaded=await downloadPromise;
   const exported=await readFile(await downloaded.path(),'utf8');
   expect(exported).toContain('$INSUNITS');
   expect(exported.match(/LWPOLYLINE/g)?.length).toBeGreaterThanOrEqual(2);
-  expect(postedDxf).toBe(exported);
-  expect(JSON.parse(postedProject!)).toHaveProperty('parts');
+  expect(posted.dxf).toBe(exported);
+  expect(JSON.parse(posted.projectJson)).toHaveProperty('parts');
   expect(downloaded.suggestedFilename()).toMatch(/\.dxf$/i);
   console.log('NESTING_QA '+JSON.stringify({event:'local-mocked-auth-export',downloadBytes:Buffer.byteLength(exported),
     entities:exported.match(/LWPOLYLINE/g)?.length,charged:false,authorizationIntercepted:true}));
