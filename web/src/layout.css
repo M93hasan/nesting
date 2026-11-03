@@ -1173,3 +1173,28 @@ html[dir=rtl] .glass-glider{left:auto;right:3px;transform:translateX(calc(var(--
     flex-shrink: 0;
   }
 }
+
+/* Mobile footer: keep both export actions inside the viewport rather than
+   forcing the grid's second column beyond the right edge in WebKit. */
+@media (max-width: 699px) {
+  :root #root .app > .statusbar {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+  :root #root .app > .statusbar .export-actions {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  :root #root .app > .statusbar .export-actions > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
