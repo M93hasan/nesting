@@ -63,3 +63,36 @@ test('anonymous local preview DXF import and real WASM nesting; no chargeable ex
   console.log('NESTING_QA '+JSON.stringify({event:'local-dxf-nesting',elapsedMs:Date.now()-started,parts:2,hasHole:true,metrics}));
   // Intentionally do not click DXF İndir: this POST may debit a user's credits.
 });
+
+
+test('live anonymous DXF import and genuine WASM nesting without export charges',async({page})=>{
+  test.setTimeout(115000);
+  const authorizationCalls:string[]=[];
+  page.on('request',request=>{
+    if(new URL(request.url()).pathname==='/api/export/authorize')authorizationCalls.push(request.method());
+  });
+  const response=await page.goto(LIVE_URL,{waitUntil:'domcontentloaded',timeout:45000});
+  const httpStatus=response?.status();
+  expect(httpStatus,'Live Serula homepage must not be a Cloudflare challenge').toBe(200);
+  await expect(page.locator('.add-shape').getByRole('button',{name:'DXF İçe Aktar',exact:true})).toBeVisible({timeout:30000});
+  const clear=page.getByRole('button',{name:'Tümünü sil'});
+  if(await clear.isEnabled())await clear.click();
+  await expect(page.locator('.part-row')).toHaveCount(0,{timeout:10000});
+  const started=Date.now();
+  await page.locator('input[type="file"][accept*=".dxf"]').first().setInputFiles({
+    name:'qa-live-hole.dxf',mimeType:'application/dxf',buffer:Buffer.from(TEST_DXF,'utf8')
+  });
+  const row=page.locator('.part-row').filter({hasText:'80 × 50'});
+  await expect(row).toHaveCount(1,{timeout:30000});
+  await row.locator('input').first().fill('2');
+  await page.getByLabel('Malzeme genişliği').fill('85');
+  await page.getByLabel('Durdurma koşulu').selectOption('10');
+  await page.getByRole('button',{name:'Parçaları yerleştir',exact:true}).click();
+  await expect(page.getByRole('button',{name:'En iyi geçerli yerleşim',exact:true})).toBeEnabled({timeout:75000});
+  const metrics=await page.locator('.metrics').innerText();
+  expect(metrics).toMatch(/Malzeme verimliliği\s+\d/);
+  expect(authorizationCalls,'A read-only production smoke must never authorize or charge an export').toEqual([]);
+  console.log('NESTING_QA '+JSON.stringify({event:'live-dxf-nesting',status:'passed',httpStatus,
+    elapsedMs:Date.now()-started,parts:2,hasHole:true,authorizationCalls:0,metrics}));
+  // No login, checkout, authorize export, project save, or DXF download on production.
+});
