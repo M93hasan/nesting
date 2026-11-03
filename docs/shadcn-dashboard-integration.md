@@ -28,3 +28,14 @@ The overview now requests the existing `/api/admin/logs` audit endpoint and rend
 ## Real data visualization (stage 4)
 
 The admin overview includes a responsive, accessible seven-day user registration chart. It uses only the existing D1-backed `createdAt` timestamps already supplied by the admin-users endpoint; users without valid registration timestamps are not counted. No additional API, dependency, chart mock or tracking is added. Semantic roles are assigned to every cell in the user data grid.
+
+
+## Studio control system (stage 5)
+
+The separate studio-dashboard.css stylesheet styles the existing Serula workspace: navigation, save status, account dropdown, part rows and selected state, series multiplier, material settings, CAD snapping toolbar, canvas hints, empty state, placement result tabs, action footer, export buttons and modal controls. The style system follows the neutral Shadcn Dashboard visual direction. No new editor, simulated data or dependency is introduced.
+
+The CAD column positions, part selection handlers, calculation and WASM/DXF/PLT/SVG/CorelDRAW processes, keyboard behavior, session security and Cloudflare Worker/D1 bindings are unchanged. Existing layout.css remains authoritative for structural dimensions and responsive geometry.
+
+New Playwright coverage includes the desktop panel order, settings disclosure keyboard focus, contour toggle, 390/768/1440 viewport overflow, DXF/CorelDRAW controls and PR screenshots.
+
+The upstream Shadcn Dashboard template remains MIT licensed, and this adaptation retains its source link and license notice.

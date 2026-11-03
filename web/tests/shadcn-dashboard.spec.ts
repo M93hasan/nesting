@@ -134,3 +134,54 @@ test('overview chart counts real registration dates, without demo metrics',async
   await expect(chart.locator('.sd-chart-total')).toHaveText('1 kayıt');
   await expect(chart.getByRole('img')).toHaveAttribute('aria-label',/toplam 1 kayıt/);
 });
+
+test('Shadcn Studio surfaces preserve the desktop CAD three-column order',async({page},info)=>{
+  await page.setViewportSize({width:1440,height:900});
+  await page.goto('/');
+  const studio=page.locator('.app.shadcn-studio');
+  const parts=studio.locator('#parts-settings');
+  const drawing=studio.locator('.drawing-panel');
+  const material=studio.locator('.material-panel');
+  const [p,d,m]=await Promise.all([parts,drawing,material].map(el=>el.boundingBox()));
+  expect(p).not.toBeNull();expect(d).not.toBeNull();expect(m).not.toBeNull();
+  expect(p!.x+p!.width).toBeLessThanOrEqual(d!.x+2);
+  expect(d!.x+d!.width).toBeLessThanOrEqual(m!.x+2);
+  await expect(parts).toHaveCSS('background-color','rgb(255, 255, 255)');
+  await expect(drawing).toHaveCSS('border-top-style','solid');
+  await expect(material).toHaveCSS('border-top-style','solid');
+  await expect(studio.locator('.canvas-tools')).toHaveCSS('background-color','rgba(255, 255, 255, 0.96)');
+  await expect(studio.locator('.statusbar')).toHaveCSS('background-color','rgb(255, 255, 255)');
+  await page.screenshot({path:info.outputPath('shadcn-studio-desktop.png'),fullPage:true});
+});
+
+test('Shadcn Studio disclosure focus and toggles remain functional on a phone',async({page},info)=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.goto('/');
+  const studio=page.locator('.app.shadcn-studio');
+  await studio.getByRole('button',{name:'Parçalar & ayarlar'}).click();
+  await expect(page.locator('#parts-settings')).toBeVisible();
+  await expect(page.getByLabel('Proje seri adedi')).toBeAttached();
+  const summary=studio.locator('.material-panel .solver-options > summary');
+  await summary.scrollIntoViewIfNeeded();
+  await summary.focus();
+  await expect(summary).toHaveCSS('outline-style','solid');
+  await summary.press('Enter');
+  await expect(studio.locator('.material-panel .solver-options')).toHaveAttribute('open','');
+  const contour=studio.getByRole('button',{name:'Kontur modu'});
+  await contour.click();
+  await expect(contour).toHaveAttribute('aria-pressed','true');
+  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.screenshot({path:info.outputPath('shadcn-studio-mobile.png'),fullPage:true});
+});
+
+test('Shadcn Studio export and placement controls stay within supported viewports',async({page})=>{
+  for(const width of [390,768,1440]){
+    await page.setViewportSize({width,height:900});
+    await page.goto('/');
+    await expect(page.locator('.workspace-svg')).toBeVisible();
+    await expect(page.locator('.corel-transfer-button')).toBeAttached();
+    await expect(page.locator('.statusbar .run-button')).toBeVisible();
+    await expect(page.locator('#parts-settings').getByRole('button',{name:'DXF İçe Aktar'})).toBeAttached();
+    await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+  }
+});
