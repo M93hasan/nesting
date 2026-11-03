@@ -307,7 +307,7 @@ test('mobile keeps the original Serula palette while desktop uses new slate appe
   await page.goto('/');
   await expect(page.locator('.app.shadcn-studio')).toHaveCSS('background-color','rgb(248, 250, 252)');
   await expect(page.locator('.canvas-tools')).toHaveCSS('background-color','rgb(255, 255, 255)');
-  await expect(page.locator('#parts-settings .part-select')).toBeAttached();
+  await expect(page.locator('#parts-settings .add-shape>button')).toHaveCount(2);
   await page.goto('/admin');
   await expect(page.locator('.admin-page.shadcn-dashboard')).toHaveCSS('background-color','rgb(255, 255, 255)');
 });
