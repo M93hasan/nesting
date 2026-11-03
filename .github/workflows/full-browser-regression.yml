@@ -80,9 +80,11 @@ jobs:
           tests/critical-smoke.spec.ts
           tests/premium-theme.spec.ts
           --reporter=line --max-failures=1
-      - name: Local DXF functional smoke and production WAF diagnostic (no paid export)
+      - name: Local DXF import and WASM nesting acceptance (required, no paid export)
+        run: npx playwright test tests/production-nesting-qa.spec.ts --project=chromium --grep "anonymous local preview" --reporter=line --max-failures=1
+      - name: Production live WAF and published release diagnostic (advisory, no mutation)
         continue-on-error: true
-        run: npx playwright test tests/production-nesting-qa.spec.ts --project=chromium --reporter=line --max-failures=1
+        run: npx playwright test tests/production-nesting-qa.spec.ts --project=chromium --grep "live release marker" --reporter=line --max-failures=1
       - name: Run legacy Sparrow compatibility suite (manual migration audit)
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_legacy_suite }}
         run: npx playwright test --reporter=line --max-failures=10
