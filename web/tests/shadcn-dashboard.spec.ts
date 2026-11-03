@@ -172,7 +172,8 @@ test('Shadcn Studio disclosure focus and toggles remain functional on a phone',a
   const contour=studio.getByRole('button',{name:'Kontur modu'});
   await contour.click();
   await expect(contour).toHaveAttribute('aria-pressed','true');
-  await expect(contour).toHaveCSS('background-color','rgb(39, 39, 42)');
+  await expect(contour).toHaveCSS('color','rgb(255, 255, 255)');
+  await expect(contour).toHaveCSS('border-top-color','rgb(39, 39, 42)');
   await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await page.screenshot({path:info.outputPath('shadcn-studio-mobile.png'),fullPage:true});
 });
