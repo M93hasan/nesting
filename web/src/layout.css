@@ -218,7 +218,6 @@ button,input,select{min-height:44px}
 .header{height:auto;flex-wrap:wrap;gap:12px;padding-block:8px}
 .header nav{flex-wrap:wrap}
 .project-menu>summary{line-height:1.45;min-height:36px;padding:7px 12px}
-.header .theme-toggle{display:grid;place-items:center;padding:8px}
 .statusbar>.run-status{display:grid;grid-template-columns:32px minmax(0,1fr);column-gap:14px;align-items:center}
 .status-symbol{grid-column:1;grid-row:1 / span 2;width:32px;height:32px;transform:translateX(-4px)}
 .run-state,.worker-status{grid-column:2}
@@ -653,7 +652,7 @@ html[dir="rtl"] .header nav{margin-left:0;margin-right:auto}
 .app > .header:has(#serula-account-slot > details[open]) #serula-account-slot > details[open] > .auth-account-dropdown{position:fixed !important;top:64px !important;right:16px !important;z-index:2147483007 !important;transform:none !important}
 .app > .main-workspace > .material-panel{position:relative;z-index:1}
 
-/* Structural declarations formerly in web/src/vision.css */
+/* Retained structural declarations */
 #root button,#root a.button{transform:none!important}
 #root button:hover:enabled,#root a.button:hover{transform:none!important}
 #root button:disabled{cursor:not-allowed;transform:none!important}
@@ -749,7 +748,6 @@ html[dir="rtl"] .header nav{margin-left:0;margin-right:auto}
 .run-controls{width:auto}
 .metrics{gap:12px}
 #root button,#root a.button{min-height:44px}
-.header nav .theme-toggle{width:44px}
 .modal{padding:20px}}
 .admin-topbar{height:72px;padding-inline:clamp(16px,3vw,42px)}
 .admin-brand{gap:12px}
@@ -920,12 +918,12 @@ html[dir=rtl] .glass-glider{left:auto;right:3px;transform:translateX(calc(var(--
 .admin-page .admin-conversation-list{display:grid;gap:6px;padding:6px}
 .admin-page a.admin-workspace-link{display:inline-flex;align-items:center;justify-content:center}
 
-/* Structural declarations formerly in web/src/premium-theme.css */
+/* Retained structural declarations */
 #root .solver-options .group-similar-option{display:flex;flex-direction:column;align-items:flex-start;gap:8px;width:fit-content;max-width:100%;line-height:1.45}
 #root .solver-options .group-similar-option .checkbox-wrapper-25{display:block;width:18px !important;height:18px !important;min-width:18px !important;min-height:18px !important;margin:0;padding:0 !important;transform:none !important;flex:0 0 18px}
 @media (prefers-reduced-motion: reduce){*, *::before, *::after{scroll-behavior:auto !important}}
 
-/* Structural declarations formerly in web/src/theme.css */
+/* Retained structural declarations */
 :root{--leading-heading-sm:1.18;--spacing-16:16px;--spacing-24:24px}
 :root #root .auth-account-dropdown{z-index:120;isolation:isolate}
 :root #root .auth-account-menu{z-index:120}
@@ -1086,7 +1084,7 @@ html[dir=rtl] .glass-glider{left:auto;right:3px;transform:translateX(calc(var(--
 #root .auth-card{padding:22px 18px}
 #root .admin-page .admin-card{padding:15px}}
 
-/* Structural declarations formerly in web/src/serula-calm-theme.css */
+/* Retained structural declarations */
 
 
 /* Structural declarations formerly in web/src/components/PrecisionControls.css */

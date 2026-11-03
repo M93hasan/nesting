@@ -12,15 +12,13 @@ import {loadCatalog} from './datasets';
 import { prepareIsolation } from './isolation';
 import {I18nProvider} from './i18n';
 
-// Visual refresh; the removed visual-editor subsystem stays removed.
 
-// One restrained design layer replaces four conflicting glass-effect overrides.
 
 const ADMIN_EMAIL='m93hasan@icloud.com';
 const GOOGLE_CLIENT_ID='207092733568-2h2751l65c8cbnb3o6qfpvl4uug9f975.apps.googleusercontent.com';
 
 // Remove only obsolete visual-editor drafts from this browser. Do not touch
-// any saved Nesting project, account, credit or appearance preference.
+// any saved Nesting project, account or credit data.
 try{
   for(const key of [
     'serula-puck-page-v1',
