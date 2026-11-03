@@ -1,4 +1,5 @@
-import {useEffect,useLayoutEffect,useRef,useState} from 'react';
+import {useEffect,useId,useLayoutEffect,useRef,useState} from 'react';
+import './PrecisionControls.css';
 import type {Part} from '../model';
 import {bounds} from '../geometry/normalize';
 import {displayLength,unitScale,type DisplayUnit} from '../units';
@@ -9,6 +10,7 @@ export default function SizeControls({part,disabled,onApply,onValidity,unit='mm'
   const valid=(value:string)=>!!value.trim()&&Number.isFinite(Number(value))&&Number(value)>0&&Number(value)*scale<=100_000;
   const invalid=!valid(width)||!valid(height);
   useEffect(()=>{onValidity(!invalid);return()=>onValidity(true);},[invalid,onValidity]);
+  const dimensionsErrorId=useId();
   const previous=useRef({id:part.id,w,h,unit});
   useLayoutEffect(()=>{
     const old=previous.current,reset=old.id!==part.id||old.unit!==unit;
@@ -19,6 +21,6 @@ export default function SizeControls({part,disabled,onApply,onValidity,unit='mm'
   const apply=(axis:0|1,value:string)=>{
     if(valid(value)&&value!==initial[axis]&&Number(value)!==Number(initial[axis]))onApply(axis,Number(value)*scale);
   };
-  return <div className="size-controls"><label>Genişlik, {unit}<input type="number" min={.000001/scale} max={100000/scale} step="any" required aria-invalid={!valid(width)} disabled={disabled} value={width} onChange={e=>setWidth(e.target.value)} onBlur={()=>apply(0,width)} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur();}}/></label>
-    <label>Yükseklik, {unit}<input type="number" min={.000001/scale} max={100000/scale} step="any" required aria-invalid={!valid(height)} disabled={disabled} value={height} onChange={e=>setHeight(e.target.value)} onBlur={()=>apply(1,height)} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur();}}/></label><small>En-boy oranı kilitli</small>{invalid&&<small className="field-error" role="alert">Şu sınıra kadar pozitif ölçüler girin: {unit==='mm'?'100,000':displayLength(100000,unit)} {unit}.</small>}</div>;
+  return <div className="size-controls"><label>Genişlik, {unit}<input type="number" min={.000001/scale} max={100000/scale} step="any" required aria-invalid={!valid(width)} aria-describedby={!valid(width)?dimensionsErrorId:undefined} disabled={disabled} value={width} onChange={e=>setWidth(e.target.value)} onBlur={()=>apply(0,width)} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur();}}/></label>
+    <label>Yükseklik, {unit}<input type="number" min={.000001/scale} max={100000/scale} step="any" required aria-invalid={!valid(height)} aria-describedby={!valid(height)?dimensionsErrorId:undefined} disabled={disabled} value={height} onChange={e=>setHeight(e.target.value)} onBlur={()=>apply(1,height)} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur();}}/></label><small>En-boy oranı kilitli</small>{invalid&&<small className="field-error" id={dimensionsErrorId} role="alert">Şu sınıra kadar pozitif ölçüler girin: {unit==='mm'?'100,000':displayLength(100000,unit)} {unit}.</small>}</div>;
 }
