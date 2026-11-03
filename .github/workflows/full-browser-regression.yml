@@ -80,6 +80,8 @@ jobs:
           tests/critical-smoke.spec.ts
           tests/premium-theme.spec.ts
           --reporter=line --max-failures=1
+      - name: Liquid Glass screenshot-material regression
+        run: npx playwright test tests/liquid-glass-surfaces.spec.ts --project=chromium --reporter=line --max-failures=1
       - name: Liquid Studio visible identity acceptance (studio and admin)
         run: npx playwright test tests/studio-liquid-identity.spec.ts --project=chromium --reporter=line --max-failures=1
       - name: CAD toolbar keyboard and mobile snapping acceptance
