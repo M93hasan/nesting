@@ -3,6 +3,9 @@
  * Neutral graphite + layered blue-gray instead of white on white.
  * Scoped paint and compact parts controls; geometry, CAD events and exports stay unchanged.
  */
+/* Only desktop and tablet get the new palette and compact Parçalar UI.
+   Mobile continues using the previously published styling, unchanged. */
+@media (min-width: 700px) {
 #root .admin-page.shadcn-dashboard{
  --sd-page:#dce5ee;--sd-card:#ecf2f7;--sd-ink:#243447;
  --sd-muted:#50687c;--sd-border:#c5d1dc;--sd-primary:#456b86;
@@ -257,18 +260,6 @@
 #root .app.shadcn-studio #parts-settings .part-properties-disclosure>summary{
  padding:9px 11px;font-size:12px;
 }
-@media(max-width:699px){
- #root .app.shadcn-studio #parts-settings .part-row{
-  min-height:42px;
- }
- #root .app.shadcn-studio #parts-settings .part-select{min-height:40px}
- #root .app.shadcn-studio #parts-settings .part-row>input,
- #root .app.shadcn-studio #parts-settings .part-row>.remove-part,
- #root .app.shadcn-studio #parts-settings .add-shape>button,
- #root .app.shadcn-studio #parts-settings .history>button{
-  min-height:40px;
- }
-}
 #root .auth-screen.shadcn-auth{
  background:#dbe5ee;color:#263a4e;
 }
@@ -280,3 +271,5 @@
 }
 #root .auth-screen.shadcn-auth .auth-tabs{background:#d9e6f0}
 #root .auth-screen.shadcn-auth .auth-tabs button.active{background:#eff5fa}
+
+}

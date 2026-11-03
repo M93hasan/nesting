@@ -63,3 +63,7 @@ Functional parity to Serula's CAD tools takes priority over pixel-perfect copyin
 The white-heavy Shadcn interface is refined with a scoped slate and graphite palette in `web/src/slate-ambience.css`. Only the interior of the **Parçalar** sidebar is compacted: part thumbnail and row padding, quantity input, production series, add/undo/clear controls and collapsed properties. Mobile action targets remain at least 40px. Positions of all three CAD columns, toolbar functions, export actions and Worker APIs remain unchanged.
 
 DXF display bug: `Workspace.tsx` previously rendered the opaque `material-width-outside` SVG group after the shape groups, concealing imported geometry outside the material-width boundary. It now renders before all part shapes, preserving coordinate grid and material tint while keeping imported DXF geometry visually on top. DXF parsing, DXF layer data and exported geometry are untouched. Browser tests import a real DXF fixture, check SVG paint order, and check compact control accessibility.
+
+## Mobile cancellation (follow-up)
+
+At the user's request the new slate palette and compact Parçalar controls are **desktop/tablet only (min-width 700px)**. All new mobile-specific palette/compaction overrides have been removed; below 700px the previously published Shadcn/Serula mobile layout remains unchanged. The SVG DXF foreground layering bug fix stays global, because that is a drawing-order fix, not a mobile UI redesign. The PR remains unmerged and production stays unchanged.

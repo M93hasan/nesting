@@ -300,3 +300,14 @@ test('Parçalar panel keeps its actions accessible in a compact layout',async({p
   await expect(page.getByLabel('Proje seri adedi')).toBeEnabled();
   await expect(page.getByRole('button',{name:'Geri al'})).toBeEnabled();
 });
+
+
+test('mobile keeps the original Serula palette while desktop uses new slate appearance',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.goto('/');
+  await expect(page.locator('.app.shadcn-studio')).toHaveCSS('background-color','rgb(248, 250, 252)');
+  await expect(page.locator('.canvas-tools')).toHaveCSS('background-color','rgba(255, 255, 255, 0.96)');
+  await expect(page.locator('#parts-settings .part-select')).toBeAttached();
+  await page.goto('/admin');
+  await expect(page.locator('.admin-page.shadcn-dashboard')).toHaveCSS('background-color','rgb(255, 255, 255)');
+});
