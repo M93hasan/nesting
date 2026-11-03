@@ -12,7 +12,7 @@ test('new shadcn studio appearance preserves CAD and export actions',async({page
   await expect(page.locator('.drawing-panel .workspace-svg')).toBeAttached();
   await expect(page.locator('.material-panel')).toBeAttached();
   await expect(page.locator('.corel-transfer-button')).toBeAttached();
-  await expect(page.getByRole('button',{name:'DXF İçe Aktar'})).toBeAttached();
+  await expect(page.locator('#parts-settings').getByRole('button',{name:'DXF İçe Aktar'})).toBeAttached();
   await expect(studio).toHaveCSS('background-color','rgb(248, 250, 252)');
 });
 
