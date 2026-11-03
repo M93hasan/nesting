@@ -3,7 +3,7 @@ import packageInfo from '../package.json';
 import {readRecovery,saveRecovery} from './storage/recovery';
 import {useDismissibleMenu} from './components/useDismissibleMenu';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {useThemePreference} from './theme-preference';
+
 import { DEFAULT_SETTINGS, rotationSummary, type Document, type Part, type Point, type Result, type RotationRule } from './model';
 import { bounds } from './geometry/normalize';
 import { netArea } from './geometry/validate';
@@ -50,7 +50,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const [resultMode,setResultMode]=useState<'live'|'checked'>('live');
   const [threads,setThreads]=useState(0);
   const [sizeValid,setSizeValid]=useState(true),[downloadedResult,setDownloadedResult]=useState(false),[seriesDraft,setSeriesDraft]=useState<string>();
-  const [theme,setTheme]=useThemePreference();
+
   const [unit,setUnit]=useState<DisplayUnit>(()=>{try{return localStorage.getItem('serula-units')==='in'?'in':'mm';}catch{return 'mm';}});
   useEffect(()=>{try{localStorage.setItem('serula-units',unit);}catch{/* Görüntü birimleri work without persistence. */}},[unit]);
   const factor=unitScale(unit),length=(mm:number)=>(mm/factor).toLocaleString(undefined,{maximumFractionDigits:unit==='mm'?2:4});
@@ -222,7 +222,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   },[doc,recoveryResult,revision,loadingExample,recoveryReady,invalidSettings]);
   useEffect(()=>{
     if(!recoveryReady||loadingExample||invalidSettings||!!polygon?.length||!doc.name.trim())return;
-    const project={...doc,...(recoveryResult?{placements:recoveryResult.placements,result:recoveryResult}:{}),schemaVersion:1 as const,revision,serulaCloud:{label:CLOUD_SAVE_NAME,ui:{theme,unit}}};
+    const project={...doc,...(recoveryResult?{placements:recoveryResult.placements,result:recoveryResult}:{}),schemaVersion:1 as const,revision,serulaCloud:{label:CLOUD_SAVE_NAME,ui:{unit}}};
     let active=true,written=false;
     setCloudSaveState('saving');
     const write=async()=>{
@@ -238,7 +238,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     const hidden=()=>{if(document.visibilityState==='hidden')void write();};
     window.addEventListener('pagehide',write);document.addEventListener('visibilitychange',hidden);
     return()=>{active=false;clearTimeout(timer);window.removeEventListener('pagehide',write);document.removeEventListener('visibilitychange',hidden)};
-  },[doc,recoveryResult,revision,loadingExample,recoveryReady,invalidSettings,polygon,theme,unit,cloudSaveTick]);
+  },[doc,recoveryResult,revision,loadingExample,recoveryReady,invalidSettings,polygon,unit,cloudSaveTick]);
   useEffect(()=>{
     if(running||!result) return;
     const next=withDocumentPlacements(doc,result.placements);
@@ -562,7 +562,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         const content=reply.bundle.dxf;
         const fileName=`${exportAd}.dxf`;
         const sourceFileName=doc.parts.find(part=>part.source.format==='dxf'||part.source.format==='plt')?.source.fileName??doc.name;
-        const projectJson=JSON.stringify({...doc,...(result?{placements:result.placements,result}:{}),schemaVersion:1,revision,serulaCloud:{label:CLOUD_SAVE_NAME,ui:{theme,unit}}});
+        const projectJson=JSON.stringify({...doc,...(result?{placements:result.placements,result}:{}),schemaVersion:1,revision,serulaCloud:{label:CLOUD_SAVE_NAME,ui:{unit}}});
         await authorizeExport(doc.name,sourceFileName,fileName,content,projectJson);
         download(fileName,content,'application/dxf');setDownloadedResult(true);setExported({document:doc,result});return true;
       }
@@ -620,7 +620,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   return <div className="app" onBlurCapture={()=>{fieldEdit.current=undefined;}} onKeyDown={e=>{if(e.key==='Enter'&&e.target instanceof HTMLInputElement&&e.target.hasAttribute('data-undo-field')){e.preventDefault();e.target.blur();}}} onMouseDownCapture={e=>{const target=e.target;focusClick.current=target instanceof HTMLInputElement&&['text','number'].includes(target.type)&&document.activeElement!==target?target:null;}} onMouseUpCapture={e=>{if(focusClick.current===e.target){e.preventDefault();focusClick.current.select();}focusClick.current=null;}} onFocusCapture={e=>{const input=e.target;if(input instanceof HTMLInputElement&&['text','number'].includes(input.type))input.select();}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(!document.querySelector('dialog[open]'))void openFiles(e.dataTransfer.files);}}>
     <header className="header"><div className="brand-block"><a className="brand serula-brand" aria-label="Serula Nesting Studio" href={import.meta.env.BASE_URL}><img src={`${import.meta.env.BASE_URL}serula-logo.svg`} alt="" /><strong>Serula Nesting</strong><span>/studio · Sürüm {packageInfo.version}</span></a><p className="tagline">{"Akıllı DXF yerleştirme ve malzeme optimizasyonu"}</p></div>
       <div className="header-primary project-bar">{browserSaveState!=='loading'&&<small className="project-status" data-save-state={browserSaveState} aria-live="polite" title={recoveryError||(invalidSettings?'Değişiklikleri kaydetmek için geçersiz değerleri düzeltin.':polygon?.length?'Değişiklikleri kaydetmek için çokgeni tamamlayın veya iptal edin.':cloudSaveState==='saved'?CLOUD_SAVE_NAME+' buluta kaydedildi.':'Bu tarayıcıda otomatik kaydedilir; giriş yapılmışsa buluta da senkronlanır.')}><span aria-hidden="true">{browserSaveState==='saved'&&cloudSaveState!=='error'?'✓':browserSaveState==='error'||browserSaveState==='unsaved'||cloudSaveState==='error'?'!':'◷'}</span>{cloudSaveState==='saved'?'Buluta kaydedildi':cloudSaveState==='saving'?'Buluta kaydediliyor…':browserSaveLabel}</small>}</div>
-      <nav>{testDxfAllowed&&<button className="test-dxf-tab" disabled={locked} onClick={()=>setTestDxfOpen(true)}>Test DXF</button>}<button className="history-tab" disabled={locked} onClick={()=>setHistoryOpen(true)}>Geçmiş</button><button className="mobile-settings" aria-expanded={panel} aria-controls="parts-settings" onClick={()=>setPanel(!panel)}>Parçalar &amp; ayarlar</button><button className="theme-toggle" title="Açık/koyu görünümü değiştir" aria-label="Açık/koyu görünümü değiştir" onClick={()=>setTheme(theme==='dark'||theme==='system'&&matchMedia('(prefers-color-scheme: dark)').matches?'light':'dark')}><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16Z" fill="currentColor" stroke="none"/></svg></button><button aria-label="Serula Nesting Hakkında" onClick={()=>setInfo('about')}><span aria-hidden="true">ⓘ</span>Hakkında</button><button className="hello-button" aria-label="İletişim" onClick={()=>setInfo('contact')}><span className={downloadedResult?'hello-wave':undefined} aria-hidden="true">☎</span>İletişim</button><div id="serula-account-slot" className="account-slot"/></nav>
+      <nav>{testDxfAllowed&&<button className="test-dxf-tab" disabled={locked} onClick={()=>setTestDxfOpen(true)}>Test DXF</button>}<button className="history-tab" disabled={locked} onClick={()=>setHistoryOpen(true)}>Geçmiş</button><button className="mobile-settings" aria-expanded={panel} aria-controls="parts-settings" onClick={()=>setPanel(!panel)}>Parçalar &amp; ayarlar</button><button aria-label="Serula Nesting Hakkında" onClick={()=>setInfo('about')}><span aria-hidden="true">ⓘ</span>Hakkında</button><button className="hello-button" aria-label="İletişim" onClick={()=>setInfo('contact')}><span className={downloadedResult?'hello-wave':undefined} aria-hidden="true">☎</span>İletişim</button><div id="serula-account-slot" className="account-slot"/></nav>
       <input ref={input} hidden type="file" multiple accept=".json,.svg,.dxf,.plt,.hpgl,.hpg,.hgl" onChange={e=>{if(e.target.files)void openFiles(e.target.files,'shapes');e.target.value='';}}/>
       <input ref={projectInput} hidden type="file" accept=".zip,.sparrow-project.json,.json" onChange={e=>{if(e.target.files)void openFiles(e.target.files,'project');e.target.value='';}}/>
     </header>
@@ -660,9 +660,9 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         </section>
         {doc.parts.reduce((n,p)=>n+(Number.isFinite(p.quantity)?p.quantity:0),0)>500&&<p role="alert" className="field-error quantity-total">Bu çizim 500 kopya sınırını aşıyor. Devam etmek için adetleri azaltın.</p>}
         {doc.parts.some(part=>part.quantity===0)&&<button className="text-button clear-unused" disabled={locked} onClick={()=>commit({...doc,parts:doc.parts.filter(part=>part.quantity!==0)})}>Adedi sıfır olan parçaları kaldır</button>}
-        <div className="add-shape"><button data-button-style="shape" disabled={locked} onClick={()=>setShape('rectangle')}>Şekil çiz</button><button data-button-style="import" className="primary" disabled={locked} onClick={()=>input.current?.click()}>DXF İçe Aktar</button></div>
+        <div className="add-shape"><button disabled={locked} onClick={()=>setShape('rectangle')}>Şekil çiz</button><button className="primary" disabled={locked} onClick={()=>input.current?.click()}>DXF İçe Aktar</button></div>
         <p className="import-formats">SVG, DXF veya PLT dosyası içe aktar</p>
-        <div className="row-actions history"><button data-button-style="undo" disabled={locked||!history.current.length} onClick={()=>restore()}>Geri al</button><button data-button-style="redo" disabled={locked||!future.current.length} onClick={()=>restore(true)}>Yinele</button></div>
+        <div className="row-actions history"><button disabled={locked||!history.current.length} onClick={()=>restore()}>Geri al</button><button disabled={locked||!future.current.length} onClick={()=>restore(true)}>Yinele</button></div>
         <button className="danger-button clear-all-parts" disabled={locked||!doc.parts.length} onClick={()=>commit({...doc,parts:[]})}>Tümünü sil</button>
 
         <details className="part-properties-inline part-properties-disclosure" aria-label="Parça özellikleri"><summary>Parça özellikleri</summary><div className="part-settings">{chosen?<>{selected.length===1?<label>Ad<input data-undo-field value={chosen.name} disabled={locked} onChange={e=>editPart({name:e.target.value},false,`name:${chosen.id}`)}/></label>:<h2>{selected.length} parça seçildi</h2>}
@@ -677,7 +677,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
           polygon={polygon} onDraw={point=>{if(!locked)setPolygon(p=>[...(p??[]),point]);}}
           onSelect={(copy,toggle)=>{setUnusedSelection([]);if(!copy){setSelectedCopies([]);return;}const key=`${copy.partId}:${copy.copyIndex}`,already=selectedCopies.some(p=>`${p.partId}:${p.copyIndex}`===key);const nextCopies=toggle?(already?selectedCopies.filter(p=>`${p.partId}:${p.copyIndex}`!==key):[...selectedCopies,copy]):already?selectedCopies:[copy];setSelectedCopies(nextCopies);}}
           onMove={positions=>{const current=documentPlacements(canvasDocument);const updates=positions.map(position=>{const previous=current.find(p=>p.partId===position.partId&&p.copyIndex===position.copyIndex);return previous?{...previous,xMm:position.position[0],yMm:position.position[1]}:undefined;}).filter((position):position is NonNullable<typeof position>=>!!position);commit(updatePlacements(canvasDocument,updates));}}/>
-        {!doc.parts.length&&!polygon&&<div className="empty-project"><h2>Projeniz boş</h2><p>Yeni bir şekil oluşturun veya DXF, SVG ve PLT dosyalarınızı içe aktararak yerleşime başlayın.</p><div className="empty-project-actions"><button data-button-style="import" className="primary" disabled={locked} onClick={()=>input.current?.click()}>DXF İçe Aktar</button></div></div>}
+        {!doc.parts.length&&!polygon&&<div className="empty-project"><h2>Projeniz boş</h2><p>Yeni bir şekil oluşturun veya DXF, SVG ve PLT dosyalarınızı içe aktararak yerleşime başlayın.</p><div className="empty-project-actions"><button className="primary" disabled={locked} onClick={()=>input.current?.click()}>DXF İçe Aktar</button></div></div>}
         {polygon&&<div className="polygon-actions"><span>{polygon.length} köşe</span><button disabled={locked||polygon.length<3} onClick={()=>void addShape('polygon')}>Çokgeni tamamla</button><button onClick={()=>setPolygon(undefined)}>Çokgeni iptal et</button></div>}
         {(live||result)&&<div className={`result-details${showingLive?' live-details':''}`}><div className="result-mode" role="group" aria-label="Sonuç görünümü"><button aria-pressed={resultMode==='live'} disabled={!live} onClick={()=>setResultMode('live')}>{running&&<i className="live-dot" aria-hidden="true"/>}Canlı arama</button><button aria-pressed={resultMode==='checked'} disabled={!result} onClick={()=>setResultMode('checked')}>En iyi geçerli yerleşim</button></div>{showingLive&&<div className="result-copy"><span><i className="overlap-key"/>Çakışmalar kırmızı</span><p>Ara yerleşimlerde geçici çakışmalar olabilir.</p></div>}</div>}
         {solver.liveError&&<p className="field-error">Canlı önizleme kullanılamıyor: {solver.liveError}</p>}
@@ -725,7 +725,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         <span className="download-control" tabIndex={exportBlockedReason?0:undefined} aria-describedby={exportBlockedReason?'download-tooltip':undefined}><button disabled={!!exportBlockedReason} className="download-button" onClick={()=>void exportLayout()}><svg className="download-button__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg><span>{'DXF İndir'}</span></button>{exportBlockedReason&&<span id="download-tooltip" role="tooltip" className="compression-tooltip">{exportBlockedReason}</span>}</span></div>
 
     </footer>
-    {historyOpen&&<ExportHistory onClose={()=>setHistoryOpen(false)} onOpen={async(name,projectText)=>{try{const saved=JSON.parse(projectText) as {serulaCloud?:{ui?:{theme?:string;unit?:string}}};const savedTheme=saved.serulaCloud?.ui?.theme,savedUnit=saved.serulaCloud?.ui?.unit;if(savedTheme==='system'||savedTheme==='light'||savedTheme==='dark')setTheme(savedTheme);if(savedUnit==='mm'||savedUnit==='in')setUnit(savedUnit)}catch{}setHistoryOpen(false);await openFiles([new File([projectText],name,{type:'application/json'})],'project')}}/>}
+    {historyOpen&&<ExportHistory onClose={()=>setHistoryOpen(false)} onOpen={async(name,projectText)=>{try{const saved=JSON.parse(projectText) as {serulaCloud?:{ui?:{unit?:string}}};const savedUnit=saved.serulaCloud?.ui?.unit;if(savedUnit==='mm'||savedUnit==='in')setUnit(savedUnit)}catch{}setHistoryOpen(false);await openFiles([new File([projectText],name,{type:'application/json'})],'project')}}/>}
     {files&&<Modal title="İçe aktarmayı gözden geçir" locked={busy} onClose={()=>{setFiles(undefined);setReview(undefined);setError('');}}><p>{files.map(f=>f.name).join(', ')}</p><p className="muted">{fileIntent==='project'?'Proje dosyaları tüm işi geri yükler. Çizim dosyaları şekil olarak eklenebilir.':'SVG, DXF ve instance JSON şekil ekler. Kaydedilmiş proje tüm işi geri yükler.'}</p>
       {!review?.replace&&<><label>Bir çizim birimi<select value={scale} disabled={busy} onChange={e=>{setScale(Number(e.target.value));setPreviewStale(true);}}><option value="1">1 mm</option><option value="25.4">1 inç · 25.4 mm</option></select></label><p className="muted">Fiziksel SVG ölçüleri ve tanınan DXF birimleri korunur. Birimsiz çizimler seçilen ölçeği kullanır.</p></>}
       {files.some(f=>!f.text.trimStart().startsWith('{'))&&<><label>Maksimum eğri sapması, {unit}<input type="number" min={0.000001/factor} max={100/factor} step="any" value={inputLength(tolerance)} disabled={busy} onChange={e=>{setTolerance(e.target.valueAsNumber*factor);setPreviewStale(true);}}/></label>{files.some(f=>!['<','{'].includes(f.text.trimStart()[0]))&&<p className="muted">DXF iç konturları ana parçaya kilitlenir; yerleştirme sırasında ayrı parça olarak dağıtılmaz.</p>}</>}
@@ -763,7 +763,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         <section className="about-card about-preferences">
           <h3>Tercihler</h3>
           <label>Görüntü birimleri<select value={unit} onChange={e=>setUnit(e.target.value as DisplayUnit)}><option value="mm">Milimetre</option><option value="in">İnç</option></select></label>
-          <label>Görünüm<select value={theme} onChange={e=>setTheme(e.target.value as typeof theme)}><option value="system">Sistem</option><option value="light">Açık</option><option value="dark">Koyu</option></select></label>
+          
           <LanguageSelect/>
         </section>
         <section className="about-card about-download">

@@ -1,5 +1,5 @@
 import {useEffect,useId,useLayoutEffect,useRef,useState} from 'react';
-import './PrecisionControls.css';
+
 import type {Part} from '../model';
 import {bounds} from '../geometry/normalize';
 import {displayLength,unitScale,type DisplayUnit} from '../units';

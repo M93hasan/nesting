@@ -23,6 +23,18 @@ test('studio has no horizontal overflow at phone width',async({page})=>{
   await page.setViewportSize({width:390,height:844});
   await page.goto('/');
   await expect(page.locator('#parts-settings')).toBeAttached();
+  const diagnostic = await page.evaluate(() => {
+    const width = document.documentElement.clientWidth;
+    const extra = document.documentElement.scrollWidth - width;
+    return {
+      width,extra,
+      overflow: [...document.querySelectorAll<HTMLElement>('body *')]
+        .map(element=>({tag:element.tagName,cls:element.className && typeof element.className==='string' ? element.className.slice(0,110) : '',right:Math.round(element.getBoundingClientRect().right),left:Math.round(element.getBoundingClientRect().left)}))
+        .filter(item=>item.right > width+1 || item.left < -1)
+        .slice(0,16)
+    };
+  });
+  if(diagnostic.extra>0)console.log('MOBILE_OVERFLOW_DIAGNOSTIC '+JSON.stringify(diagnostic));
   await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
 
