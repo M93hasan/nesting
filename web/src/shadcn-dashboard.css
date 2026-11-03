@@ -150,7 +150,7 @@
 #root .app.shadcn-studio :is(input:not([type="checkbox"]),select,textarea){
  border:1px solid #d4d4d8;border-radius:7px;background:#fff;color:var(--sd-ink);
 }
-#root .app.shadcn-studio button:not(.part-select):not(.text-button):not(.run-button):not(.download-button):not(.corel-transfer-button):not(.primary){
+#root .app.shadcn-studio button:not(.part-select):not(.text-button):not(.run-button):not(.download-button):not(.corel-transfer-button):not(.primary):not([aria-pressed="true"]){
  border:1px solid var(--sd-border);border-radius:7px;background:#fff;color:#27272a;
 }
 #root .app.shadcn-studio button.primary,
