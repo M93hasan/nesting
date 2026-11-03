@@ -9,6 +9,7 @@ export function geometryTask(request: GeometryRequest): Promise<GeometryReply> {
       if(error) reject(error); else resolve(reply!);
     }
     worker.onmessage=({data}:MessageEvent<GeometryReply>)=>{
+      if(location.hostname==='127.0.0.1'&&location.search.includes('__qa_export')&&request.type==='export')console.info('EXPORT_QA '+JSON.stringify({stage:'geometryTask-message',replyType:data.type,runId:data.runId,revision:data.documentRevision,expectedId:request.runId,expectedRevision:request.documentRevision}));
       if(data.runId!==request.runId || data.documentRevision!==request.documentRevision) return;
       done(data,data.type==='error'?Error(data.message):undefined);
     };
