@@ -90,14 +90,24 @@ test('anonymous local preview DXF import, real WASM nesting and safe mocked expo
   posted=undefined;
   observedRequests.length=0;
   await page.evaluate(()=>{
-    const state=window as typeof window & {__qaExportClicks?:number;__qaGeometryRequests?:number};
-    state.__qaExportClicks=0;state.__qaGeometryRequests=0;
+    const state=window as typeof window & {__qaExportClicks?:number;__qaGeometryRequests?:number;
+      __qaWorkerReplies?:Array<{type:string;message?:string;runId?:number;documentRevision?:number}>};
+    state.__qaExportClicks=0;state.__qaGeometryRequests=0;state.__qaWorkerReplies=[];
     const element=Array.from(document.querySelectorAll('button')).find(b=>b.textContent?.includes('DXF İndir'));
     element?.addEventListener('click',()=>{state.__qaExportClicks=(state.__qaExportClicks??0)+1});
     const original=Worker.prototype.postMessage;
     Worker.prototype.postMessage=function(...args){
-      if((args[0] as {type?:string}|null)?.type==='export')
+      if((args[0] as {type?:string}|null)?.type==='export'){
         state.__qaGeometryRequests=(state.__qaGeometryRequests??0)+1;
+        this.addEventListener('message',(e:MessageEvent)=>{
+          const data=e.data as {type?:string;message?:string;runId?:number;documentRevision?:number};
+          state.__qaWorkerReplies?.push({type:data.type??'missing',message:data.message,runId:data.runId,
+            documentRevision:data.documentRevision});
+        });
+        this.addEventListener('error',(e:ErrorEvent)=>{
+          state.__qaWorkerReplies?.push({type:'worker-error',message:e.message});
+        });
+      }
       return original.apply(this,args);
     };
   });
@@ -115,7 +125,8 @@ test('anonymous local preview DXF import, real WASM nesting and safe mocked expo
       buttonDisabled:await exportButton.isDisabled(),buttonVisible:await exportButton.isVisible(),
       state:await page.locator('.run-state').innerText().catch(()=>''),
       eventCounts:await page.evaluate(()=>({clicks:(window as typeof window & {__qaExportClicks?:number}).__qaExportClicks,
-        workerExports:(window as typeof window & {__qaGeometryRequests?:number}).__qaGeometryRequests}))}));
+        workerExports:(window as typeof window & {__qaGeometryRequests?:number}).__qaGeometryRequests,
+        replies:(window as typeof window & {__qaWorkerReplies?:unknown[]}).__qaWorkerReplies}))}));
     throw error;
   }
   expect(posted).toBeDefined();
