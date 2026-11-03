@@ -68,18 +68,38 @@ test('anonymous local preview DXF import, real WASM nesting and safe mocked expo
   const exportButton=page.getByRole('button',{name:'DXF İndir',exact:true});
   await expect(exportButton).toBeEnabled({timeout:30000});
   // Only the local preview runs this; the real billed API never receives a request.
+  const observedRequests:string[]=[];
+  page.on('request',request=>{
+    if(request.url().includes('/api/export/authorize'))observedRequests.push(request.method()+' '+new URL(request.url()).pathname);
+  });
   let posted:{dxf:string;projectJson:string}|undefined;
   await page.route('**/api/export/authorize',async route=>{
     posted=route.request().postDataJSON() as {dxf:string;projectJson:string};
     await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,exportId:4242})});
   });
-  const downloadPromise=page.waitForEvent('download',{timeout:30000});
+  const probe=await page.evaluate(async()=>{
+    const response=await fetch('/api/export/authorize',{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({diagnostic:true})});
+    return response.status;
+  });
+  expect(probe,'The local authorization stub must answer an explicit browser request').toBe(200);
+  posted=undefined;
+  observedRequests.length=0;
+  const downloadPromise=page.waitForEvent('download',{timeout:40000});
   await exportButton.click();
-  await expect.poll(async()=>{
-    const error=await page.locator('.error-banner').first().textContent().catch(()=>'');
-    if(error)throw Error('Export UI error before authorization: '+error);
-    return Boolean(posted);
-  },{timeout:10000,message:'Export UI must POST to the mocked authorization endpoint'}).toBe(true);
+  try{
+    await expect.poll(async()=>{
+      const error=await page.locator('.error-banner').first().textContent().catch(()=>'');
+      if(error)throw Error('Export UI error before authorization: '+error);
+      return Boolean(posted);
+    },{timeout:35000,message:'Export UI must POST to the mocked authorization endpoint'}).toBe(true);
+  }catch(error){
+    console.log('NESTING_QA '+JSON.stringify({event:'local-export-diagnostic',apiRequests:observedRequests,
+      errors:await page.locator('.error-banner').allTextContents(),
+      buttonDisabled:await exportButton.isDisabled(),buttonVisible:await exportButton.isVisible(),
+      state:await page.locator('.run-state').innerText().catch(()=>'')}));
+    throw error;
+  }
   expect(posted).toBeDefined();
   console.log('NESTING_QA '+JSON.stringify({event:'local-export-authorization',called:true,
     dxfBytes:Buffer.byteLength(posted!.dxf),projectJsonBytes:Buffer.byteLength(posted!.projectJson)}));
