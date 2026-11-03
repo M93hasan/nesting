@@ -45,3 +45,55 @@ test('shadcn navigation fits phone, tablet and desktop widths',async({page})=>{
     await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
   }
 });
+
+test('user management filters online accounts and sorts by credits without changing API actions',async({page})=>{
+  await page.route('**/api/auth/admin-me',route=>route.fulfill({
+    status:200,contentType:'application/json',body:JSON.stringify(adminUser)
+  }));
+  const users=[
+    {id:10,email:'ali@example.test',name:'Ali',role:'operator',credits:3,unlimited:false,online:false},
+    {id:20,email:'zeynep@example.test',name:'Zeynep',role:'admin',credits:5,unlimited:false,online:true},
+    {id:30,email:'burak@example.test',name:'Burak',role:'operator',credits:20,unlimited:false,online:true}
+  ];
+  await page.route('**/api/admin/users',route=>route.fulfill({
+    status:200,contentType:'application/json',body:JSON.stringify({users,onlineCount:2})
+  }));
+  await page.goto('/admin');
+  await page.getByRole('button',{name:'Kullanıcılar'}).click();
+  const table=page.getByRole('table',{name:'Kullanıcı listesi'});
+  const rows=table.locator('.admin-user-row');
+  await expect(rows).toHaveCount(3);
+  await page.getByLabel('Kullanıcı durumu').selectOption('online');
+  await expect(rows).toHaveCount(2);
+  await page.getByLabel('Kullanıcı sıralaması').selectOption('credits');
+  await expect(rows.first().locator('.admin-user-identity')).toContainText('Burak');
+  await expect(rows.nth(1).locator('.admin-user-identity')).toContainText('Zeynep');
+  await page.getByRole('textbox',{name:'Kullanıcı ara'}).fill('Zeynep');
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText('Zeynep');
+  await page.getByRole('button',{name:'Filtreleri temizle'}).click();
+  await expect(rows).toHaveCount(3);
+  await expect(page.getByLabel('Kullanıcı durumu')).toHaveValue('all');
+  await expect(page.getByLabel('Kullanıcı sıralaması')).toHaveValue('name');
+  await expect(page.getByRole('button',{name:'Filtreleri temizle'})).toBeDisabled();
+});
+
+test('user management table and filters remain inside the viewport at phone width',async({page})=>{
+  await page.route('**/api/auth/admin-me',route=>route.fulfill({
+    status:200,contentType:'application/json',body:JSON.stringify(adminUser)
+  }));
+  await page.route('**/api/admin/users',route=>route.fulfill({
+    status:200,contentType:'application/json',
+    body:JSON.stringify({users:[{
+      id:10,email:'long-address-for-mobile-check@example.test',name:'Mobile QA',
+      role:'operator',credits:2,unlimited:false,online:false
+    }],onlineCount:0})
+  }));
+  await page.setViewportSize({width:390,height:844});
+  await page.goto('/admin');
+  await page.getByRole('button',{name:'Kullanıcılar'}).click();
+  await expect(page.getByRole('table',{name:'Kullanıcı listesi'}).locator('.admin-user-row')).toHaveCount(1);
+  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await expect(page.getByLabel('Kullanıcı rolü')).toBeVisible();
+  await expect(page.getByLabel('Kullanıcı sıralaması')).toBeVisible();
+});

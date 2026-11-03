@@ -4,6 +4,8 @@ import {DashboardIcon} from './components/dashboard/DashboardIcon';
 import {LanguageSelect,localeTag,useI18n} from './i18n';
 
 type Section='overview'|'users'|'messages'|'roles'|'user-settings'|'defaults'|'history'|'logs'|'system';
+type UserStatusFilter='all'|'online'|'offline';
+type UserSort='name'|'credits'|'recent';
 
 const nav:{id:Section;label:string;icon:string}[]=[
   {id:'overview',label:'Genel Bakış',icon:'⌂'},
@@ -60,6 +62,8 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
   const [section,setSection]=useState<Section>('overview');
   const [query,setQuery]=useState('');
   const [role,setRole]=useState<'all'|'admin'|'operator'>('all');
+  const [userStatus,setUserStatus]=useState<UserStatusFilter>('all');
+  const [userSort,setUserSort]=useState<UserSort>('name');
   const [users,setUsers]=useState<AdminUser[]>([]);
   const [usersLoading,setUsersLoading]=useState(false);
   const [usersError,setUsersError]=useState('');
@@ -89,7 +93,23 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
   const [chatReply,setChatReply]=useState('');
   const [chatBusy,setChatBusy]=useState(false);
   const title=useMemo(()=>nav.find(item=>item.id===section)?.label??'Yönetim',[section]);
-  const filteredUsers=useMemo(()=>users.filter(user=>(!query.trim()||(user.email+' '+user.name).toLowerCase().includes(query.trim().toLowerCase()))&&(role==='all'||(role==='admin'?user.role==='admin':user.role!=='admin'))),[users,query,role]);
+  const filteredUsers=useMemo(()=>{
+    const search=query.trim().toLocaleLowerCase('tr');
+    const filtered=users.filter(user=>
+      (!search||(user.email+' '+user.name).toLocaleLowerCase('tr').includes(search))&&
+      (role==='all'||(role==='admin'?user.role==='admin':user.role!=='admin'))&&
+      (userStatus==='all'||(userStatus==='online'?!!user.online:!user.online))
+    );
+    return filtered.sort((a,b)=>{
+      if(userSort==='credits')return b.credits-a.credits||a.id-b.id;
+      if(userSort==='recent'){
+        const latest=(u:AdminUser)=>Date.parse(u.lastLoginAt||u.createdAt||'')||0;
+        return latest(b)-latest(a)||a.id-b.id;
+      }
+      return (a.name||a.email).localeCompare(b.name||b.email,'tr',{sensitivity:'base'})||a.id-b.id;
+    });
+  },[users,query,role,userStatus,userSort]);
+  const userFiltersActive=!!query.trim()||role!=='all'||userStatus!=='all'||userSort!=='name';
   const screenConnectionLabel=screenStream?'Canlı':screenFrame?'Canlı · yedek bağlantı':({idle:'Hazır',waiting:'Kullanıcı onayı bekleniyor',connecting:'Bağlanıyor…',connected:'Canlı',failed:'Bağlantı kurulamadı'}[screenConnection]);
   function resetScreenView(){
     screenPeer.current?.close();screenPeer.current=null;screenOfferKey.current='';
@@ -397,11 +417,24 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
 
         {section==='users'&&<section className="admin-card admin-users">
           <div className="admin-card-head"><div><h2>Kullanıcı Yönetimi</h2><p>E-posta veya Google ile giriş yapan kullanıcıların hesap, kota ve lisans sürelerini yönetin.</p></div><button onClick={()=>void loadUsers()} disabled={usersLoading}>↻ Yenile</button></div>
-          <div className="admin-toolbar"><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Kullanıcı ara…" aria-label="Kullanıcı ara"/><select value={role} onChange={e=>setRole(e.target.value as 'all'|'admin'|'operator')}><option value="all">Tümü</option><option value="admin">Yönetici</option><option value="operator">Operatör</option></select></div>
+          <div className="admin-toolbar sd-user-toolbar">
+            <div className="sd-search-field">
+              <svg aria-hidden="true" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+              <input value={query} onChange={e=>setQuery(e.target.value)} placeholder="İsim veya e-posta ara…" aria-label="Kullanıcı ara"/>
+            </div>
+            <label className="sd-select-field"><span>Rol</span><select aria-label="Kullanıcı rolü" value={role} onChange={e=>setRole(e.target.value as 'all'|'admin'|'operator')}><option value="all">Tüm roller</option><option value="admin">Yönetici</option><option value="operator">Operatör</option></select></label>
+            <label className="sd-select-field"><span>Durum</span><select aria-label="Kullanıcı durumu" value={userStatus} onChange={e=>setUserStatus(e.target.value as UserStatusFilter)}><option value="all">Tüm durumlar</option><option value="online">Çevrim içi</option><option value="offline">Çevrim dışı</option></select></label>
+            <label className="sd-select-field"><span>Sırala</span><select aria-label="Kullanıcı sıralaması" value={userSort} onChange={e=>setUserSort(e.target.value as UserSort)}><option value="name">İsme göre</option><option value="recent">Son girişe göre</option><option value="credits">Hak sayısına göre</option></select></label>
+          </div>
+          <div className="sd-user-summary" aria-live="polite">
+            <span><strong>{filteredUsers.length}</strong> / {users.length} kullanıcı</span>
+            <span className="sd-user-online"><i aria-hidden="true"/>{users.filter(user=>user.online).length} çevrim içi</span>
+            <button type="button" disabled={!userFiltersActive} onClick={()=>{setQuery('');setRole('all');setUserStatus('all');setUserSort('name')}}>Filtreleri temizle</button>
+          </div>
           {usersError&&<p className="field-error" role="alert">{usersError}</p>}{userNotice&&<p className="admin-notice" role="status">{userNotice}</p>}
-          <div className="admin-table"><div className="admin-table-head"><span>Kullanıcı</span><span>Rol / Giriş</span><span>Yerleştirme hakkı</span><span>Lisans</span><span>İşlemler</span></div>
-            {usersLoading?<Empty title="Yükleniyor">Kullanıcı bilgileri D1 veritabanından alınıyor.</Empty>:filteredUsers.length?filteredUsers.map(user=><div className="admin-user-row" key={user.id}>
-              <span className="admin-user-identity"><strong>{user.online&&<i className="admin-presence-tick" aria-label="Çevrim içi">✓</i>}{user.name||'İsimsiz'}</strong><small>{user.email}</small><small>{user.online?'Şu anda çevrim içi':user.lastLoginAt?'Son giriş: '+new Date(user.lastLoginAt).toLocaleString(localeTag(locale)):'Henüz giriş yok'}</small></span>
+          <div className="admin-table" role="table" aria-label="Kullanıcı listesi"><div className="admin-table-head" role="row"><span role="columnheader">Kullanıcı</span><span role="columnheader">Rol / Giriş</span><span role="columnheader">Yerleştirme hakkı</span><span role="columnheader">Lisans</span><span role="columnheader">İşlemler</span></div>
+            {usersLoading?<Empty title="Yükleniyor">Kullanıcı bilgileri D1 veritabanından alınıyor.</Empty>:filteredUsers.length?filteredUsers.map(user=><div className="admin-user-row" role="row" key={user.id}>
+              <span role="cell" className="admin-user-identity"><strong>{user.online&&<i className="admin-presence-tick" aria-label="Çevrim içi">✓</i>}{user.name||'İsimsiz'}</strong><small>{user.email}</small><span className={'sd-user-status '+(user.online?'sd-user-status-online':'sd-user-status-offline')}>{user.online?'Çevrim içi':'Çevrim dışı'}</span><small>{user.online?'Şu anda çevrim içi':user.lastLoginAt?'Son giriş: '+new Date(user.lastLoginAt).toLocaleString(localeTag(locale)):'Henüz giriş yok'}</small></span>
               <span><strong>{user.role==='admin'?'Yönetici':'Kullanıcı'}</strong><small>{user.authProvider==='google'?'Google / Gmail':'E-posta'}</small></span>
               <span className="admin-user-quota"><div className="admin-switch-row"><label className="switch"><input type="checkbox" checked={user.unlimited} disabled={savingUserId===user.id} onChange={e=>void setUnlimited(user,e.target.checked)}/><span className="slider"><span className="glow"/><span className="icon-on">✓</span><span className="icon-off">○</span></span></label><span>Kotasız / Sınırsız</span></div>{!user.unlimited&&<label>Hak<input aria-label={user.email+' yerleştirme hakkı'} type="number" min="0" max="100000" defaultValue={user.credits} key={user.id+'-'+user.credits} onBlur={e=>{const value=Math.max(0,Math.trunc(e.currentTarget.valueAsNumber||0));if(value!==user.credits)void saveCredits(user,value)}}/></label>}</span>
               <span className="admin-user-license"><strong>{user.licenseExpiresAt?(user.licenseExpired?'Süresi doldu · ':'Bitiş · ')+new Date(user.licenseExpiresAt).toLocaleDateString(localeTag(locale)):'Süresiz'}</strong><small>{user.licenseStartedAt?'Başlangıç: '+new Date(user.licenseStartedAt).toLocaleDateString(localeTag(locale)):'Lisans süresi sınırlandırılmamış'}</small><div className="admin-license-controls"><select aria-label={user.email+' hızlı lisans süresi'} defaultValue="" disabled={savingUserId===user.id} onChange={e=>{const days=Number(e.currentTarget.value);if(days>0)void setLicenseDays(user,days);e.currentTarget.value=''}}><option value="">Süre ver…</option><option value="7">7 gün</option><option value="30">30 gün</option><option value="90">90 gün</option><option value="180">180 gün</option><option value="365">1 yıl</option></select><input key={user.id+'-'+String(user.licenseExpiresAt)} aria-label={user.email+' özel lisans günü'} type="number" min="1" max="36500" placeholder="Özel gün" disabled={savingUserId===user.id} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur()}} onBlur={e=>{const days=Math.trunc(e.currentTarget.valueAsNumber);if(Number.isFinite(days)&&days>0)void setLicenseDays(user,days)}}/><button type="button" disabled={savingUserId===user.id||!user.licenseExpiresAt} onClick={()=>void setLicenseDays(user,null)}>Süresiz</button></div></span>

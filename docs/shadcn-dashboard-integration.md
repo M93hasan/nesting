@@ -16,3 +16,7 @@ Initial stage (administrator, CAD shell and authentication):
 Continue **on the same feature branch**: refine admin tables, forms, user/account dialog styling, then review the studio in all viewports. Before merge run npm ci, npm run typecheck, npm test, npm run build and Playwright regression including mobile overflow, DXF import/export, undo and keyboard/canvas behavior. Do not merge or deploy without approval.
 
 License text: web/public/licenses/shadcn-dashboard-MIT.txt
+
+## Administration improvements (stage 2)
+
+The user table has an accessible semantic table structure, a scoped search control, filters for role and online status, deterministic sorting by name / last login / credits, a visible result counter, individual status badges and a reset action. All existing account mutations continue through authenticated Serula APIs; no client-side privilege changes or data rewriting are introduced. Browser tests cover interactions and the narrow-screen table.
