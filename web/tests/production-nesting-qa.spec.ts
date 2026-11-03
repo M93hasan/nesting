@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {readFile} from 'node:fs/promises';
 
 const LIVE_URL='https://serula.site/';
 const EXPECTED_DEPLOY_SHA=process.env.NESTING_EXPECTED_LIVE_SHA;
@@ -23,7 +24,10 @@ test('live release marker and headless browser access diagnostic',async({page,re
   const response=await page.goto(LIVE_URL,{waitUntil:'domcontentloaded',timeout:45000});
   const httpStatus=response?.status();
   if(httpStatus===403){
-    console.log('NESTING_QA '+JSON.stringify({event:'live-browser',status:'blocked-by-http-403',assetStatus:version.status(),deploySha,httpStatus}));
+    const responseHeaders=response?.headers()??{};
+    console.log('NESTING_QA '+JSON.stringify({event:'live-browser',status:'blocked-by-http-403',assetStatus:version.status(),deploySha,httpStatus,
+      cfMitigated:responseHeaders['cf-mitigated']??null,server:responseHeaders.server??null,
+      rayPresent:Boolean(responseHeaders['cf-ray']),contentType:responseHeaders['content-type']??null}));
     // GitHub's headless CI address can be denied by Cloudflare. This is not a
     // successful functional smoke; local-preview acceptance runs separately.
     return;
@@ -33,7 +37,7 @@ test('live release marker and headless browser access diagnostic',async({page,re
   console.log('NESTING_QA '+JSON.stringify({event:'live-browser',status:'accessible',url:LIVE_URL,version:deploySha,httpStatus}));
 });
 
-test('anonymous local preview DXF import and real WASM nesting; no chargeable export',async({page})=>{
+test('local DXF import, real WASM nesting and safe mocked export authorization',async({page})=>{
   test.setTimeout(115000);
   const response=await page.goto('/',{waitUntil:'domcontentloaded',timeout:45000});
   expect(response?.status()).toBe(200);
@@ -56,5 +60,26 @@ test('anonymous local preview DXF import and real WASM nesting; no chargeable ex
   const metrics=await page.locator('.metrics').innerText();
   expect(metrics).toMatch(/Malzeme verimliliği\s+\d/);
   console.log('NESTING_QA '+JSON.stringify({event:'local-dxf-nesting',elapsedMs:Date.now()-started,parts:2,hasHole:true,metrics}));
-  // Intentionally do not click DXF İndir: this POST may debit a user's credits.
+  await page.getByRole('button',{name:'En iyi geçerli yerleşim',exact:true}).click();
+  const exportButton=page.getByRole('button',{name:'DXF İndir',exact:true});
+  await expect(exportButton).toBeEnabled({timeout:30000});
+  // Intercept the chargeable API BEFORE clicking; only the local preview runs
+  // this test. It can never write exports or deduct production account credits.
+  let postedDxf:string|undefined,postedProject:string|undefined;
+  await page.route('**/api/export/authorize',async route=>{
+    const request=route.request().postDataJSON() as {dxf:string;projectJson:string};
+    postedDxf=request.dxf;postedProject=request.projectJson;
+    await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,exportId:4242})});
+  });
+  const downloadPromise=page.waitForEvent('download',{timeout:30000});
+  await exportButton.click();
+  const downloaded=await downloadPromise;
+  const exported=await readFile(await downloaded.path(),'utf8');
+  expect(exported).toContain('$INSUNITS');
+  expect(exported.match(/LWPOLYLINE/g)?.length).toBeGreaterThanOrEqual(2);
+  expect(postedDxf).toBe(exported);
+  expect(JSON.parse(postedProject!)).toHaveProperty('parts');
+  expect(downloaded.suggestedFilename()).toMatch(/\.dxf$/i);
+  console.log('NESTING_QA '+JSON.stringify({event:'local-mocked-auth-export',downloadBytes:Buffer.byteLength(exported),
+    entities:exported.match(/LWPOLYLINE/g)?.length,charged:false,authorizationIntercepted:true}));
 });
