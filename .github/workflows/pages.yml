@@ -66,7 +66,7 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
       - name: Layout and functional UI regression tests
-        run: npx playwright test tests/critical-smoke.spec.ts tests/visual-editor-removal.spec.ts tests/layout-only.spec.ts --project=chromium
+        run: npx playwright test tests/critical-smoke.spec.ts tests/visual-editor-removal.spec.ts tests/layout-only.spec.ts tests/shadcn-dashboard.spec.ts --project=chromium
       - name: Upload visual review screenshots
         if: always() && github.event_name == 'pull_request'
         uses: actions/upload-artifact@v4

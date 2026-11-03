@@ -3,7 +3,7 @@
 ## Non-negotiable
 - Preserve DXF dimensions, geometry, toolpaths, quantities, clearance, rotation/mirroring and Rust/WASM nesting behavior.
 - Preserve the positions, semantics, events, keyboard access and CAD interaction latency of functional controls.
-- Do not introduce decorative theme, global palette, UI animation, glass styling, appearance editor or saved custom button CSS.
+- The Shadcn Dashboard redesign is explicitly approved; use a scoped visual stylesheet for the admin and studio, without replacing CAD layout geometry, adding a runtime appearance editor, arbitrary user CSS, or heavy animations.
 - Work on a feature branch and propose a PR; do not push to main, merge or deploy without explicit approval.
 - Review concurrent PRs and avoid overwriting anyone else's work.
 - Do not alter production databases, secrets or live Worker configurations as part of layout maintenance.
