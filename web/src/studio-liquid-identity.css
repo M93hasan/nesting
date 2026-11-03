@@ -219,3 +219,33 @@
     transition: none !important;
   }
 }
+
+/* Entry points: the logged-out login and admin authentication screens also
+   need to look new, not just the authenticated workspace. */
+:root #root .auth-screen {
+  background-color: var(--page);
+  background-image:
+    radial-gradient(ellipse at 10% 15%, color-mix(in srgb,var(--liquid-active) 14%,transparent),transparent 54%),
+    radial-gradient(ellipse at 93% 85%, color-mix(in srgb,var(--liquid-active) 11%,transparent),transparent 50%) !important;
+  background-attachment: fixed;
+}
+:root #root .auth-card,
+:root #root .auth-support-card {
+  background: var(--liquid-frost) !important;
+  border: 1px solid var(--liquid-edge) !important;
+  box-shadow: 0 24px 65px rgb(12 35 70 / .17),inset 0 1px 0 var(--liquid-shine) !important;
+}
+:root #root .auth-card h1 {
+  color: var(--liquid-ink);
+  letter-spacing: -.035em;
+}
+:root #root .auth-card .auth-tabs {
+  background: var(--liquid-rail-heading) !important;
+  border: 1px solid var(--liquid-edge) !important;
+}
+@media (prefers-reduced-transparency: reduce), (forced-colors: active) {
+  :root #root .auth-card,
+  :root #root .auth-support-card {
+    background: var(--panel) !important;
+  }
+}
