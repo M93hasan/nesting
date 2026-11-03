@@ -95,6 +95,32 @@ describe('independent layout validation',()=>{
     expect(checked.status).toBe('failed');
     expect(checked.overlapAreaMm2).toBeGreaterThan(.9);
   });
+  it('enforces clearance between first-sheet copies with omitted and explicit zero sheet indexes',()=>{
+    const {doc,result}=fixture();
+    doc.settings={...doc.settings,materialType:'sheet',materialLengthMm:2,materialWidthMm:3,clearanceMm:.3};
+    result.sheetCount=1;result.usedLengthMm=2;
+    result.placements[0].sheetIndex=undefined;
+    result.placements[1]={...result.placements[1],sheetIndex:0,xMm:1.2};
+    const checked=validate(doc,result);
+    expect(checked.status).toBe('failed');
+    expect(checked.overlapAreaMm2).toBe(0);
+    expect(checked.minClearanceMm).toBeCloseTo(.2,6);
+    expect(checked.errors.some(error=>error.includes('Minimum clearance'))).toBe(true);
+  });
+  it.each([
+    {name:'zero vs one',first:0 as number|undefined,second:1},
+    {name:'omitted zero vs one',first:undefined as number|undefined,second:1}
+  ])('allows coincident X/Y coordinates on separate physical sheets ($name)',({first,second})=>{
+    const {doc,result}=fixture();
+    doc.settings={...doc.settings,materialType:'sheet',materialLengthMm:2,clearanceMm:.3};
+    result.sheetCount=2;result.usedLengthMm=4;
+    result.placements[0].sheetIndex=first;
+    result.placements[1]={...result.placements[1],sheetIndex:second,xMm:0};
+    const checked=validate(doc,result);
+    expect(checked.status).toBe('passed');
+    expect(checked.overlapAreaMm2).toBe(0);
+    expect(checked.minClearanceMm).toBeNull();
+  });
   it.each([
     {name:'mirrorX with assigned sheet',mirrorX:true,mirrorY:false,angleDeg:0,sheetIndex:0},
     {name:'mirrorX with packed sheet',mirrorX:true,mirrorY:false,angleDeg:0,sheetIndex:undefined},
