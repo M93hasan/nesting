@@ -63,6 +63,27 @@ for(const count of [64,256,500])it('measures DXF import performance for '+count+
   log('dxf-scale',{entities:count,bytes:Buffer.byteLength(text),durationMs:Number(ms.toFixed(2)),rssBeforeBytes:memBefore.rss,rssAfterBytes:memAfter.rss,heapDeltaBytes:memAfter.heapUsed-memBefore.heapUsed});
 },120000);
 
+it('measures import of a 2048-vertex non-convex DXF contour',()=>{
+  const vertices=2048;
+  const ring:Array<[number,number]>=Array.from({length:vertices},(_,i)=>{
+    const t=2*Math.PI*i/vertices;
+    const radius=160*(1+.12*Math.sin(t*12));
+    return [250+radius*Math.cos(t),250+radius*Math.sin(t)];
+  });
+  const lines=['0','LWPOLYLINE','8','DENSE','90',String(vertices),'70','1',
+    ...ring.flatMap(([x,y])=>['10',String(x),'20',String(y)])];
+  const dxf=asciiDxf(lines.join('\n')+'\n');
+  const before=process.memoryUsage(),started=performance.now();
+  const review=importDXF(dxf,'qa-dense-2048.dxf',options);
+  const elapsed=performance.now()-started,after=process.memoryUsage();
+  expect(review.issues??[]).toEqual([]);
+  expect(review.document.parts).toHaveLength(1);
+  expect(review.document.parts[0].outer.length).toBeGreaterThan(1000);
+  log('dxf-dense',{vertices,bytes:Buffer.byteLength(dxf),actualVertices:review.document.parts[0].outer.length,
+    durationMs:Number(elapsed.toFixed(2)),rssBeforeBytes:before.rss,rssAfterBytes:after.rss,
+    heapDeltaBytes:after.heapUsed-before.heapUsed});
+},120000);
+
 it('measures genuine WASM waste across three seeds and two DXF part orders',()=>{
   const shapes=[
     {x:0,y:0,width:35,height:25},
@@ -71,6 +92,11 @@ it('measures genuine WASM waste across three seeds and two DXF part orders',()=>
     {x:360,y:0,width:50,height:15},
   ];
   const measurements:Record<string,unknown>[]=[];
+  // The checked-in WASM logger normally posts diagnostic lines from a Web Worker.
+  // Node.js does not define postMessage: provide a no-op transport for diagnostics only.
+  const originalPostMessage=globalThis.postMessage;
+  globalThis.postMessage=()=>{};
+  try {
   for(const order of ['forward','reversed'] as const){
     const list=order==='forward'?shapes:[...shapes].reverse();
     const dxf=asciiDxf(list.map(shape=>rectangle(shape)).join(''));
@@ -119,4 +145,5 @@ it('measures genuine WASM waste across three seeds and two DXF part orders',()=>
       rangePctPoints:Number((Math.max(...densities)-Math.min(...densities)).toFixed(3))}];
   }));
   log('seed-order-summary',{samples:measurements.length,byOrder});
+  } finally {globalThis.postMessage=originalPostMessage;}
 },120000);
