@@ -1,4 +1,5 @@
-import {useEffect,useLayoutEffect,useRef,useState} from 'react';
+import {useEffect,useId,useLayoutEffect,useRef,useState} from 'react';
+import './PrecisionControls.css';
 import {displayLength,unitScale,type DisplayUnit} from '../units';
 
 export default function SelectionControls({
@@ -12,6 +13,7 @@ export default function SelectionControls({
   const values=[box[0],box[1],box[2]-box[0],box[3]-box[1]];
   const scale=unitScale(unit),initial=values.map(v=>displayLength(v,unit));
   const [fields,setFields]=useState(initial),[angleText,setAngleText]=useState(angle===undefined?'':String(angle)),[step,setStep]=useState('5');
+  const positionErrorId=useId(),angleErrorId=useId(),stepErrorId=useId();
   const previous=useRef({values,unit});
   const angleEditing=useRef(false);
   useLayoutEffect(()=>{
@@ -29,13 +31,15 @@ export default function SelectionControls({
   }
   const angleValid=!!angleText.trim()&&Number.isFinite(Number(angleText));
   const stepValue=Number(step),stepValid=!!step.trim()&&Number.isFinite(stepValue)&&stepValue>0&&stepValue<=360;
-  return <><div className="size-controls">{['X','Y','Genişlik','Yükseklik'].map((label,i)=><label key={label}>{label}, {unit}<input type="number" step="any" min={(i<2?-100000:.000001)/scale} max={100000/scale} required disabled={disabled||(sizeLocked&&i>=2)} aria-invalid={!valid(fields[i],i)} value={fields[i]} onChange={e=>setFields(f=>f.map((v,j)=>j===i?e.target.value:v))} onBlur={()=>apply(i)} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur();}}/></label>)}<small>Konum, döndürme ve aynalama seçili kopyaları etkiler. Boyutlandırma bu şeklin tüm kopyalarını değiştirir; en-boy oranı kilitlidir.</small>{invalid&&<small className="field-error" role="alert">Geçerli konumlar ve şu sınıra kadar pozitif ölçüler girin: {unit==='mm'?'100,000':displayLength(100000,unit)} {unit}.</small>}{sizeLocked&&<small>DXF ölçüleri kilitlidir; genişlik ve yükseklik değiştirilemez.</small>}</div>
+  return <><div className="size-controls">{['X','Y','Genişlik','Yükseklik'].map((label,i)=><label key={label}>{label}, {unit}<input type="number" step="any" min={(i<2?-100000:.000001)/scale} max={100000/scale} required disabled={disabled||(sizeLocked&&i>=2)} aria-invalid={!valid(fields[i],i)} aria-describedby={!valid(fields[i],i)?positionErrorId:undefined} value={fields[i]} onChange={e=>setFields(f=>f.map((v,j)=>j===i?e.target.value:v))} onBlur={()=>apply(i)} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur();}}/></label>)}<small>Konum, döndürme ve aynalama seçili kopyaları etkiler. Boyutlandırma bu şeklin tüm kopyalarını değiştirir; en-boy oranı kilitlidir.</small>{invalid&&<small className="field-error" id={positionErrorId} role="alert">Geçerli konumlar ve şu sınıra kadar pozitif ölçüler girin: {unit==='mm'?'100,000':displayLength(100000,unit)} {unit}.</small>}{sizeLocked&&<small>DXF ölçüleri kilitlidir; genişlik ve yükseklik değiştirilemez.</small>}</div>
     <form className="rotation-control" onSubmit={e=>{e.preventDefault();if(!disabled&&angleValid)onSetAngle(Number(angleText));}}>
-      <label>Yön açısı, derece<input type="text" inputMode="decimal" placeholder={angle===undefined?'—':undefined} value={angleText} disabled={disabled} onFocus={e=>{angleEditing.current=true;e.currentTarget.select();}} onChange={e=>setAngleText(e.target.value.replace(',', '.'))} onBlur={()=>{angleEditing.current=false;if(angle!==undefined&&!angleText.trim())setAngleText(String(angle));}}/></label>
+      <label>Yön açısı, derece<input type="text" inputMode="decimal" placeholder={angle===undefined?'—':undefined} value={angleText} aria-invalid={!angleValid} aria-describedby={!angleValid?angleErrorId:undefined} disabled={disabled} onFocus={e=>{angleEditing.current=true;e.currentTarget.select();}} onChange={e=>setAngleText(e.target.value.replace(',', '.'))} onBlur={()=>{angleEditing.current=false;if(angle!==undefined&&!angleText.trim())setAngleText(String(angle));}}/></label>
       <button disabled={disabled||!angleValid}>Açıyı uygula</button>
+      {!angleValid&&<small className="field-error" id={angleErrorId} role="alert">Geçerli bir derece değeri girin.</small>}
     </form>
     <div className="rotation-control">
-      <label>Elle çevirme adımı, derece<input type="text" inputMode="decimal" value={step} disabled={disabled} onFocus={e=>e.currentTarget.select()} onChange={e=>setStep(e.target.value.replace(',', '.'))}/></label>
+      <label>Elle çevirme adımı, derece<input type="text" inputMode="decimal" value={step} aria-invalid={!stepValid} aria-describedby={!stepValid?stepErrorId:undefined} disabled={disabled} onFocus={e=>e.currentTarget.select()} onChange={e=>setStep(e.target.value.replace(',', '.'))}/></label>
+      {!stepValid&&<small className="field-error" id={stepErrorId} role="alert">Döndürme adımı 0 ile 360 derece arasında pozitif olmalıdır.</small>}
       <div className="row-actions"><button type="button" disabled={disabled||!stepValid} onClick={()=>onRotate(stepValue)}>Sola ↺</button><button type="button" disabled={disabled||!stepValid} onClick={()=>onRotate(-stepValue)}>Sağa ↻</button></div>
       <small>Tuvaldeki döndürme kolunu fareyle sürükleyerek de çevirebilirsiniz.</small>
     </div>

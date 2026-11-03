@@ -1,0 +1,40 @@
+/* Precision input feedback: scoped to the selected-part editing controls.
+   No layout or animation changes to the CAD canvas or solver. */
+#root .app .part-properties-inline :is(.size-controls,.rotation-control) label {
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+#root .app .part-properties-inline :is(.size-controls,.rotation-control) input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+#root .app .part-properties-inline :is(.size-controls,.rotation-control) input[aria-invalid="true"]:not(:disabled) {
+  border-color: var(--error) !important;
+  box-shadow: inset 0 0 0 1px var(--error) !important;
+}
+#root .app .part-properties-inline :is(.size-controls,.rotation-control) input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+#root .app .part-properties-inline :is(.size-controls,.rotation-control) input[aria-invalid="true"]:focus-visible {
+  outline-color: var(--error);
+}
+#root .app .part-properties-inline .field-error {
+  display: block;
+  min-width: 0;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+#root .app .part-properties-inline .rotation-control > .field-error {
+  flex-basis: 100%;
+}
+#root .app .part-properties-inline .size-controls {
+  min-width: 0;
+}
+@media (max-width: 699px) {
+  #root .app .part-properties-inline .size-controls {
+    grid-template-columns: repeat(2,minmax(0,1fr));
+  }
+}
