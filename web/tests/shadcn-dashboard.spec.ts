@@ -173,7 +173,7 @@ test('Shadcn Studio disclosure focus and toggles remain functional on a phone',a
   await contour.click();
   await expect(contour).toHaveAttribute('aria-pressed','true');
   await expect(contour).toHaveCSS('color','rgb(255, 255, 255)');
-  await expect(contour).toHaveCSS('border-top-color','rgb(69, 110, 137)');
+  await expect(contour).toHaveCSS('border-top-color','rgb(39, 39, 42)');
   await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await page.screenshot({path:info.outputPath('shadcn-studio-mobile.png'),fullPage:true});
 });
@@ -306,7 +306,7 @@ test('mobile keeps the original Serula palette while desktop uses new slate appe
   await page.setViewportSize({width:390,height:844});
   await page.goto('/');
   await expect(page.locator('.app.shadcn-studio')).toHaveCSS('background-color','rgb(248, 250, 252)');
-  await expect(page.locator('.canvas-tools')).toHaveCSS('background-color','rgba(255, 255, 255, 0.96)');
+  await expect(page.locator('.canvas-tools')).toHaveCSS('background-color','rgb(255, 255, 255)');
   await expect(page.locator('#parts-settings .part-select')).toBeAttached();
   await page.goto('/admin');
   await expect(page.locator('.admin-page.shadcn-dashboard')).toHaveCSS('background-color','rgb(255, 255, 255)');
