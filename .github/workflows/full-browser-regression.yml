@@ -80,6 +80,8 @@ jobs:
           tests/critical-smoke.spec.ts
           tests/premium-theme.spec.ts
           --reporter=line --max-failures=1
+      - name: Liquid Studio visible identity acceptance (studio and admin)
+        run: npx playwright test tests/studio-liquid-identity.spec.ts --project=chromium --reporter=line --max-failures=1
       - name: CAD toolbar keyboard and mobile snapping acceptance
         run: npx playwright test tests/cad-toolbar-polish.spec.ts --project=chromium --reporter=line --max-failures=1
       - name: Local DXF import and WASM nesting acceptance (required, no paid export)
