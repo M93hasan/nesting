@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 
 const LIVE_URL='https://serula.site/';
-const DEPLOY_SHA='b3a2fa874db6d98ae0f6dbf89b1253c24edaec0e';
+const EXPECTED_DEPLOY_SHA=process.env.NESTING_EXPECTED_LIVE_SHA;
 const rectangle=(x:number,y:number,w:number,h:number,layer:string)=>[
   '0','LWPOLYLINE','8',layer,'90','4','70','1',
   ...[[x,y],[x+w,y],[x+w,y+h],[x,y+h]].flatMap(([px,py])=>['10',String(px),'20',String(py)])
@@ -13,21 +13,24 @@ const TEST_DXF=[
   '0','ENDSEC','0','EOF'
 ].join('\n')+'\n';
 
-test('live production serves merged release and current DXF UI',async({page,request})=>{
+test('live release marker and headless browser access diagnostic',async({page,request})=>{
   const version=await request.get(new URL('/deploy-version.txt',LIVE_URL).toString(),{timeout:30000});
   expect(version.status()).toBe(200);
-  expect(await version.text()).toContain(DEPLOY_SHA);
+  const release=await version.text();
+  const deploySha=release.match(/Git commit:\s*([a-f0-9]{40})\b/)?.[1];
+  expect(deploySha,'A published Git SHA must be available').toBeTruthy();
+  if(EXPECTED_DEPLOY_SHA)expect(deploySha).toBe(EXPECTED_DEPLOY_SHA);
   const response=await page.goto(LIVE_URL,{waitUntil:'domcontentloaded',timeout:45000});
   const httpStatus=response?.status();
   if(httpStatus===403){
-    console.log('NESTING_QA '+JSON.stringify({event:'live-browser',status:'blocked-by-http-403',assetStatus:version.status(),deploySha:DEPLOY_SHA,httpStatus}));
+    console.log('NESTING_QA '+JSON.stringify({event:'live-browser',status:'blocked-by-http-403',assetStatus:version.status(),deploySha,httpStatus}));
     // GitHub's headless CI address can be denied by Cloudflare. This is not a
     // successful functional smoke; local-preview acceptance runs separately.
     return;
   }
   expect(httpStatus).toBe(200);
   await expect(page.locator('.add-shape').getByRole('button',{name:'DXF İçe Aktar',exact:true})).toBeVisible({timeout:30000});
-  console.log('NESTING_QA '+JSON.stringify({event:'live-browser',status:'accessible',url:LIVE_URL,version:DEPLOY_SHA,httpStatus}));
+  console.log('NESTING_QA '+JSON.stringify({event:'live-browser',status:'accessible',url:LIVE_URL,version:deploySha,httpStatus}));
 });
 
 test('anonymous local preview DXF import and real WASM nesting; no chargeable export',async({page})=>{
