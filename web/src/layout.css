@@ -1158,3 +1158,20 @@ html[dir=rtl] .glass-glider{left:auto;right:3px;transform:translateX(calc(var(--
 #root .app .cad-snapping > div :is(input, select){min-width:0}
 #root .app .cad-snapping > div label{min-width:0}
 @media (max-width: 699px){#root .app .cad-snapping > div{width:min(240px, calc(100vw - 32px))}}
+
+
+/* Keep controls physically clickable when the footer occupies the viewport edge.
+   Especially important for Firefox's scrollIntoView in the desktop parts rail. */
+@media (min-width: 700px) {
+  :root #root .app > .main-workspace > #parts-settings {
+    min-height: 0;
+    max-height: 100%;
+    overflow-y: auto;
+    padding-bottom: 112px;
+    scroll-padding-bottom: 112px;
+  }
+  :root #root .app > .main-workspace > #parts-settings > .part-properties-disclosure {
+    scroll-margin-bottom: 112px;
+    flex-shrink: 0;
+  }
+}
