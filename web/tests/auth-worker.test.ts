@@ -111,6 +111,65 @@ describe('Worker accounts and credit transactions',()=>{
     expect((await call(env,'/api/nesting/start',{},cookie)).status).toBe(410);
     env.sqlite.close();
   });
+  it('requires authentication and a same-origin request before persisting an export',async()=>{
+    const env=database(),cookie=await account(env);
+    expect((await call(env,'/api/export/authorize',payload)).status).toBe(401);
+    const crossOrigin=await worker.fetch(new Request('https://serula.site/api/export/authorize',{
+      method:'POST',headers:{'content-type':'application/json',origin:'https://untrusted.example',cookie},
+      body:JSON.stringify(payload)
+    }),env);
+    expect(crossOrigin.status).toBe(403);
+    expect(env.sqlite.prepare('SELECT nesting_credits FROM users').get()?.nesting_credits).toBe(5);
+    for(const table of ['nesting_history','export_files','export_file_chunks'])
+      expect(env.sqlite.prepare(`SELECT count(*) n FROM ${table}`).get()?.n).toBe(0);
+    env.sqlite.close();
+  });
+  it('rejects expired licenses and exhausted balances without creating chargeable exports',async()=>{
+    const env=database(),cookie=await account(env);
+    const userId=Number(env.sqlite.prepare('SELECT id FROM users').get()?.id);
+    env.sqlite.prepare('INSERT INTO user_licenses(user_id,started_at,expires_at) VALUES(?,?,?)')
+      .run(userId,'2020-01-01T00:00:00Z','2020-02-01T00:00:00Z');
+    expect((await call(env,'/api/export/authorize',payload,cookie)).status).toBe(403);
+    expect(env.sqlite.prepare('SELECT nesting_credits FROM users').get()?.nesting_credits).toBe(5);
+    env.sqlite.prepare('DELETE FROM user_licenses WHERE user_id=?').run(userId);
+    env.sqlite.prepare('UPDATE users SET nesting_credits=0 WHERE id=?').run(userId);
+    expect((await call(env,'/api/export/authorize',payload,cookie)).status).toBe(402);
+    expect(env.sqlite.prepare('SELECT count(*) n FROM export_files').get()?.n).toBe(0);
+    expect(env.sqlite.prepare('SELECT count(*) n FROM nesting_history').get()?.n).toBe(0);
+    env.sqlite.close();
+  });
+  it('isolates stored DXF and project data between users without charging for repeated downloads',async()=>{
+    const env=database(),firstCookie=await account(env);
+    const successful=await call(env,'/api/export/authorize',payload,firstCookie);
+    expect(successful.status).toBe(200);
+    const {exportId}=await successful.json();
+    const afterExport=Number(env.sqlite.prepare('SELECT nesting_credits FROM users WHERE email=?')
+      .get('test@example.com')?.nesting_credits);
+    expect(afterExport).toBe(4);
+    for(let i=0;i<3;i++){
+      const downloaded=await call(env,`/api/exports/${exportId}`,undefined,firstCookie);
+      expect(downloaded.status).toBe(200);
+      expect(await downloaded.text()).toBe(payload.dxf);
+      expect(downloaded.headers.get('cache-control')).toContain('no-store');
+    }
+    const project=await call(env,`/api/exports/${exportId}?kind=project`,undefined,firstCookie);
+    expect(project.status).toBe(200);
+    expect(await project.text()).toBe(payload.projectJson);
+    const second=await call(env,'/api/auth/register',{
+      email:'second@example.com',name:'Second',password:'another-good-password'
+    });
+    expect(second.status).toBe(201);
+    const secondCookie=second.headers.get('set-cookie')!.split(';')[0];
+    expect((await call(env,`/api/exports/${exportId}`,undefined,secondCookie)).status).toBe(404);
+    expect((await call(env,`/api/exports/${exportId}?kind=project`,undefined,secondCookie)).status).toBe(404);
+    expect((await (await call(env,'/api/exports',undefined,secondCookie)).json()).items).toEqual([]);
+    expect((await call(env,`/api/exports/${exportId}`)).status).toBe(401);
+    expect(env.sqlite.prepare('SELECT nesting_credits FROM users WHERE email=?')
+      .get('test@example.com')?.nesting_credits).toBe(4);
+    expect(env.sqlite.prepare('SELECT count(*) n FROM export_files').get()?.n).toBe(1);
+    expect(env.sqlite.prepare('SELECT sum(used_credit) n FROM nesting_history').get()?.n).toBe(1);
+    env.sqlite.close();
+  });
   it('blocks protected example DXF assets until user permission is granted',async()=>{
     let assetReads=0;
     const env={...database(),ASSETS:{fetch:async()=>{assetReads++;return new Response('DXF DATA',{status:200})}}};
