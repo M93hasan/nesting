@@ -22,6 +22,8 @@ import './design-engineering-theme.css';
 import './liquid-glass.css';
 // Definitive Serula glass identity: intentionally visible across workspace and admin.
 import './studio-liquid-identity.css';
+// Visible Liquid Glass surfaces applied after legacy theme and appearance CSS.
+import './liquid-glass-surfaces.css';
 
 const ADMIN_EMAIL='m93hasan@icloud.com';
 const GOOGLE_CLIENT_ID='207092733568-2h2751l65c8cbnb3o6qfpvl4uug9f975.apps.googleusercontent.com';
