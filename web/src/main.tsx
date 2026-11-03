@@ -18,6 +18,8 @@ import './theme.css';
 import './serula-refresh.css';
 // Final scoped design-engineering polish; does not change production geometry.
 import './design-engineering-theme.css';
+// Web approximation of Liquid Glass: navigation and transient controls only.
+import './liquid-glass.css';
 
 const ADMIN_EMAIL='m93hasan@icloud.com';
 const GOOGLE_CLIENT_ID='207092733568-2h2751l65c8cbnb3o6qfpvl4uug9f975.apps.googleusercontent.com';

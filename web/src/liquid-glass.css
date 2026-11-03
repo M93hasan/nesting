@@ -1,0 +1,100 @@
+/*
+ * Serula Liquid Glass-inspired web material.
+ * Apple HIG: use glass for navigation and transient controls, never as
+ * a blanket content layer. This CSS is a web approximation, not native
+ * Apple optical refraction.
+ *
+ * Keep the CAD drawing SVG, part rows, material input fields, and
+ * compute-heavy rendering surfaces opaque and free of backdrop filters.
+ */
+:root {
+  --glass-tint: light-dark(rgb(255 255 255 / .76),rgb(32 43 60 / .82));
+  --glass-tint-solid: light-dark(#f5f8fd,#253246);
+  --glass-outline: light-dark(rgb(255 255 255 / .92),rgb(234 242 255 / .21));
+  --glass-edge: light-dark(rgb(71 98 145 / .2),rgb(193 215 245 / .18));
+  --glass-highlight: light-dark(rgb(255 255 255 / .76),rgb(255 255 255 / .11));
+  --glass-shadow: 0 5px 16px rgb(13 28 51 / .13),inset 0 1px 0 var(--glass-highlight);
+}
+/* Put the optical effect on the small control island, NOT its entire canvas. */
+:root #root .app .canvas-tools > button:not([aria-pressed="true"]),
+:root #root .app .cad-snapping,
+:root #root .app .project-menu > summary {
+  background: var(--glass-tint) !important;
+  border: 1px solid var(--glass-edge) !important;
+  box-shadow: var(--glass-shadow) !important;
+  -webkit-backdrop-filter: saturate(125%) blur(10px);
+  backdrop-filter: saturate(125%) blur(10px);
+  color: var(--ink);
+}
+:root #root .app .canvas-tools > button[aria-pressed="true"] {
+  background: var(--selected) !important;
+  border-color: var(--accent) !important;
+  color: var(--ink) !important;
+  box-shadow: inset 0 0 0 1px var(--accent) !important;
+}
+:root #root .app .cad-snapping[open] {
+  background: var(--glass-tint-solid) !important;
+}
+:root #root .app .cad-snapping > div {
+  background: var(--glass-tint-solid);
+  border: 1px solid var(--glass-edge);
+  box-shadow: 0 16px 36px rgb(10 24 44 / .18), inset 0 1px 0 var(--glass-highlight);
+  border-radius: 14px;
+}
+/* Floating menus: keep enough opacity for long filenames and translations. */
+:root #root .app .project-menu[open] > summary {
+  border-color: var(--accent) !important;
+}
+:root #root .app .canvas-tools > button:not(:disabled):hover {
+  border-color: var(--hover-border) !important;
+  background: var(--glass-tint-solid) !important;
+}
+/* Keyboard access is not optional: glass doesn't replace focus indicators. */
+:root #root .app .canvas-tools :is(button,summary):focus-visible,
+:root #root .app .project-menu > summary:focus-visible {
+  outline: 3px solid var(--accent) !important;
+  outline-offset: 2px;
+}
+/* Avoid visual noise in the dense CAD sidebars and production canvas. */
+:root #root .app :is(.sidebar,.material-panel,.workspace-svg,.canvas-wrap,.part-row) {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+@supports not (backdrop-filter: blur(1px)) {
+  :root #root .app .canvas-tools > button:not([aria-pressed="true"]),
+  :root #root .app .cad-snapping,
+  :root #root .app .project-menu > summary {
+    background: var(--glass-tint-solid) !important;
+  }
+}
+/* CSS-only accessibility equivalents; native iOS Reduce Transparency
+ * setting is not consistently exposed to ordinary web content. */
+@media (prefers-reduced-transparency: reduce), (forced-colors: active) {
+  :root #root .app .canvas-tools > button,
+  :root #root .app .cad-snapping,
+  :root #root .app .project-menu > summary {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    background: var(--glass-tint-solid) !important;
+    box-shadow: none !important;
+    border: 1px solid var(--border) !important;
+  }
+}
+@media (prefers-contrast: more) {
+  :root #root .app .canvas-tools > button,
+  :root #root .app .cad-snapping,
+  :root #root .app .project-menu > summary {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    background: var(--glass-tint-solid) !important;
+    border-color: var(--ink) !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root #root .app .canvas-tools > button,
+  :root #root .app .cad-snapping,
+  :root #root .app .project-menu > summary {
+    animation: none !important;
+    transition: none !important;
+  }
+}
