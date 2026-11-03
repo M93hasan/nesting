@@ -189,3 +189,56 @@ test('Shadcn Studio export and placement controls stay within supported viewport
     await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
   }
 });
+
+test('CAD surface never falls back to black SVG rectangles after theme removal',async({page})=>{
+  await page.setViewportSize({width:1440,height:900});
+  await page.goto('/');
+  const band=page.locator('.app.shadcn-studio .material-width-band > rect');
+  const outside=page.locator('.app.shadcn-studio .material-width-outside > rect').first();
+  await expect(band).toBeVisible();
+  await expect(band).toHaveCSS('fill','rgb(255, 255, 255)');
+  await expect(outside).toHaveCSS('fill','rgb(241, 245, 249)');
+});
+
+test('phone CAD toolbar and empty project message never overlap',async({page},testInfo)=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.goto('/');
+  const tools=page.locator('.app.shadcn-studio .canvas-tools');
+  const notice=page.locator('.app.shadcn-studio .empty-project');
+  await expect(tools).toBeVisible();
+  await expect(notice).toBeVisible();
+  const [t,n]=await Promise.all([tools.boundingBox(),notice.boundingBox()]);
+  expect(t).not.toBeNull();expect(n).not.toBeNull();
+  expect(t!.y+t!.height).toBeLessThanOrEqual(n!.y+2);
+  await expect(page.locator('.app.shadcn-studio .drawing-panel .canvas-hint')).toBeHidden();
+  await page.screenshot({path:testInfo.outputPath('serula-studio-mobile-fixed.png'),fullPage:true});
+});
+
+test('mobile export footer follows workbench instead of hiding part controls',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.goto('/');
+  const material=page.locator('.app.shadcn-studio .material-panel');
+  const footer=page.locator('.app.shadcn-studio > .statusbar');
+  const [m,f]=await Promise.all([material.boundingBox(),footer.boundingBox()]);
+  expect(m).not.toBeNull();expect(f).not.toBeNull();
+  expect(f!.y).toBeGreaterThanOrEqual(m!.y+m!.height-1);
+  await expect(footer).toHaveCSS('position','static');
+  await expect(page.locator('.corel-transfer-button')).toBeAttached();
+});
+test('visual QA captures the actual admin panel at mobile and desktop sizes',async({page},testInfo)=>{
+  for(const width of [390,1440]){
+    await page.setViewportSize({width,height:900});
+    await page.goto('/admin');
+    await expect(page.locator('.admin-page.shadcn-dashboard')).toBeVisible();
+    await page.screenshot({path:testInfo.outputPath('serula-admin-'+width+'.png'),fullPage:true});
+  }
+});
+test('visual reference capture from original Shadcn Dashboard demo',async({page},testInfo)=>{
+  try {
+    await page.setViewportSize({width:1440,height:900});
+    await page.goto('https://shadcndashboard-demo.vercel.app/',{waitUntil:'domcontentloaded',timeout:20000});
+    await page.screenshot({path:testInfo.outputPath('shadcn-original-reference.png'),fullPage:true,timeout:20000});
+  } catch {
+    test.skip(true,'External reference demo could not be captured from the CI runner');
+  }
+});

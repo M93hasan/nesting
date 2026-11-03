@@ -278,3 +278,105 @@
   background: #3f3f46;
   color: #fff;
 }
+
+/* Visual QA: restore SVG paint rules lost when the older global theme was removed.
+   Unstyled SVG rects default to black and covered the empty CAD surface.
+   These are non-interactive layers; no coordinate, geometry or hit-area changes. */
+#root .app.shadcn-studio .material-width-band > rect{
+  fill:#fff;
+  stroke:none;
+}
+#root .app.shadcn-studio .material-width-band > path{
+  fill:none;
+  stroke:#a1a1aa;
+  stroke-width:1;
+}
+#root .app.shadcn-studio .material-width-outside > rect{
+  fill:#f1f5f9;
+}
+#root .app.shadcn-studio .material-frame > rect{
+  fill:#fff;
+  stroke:#a1a1aa;
+  stroke-width:1;
+}
+#root .app.shadcn-studio .material-frame > text{
+  fill:#52525b;
+}
+#root .app.shadcn-studio .coordinate-grid > path{
+  stroke:#e4e4e7;
+  stroke-width:.8;
+}
+#root .app.shadcn-studio .coordinate-grid > path.origin{
+  stroke:#a1a1aa;
+  stroke-width:1;
+}
+#root .app.shadcn-studio .material-size-badge,
+#root .app.shadcn-studio .canvas-tools{
+  isolation:isolate;
+}
+/* Long gesture hints must not bleed over the next panel or footer. */
+#root .app.shadcn-studio .canvas-hint{
+  max-width:calc(100% - 32px);
+  padding:6px 9px;
+  line-height:1.4;
+  white-space:normal;
+  font-size:12px;
+  overflow-wrap:anywhere;
+}
+#root .app.shadcn-studio .drawing-panel:has(.empty-project) .canvas-hint{
+  display:none;
+}
+@media(max-width:699px){
+  /* Avoid layering three independently floating elements at the canvas top. */
+  #root .app.shadcn-studio .canvas-wrap>.material-size-badge{
+    top:9px;
+    left:12px;
+    max-width:calc(100% - 24px);
+    font-size:11px;
+  }
+  #root .app.shadcn-studio .canvas-wrap>.canvas-tools{
+    left:10px;
+    right:10px;
+    top:52px;
+    justify-content:flex-end;
+    flex-wrap:nowrap;
+    gap:3px;
+    max-width:calc(100% - 20px);
+    background:#fff;
+  }
+  #root .app.shadcn-studio .canvas-tools>button{
+    flex:0 0 auto;
+  }
+  #root .app.shadcn-studio .cad-snapping{
+    min-width:0;
+  }
+  #root .app.shadcn-studio .cad-snapping>summary{
+    overflow:hidden;
+    white-space:nowrap;
+    text-overflow:ellipsis;
+    font-size:11px;
+  }
+  /* Keep the introductory card below the actual toolbar without hiding actions. */
+  #root .app.shadcn-studio .drawing-panel .empty-project{
+    top:62%;
+    padding:14px 16px;
+    width:min(330px,calc(100% - 32px));
+  }
+  #root .app.shadcn-studio .drawing-panel .empty-project h2{
+    font-size:21px;
+  }
+  #root .app.shadcn-studio .drawing-panel .empty-project p{
+    font-size:12px;
+    line-height:1.45;
+    margin:6px 0 10px;
+  }
+  #root .app.shadcn-studio .drawing-panel .empty-project button{
+    min-height:38px;
+  }
+  /* Sticky footer obscured the parts and settings while scrolling a phone.
+     Keep its bottom-of-document order but not a floating overlay. */
+  #root .app.shadcn-studio>.statusbar{
+    position:static;
+    bottom:auto;
+  }
+}

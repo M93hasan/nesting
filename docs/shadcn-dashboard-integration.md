@@ -39,3 +39,13 @@ The CAD column positions, part selection handlers, calculation and WASM/DXF/PLT/
 New Playwright coverage includes the desktop panel order, settings disclosure keyboard focus, contour toggle, 390/768/1440 viewport overflow, DXF/CorelDRAW controls and PR screenshots.
 
 The upstream Shadcn Dashboard template remains MIT licensed, and this adaptation retains its source link and license notice.
+
+## Visual QA findings and fixes (stage 6)
+
+Screenshots from the GitHub Actions Serula layout artifact (run 41661450977) were reviewed against the Shadcn Dashboard reference. The first visual review exposed three problems that functional tests missed: black SVG fill in the empty CAD view, overlap between the floating CAD controls and the empty-project card on a 390px screen, and a sticky export footer visually covering the parts/settings in a full-page mobile capture.
+
+The fix lives in the isolated `studio-dashboard.css` file: non-interactive SVG material masks now have explicit light-surface fills, mobile snapping controls and the empty card are vertically separated, duplicate canvas help text is hidden only for an empty project, and the export footer follows document flow on narrow screens. Existing App.tsx, Workspace.tsx, DXF export and placement logic are unchanged.
+
+Visual regression tests now assert the SVG fill, mobile control/card bounding-box separation and that the bottom action bar follows the material panel. The CI artifact also captures /admin on mobile and desktop and attempts a reference screenshot from the public Shadcn Dashboard demo.
+
+This aims at visual consistency with Shadcn Dashboard, not exact pixel equivalence between unrelated dashboard and CAD layouts. Final production publication requires user approval.
