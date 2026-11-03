@@ -57,3 +57,9 @@ Source capture: public Shadcn Dashboard React demo at https://shadcndashboard-de
 The correction restores the reference black active selection, white canvas, readable muted inactive links, truthful error/checking status colors, a graceful real-zero registration empty state, and a source attribution link in the admin footer. Non-empty registration data still produces the original live seven-day chart. The CAD ruler's remaining black SVG default fill is corrected without changing canvas geometry or hit areas.
 
 Functional parity to Serula's CAD tools takes priority over pixel-perfect copying of the reference's unrelated demo marketing data, widgets and site structure.
+
+## Slate ambience, compact parts and DXF foreground (follow-up)
+
+The white-heavy Shadcn interface is refined with a scoped slate and graphite palette in `web/src/slate-ambience.css`. Only the interior of the **Parçalar** sidebar is compacted: part thumbnail and row padding, quantity input, production series, add/undo/clear controls and collapsed properties. Mobile action targets remain at least 40px. Positions of all three CAD columns, toolbar functions, export actions and Worker APIs remain unchanged.
+
+DXF display bug: `Workspace.tsx` previously rendered the opaque `material-width-outside` SVG group after the shape groups, concealing imported geometry outside the material-width boundary. It now renders before all part shapes, preserving coordinate grid and material tint while keeping imported DXF geometry visually on top. DXF parsing, DXF layer data and exported geometry are untouched. Browser tests import a real DXF fixture, check SVG paint order, and check compact control accessibility.
