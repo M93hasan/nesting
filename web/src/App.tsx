@@ -3,6 +3,7 @@ import packageInfo from '../package.json';
 import {readRecovery,saveRecovery} from './storage/recovery';
 import {useDismissibleMenu} from './components/useDismissibleMenu';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import {useThemePreference} from './theme-preference';
 import { DEFAULT_SETTINGS, rotationSummary, type Document, type Part, type Point, type Result, type RotationRule } from './model';
 import { bounds } from './geometry/normalize';
 import { netArea } from './geometry/validate';
@@ -49,8 +50,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const [resultMode,setResultMode]=useState<'live'|'checked'>('live');
   const [threads,setThreads]=useState(0);
   const [sizeValid,setSizeValid]=useState(true),[downloadedResult,setDownloadedResult]=useState(false),[seriesDraft,setSeriesDraft]=useState<string>();
-  const [theme,setTheme]=useState<'system'|'light'|'dark'>(()=>{try{const saved=localStorage.getItem('serula-theme');return saved==='light'||saved==='dark'||saved==='system'?saved:'light';}catch{return 'light';}});
-  useEffect(()=>{document.documentElement.dataset.theme=theme;try{localStorage.setItem('serula-theme',theme);}catch{/* The theme still works when storage is unavailable. */}},[theme]);
+  const [theme,setTheme]=useThemePreference();
   const [unit,setUnit]=useState<DisplayUnit>(()=>{try{return localStorage.getItem('serula-units')==='in'?'in':'mm';}catch{return 'mm';}});
   useEffect(()=>{try{localStorage.setItem('serula-units',unit);}catch{/* Görüntü birimleri work without persistence. */}},[unit]);
   const factor=unitScale(unit),length=(mm:number)=>(mm/factor).toLocaleString(undefined,{maximumFractionDigits:unit==='mm'?2:4});
@@ -554,27 +554,20 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   }
   const exportBlockedReason=busy?'Mevcut işlemin bitmesini bekleyin.':invalidSettings?'İndirmeden önce geçersiz ayarları düzeltin.':showingLive?'İndirmek için en iyi geçerli çözüm görünümüne geçin.':running&&!result?'İndirmeden önce en iyi geçerli çözümün oluşmasını bekleyin.':undefined;
   async function exportLayout() {
-    // Local-only, non-sensitive trace; removed after the export regression is isolated.
-    const qa=(stage:string,detail?:string)=>{if(location.hostname==='127.0.0.1'&&location.search.includes('__qa_export'))console.info('EXPORT_QA '+JSON.stringify({stage,detail}));};
-    qa('called',JSON.stringify({busy,invalidSettings,showingLive,running,hasResult:!!result,revision}));
     if(busy||invalidSettings||showingLive||(running&&!result))return false;
     setBusy(true);setError('');
     try {
-      qa('before-worker');
       const reply=await geometryTask({type:'export',runId:++operation.current,documentRevision:revision,document:canvasDocument,result});
-      qa('after-worker',reply.type);
       if(reply.type==='export-result'){
         const content=reply.bundle.dxf;
         const fileName=`${exportAd}.dxf`;
         const sourceFileName=doc.parts.find(part=>part.source.format==='dxf'||part.source.format==='plt')?.source.fileName??doc.name;
         const projectJson=JSON.stringify({...doc,...(result?{placements:result.placements,result}:{}),schemaVersion:1,revision,serulaCloud:{label:CLOUD_SAVE_NAME,ui:{theme,unit}}});
-        qa('before-auth',JSON.stringify({length:content?.length,projectJsonLength:projectJson?.length}));
         await authorizeExport(doc.name,sourceFileName,fileName,content,projectJson);
-        qa('after-auth');
         download(fileName,content,'application/dxf');setDownloadedResult(true);setExported({document:doc,result});return true;
       }
       return false;
-    } catch(e){qa('caught',String(e));setError(String(e));return false;}finally{qa('finally');setBusy(false);}
+    } catch(e){setError(String(e));return false;}finally{setBusy(false);}
   }
   async function transferLayout(target:'corel') {
     if(exportBlockedReason||!doc.parts.some(part=>part.quantity>0))return;
