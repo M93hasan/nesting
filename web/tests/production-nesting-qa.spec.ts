@@ -26,7 +26,7 @@ test('live production serves merged release and current DXF UI',async({page,requ
     return;
   }
   expect(httpStatus).toBe(200);
-  await expect(page.getByRole('button',{name:'DXF İçe Aktar'})).toBeVisible({timeout:30000});
+  await expect(page.locator('.add-shape').getByRole('button',{name:'DXF İçe Aktar',exact:true})).toBeVisible({timeout:30000});
   console.log('NESTING_QA '+JSON.stringify({event:'live-browser',status:'accessible',url:LIVE_URL,version:DEPLOY_SHA,httpStatus}));
 });
 
@@ -34,7 +34,7 @@ test('anonymous local preview DXF import and real WASM nesting; no chargeable ex
   test.setTimeout(115000);
   const response=await page.goto('/',{waitUntil:'domcontentloaded',timeout:45000});
   expect(response?.status()).toBe(200);
-  await expect(page.getByRole('button',{name:'DXF İçe Aktar'})).toBeVisible({timeout:30000});
+  await expect(page.locator('.add-shape').getByRole('button',{name:'DXF İçe Aktar',exact:true})).toBeVisible({timeout:30000});
   const clear=page.getByRole('button',{name:'Tümünü sil'});
   if(await clear.isEnabled())await clear.click();
   await expect(page.locator('.part-row')).toHaveCount(0,{timeout:10000});
