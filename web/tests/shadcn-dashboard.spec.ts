@@ -291,7 +291,13 @@ test('Parçalar panel keeps its actions accessible in a compact layout',async({p
   const parts=page.locator('#parts-settings');
   await expect(parts.locator('.add-shape>button')).toHaveCount(2);
   await expect(parts.locator('.add-shape>button').first()).toHaveCSS('min-height','36px');
-  await expect(parts.locator('.production-series')).toHaveCSS('padding-top','8px');
+  await expect(parts.locator('.production-series')).toHaveCSS('padding-top','5px');
+  const order=await parts.evaluate(panel=>{
+    const series=panel.querySelector('.production-series');
+    const list=panel.querySelector('.parts-list');
+    return !!series&&!!list&&Boolean(series.compareDocumentPosition(list)&Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+  expect(order).toBe(true);
   await page.getByRole('button',{name:'Şekil çiz'}).click();
   await page.getByRole('button',{name:'Şekil ekle',exact:true}).click();
   await expect(parts.locator('.part-row')).toHaveCount(1);
