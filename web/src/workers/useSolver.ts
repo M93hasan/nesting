@@ -95,7 +95,7 @@ export function useSolver() {
           try{
             const previewResult=candidateResult(r.doc,candidate,r.seed);
             r.previewActive={candidate,result:previewResult};r.previewSequence=candidate.sequence;
-            r.preview.postMessage({type:'live-preview',sequence:candidate.sequence,runId:r.id,documentRevision:r.revision,document:r.doc,result:previewResult});
+            r.preview.postMessage({type:'live-preview',sequence:candidate.sequence,runId:r.id,documentRevision:r.revision,result:previewResult});
           }catch{r.previewSequence=candidate.sequence;}
         }
       }
@@ -218,6 +218,7 @@ export function useSolver() {
       if(run.current===r&&!r.ended)end('Error',event.message||'Yerleşim doğrulama işçisi durdu.');
     };
     validator.postMessage({type:'init',document:doc});
+    preview.postMessage({type:'live-preview-init',runId:r.id,documentRevision:r.revision,document:doc});
     solver.onmessage=({data}:MessageEvent<SolverMessage>)=>{
       if(run.current!==r || !r.solver || data.runId!==r.id || data.documentRevision!==r.revision) return;
       switch(data.type) {
