@@ -1,3 +1,4 @@
+import {hasEmailSender,sendAppEmail} from './email-sender.js';
 /*
  * Email verification for password sign-ups.
  * A six-digit OTP is only usable with a separate 256-bit browser challenge.
@@ -12,7 +13,7 @@ const sha=async text=>hex(new Uint8Array(await crypto.subtle.digest('SHA-256',ne
 const checkEmail=email=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)&&email.length<=254;
 
 export async function sendVerificationCode(env,user,{initial=false}={}){
-  if(!env.EMAIL?.send)return {error:'E-posta doğrulama servisi hazır değil.',status:503};
+  if(!hasEmailSender(env))return {error:'E-posta doğrulama servisi hazır değil.',status:503};
   const now=Date.now();
   const previous=await env.DB.prepare('SELECT * FROM email_verifications WHERE user_id=?').bind(user.id).first();
   const age=previous?now-Date.parse(String(previous.sent_at)):Infinity;
@@ -41,7 +42,7 @@ export async function sendVerificationCode(env,user,{initial=false}={}){
     .bind(user.id,challengeHash,codeHash,expiresAt,nowIso,windowStart,count).run();
   if(!saved.meta.changes)return {error:'Çok sık kod istendi. Lütfen daha sonra deneyin.',status:429};
   try{
-    await env.EMAIL.send({
+    await sendAppEmail(env,{
       to:user.email,from:'noreply@serula.site',
       subject:'Serula Nesting - E-posta Doğrulama',
       text:`Serula Nesting doğrulama kodunuz: ${code}\n\nKodunuz 10 dakika geçerlidir. Bu kaydı siz başlatmadıysanız mesajı yok sayın.`
