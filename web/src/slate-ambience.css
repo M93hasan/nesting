@@ -20,7 +20,7 @@
 #root .admin-page.shadcn-dashboard .admin-brand strong,
 #root .admin-page.shadcn-dashboard .sd-breadcrumb strong{color:#f8fafc}
 #root .admin-page.shadcn-dashboard .admin-brand span,
-#root .admin-page.shadcn-dashboard .sd-breadcrumb{color:#64748b}
+#root .admin-page.shadcn-dashboard .sd-breadcrumb{color:#cbd5e1}
 #root .admin-page.shadcn-dashboard .admin-version,
 #root .admin-page.shadcn-dashboard .admin-badge{
  background:#334155;color:#f8fafc;border-color:#475569;
@@ -108,7 +108,7 @@
 #root .app.shadcn-studio .serula-brand,
 #root .app.shadcn-studio .serula-brand strong{color:#ffffff}
 #root .app.shadcn-studio .serula-brand>span,
-#root .app.shadcn-studio .tagline{color:#64748b}
+#root .app.shadcn-studio .tagline{color:#cbd5e1}
 #root .app.shadcn-studio>.header nav>button{
  background:#334155;border-color:#475569;color:#f8fafc;
 }
