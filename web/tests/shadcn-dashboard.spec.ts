@@ -356,3 +356,53 @@ test('compact desktop workbench leaves phone-size touch controls intact',async({
   expect(minHeight).toBeGreaterThanOrEqual(40);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
+
+test('admin history search, day range and CSV export use real records',async({page})=>{
+  await page.route('**/api/auth/admin-me',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(adminUser)}));
+  const requestedDays:string[]=[];
+  await page.route('**/api/admin/history?days=*',route=>{
+    requestedDays.push(new URL(route.request().url()).searchParams.get('days')||'');
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({days:30,items:[
+      {id:1,userId:10,email:'first@example.test',name:'First',projectName:'Example DXF',sourceFileName:'sample.dxf',usedCredit:1,createdAt:'2026-11-04 10:00:00'},
+      {id:2,userId:11,email:'second@example.test',name:'Second',projectName:'Second project',sourceFileName:'second.dxf',usedCredit:0,createdAt:'2026-11-04 10:00:00'}
+    ]})});
+  });
+  await page.goto('/admin');
+  await page.getByRole('button',{name:'İşlem Geçmişi'}).click();
+  const table=page.getByRole('table',{name:'Yerleştirme geçmişi'});
+  await expect(table.locator('.admin-user-row')).toHaveCount(2);
+  await page.getByRole('textbox',{name:'Geçmişte ara'}).fill('first');
+  await expect(table.locator('.admin-user-row')).toHaveCount(1);
+  const downloadPromise=page.waitForEvent('download');
+  await page.getByRole('button',{name:'Dışa aktar (CSV)'}).click();
+  const download=await downloadPromise;
+  expect(download.suggestedFilename()).toContain('serula-islem-gecmisi');
+  await page.getByRole('textbox',{name:'Geçmişte ara'}).fill('');
+  await page.getByRole('combobox',{name:'Geçmiş tarih aralığı'}).selectOption('7');
+  await expect.poll(()=>requestedDays.at(-1)).toBe('7');
+});
+
+test('blank quota field and failed user settings load do not apply accidental admin changes',async({page})=>{
+  await page.route('**/api/auth/admin-me',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(adminUser)}));
+  await page.route('**/api/admin/users',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({users:[{
+    id:10,email:'customer@example.test',name:'Customer',role:'user',credits:5,unlimited:false,online:false
+  }],onlineCount:0})}));
+  let creditPosts=0,supportPosts=0;
+  await page.route('**/api/admin/users/10/credits',route=>{creditPosts++;return route.fulfill({status:200,contentType:'application/json',body:'{"ok":true}'})});
+  await page.route('**/api/admin/users/10/settings',route=>route.fulfill({status:503,contentType:'application/json',body:'{"error":"Ayarlar yüklenemedi."}'}));
+  await page.route('**/api/admin/users/10/support',route=>{
+    if(route.request().method()==='POST')supportPosts++;
+    return route.fulfill({status:200,contentType:'application/json',body:'{"support":null}'});
+  });
+  await page.goto('/admin');
+  await page.getByRole('button',{name:'Kullanıcılar'}).click();
+  const input=page.getByRole('spinbutton',{name:'customer@example.test yerleştirme hakkı'});
+  await input.fill('');
+  await input.blur();
+  await expect(page.getByRole('alert')).toContainText('tam sayı');
+  await expect(input).toHaveValue('5');
+  expect(creditPosts).toBe(0);
+  await page.getByRole('button',{name:'Ekrana bağlan'}).first().click();
+  await expect(page.getByRole('alert')).toContainText('Ayarlar yüklenemedi');
+  expect(supportPosts).toBe(0);
+});
