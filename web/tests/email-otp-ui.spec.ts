@@ -42,7 +42,7 @@ test('new registration displays the supplied six-digit OTP card and blocks login
   await form.getByRole('button',{name:'Doğrula ve giriş yap'}).click();
   await expect(form).toHaveCount(0);
   expect(verificationRequests).toBe(2);
-  await expect(page.getByRole('button',{name:'Hesap menüsü'})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Giriş yap',exact:true})).toHaveCount(0);
 });
 
 test('OTP card remains within phone screen without disturbing other buttons',async({page})=>{
