@@ -13,8 +13,14 @@ test('production series input is editable and placed in the relevant section onl
   expect(source).toContain('Toplam üretim: <strong>{displayedProductionPieces}</strong>');
   expect(source).not.toContain('className="production-series__total" role="status"');
   expect(source).toContain('Toplam malzeme: <strong>{displayedProductionMaterial}');
-  const panelHeader=source.slice(source.indexOf('<div className="panel-title">'),source.indexOf('<div className="parts-list">'));
-  expect(panelHeader).not.toContain('series-multiplier');
+  const panelTitle=source.indexOf('<div className="panel-title">');
+  const seriesSection=source.indexOf('<section className="production-series"');
+  const partsList=source.indexOf('<div className="parts-list">');
+  expect(panelTitle).toBeGreaterThan(-1);
+  expect(seriesSection).toBeGreaterThan(panelTitle);
+  expect(seriesSection).toBeLessThan(partsList);
+  expect(source.slice(panelTitle,seriesSection)).not.toContain('series-multiplier');
+  expect(source).toContain('disabled={busy||!doc.parts.length}');
 });
 
 test('series changes count as new, unexported production changes',()=>{
