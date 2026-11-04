@@ -1198,3 +1198,104 @@ html[dir=rtl] .glass-glider{left:auto;right:3px;transform:translateX(calc(var(--
     max-width: 100%;
   }
 }
+
+/* Accessible animated checkboxes for studio/CAD/import controls. Admin quota
+   switches deliberately retain their separate switch styling. */
+#root .app .checkbox-container {
+  display:flex;
+  position:relative;
+  align-items:center;
+  box-sizing:border-box;
+  min-height:36px;
+  max-width:100%;
+  padding-left:35px;
+  margin-bottom:8px;
+  gap:0;
+  cursor:pointer;
+  font-size:16px;
+  user-select:none;
+}
+#root .app .checkbox-container > .custom-checkbox {
+  display:block;
+  position:absolute;
+  top:50%;
+  left:0;
+  z-index:1;
+  width:25px;
+  height:25px;
+  min-height:25px;
+  margin:0;
+  padding:0;
+  transform:translateY(-50%);
+  opacity:0;
+  cursor:pointer;
+}
+#root .app .checkbox-container > .checkmark {
+  position:absolute;
+  top:50%;
+  left:0;
+  width:25px;
+  height:25px;
+  box-sizing:border-box;
+  transform:translateY(-50%);
+  background-color:#eee;
+  border-radius:4px;
+  transition:background-color .3s,box-shadow .3s;
+  box-shadow:0 2px 5px rgba(0,0,0,.2);
+  pointer-events:none;
+}
+#root .app .checkbox-container > .checkmark::after {
+  content:"";
+  position:absolute;
+  display:none;
+  left:9px;
+  top:5px;
+  width:5px;
+  height:10px;
+  box-sizing:content-box;
+  border:solid white;
+  border-width:0 3px 3px 0;
+  transform:rotate(45deg);
+}
+#root .app .checkbox-container > .custom-checkbox:checked ~ .checkmark {
+  background-color:#2196f3;
+  box-shadow:0 3px 7px rgba(33,150,243,.3);
+}
+#root .app .checkbox-container > .custom-checkbox:checked ~ .checkmark::after {
+  display:block;
+  animation:checkAnim .2s forwards;
+}
+#root .app .checkbox-container > .custom-checkbox:focus-visible ~ .checkmark {
+  outline:3px solid #1565c0;
+  outline-offset:3px;
+}
+#root .app .checkbox-container > .custom-checkbox:disabled,
+#root .app .checkbox-container:has(> .custom-checkbox:disabled) {
+  cursor:not-allowed;
+}
+#root .app .checkbox-container > .custom-checkbox:disabled ~ .checkmark {
+  opacity:.5;
+  box-shadow:none;
+}
+#root .app .checkbox-container > .checkbox-label {
+  flex:1 1 auto;
+  min-width:0;
+  overflow-wrap:anywhere;
+  line-height:1.4;
+}
+#root .app .solver-options .group-similar-option.checkbox-container {
+  display:flex;
+  flex-direction:row;
+  align-items:center;
+  gap:0;
+  width:100%;
+  max-width:100%;
+}
+@keyframes checkAnim {
+  0% {height:0;}
+  100% {height:10px;}
+}
+@media (prefers-reduced-motion:reduce) {
+  #root .app .checkbox-container > .checkmark {transition:none;}
+  #root .app .checkbox-container > .custom-checkbox:checked ~ .checkmark::after {animation:none;}
+}
