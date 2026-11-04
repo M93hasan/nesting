@@ -11,7 +11,7 @@ describe('Serula Nesting verification email',()=>{
     expect(mail.html).toContain('NESTING PRO');
     expect(mail.html).toContain('547298');
     expect(mail.html).toContain('10 dakika');
-    expect(mail.html).toContain('Kodu kimseyle paylaşmayın');
+    expect(mail.html).toContain('Bu kodu kimseyle paylaşmayın');
     expect(mail.html).toContain('role="presentation"');
     expect(mail.html).toContain('https://serula.site/');
     expect(mail.html).not.toContain('{{CODE}}');
