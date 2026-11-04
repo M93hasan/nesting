@@ -192,8 +192,8 @@
   border-radius: 20px;
   background: #008080;
   color: #fff;
-  box-shadow: 0 3px 8px rgb(0 0 0 / 14%);
-  font-weight: 700;
+  box-shadow: none;
+  font-weight: 600;
   cursor: pointer;
 }
 #root .app.shadcn-studio #serula-account-slot .auth-login-header--template .auth-avatar {
