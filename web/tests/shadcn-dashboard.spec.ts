@@ -406,3 +406,73 @@ test('blank quota field and failed user settings load do not apply accidental ad
   await expect(page.getByRole('alert')).toContainText('Ayarlar yüklenemedi');
   expect(supportPosts).toBe(0);
 });
+
+test('admin desktop action buttons and navigation are compact without changing actions',async({page})=>{
+  await page.setViewportSize({width:1440,height:900});
+  await page.route('**/api/auth/admin-me',route=>route.fulfill({
+    status:200,contentType:'application/json',body:JSON.stringify(adminUser)
+  }));
+  await page.route('**/api/admin/users',route=>route.fulfill({
+    status:200,contentType:'application/json',body:JSON.stringify({
+      users:[{id:17,email:'compact@example.test',name:'Compact',role:'user',credits:5,unlimited:false,online:false,corelTransferEnabled:true,testDxfEnabled:false}],onlineCount:0
+    })
+  }));
+  await page.goto('/admin');
+  const navButton=page.getByRole('button',{name:'Kullanıcılar'});
+  await expect(navButton).toBeVisible();
+  const navHeight=await navButton.evaluate(element=>element.getBoundingClientRect().height);
+  expect(navHeight).toBeLessThanOrEqual(38);
+  await navButton.click();
+  const actionButtons=page.locator('.admin-user-actions button');
+  await expect(actionButtons).toHaveCount(7);
+  const metrics=await actionButtons.evaluateAll(elements=>elements.map(el=>({
+    width:el.getBoundingClientRect().width,
+    height:el.getBoundingClientRect().height,
+    paddingLeft:getComputedStyle(el).paddingLeft,
+    label:el.textContent
+  })));
+  expect(metrics.every(m=>m.height<=37)).toBe(true);
+  expect(metrics.every(m=>m.width<185)).toBe(true);
+  expect(metrics.every(m=>parseFloat(m.paddingLeft)<=9)).toBe(true);
+  await expect(page.getByRole('button',{name:'Ayarlar',exact:true})).toBeEnabled();
+  await expect(page.getByRole('button',{name:'Kullanıcıyı sil'})).toBeEnabled();
+  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(1440);
+});
+
+test('admin user action buttons use two compact columns on phone, without horizontal overflow',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.route('**/api/auth/admin-me',route=>route.fulfill({
+    status:200,contentType:'application/json',body:JSON.stringify(adminUser)
+  }));
+  await page.route('**/api/admin/users',route=>route.fulfill({
+    status:200,contentType:'application/json',body:JSON.stringify({
+      users:[{id:17,email:'compact@example.test',name:'Compact',role:'user',credits:5,unlimited:false,online:false}],onlineCount:0
+    })
+  }));
+  await page.goto('/admin');
+  await page.getByRole('button',{name:'Kullanıcılar'}).click();
+  const actions=page.locator('.admin-user-actions');
+  await expect(actions).toHaveCSS('display','grid');
+  const buttons=actions.locator('button');
+  await expect(buttons).toHaveCount(7);
+  const rects=await buttons.evaluateAll(elements=>elements.map(el=>({
+    x:el.getBoundingClientRect().x,
+    y:el.getBoundingClientRect().y,
+    width:el.getBoundingClientRect().width,
+    height:el.getBoundingClientRect().height
+  })));
+  expect(rects[1].x).toBeGreaterThan(rects[0].x+5);
+  expect(Math.abs(rects[1].y-rects[0].y)).toBeLessThan(2);
+  expect(rects.every(b=>b.width<180&&b.height>=40)).toBe(true);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+});
+
+test('admin compact buttons do not shrink the CAD workspace controls',async({page})=>{
+  await page.setViewportSize({width:1440,height:900});
+  await page.goto('/');
+  const importButton=page.locator('#parts-settings').getByRole('button',{name:'DXF İçe Aktar'});
+  await expect(importButton).toBeVisible();
+  await expect(page.locator('.admin-page')).toHaveCount(0);
+  const computed=await importButton.evaluate(el=>({minHeight:getComputedStyle(el).minHeight,padding:getComputedStyle(el).paddingLeft}));
+  expect(computed.minHeight).not.toBe('32px');
+});
