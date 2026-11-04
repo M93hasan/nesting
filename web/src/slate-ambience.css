@@ -35,14 +35,14 @@
 }
 #root .admin-page.shadcn-dashboard .sd-sidebar-caption{color:#94a3b8}
 :root #root .admin-page.shadcn-dashboard .admin-sidebar nav button:not([aria-current="page"]){
- background:transparent;border-color:transparent;color:#d6e2ed;
+ background:transparent;border-color:transparent;color:#e2e8f0;
 }
 :root #root .admin-page.shadcn-dashboard .admin-sidebar nav button:not([aria-current="page"]):hover{
  background:#334155;color:#fff;
 }
 :root #root .admin-page.shadcn-dashboard .admin-sidebar nav button[aria-current="page"]{
  background:#2563eb;border-color:#93c5fd;color:#fff;
- box-shadow:inset 3px 0 #c0d8e9;
+ box-shadow:inset 3px 0 #bfdbfe;
 }
 :root #root .admin-page.shadcn-dashboard .admin-sidebar nav button[aria-current="page"]:hover{
  background:#1d4ed8;color:#fff;
@@ -50,7 +50,7 @@
 #root .admin-page.shadcn-dashboard .admin-security-note{
  background:#334155;border-color:#475569;color:#ffffff;
 }
-#root .admin-page.shadcn-dashboard .admin-security-note small{color:#c5d4e0}
+#root .admin-page.shadcn-dashboard .admin-security-note small{color:#cbd5e1}
 #root .admin-page.shadcn-dashboard :is(.admin-card,.admin-metric,.admin-selected-user,.admin-support-box,.admin-screen-view){
  background:#ffffff;border-color:#cbd5e1;box-shadow:0 2px 7px rgb(37 60 81 / 6%);
  color:var(--sd-ink);
@@ -172,7 +172,7 @@
 #root .app.shadcn-studio .canvas-tools{
  background:rgb(255 255 255 / 97%);border-color:#cbd5e1;
 }
-#root .app.shadcn-studio .canvas-tools>button:hover:enabled{background:#cfdfeb}
+#root .app.shadcn-studio .canvas-tools>button:hover:enabled{background:#e2e8f0}
 #root .app.shadcn-studio .canvas-tools>button[aria-pressed="true"]{
  background:#2563eb;border-color:#2563eb;color:#fff;
 }
