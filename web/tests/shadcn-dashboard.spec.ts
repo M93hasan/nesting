@@ -328,8 +328,8 @@ test('compact desktop controls give the nesting canvas more visible room',async(
   const parts=app.locator('#parts-settings');
   const material=app.locator('.material-panel');
   const canvas=app.locator('.drawing-panel');
-  const header=app.locator('>.header');
-  const footer=app.locator('>.statusbar');
+  const header=app.locator(':scope > .header');
+  const footer=app.locator(':scope > .statusbar');
   const [p,m,c,h,f]=await Promise.all([
     parts.boundingBox(),material.boundingBox(),canvas.boundingBox(),header.boundingBox(),footer.boundingBox()
   ]);
