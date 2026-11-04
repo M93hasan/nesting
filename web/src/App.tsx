@@ -200,7 +200,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     const copies=documentPlacements(canvasDocument).filter(copy=>wanted.has(`${copy.partId}:${copy.copyIndex}`));
     const angles=[...new Set(copies.map(copy=>Math.round((((copy.angleDeg%360)+360)%360)*1e9)/1e9))];
     const xs=[...new Set(copies.map(copy=>!!copy.mirrorX))],ys=[...new Set(copies.map(copy=>!!copy.mirrorY))];
-    return {angle:angles.length===1?angles[0]:undefined,mirrorX:xs.length===1?xs[0]:undefined,mirrorY:ys.length===1?ys[0]:undefined};
+    return {angle:angles.length===1?angles[0]:undefined,mirrorX:xs.length===1?xs[0]:undefined,mirrorY:ys.length===1?ys[0]:undefined,angleLocked:copies.some(copy=>copy.orientationLocked)};
   },[canvasDocument,selectedRefs]);
   const invalidSettings=!sizeValid||!Number.isFinite(doc.settings.materialWidthMm)||doc.settings.materialWidthMm<=0||doc.settings.materialWidthMm>100_000||((doc.settings.materialType??'roll')==='sheet'&&(!Number.isFinite(doc.settings.materialLengthMm)||doc.settings.materialLengthMm!<=0||doc.settings.materialLengthMm!>100_000))||!Number.isFinite(doc.settings.clearanceMm)||doc.settings.clearanceMm<0||doc.settings.clearanceMm>=doc.settings.materialWidthMm||doc.parts.some(p=>!validQuantity(p.quantity)||(p.quantity>0&&!validRotationRule(p.rotations)))||doc.parts.reduce((n,p)=>n+p.quantity,0)>500;
   const recoveryResult=running?undefined:result;
