@@ -44,6 +44,7 @@ export type GeometryReply = Identity & (
   | { type:'import-review'; review:ImportReview }
   | { type:'export-result'; bundle:ExportBundle }
   | { type:'archive-result'; archive:Uint8Array }
-  | { type:'live-frame'; sequence:number; geometry:LiveGeometry }
+  | { type:'live-frame'; sequence:number; geometry:LiveGeometry; result:Result }
+  | { type:'live-preview-skipped'; sequence:number; message:string }
   | { type:'error'; message:string }
 );
