@@ -62,3 +62,26 @@ test('OTP card remains within phone screen without disturbing other buttons',asy
   await page.getByRole('button',{name:'Giriş ekranına dön'}).click();
   await expect(page.getByRole('button',{name:'Giriş yap',exact:true}).last()).toBeVisible();
 });
+
+test('email code copy link opens a functional copy button and clears the URL fragment',async({page})=>{
+  await page.addInitScript(()=>{
+    Object.defineProperty(navigator,'clipboard',{configurable:true,value:{
+      writeText:async(text:string)=>{sessionStorage.setItem('last-playwright-copied-code',text);}
+    }});
+  });
+  await page.goto('/otp-copy.html#547298');
+  await expect(page.getByRole('heading',{name:'Doğrulama kodunuzu kopyalayın'})).toBeVisible();
+  await expect(page.locator('#otp-code')).toHaveText('547298');
+  await expect(page).toHaveURL(/\/otp-copy\.html$/);
+  await page.getByRole('button',{name:'Kodu kopyala'}).click();
+  await expect(page.getByRole('status')).toContainText('Kod kopyalandı');
+  expect(await page.evaluate(()=>sessionStorage.getItem('last-playwright-copied-code'))).toBe('547298');
+  await expect(page.locator('body')).not.toContainText('{{CODE}}');
+});
+
+test('email code copy page rejects malformed code without exposing a copy action',async({page})=>{
+  await page.goto('/otp-copy.html#wrong-code');
+  await expect(page.locator('#otp-code')).toHaveText('Kod bulunamadı');
+  await expect(page.getByRole('button',{name:'Kodu kopyala'})).toBeDisabled();
+  await expect(page).toHaveURL(/\/otp-copy\.html$/);
+});
