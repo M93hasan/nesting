@@ -290,7 +290,7 @@ test('Parçalar panel keeps its actions accessible in a compact layout',async({p
   await page.goto('/');
   const parts=page.locator('#parts-settings');
   await expect(parts.locator('.add-shape>button')).toHaveCount(2);
-  await expect(parts.locator('.add-shape>button').first()).toHaveCSS('min-height','36px');
+  await expect(parts.locator('.add-shape>button').first()).toHaveCSS('min-height','34px');
   await expect(parts.locator('.production-series')).toHaveCSS('padding-top','5px');
   const order=await parts.evaluate(panel=>{
     const series=panel.querySelector('.production-series');
@@ -301,7 +301,7 @@ test('Parçalar panel keeps its actions accessible in a compact layout',async({p
   await page.getByRole('button',{name:'Şekil çiz'}).click();
   await page.getByRole('button',{name:'Şekil ekle',exact:true}).click();
   await expect(parts.locator('.part-row')).toHaveCount(1);
-  await expect(parts.locator('.part-select svg')).toHaveCSS('width','30px');
+  await expect(parts.locator('.part-select svg')).toHaveCSS('width','28px');
   await expect(parts.locator('.part-row>input')).toHaveCSS('width','39px');
   await expect(page.getByLabel('Proje seri adedi')).toBeEnabled();
   await expect(page.getByRole('button',{name:'Geri al'})).toBeEnabled();
@@ -319,4 +319,40 @@ test('mobile keeps the original Serula palette while desktop uses neutral worksp
   }));
   await page.goto('/admin');
   await expect(page.locator('.admin-page.shadcn-dashboard')).toHaveCSS('background-color','rgb(255, 255, 255)');
+});
+
+test('compact desktop controls give the nesting canvas more visible room',async({page})=>{
+  await page.setViewportSize({width:1440,height:900});
+  await page.goto('/');
+  const app=page.locator('.app.shadcn-studio');
+  const parts=app.locator('#parts-settings');
+  const material=app.locator('.material-panel');
+  const canvas=app.locator('.drawing-panel');
+  const header=app.locator(':scope > .header');
+  const footer=app.locator(':scope > .statusbar');
+  const [p,m,c,h,f]=await Promise.all([
+    parts.boundingBox(),material.boundingBox(),canvas.boundingBox(),header.boundingBox(),footer.boundingBox()
+  ]);
+  expect(p&&m&&c&&h&&f).toBeTruthy();
+  expect(p!.width).toBeLessThanOrEqual(240);
+  expect(m!.width).toBeLessThanOrEqual(275);
+  expect(c!.width).toBeGreaterThan(900);
+  expect(h!.height).toBeLessThanOrEqual(62);
+  expect(f!.height).toBeLessThanOrEqual(72);
+  await expect(canvas.locator('.studio-canvas-heading')).toHaveCSS('min-height','52px');
+  await expect(parts.getByRole('button',{name:'DXF İçe Aktar'})).toHaveCSS('min-height','34px');
+  await expect(app.locator('.canvas-tools>button').first()).toHaveCSS('min-height','34px');
+  await expect(material.getByLabel(/Malzeme genişliği/)).toHaveCSS('min-height','34px');
+  await expect(app.locator('.statusbar .run-button')).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(1440);
+});
+
+test('compact desktop workbench leaves phone-size touch controls intact',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.goto('/');
+  const button=page.locator('#parts-settings .add-shape>button').first();
+  await expect(button).toBeAttached();
+  const minHeight=await button.evaluate(element=>parseFloat(getComputedStyle(element).minHeight));
+  expect(minHeight).toBeGreaterThanOrEqual(40);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
