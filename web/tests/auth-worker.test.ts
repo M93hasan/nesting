@@ -24,15 +24,28 @@ function database(){
     try{const results=[];for(const statement of statements)results.push(await statement.run());sqlite.exec('COMMIT');return results}
     catch(error){sqlite.exec('ROLLBACK');throw error}
   }};
-  return {DB,sqlite,fail(){failChunks=true}};
+  const sentEmails:{to:string;from:string;subject:string;text:string}[]=[];
+  return {DB,sqlite,sentEmails,EMAIL:{async send(message:{to:string;from:string;subject:string;text:string}){sentEmails.push(message)}},fail(){failChunks=true}};
 }
 async function call(env:any,path:string,data?:unknown,cookie=''){
   return worker.fetch(new Request('https://serula.site'+path,{method:data===undefined?'GET':'POST',headers:{'content-type':'application/json',origin:'https://serula.site',cookie},...(data===undefined?{}:{body:JSON.stringify(data)})}),env);
 }
+async function verifyRegistration(env:any,response:Response,email:string){
+  expect(response.status).toBe(202);
+  expect(response.headers.get('set-cookie')).toBeNull();
+  const {challenge,verificationRequired}=await response.json();
+  expect(verificationRequired).toBe(true);
+  const mail=env.sentEmails.at(-1)?.text||'';
+  const code=mail.match(/doğrulama kodunuz: (\\d{6})/i)?.[1];
+  expect(code).toMatch(/^\\d{6}$/);
+  const verified=await call(env,'/api/auth/verify-email',{email,challenge,code});
+  expect(verified.status).toBe(200);
+  return verified.headers.get('set-cookie')!.split(';')[0];
+}
 async function account(env:any){
-  const response=await call(env,'/api/auth/register',{email:'test@example.com',name:'Test',password:'a-good-password'});
-  expect(response.status).toBe(201);
-  return response.headers.get('set-cookie')!.split(';')[0];
+  const email='test@example.com';
+  const response=await call(env,'/api/auth/register',{email,name:'Test',password:'a-good-password'});
+  return verifyRegistration(env,response,email);
 }
 const payload={projectName:'Project',fileName:'test.dxf',dxf:'0\nSECTION\n0\nEOF',projectJson:'{}'};
 
@@ -143,8 +156,7 @@ describe('Worker accounts and credit transactions',()=>{
     expect(saved.status).toBe(200);
     const {exportId}=await saved.json();
     const otherResponse=await call(env,'/api/auth/register',{email:'other@example.com',name:'Other',password:'different-password'});
-    expect(otherResponse.status).toBe(201);
-    const other=otherResponse.headers.get('set-cookie')!.split(';')[0];
+    const other=await verifyRegistration(env,otherResponse,'other@example.com');
     const foreign=await call(env,`/api/exports/${exportId}`,undefined,other);
     expect(foreign.status).toBe(404);
     const foreignList=await call(env,'/api/exports',undefined,other);
