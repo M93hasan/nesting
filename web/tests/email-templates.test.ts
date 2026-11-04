@@ -10,6 +10,8 @@ describe('Serula Nesting verification email',()=>{
     expect(mail.html).toContain('SERULA');
     expect(mail.html).toContain('NESTING PRO');
     expect(mail.html).toContain('547298');
+    expect(mail.html).toContain('Kodu kopyala');
+    expect(mail.html).toContain('https://serula.site/otp-copy.html#547298');
     expect(mail.html).toContain('10 dakika');
     expect(mail.html).toContain('Bu kodu kimseyle paylaşmayın');
     expect(mail.html).toContain('role="presentation"');
@@ -25,7 +27,8 @@ describe('Serula Nesting verification email',()=>{
     expect(mail.text).toContain('10 dakika');
     expect(mail.text).toContain('Bu otomatik bir mesajdır');
     expect(mail.html).toContain('002701');
-    expect((mail.html.match(/002701/g)||[])).toHaveLength(1);
+    expect((mail.html.match(/002701/g)||[])).toHaveLength(2);
+    expect(mail.text).toContain('https://serula.site/otp-copy.html#002701');
   });
 
   it('only accepts six numeric digits to prevent HTML injection',()=>{
@@ -37,6 +40,8 @@ describe('Serula Nesting verification email',()=>{
   it('does not include secret OTP in preview or subject',()=>{
     const mail=verificationEmail('834506');
     expect(mail.subject).not.toContain('834506');
+    expect(mail.html).toContain('href="https://serula.site/otp-copy.html#834506"');
+    expect(mail.html).not.toContain('onclick=');
     const hiddenPreview=mail.html.match(/<div style="display:none[^>]*>([\s\S]*?)<\/div>/)?.[1]||'';
     expect(hiddenPreview).not.toContain('834506');
   });
