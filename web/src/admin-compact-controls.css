@@ -147,3 +147,66 @@
     font-size:11px;
   }
 }
+
+/* Admin-only search tools: keep discovery visible without altering app controls. */
+:root #root .admin-page.shadcn-dashboard .admin-global-search,
+:root #root .admin-page.shadcn-dashboard .admin-user-settings-lookup{
+  min-width:0;width:100%;
+}
+:root #root .admin-page.shadcn-dashboard .admin-global-search .sd-search-field{
+  min-height:38px;padding:0 10px;
+}
+:root #root .admin-page.shadcn-dashboard .admin-global-search .sd-search-field input,
+:root #root .admin-page.shadcn-dashboard .admin-user-settings-lookup .sd-search-field input{
+  min-width:0;min-height:36px;font-size:12px;border:0;outline:0;box-shadow:none;
+  padding:5px 0;background:transparent;
+}
+:root #root .admin-page.shadcn-dashboard .admin-global-search .sd-search-field input:focus-visible,
+:root #root .admin-page.shadcn-dashboard .admin-user-settings-lookup .sd-search-field input:focus-visible{outline:0;}
+:root #root .admin-page.shadcn-dashboard .admin-global-search-results,
+:root #root .admin-page.shadcn-dashboard .admin-user-settings-results{
+  display:grid;gap:3px;max-height:285px;overflow-y:auto;
+  margin-top:6px;padding:6px;border:1px solid var(--sd-border);
+  border-radius:9px;background:#fff;
+}
+:root #root .admin-page.shadcn-dashboard .admin-global-search-results button,
+:root #root .admin-page.shadcn-dashboard .admin-user-settings-results button{
+  display:grid;gap:3px;justify-content:start;text-align:left;min-width:0;
+  padding:7px 9px!important;background:#fff;border:0!important;
+}
+:root #root .admin-page.shadcn-dashboard .admin-global-search-results button:hover,
+:root #root .admin-page.shadcn-dashboard .admin-user-settings-results button:hover{
+  background:var(--sd-hover)!important;
+}
+:root #root .admin-page.shadcn-dashboard .admin-global-search-results button span,
+:root #root .admin-page.shadcn-dashboard .admin-user-settings-results button strong{
+  overflow-wrap:anywhere;font-size:12px;font-weight:600;
+}
+:root #root .admin-page.shadcn-dashboard .admin-global-search-results button small,
+:root #root .admin-page.shadcn-dashboard .admin-user-settings-results button small{
+  overflow-wrap:anywhere;color:var(--sd-muted);font-size:11px;
+}
+:root #root .admin-page.shadcn-dashboard .admin-global-search-results p,
+:root #root .admin-page.shadcn-dashboard .admin-user-settings-results p{
+  margin:5px 8px;color:var(--sd-muted);font-size:12px;
+}
+:root #root .admin-page.shadcn-dashboard .admin-user-settings-lookup{
+  max-width:520px;margin:-1px 0 17px;
+}
+:root #root .admin-page.shadcn-dashboard .admin-user-settings-lookup .sd-search-field{
+  min-height:40px;
+}
+/* Modest typography tightening, limited to large admin headings/metrics. */
+:root #root .admin-page.shadcn-dashboard .admin-heading h1{
+  font-size:clamp(22px,1.9vw,28px);
+}
+:root #root .admin-page.shadcn-dashboard .admin-metric strong{
+  font-size:clamp(23px,1.8vw,27px);
+}
+:root #root .admin-page.shadcn-dashboard .admin-card-head h2{
+  font-size:17px;
+}
+@media(max-width:760px){
+  :root #root .admin-page.shadcn-dashboard .admin-global-search{min-width:190px;}
+  :root #root .admin-page.shadcn-dashboard .admin-global-search-results{max-height:180px;}
+}
