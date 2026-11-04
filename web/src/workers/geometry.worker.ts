@@ -15,7 +15,9 @@ import { exportSVG } from '../export/svg';
 import { exportProjectArchive } from '../export/zip';
 import type { GeometryReply, GeometryRequest } from './protocol';
 
+let previewDocument:import('../model').Document|undefined;
 self.onmessage=async({data}: MessageEvent<GeometryRequest>)=>{
+  if(data.type==='live-preview-init'){previewDocument=data.document;return;}
   const ids={runId:data.runId,documentRevision:data.documentRevision};
   try {
     let reply: GeometryReply;
@@ -67,8 +69,9 @@ self.onmessage=async({data}: MessageEvent<GeometryRequest>)=>{
       case 'archive': reply={...ids,type:'archive-result',archive:exportProjectArchive(data.document,data.documentRevision,data.result)};break;
       case 'live-preview': {
         try {
-          const packed=packResultIntoSheets(data.document,data.result);
-          reply={...ids,type:'live-frame',sequence:data.sequence,geometry:liveGeometry(data.document,packed),result:packed};
+          if(!previewDocument)throw Error('Canlı önizleme projesi hazır değil.');
+          const packed=packResultIntoSheets(previewDocument,data.result);
+          reply={...ids,type:'live-frame',sequence:data.sequence,geometry:liveGeometry(previewDocument,packed),result:packed};
         } catch(error) {
           reply={...ids,type:'live-preview-skipped',sequence:data.sequence,message:error instanceof Error?error.message:String(error)};
         }
