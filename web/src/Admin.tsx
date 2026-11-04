@@ -41,7 +41,7 @@ const settingsSearchItems:SearchItem[]=[
   {section:'history',label:'Proje veya kullanıcı geçmişi arama',keywords:'işlem csv'},
   {section:'logs',label:'Sistem işlem logları',keywords:'hata denetim'}
 ];
-const normalizeSearch=(value:string)=>value.toLocaleLowerCase('tr-TR').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+const normalizeSearch=(value:string)=>value.toLocaleLowerCase('tr-TR').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/ı/g,'i').trim();
 
 function Empty({title,children}:{title:string;children:string}){
   return <div className="admin-empty"><strong>{title}</strong><p>{children}</p></div>;
@@ -142,9 +142,8 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
   useEffect(()=>{
     if(!focusSetting||focusSetting.section!==section)return;
     const control=document.querySelector<HTMLElement>('[data-admin-search="'+focusSetting.field+'"] input, [data-admin-search="'+focusSetting.field+'"] select');
-    if(control){control.focus();control.scrollIntoView({block:'center'});}
-    setFocusSetting(null);
-  },[section,focusSetting]);
+    if(control){control.focus();control.scrollIntoView({block:'center'});setFocusSetting(null);}
+  },[section,focusSetting,selectedUserId]);
   const filteredUsers=useMemo(()=>{
     const search=query.trim().toLocaleLowerCase('tr');
     const filtered=users.filter(user=>
