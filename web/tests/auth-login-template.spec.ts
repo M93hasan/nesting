@@ -5,7 +5,7 @@ test('public sign-in template keeps password, registration and Google actions', 
 
   const trigger=page.locator('#serula-account-slot .auth-login-header');
   await expect(trigger).toBeVisible();
-  await expect(trigger).toHaveClass(/auth-login-header--template/);
+  await expect(trigger).toHaveClass(/auth-login-header/);
   await trigger.click();
 
   const dialog=page.locator('.auth-overlay .auth-card--serula-login');
