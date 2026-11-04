@@ -629,6 +629,20 @@ async function handleApi(request,env){
     let userStore=false;try{await env.DB.prepare('SELECT COUNT(*) AS n FROM users').first();userStore=true}catch{}
     return json({adminApi:true,auth:true,userStore});
   }
+  if(path==='/api/admin/history'&&request.method==='GET'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const days=Number(url.searchParams.get('days')||30);
+    if(![7,30,90].includes(days))return json({error:'Geçersiz geçmiş aralığı.'},400);
+    const rows=await env.DB.prepare(`SELECT h.id,h.user_id,u.email,u.name,h.project_name,h.source_file_name,h.used_credit,h.created_at
+      FROM nesting_history h JOIN users u ON u.id=h.user_id
+      WHERE datetime(h.created_at)>=datetime('now',?)
+      ORDER BY h.id DESC LIMIT 500`).bind('-'+days+' days').all();
+    return json({days,items:rows.results.map(row=>({
+      id:row.id,userId:row.user_id,email:row.email,name:row.name||'',
+      projectName:row.project_name||'',sourceFileName:row.source_file_name||'',
+      usedCredit:Number(row.used_credit||0),createdAt:row.created_at
+    }))});
+  }
   if(path==='/api/admin/logs'&&request.method==='GET'){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
     const rows=await env.DB.prepare(`SELECT l.id,l.actor_type,l.action,l.detail,l.success,l.created_at,au.email actor_email,tu.email target_email
@@ -781,7 +795,12 @@ async function handleApi(request,env){
   }
   if(userSettingsMatch&&request.method==='DELETE'){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
-    const id=Number(userSettingsMatch[1]);await env.DB.prepare('DELETE FROM user_settings WHERE user_id=?').bind(id).run();await audit(env,'user_settings_reset',{actorType:'admin',targetUserId:id});return json({settings:await systemDefaults(env),custom:false});
+    const id=Number(userSettingsMatch[1]);
+    const target=await env.DB.prepare('SELECT id FROM users WHERE id=?').bind(id).first();
+    if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
+    await env.DB.prepare('DELETE FROM user_settings WHERE user_id=?').bind(id).run();
+    await audit(env,'user_settings_reset',{actorType:'admin',targetUserId:id});
+    return json({settings:await systemDefaults(env),custom:false});
   }
   const licenseMatch=path.match(/^\/api\/admin\/users\/(\d+)\/license$/);
   if(licenseMatch&&request.method==='POST'){
@@ -805,7 +824,9 @@ async function handleApi(request,env){
   const testDxfMatch=path.match(/^\/api\/admin\/users\/(\d+)\/test-dxf$/);
   if(testDxfMatch&&request.method==='POST'){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
-    const id=Number(testDxfMatch[1]),data=await body(request),enabled=!!data.enabled;
+    const id=Number(testDxfMatch[1]),data=await body(request);
+    if(typeof data.enabled!=='boolean')return json({error:'Geçersiz Test DXF yetki değeri.'},400);
+    const enabled=data.enabled;
     const target=await env.DB.prepare('SELECT id FROM users WHERE id=?').bind(id).first();
     if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
     await env.DB.prepare(`INSERT INTO user_features(user_id,test_dxf_enabled,updated_at) VALUES(?,?,CURRENT_TIMESTAMP) ON CONFLICT(user_id) DO UPDATE SET test_dxf_enabled=excluded.test_dxf_enabled,updated_at=CURRENT_TIMESTAMP`).bind(id,enabled?1:0).run();
@@ -815,7 +836,9 @@ async function handleApi(request,env){
     const unlimitedMatch=path.match(/^\/api\/admin\/users\/(\d+)\/unlimited$/);
   if(unlimitedMatch&&request.method==='POST'){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
-    const id=Number(unlimitedMatch[1]),data=await body(request),unlimited=!!data.unlimited,target=await env.DB.prepare('SELECT id FROM users WHERE id=?').bind(id).first();if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
+    const id=Number(unlimitedMatch[1]),data=await body(request);
+    if(typeof data.unlimited!=='boolean')return json({error:'Geçersiz sınırsız kullanım değeri.'},400);
+    const unlimited=data.unlimited,target=await env.DB.prepare('SELECT id FROM users WHERE id=?').bind(id).first();if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
     await env.DB.prepare('UPDATE users SET unlimited=? WHERE id=?').bind(unlimited?1:0,id).run();await audit(env,'unlimited_changed',{actorType:'admin',targetUserId:id,detail:unlimited?'Açık':'Kapalı'});return json({ok:true,unlimited});
   }
   const resetMatch=path.match(/^\/api\/admin\/users\/(\d+)\/password-reset$/);
@@ -834,7 +857,9 @@ async function handleApi(request,env){
   const m=path.match(/^\/api\/admin\/users\/(\d+)\/credits$/);
   if(m&&request.method==='POST'){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
-    const data=await body(request),id=Number(m[1]),credits=Math.max(0,Math.min(100000,Math.trunc(Number(data.credits)||0)));
+    const data=await body(request),id=Number(m[1]),credits=data.credits;
+    if(typeof credits!=='number'||!Number.isSafeInteger(credits)||credits<0||credits>100000)
+      return json({error:'Hak sayısı 0 ile 100000 arasında tam sayı olmalıdır.'},400);
     const target=await env.DB.prepare('SELECT id,role FROM users WHERE id=?').bind(id).first();
     if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
     await env.DB.prepare('UPDATE users SET nesting_credits=? WHERE id=?').bind(credits,id).run();
