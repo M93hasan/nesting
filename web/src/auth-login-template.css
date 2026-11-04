@@ -1,0 +1,233 @@
+/*
+ * Serula public sign-in: rounded teal form based on the supplied HTML/CSS.
+ * Scope to the public UserGate overlay. Admin login, OTP and support dialogs
+ * intentionally retain their existing styling and behavior.
+ */
+#root .auth-screen.shadcn-auth.auth-overlay .auth-card.auth-card--serula-login {
+  box-sizing: border-box;
+  width: min(390px, calc(100vw - 28px));
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 26px 30px;
+  gap: 14px;
+  border: 1px solid #e4e7ea;
+  border-radius: 18px;
+  background: #fff;
+  color: #18181b;
+  box-shadow: 0 18px 46px rgb(0 0 0 / 19%);
+  font-family: "Lucida Sans", "Lucida Sans Regular", "Lucida Grande",
+    "Lucida Sans Unicode", Geneva, Verdana, sans-serif;
+}
+
+#root .auth-screen.shadcn-auth.auth-overlay .auth-card--serula-login > img {
+  width: 42px;
+  height: 42px;
+  justify-self: center;
+  object-fit: contain;
+}
+
+#root .auth-screen.shadcn-auth.auth-overlay .auth-card--serula-login h1 {
+  margin: 0;
+  font-size: clamp(23px, 4vw, 28px);
+  font-weight: 800;
+  letter-spacing: -.045em;
+  line-height: 1.2;
+  text-align: center;
+  color: #18181b;
+}
+
+#root .auth-screen.shadcn-auth.auth-overlay .auth-card--serula-login > p {
+  margin: 0;
+  color: #747474;
+  font-size: 12px;
+  line-height: 1.55;
+  text-align: center;
+}
+
+#root .auth-screen.shadcn-auth.auth-overlay .auth-card--serula-login label {
+  gap: 6px;
+  color: #3f3f46;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+#root .auth-screen.shadcn-auth.auth-overlay .auth-card--serula-login :is(input:not([type=checkbox]):not([type=radio]), select) {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  padding: 11px 15px;
+  border: 1px solid #c0c0c0;
+  border-radius: 20px;
+  outline: none;
+  color: #18181b;
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+  transition: border-color .2s ease, box-shadow .2s ease;
+}
+
+#root .auth-screen.shadcn-auth.auth-overlay .auth-card--serula-login :is(input:not([type=checkbox]):not([type=radio]), select):focus-visible {
+  border-color: #008080;
+  box-shadow: 0 0 0 3px rgb(0 128 128 / 15%);
+  outline: 2px solid transparent;
+  outline-offset: 0;
+}
+
+#root .auth-screen.shadcn-auth.auth-overlay .auth-card--serula-login .auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 20px;
+  background: #f4f6f7;
+}
+
+#root .auth-screen.shadcn-auth.auth-overlay .auth-card--serula-login .auth-tabs button {
+  min-height: 38px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+  box-shadow: none;
+  color: #3f3f46;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+#root .auth-screen.shadcn-auth.auth-overlay .auth-card--serula-login .auth-tabs button.active {
+  color: #006b6b;
+  background: #fff;
+  box-shadow: 0 2px 7px rgb(0 0 0 / 9%);
+}
+
+#root .auth-screen.shadcn-auth.auth-overlay .auth-card--serula-login .auth-login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin: 0;
+}
+
+#root .auth-screen.shadcn-auth.auth-overlay .auth-card--serula-login .auth-login-form .auth-login-submit {
+  min-height: 44px;
+  margin-top: 1px;
+  padding: 11px 15px;
+  border: 1px solid #008080;
+  border-radius: 20px;
+  background: #008080;
+  box-shadow: 0 3px 8px rgb(0 0 0 / 20%);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color .2s ease, box-shadow .2s ease;
+}
+
+#root .auth-screen.shadcn-auth.auth-overlay .auth-card--serula-login .auth-login-submit:hover:not(:disabled) {
+  background: #006666;
+  border-color: #006666;
+}
+
+#root .auth-screen.shadcn-auth.auth-overlay .auth-card--serula-login .auth-login-submit:disabled {
+  opacity: .65;
+  cursor: wait;
+}
+
+#root .auth-screen.shadcn-auth.auth-overlay .auth-card--serula-login .auth-or {
+  gap: 10px;
+  font-size: 12px;
+  color: #747474;
+}
+
+#root .auth-screen.shadcn-auth.auth-overlay .auth-card--serula-login .auth-or span {
+  height: 1px;
+  background: #e4e4e7;
+}
+
+#root .auth-screen.shadcn-auth.auth-overlay .auth-card--serula-login .auth-google-button {
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 10px 15px;
+  border: 1px solid #c0c0c0;
+  border-radius: 20px;
+  background: #fff;
+  color: #18181b;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 7%);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color .2s ease, border-color .2s ease;
+}
+
+#root .auth-screen.shadcn-auth.auth-overlay .auth-card--serula-login .auth-google-button:hover {
+  background: #f8f9fa;
+  border-color: #008080;
+}
+
+#root .auth-screen.shadcn-auth.auth-overlay .auth-card--serula-login > small {
+  color: #747474;
+  font-size: 11px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+#root .auth-screen.shadcn-auth.auth-overlay .auth-card--serula-login .auth-login-dismiss {
+  min-height: 40px;
+  padding: 9px 12px;
+  border: 1px solid #d4d4d8;
+  border-radius: 20px;
+  background: #fff;
+  color: #3f3f46;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+#root .auth-screen.shadcn-auth.auth-overlay .auth-card--serula-login .auth-login-dismiss:hover {
+  background: #f4f6f7;
+}
+
+/* Keep the original header trigger measurements to avoid changing CAD toolbar width. */
+#root .app.shadcn-studio #serula-account-slot .auth-login-header {
+  border-color: #008080;
+  border-radius: 20px;
+  background: #008080;
+  color: #fff;
+  box-shadow: none;
+  font-weight: 600;
+  cursor: pointer;
+}
+#root .app.shadcn-studio #serula-account-slot .auth-login-header .auth-avatar {
+  border-radius: 50%;
+  background: rgb(255 255 255 / 17%);
+  color: #fff;
+}
+
+#root .app.shadcn-studio #serula-account-slot .auth-login-header:hover {
+  border-color: #006666;
+  background: #006666;
+}
+
+#root .app.shadcn-studio #serula-account-slot .auth-login-header:focus-visible,
+#root .auth-screen.shadcn-auth.auth-overlay .auth-card--serula-login button:focus-visible {
+  outline: 2px solid #008080;
+  outline-offset: 3px;
+}
+
+@media (max-width: 420px) {
+  #root .auth-screen.shadcn-auth.auth-overlay {
+    padding: 12px;
+  }
+  #root .auth-screen.shadcn-auth.auth-overlay .auth-card.auth-card--serula-login {
+    width: 100%;
+    max-height: calc(100dvh - 24px);
+    padding: 19px 20px;
+    gap: 12px;
+  }
+  }
+
+@media (prefers-reduced-motion: reduce) {
+  #root .auth-screen.shadcn-auth.auth-overlay .auth-card--serula-login *,
+  #root .app.shadcn-studio #serula-account-slot .auth-login-header {
+    transition: none;
+  }
+}
