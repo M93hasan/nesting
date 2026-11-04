@@ -3,9 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { SOLVER_REVISION, type Document, type Result } from '../model';
 import type { Candidate, GeometryReply, SolverMessage } from './protocol';
 import type {LiveGeometry} from '../geometry/live';
-import {packResultIntoSheets} from '../geometry/multiSheet';
 import {solverCopies} from '../import/sparrow';
-import {validate} from '../geometry/validate';
 
 export type RunState='Ready'|'Initializing'|'Running'|'Complete'|'Stopped'|'Error';
 export type Timing={phase?:string;sequence:number;elapsedMs:number;lengthMm:number;validation?:string;validationMs?:number;errors?:string[]};
@@ -13,11 +11,14 @@ export type Timing={phase?:string;sequence:number;elapsedMs:number;lengthMm:numb
 type StartupTiming={preparedMs:number;solverReadyMs?:number;firstCandidateMs?:number;firstValidMs?:number;firstPreviewMs?:number;firstResultRenderedMs?:number};
 export type Diagnostics={runDocument?:Document;attempts?:(Extract<SolverMessage,{type:"run-input"}> & {configuration?:string})[];logs?:string[];droppedLogs?:number;phases?:{phase:string;elapsedMs:number}[];compressionRequestedMs?:number;solverRevision:string;seed:string;buildMode:string;solverBinary?:SolverBinary;initializationMs?:number;startup?:StartupTiming;stopReason?:string;history:Timing[];liveSnapshots?:number;liveErrors:{sequence:number;message:string}[]};
 export type LiveFrame=LiveGeometry & {sequence:number;result:Result;report:string};
+type PendingCandidate={candidate:Candidate;result:Result};
+type ValidationReply={type:'validated-candidate';runId:number;documentRevision:number;sequence:number;result?:Result;error?:string};
 export const wallClockLimitSeconds=(doc:Document)=>doc.settings.timeLimitSeconds??59;
-type Run={id:number;revision:number;doc:Document;seed:string;requestedAt:number;solver?:Worker;preview:Worker;
+type Run={id:number;revision:number;doc:Document;seed:string;requestedAt:number;solver?:Worker;preview:Worker;validator:Worker;
   latest?:Candidate;previewActive?:{candidate:Candidate;result:Result};frame?:LiveFrame;previewSequence:number;previewError?:string;
   best?:Result;bestSheetSolverLength?:number;ended?:'Complete'|'Stopped'|'Error';startedAt?:number;watchdog:ReturnType<typeof setTimeout>;deadline?:ReturnType<typeof setTimeout>;
-  deadlineAtEpochMs?:number;visibilityHandler?:()=>void;
+  deadlineAtEpochMs?:number;visibilityHandler?:()=>void;lastPaintAt?:number;lastPreviewAt?:number;renderIntervalMs:number;
+  checking?:PendingCandidate;pending:PendingCandidate[];finalizing?:boolean;validationTimeout?:ReturnType<typeof setTimeout>;
   diagnostics:Diagnostics};
 export function candidateResult(doc:Document,candidate:Candidate,seed:string):Result {
   const copies=solverCopies(doc);
@@ -60,7 +61,8 @@ export function useSolver() {
   function clear() {
     const r=run.current;
     if(r) {
-      r.solver?.postMessage({type:'stop'});r.preview.terminate();clearTimeout(r.watchdog);if(r.deadline)clearTimeout(r.deadline);
+      r.solver?.postMessage({type:'stop'});r.preview.terminate();r.validator.terminate();
+      clearTimeout(r.watchdog);if(r.deadline)clearTimeout(r.deadline);if(r.validationTimeout)clearTimeout(r.validationTimeout);
       if(r.visibilityHandler&&typeof document!=='undefined')document.removeEventListener('visibilitychange',r.visibilityHandler);
     }
     run.current=undefined;setPhase(undefined);setSkipping(false);setCanSkip(false);
@@ -76,27 +78,48 @@ export function useSolver() {
     const timer=setInterval(()=>{
       const r=run.current;
       if(r) {
-        setResult(r.best);setLive(r.frame);setLiveError(r.previewError??'');
-        if(!r.ended) setElapsed((performance.now()-r.requestedAt)/1000);
-        // Render the latest snapshot at most 10 times/second. Keep one in flight;
-        // preview work cannot accumulate while the solver keeps searching.
-        if(r.latest&&!r.previewActive&&!r.previewError&&r.latest.sequence>r.previewSequence) {
+        const now=performance.now();
+        // Dense imported DXF contours make rendering expensive. Pace UI updates
+        // independently of the solver so controls stay responsive during Keşif.
+        if(now-(r.lastPaintAt??0)>=r.renderIntervalMs){
+          r.lastPaintAt=now;
+          setResult(r.best);setLive(r.frame);setLiveError(r.previewError??'');
+          if(!r.ended)setElapsed((now-r.requestedAt)/1000);
+        }
+        // One live preview at a time; heavy sheet packing and clipping take place
+        // inside geometry.worker rather than blocking the UI thread.
+        if(r.latest&&!r.previewActive&&!r.previewError&&r.latest.sequence>r.previewSequence
+          &&now-(r.lastPreviewAt??0)>=r.renderIntervalMs) {
           const candidate=r.latest;
-          let previewResult:Result|undefined;
-          try{previewResult=packResultIntoSheets(r.doc,candidateResult(r.doc,candidate,r.seed));}
-          catch{r.previewSequence=candidate.sequence;}
-          if(previewResult){
+          r.lastPreviewAt=now;
+          try{
+            const previewResult=candidateResult(r.doc,candidate,r.seed);
             r.previewActive={candidate,result:previewResult};r.previewSequence=candidate.sequence;
             r.preview.postMessage({type:'live-preview',sequence:candidate.sequence,runId:r.id,documentRevision:r.revision,document:r.doc,result:previewResult});
-          }
+          }catch{r.previewSequence=candidate.sequence;}
         }
       }
     },100);
     return ()=>{clearInterval(timer);clear();};
   },[]);
   function end(reason:'Complete'|'Stopped'|'Error',message?:string) {
-    const r=run.current;if(!r) return;
-    r.solver?.postMessage({type:'stop'});r.solver=undefined;clearTimeout(r.watchdog);if(r.deadline)clearTimeout(r.deadline);if(r.visibilityHandler&&typeof document!=='undefined')document.removeEventListener('visibilitychange',r.visibilityHandler);r.ended=reason;
+    const r=run.current;if(!r||r.ended)return;
+    r.solver?.postMessage({type:'stop'});r.solver=undefined;clearTimeout(r.watchdog);if(r.deadline)clearTimeout(r.deadline);
+    if(r.visibilityHandler&&typeof document!=='undefined')document.removeEventListener('visibilitychange',r.visibilityHandler);
+    if(reason==='Complete'&&(r.checking||r.pending.length)){
+      if(!r.finalizing){
+        r.finalizing=true;
+        setPhase('Son yerleşim doğrulanıyor');
+        // A complex malformed DXF must not leave the UI in "Running" forever.
+        r.validationTimeout=setTimeout(()=>{
+          r.checking=undefined;r.pending=[];end('Complete');
+        },12_000);
+      }
+      return;
+    }
+    if(r.validationTimeout)clearTimeout(r.validationTimeout);
+    r.validator.terminate();
+    r.ended=reason;
     r.diagnostics.stopReason=message ?? reason;
     if(message) setError(message);
     setElapsed((performance.now()-r.requestedAt)/1000);
@@ -113,7 +136,11 @@ export function useSolver() {
     const id=++serial.current,seed=crypto.getRandomValues(new BigUint64Array(1))[0].toString();
     const solver=new Worker(new URL('./solver.worker.ts',import.meta.url),{type:'module'});
     const preview=new Worker(new URL('./geometry.worker.ts',import.meta.url),{type:'module'});
-    const r:Run={id,revision,doc,seed,requestedAt,solver,preview,previewSequence:0,watchdog:setTimeout(()=>end('Stopped','Yerleştirme motoru 30 saniye içinde başlatılamadı. Tarayıcıyı yenileyip tekrar deneyin.'),30_000),
+    const validator=new Worker(new URL('./candidate-validator.worker.ts',import.meta.url),{type:'module'});
+    const complexity=doc.parts.reduce((sum,part)=>sum+part.quantity*(part.outer.length+part.holes.reduce((n,h)=>n+h.length,0)),0);
+    const r:Run={id,revision,doc,seed,requestedAt,solver,preview,validator,pending:[],previewSequence:0,
+      renderIntervalMs:complexity>15_000?500:250,
+      watchdog:setTimeout(()=>end('Stopped','Yerleştirme motoru 30 saniye içinde başlatılamadı. Tarayıcıyı yenileyip tekrar deneyin.'),30_000),
       diagnostics:{runDocument:doc,solverRevision:SOLVER_REVISION,seed,buildMode:'Initializing',startup,history:[],liveSnapshots:0,liveErrors:[]}};
     run.current=r;diagnostics.current=r.diagnostics;
     // Automatic mode is a hard wall-clock budget: preparation + initialization +
@@ -129,6 +156,12 @@ export function useSolver() {
     preview.onmessage=({data}:MessageEvent<GeometryReply>)=>{
       if(run.current!==r||data.runId!==r.id||data.documentRevision!==r.revision)return;
       if(data.type==='error'){r.previewError=data.message;r.previewActive=undefined;preview.terminate();return;}
+      if(data.type==='live-preview-skipped'){
+        r.previewActive=undefined;
+        r.diagnostics.liveErrors.push({sequence:data.sequence,message:data.message});
+        if(r.diagnostics.liveErrors.length>100)r.diagnostics.liveErrors.splice(0,r.diagnostics.liveErrors.length-100);
+        return;
+      }
       if(data.type!=='live-frame'||!r.previewActive||data.sequence!==r.previewActive.candidate.sequence)return;
       startup.firstPreviewMs??=performance.now()-requestedAt;
       if(data.geometry.errors.length) {
@@ -136,9 +169,55 @@ export function useSolver() {
         // ponytail: retain the last 100 live clip failures; diagnostics stay bounded during long searches.
         if(r.diagnostics.liveErrors.length>100)r.diagnostics.liveErrors.splice(0,r.diagnostics.liveErrors.length-100);
       }
-      r.frame={...data.geometry,sequence:data.sequence,result:r.previewActive.result,report:r.previewActive.candidate.report};r.previewActive=undefined;
+      r.frame={...data.geometry,sequence:data.sequence,result:data.result,report:r.previewActive.candidate.report};r.previewActive=undefined;
     };
     preview.onerror=e=>{if(run.current===r){r.previewError=e.message;r.previewActive=undefined;preview.terminate();}};
+    // Do not execute DXF polygon clipping and per-copy validation on the React
+    // thread. Keep the expensive queue bounded; preserve the earliest candidate
+    // and the most promising improvements during heavy WASM bursts.
+    function sendNextValidation() {
+      if(r.checking||!r.pending.length||r.ended)return;
+      const task=r.pending.shift()!;
+      r.checking=task;
+      validator.postMessage({type:'validate',runId:r.id,documentRevision:r.revision,
+        sequence:task.candidate.sequence,result:task.result});
+    }
+    validator.onmessage=({data}:MessageEvent<ValidationReply>)=>{
+      if(run.current!==r||r.ended||data.type!=='validated-candidate'
+        ||data.runId!==r.id||data.documentRevision!==r.revision
+        ||data.sequence!==r.checking?.candidate.sequence)return;
+      const candidate=r.checking!.candidate;
+      r.checking=undefined;
+      const entry=r.diagnostics.history.find(item=>item.sequence===data.sequence);
+      if(data.error){
+        if(entry){entry.validation='failed';entry.errors=[data.error];}
+      }else if(data.result){
+        const packed=data.result,checked=packed.validation;
+        if(entry){entry.validation=checked.status;entry.errors=checked.status==='passed'?undefined:checked.errors;}
+        if(checked.status==='passed'){
+          if(doc.settings.materialType!=='sheet'){
+            if(!r.best||packed.usedLengthMm<r.best.usedLengthMm){
+              startup.firstValidMs??=performance.now()-requestedAt;
+              r.best=packed;
+            }
+          }else{
+            const sheets=packed.sheetCount??1,bestSheets=r.best?.sheetCount??Infinity;
+            if(!r.best||sheets<bestSheets
+              ||(sheets===bestSheets&&(r.bestSheetSolverLength===undefined
+                ||candidate.solution.strip_width<r.bestSheetSolverLength))){
+              startup.firstValidMs??=performance.now()-requestedAt;
+              r.best=packed;r.bestSheetSolverLength=candidate.solution.strip_width;
+            }
+          }
+        }
+      }
+      sendNextValidation();
+      if(r.finalizing&&!r.checking&&!r.pending.length)end('Complete');
+    };
+    validator.onerror=event=>{
+      if(run.current===r&&!r.ended)end('Error',event.message||'Yerleşim doğrulama işçisi durdu.');
+    };
+    validator.postMessage({type:'init',document:doc});
     solver.onmessage=({data}:MessageEvent<SolverMessage>)=>{
       if(run.current!==r || !r.solver || data.runId!==r.id || data.documentRevision!==r.revision) return;
       switch(data.type) {
@@ -163,41 +242,28 @@ export function useSolver() {
         case 'candidate':
           startup.firstCandidateMs??=performance.now()-requestedAt;
           r.latest=data;r.diagnostics.liveSnapshots!++;
-          r.diagnostics.history.push({phase:r.diagnostics.phases?.at(-1)?.phase,sequence:data.sequence,elapsedMs:data.elapsedMs,lengthMm:data.solution.strip_width,validation:'passed'});
           {
-            let packed:Result;
-            try{packed=packResultIntoSheets(doc,candidateResult(doc,data,seed));}
-            catch(error){
-              r.diagnostics.history.at(-1)!.validation='failed';
-              r.diagnostics.history.at(-1)!.errors=[error instanceof Error?error.message:String(error)];
-              break;
+            const entry:Timing={phase:r.diagnostics.phases?.at(-1)?.phase,sequence:data.sequence,
+              elapsedMs:data.elapsedMs,lengthMm:data.solution.strip_width,validation:'pending'};
+            r.diagnostics.history.push(entry);
+            if(doc.settings.materialType!=='sheet'&&r.best&&data.solution.strip_width>=r.best.usedLengthMm){
+              entry.validation='skipped';break;
             }
-            // Virtual solver edge padding is removed/anchored before this point.
-            // Revalidate every publishable result against the real DXF geometry,
-            // physical material width and requested clearance.
-            const checked=validate(doc,packed);
-            r.diagnostics.history.at(-1)!.validation=checked.status;
-            if(checked.status!=='passed'){
-              r.diagnostics.history.at(-1)!.errors=checked.errors;
-              break;
-            }
-            if(doc.settings.materialType!=='sheet'){
-              const better=!r.best||packed.usedLengthMm<r.best.usedLengthMm;
-              if(better){
-                startup.firstValidMs??=performance.now()-requestedAt;
-                r.best={...packed,validation:{...checked,source:'local'}};
+            let next:PendingCandidate;
+            try{next={candidate:data,result:candidateResult(doc,data,seed)};}
+            catch(error){entry.validation='failed';entry.errors=[String(error)];break;}
+            if(r.pending.length>=6){
+              const worst=r.pending.reduce((index,item,i)=>item.candidate.solution.strip_width
+                >r.pending[index].candidate.solution.strip_width?i:index,0);
+              if(data.solution.strip_width>=r.pending[worst].candidate.solution.strip_width){
+                entry.validation='skipped';break;
               }
-              break;
+              const dropped=r.pending.splice(worst,1)[0];
+              const old=r.diagnostics.history.find(item=>item.sequence===dropped.candidate.sequence);
+              if(old)old.validation='skipped';
             }
-            const sheetCount=packed.sheetCount??1,bestSheetCount=r.best?.sheetCount??Infinity;
-            const better=!r.best
-              || sheetCount<bestSheetCount
-              || (sheetCount===bestSheetCount&&(r.bestSheetSolverLength===undefined||data.solution.strip_width<r.bestSheetSolverLength));
-            if(better){
-              startup.firstValidMs??=performance.now()-requestedAt;
-              r.best={...packed,validation:{...checked,source:'local'}};
-              r.bestSheetSolverLength=data.solution.strip_width;
-            }
+            r.pending.push(next);
+            sendNextValidation();
           }
           break;
         case 'finished': end('Complete');break;
