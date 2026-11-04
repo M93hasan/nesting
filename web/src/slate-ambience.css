@@ -224,7 +224,7 @@
  min-width:29px;width:29px;min-height:32px;padding:3px;
 }
 #root .app.shadcn-studio #parts-settings .production-series{
- margin:4px 8px 7px;padding:8px 10px;gap:4px;
+ margin:3px 8px 6px;padding:5px 8px;gap:3px;
 }
 #root .app.shadcn-studio #parts-settings .production-series__row>label{
  font-size:11px;
@@ -232,8 +232,11 @@
 #root .app.shadcn-studio #parts-settings .production-series>small{
  font-size:10px;line-height:1.3;
 }
+#root .app.shadcn-studio #parts-settings .series-multiplier{
+ gap:2px;padding:1px 4px;
+}
 #root .app.shadcn-studio #parts-settings .series-multiplier>input{
- width:34px;min-height:30px;
+ width:32px;min-height:28px;padding:1px 2px;font-size:12px;
 }
 #root .app.shadcn-studio #parts-settings .add-shape{
  padding:7px 10px 4px;gap:6px;
