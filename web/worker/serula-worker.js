@@ -552,7 +552,13 @@ async function handleApi(request,env){
   }
   if(path==='/api/admin/users'&&request.method==='GET'){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    // Keep this UI compatible before and after the OTP activation PR ships.
+    const otpTable=await env.DB.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='email_verifications'").first();
+    const verifiedColumn=otpTable
+      ?'CASE WHEN EXISTS(SELECT 1 FROM email_verifications v WHERE v.user_id=u.id) THEN 0 ELSE 1 END'
+      :'1';
     const rows=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,u.google_id,u.created_at,u.last_login_at,
+      ${verifiedColumn} email_verified,
       COALESCE(f.test_dxf_enabled,0) test_dxf_enabled,COALESCE(ct.enabled,1) corel_enabled,p.last_seen,l.started_at license_started_at,l.expires_at license_expires_at,
       CASE WHEN ${onlineSql} THEN 1 ELSE 0 END online
       FROM users u
@@ -562,7 +568,7 @@ async function handleApi(request,env){
       LEFT JOIN user_licenses l ON l.user_id=u.id
       ORDER BY u.created_at DESC LIMIT 500`).all();
     const online=await env.DB.prepare("SELECT COUNT(*) n FROM user_presence WHERE datetime(last_seen)>=datetime('now','-15 seconds')").first();
-    return json({onlineCount:Number(online?.n||0),users:rows.results.map(u=>({...publicUser(u),testDxfEnabled:!!u.test_dxf_enabled,corelTransferEnabled:!!u.corel_enabled,authProvider:u.google_id?'google':'email',createdAt:u.created_at,lastLoginAt:u.last_login_at,lastSeen:u.last_seen||null,online:!!u.online}))});
+    return json({onlineCount:Number(online?.n||0),users:rows.results.map(u=>({...publicUser(u),testDxfEnabled:!!u.test_dxf_enabled,corelTransferEnabled:!!u.corel_enabled,authProvider:u.google_id?'google':'email',emailVerified:!!u.email_verified,createdAt:u.created_at,lastLoginAt:u.last_login_at,lastSeen:u.last_seen||null,online:!!u.online}))});
   }
   if(path==='/api/admin/chats'&&request.method==='GET'){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
@@ -632,7 +638,7 @@ async function handleApi(request,env){
   if(path==='/api/admin/history'&&request.method==='GET'){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
     const days=Number(url.searchParams.get('days')||30);
-    if(![7,30,90].includes(days))return json({error:'Geçersiz geçmiş aralığı.'},400);
+    if(![7,30].includes(days))return json({error:'Geçersiz geçmiş aralığı.'},400);
     const rows=await env.DB.prepare(`SELECT h.id,h.user_id,u.email,u.name,h.project_name,h.source_file_name,h.used_credit,h.created_at
       FROM nesting_history h JOIN users u ON u.id=h.user_id
       WHERE datetime(h.created_at)>=datetime('now',?)
