@@ -13,9 +13,9 @@ export function parseCredits(value:string):number|null{
   return Number.isSafeInteger(parsed)&&parsed<=100000?parsed:null;
 }
 export function filterHistory(rows:AdminHistoryRow[],query:string):AdminHistoryRow[]{
-  const search=query.trim().toLocaleLowerCase('tr');
+  const search=query.trim().toLowerCase();
   if(!search)return rows;
-  return rows.filter(row=>(row.email+' '+row.name+' '+row.projectName+' '+row.sourceFileName).toLocaleLowerCase('tr').includes(search));
+  return rows.filter(row=>(row.email+' '+row.name+' '+row.projectName+' '+row.sourceFileName).toLowerCase().includes(search));
 }
 function csvCell(value:string|number):string{
   let text=String(value);
