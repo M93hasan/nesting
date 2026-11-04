@@ -22,9 +22,9 @@ New **email/password** registrations must verify their email before Serula creat
 - The user-facing code entry is six individual fields with keyboard navigation and paste support.
 
 ## Production prerequisites
-The existing `web/wrangler.jsonc` declares an `EMAIL` send binding. Before production deployment, ensure Cloudflare Email Service is enabled and `serula.site` is an authorized outbound sending domain for `noreply@serula.site`; the current Workers account/plan must permit deliveries to newly registering addresses. The registration endpoint is intentionally fail-closed if the binding cannot send.
+The verified `serula.site` domain is configured in **Resend**. Create a restricted **Sending access** API key at https://resend.com/api-keys. In the Cloudflare dashboard choose Workers & Pages → **nesting** → Settings → Variables and Secrets → Add, set **Type: Secret**, name `RESEND_API_KEY`, and paste the key there. Do not paste the key in a chat, GitHub commit, issue, or Wrangler config. `web/wrangler.jsonc` intentionally does not request Cloudflare's paid `send_email` binding. The Worker posts mail from `noreply@serula.site` to `https://api.resend.com/emails`; the secret is accessed only server-side. Registration fails closed if no configured sender exists.
 
-Test the actual delivery and inbox receipt in staging with a real email address first. Tests use a mock email provider and do not send mail to real users.
+Before merging, run a real inbox delivery smoke test in staging with a disposable new mailbox, including wrong OTP, correct OTP, expiry, resend, and login. **Do not deploy production until `RESEND_API_KEY` is configured and delivery is verified.** Tests use a mock email provider and do not send mail to real users.
 
 ## QA
 `npm run build`, `npm test`, and `npx playwright test tests/email-otp-ui.spec.ts`. New tests cover activation gate, incorrect/expired/replayed codes, resend rate limits, mail-provider failure, legacy session isolation and responsive OTP form.
