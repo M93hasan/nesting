@@ -405,7 +405,12 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   }
   function undoFullPlate() {
     const snapshot=fullPlateUndo.current;
-    if(locked||!snapshot)return;
+    if(!snapshot)return;
+    // Cancelling must also stop an ongoing full-plate solver and reject a late
+    // normalization response; generic history undo cannot do either.
+    ++operation.current;
+    solver.invalidate();
+    setBusy(false);
     commit(snapshot.before,true,'full-plate-undo');
     setSelectedCopies(snapshot.selection);
     setUnusedSelection(snapshot.unused);
@@ -680,7 +685,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
 
         <details className="part-properties-inline part-properties-disclosure" aria-label="Parça özellikleri"><summary>Parça özellikleri</summary><div className="part-settings">{chosen?<>{selected.length===1?<label>Ad<input data-undo-field value={chosen.name} disabled={locked} onChange={e=>editPart({name:e.target.value},false,`name:${chosen.id}`)}/></label>:<h2>{selected.length} parça seçildi</h2>}
           {selectedBox?<SelectionControls key={JSON.stringify(selectedCopies)} unit={unit} box={selectedBox} disabled={locked} sizeLocked={selected.some(id=>doc.parts.some(part=>part.id===id&&(part.source.format==='dxf'||part.source.format==='plt')))} angle={selectedTransform.angle} angleLocked={selectedTransform.angleLocked} mirroredX={selectedTransform.mirrorX} mirroredY={selectedTransform.mirrorY} onPosition={positionSelection} onSize={(axis,value)=>void transformSelection({kind:'scale',factor:value/(selectedBox[axis+2]-selectedBox[axis]),pivot:[selectedBox[0],selectedBox[1]]})} onSetAngle={setSelectionAngle} onRotate={degrees=>void transformSelection({kind:'rotate',degrees,pivot:[(selectedBox[0]+selectedBox[2])/2,(selectedBox[1]+selectedBox[3])/2]})} onMirror={mirrorSelection} onUnlockAngle={unlockSelectionAngles} onValidity={setSizeValid}/>:<p className="muted">Kopya seçilmedi. Bu parçayı taşımak veya boyutlandırmak için adet alanından bir kopya ekleyin.</p>}
-          {selected.length===1&&<div className="row-actions"><button className="primary" disabled={locked||(doc.settings.materialType??'roll')!=='sheet'} title={(doc.settings.materialType??'roll')!=='sheet'?'Önce malzeme tipini Plaka seçin.':'Diğer parçalara dokunmadan seçili parçanın güvenli kopya kapasitesini hesaplar.'} onClick={()=>void fullPlateSelected()}>Tam plaka</button><button disabled={locked||!fullPlateUndo.current} onClick={undoFullPlate}>Tam plaka iptal</button></div>}
+          {selected.length===1&&<div className="row-actions"><button className="primary" disabled={locked||(doc.settings.materialType??'roll')!=='sheet'} title={(doc.settings.materialType??'roll')!=='sheet'?'Önce malzeme tipini Plaka seçin.':'Diğer parçalara dokunmadan seçili parçanın güvenli kopya kapasitesini hesaplar.'} onClick={()=>void fullPlateSelected()}>Tam plaka</button><button disabled={!fullPlateUndo.current} onClick={undoFullPlate}>Tam plaka iptal</button></div>}
 
         </>:<p className="muted">Özelliklerini görmek için bir parça seçin.</p>}</div></details>
       </aside>
