@@ -59,3 +59,21 @@ test('manual rotation step communicates invalid range and recovers',async({page}
   await step.fill('15');
   await expect(step).toHaveAttribute('aria-invalid','false');
 });
+
+
+test('direction command stays locked for nesting and can be released to automatic rotation',async({page})=>{
+  await page.goto('/');
+  await workshop(page);
+  const inspector=await selectFirstVisibleCopy(page);
+  const angle=inspector.getByLabel('Yön açısı, derece');
+  await angle.fill('90');
+  await inspector.getByRole('button',{name:'Açıyı uygula'}).click();
+  await expect(inspector.getByText('Verdiğiniz yön kilitli; Başlat sonrasında da korunur.')).toBeVisible();
+  const release=inspector.getByRole('button',{name:'Açı kilidini kaldır'});
+  await expect(release).toBeEnabled();
+  await release.click();
+  await expect(release).toHaveCount(0);
+  await inspector.getByLabel('Elle çevirme adımı, derece').fill('15');
+  await inspector.getByRole('button',{name:'Sola ↺'}).click();
+  await expect(inspector.getByText('Verdiğiniz yön kilitli; Başlat sonrasında da korunur.')).toBeVisible();
+});
