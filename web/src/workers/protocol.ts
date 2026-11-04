@@ -35,7 +35,8 @@ export type GeometryRequest = Identity & (
   | { type:'import'; files:{name:string;text:string}[]; scale:number; tolerance?:number; enclosed?:'holes'|'parts'; layers?:string[] }
   | { type:'export'; document:Document; result?:Result }
   | { type:'archive'; document:Document; result?:Result }
-  | { type:'live-preview'; sequence:number; document:Document; result:Result }
+  | { type:'live-preview-init'; document:Document }
+  | { type:'live-preview'; sequence:number; result:Result }
 );
 export type GeometryReply = Identity & (
   | { type:'part'; part:Part }
