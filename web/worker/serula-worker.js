@@ -1,4 +1,6 @@
 import {hashPassword,verifyPassword} from './passwords.js';
+import {sendVerificationCode,confirmVerificationCode} from './email-otp.js';
+import {hasEmailSender,sendAppEmail} from './email-sender.js';
 
 import packageInfo from '../package.json';
 const GOOGLE_CLIENT_ID='207092733568-2h2751l65c8cbnb3o6qfpvl4uug9f975.apps.googleusercontent.com';
@@ -42,6 +44,17 @@ async function ensureSchema(env){
       unlimited INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       last_login_at TEXT
+    )`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS email_verifications (
+      user_id INTEGER PRIMARY KEY,
+      challenge_hash TEXT NOT NULL,
+      code_hash TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      attempts INTEGER NOT NULL DEFAULT 0,
+      sent_at TEXT NOT NULL,
+      window_started_at TEXT NOT NULL,
+      window_count INTEGER NOT NULL DEFAULT 1,
+      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
     )`),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS sessions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -187,7 +200,8 @@ async function sessionUser(request,env){
       l.started_at license_started_at,l.expires_at license_expires_at
     FROM sessions s JOIN users u ON u.id=s.user_id
     LEFT JOIN user_licenses l ON l.user_id=u.id
-    WHERE s.token_hash=? AND datetime(s.expires_at)>datetime('now')`).bind(await sha256(raw)).first();
+    WHERE s.token_hash=? AND datetime(s.expires_at)>datetime('now')
+      AND NOT EXISTS (SELECT 1 FROM email_verifications v WHERE v.user_id=u.id)`).bind(await sha256(raw)).first();
   return row||null;
 }
 async function makeSession(userId,env){
@@ -307,6 +321,8 @@ async function googleUserFromCredential(credential,env,requestedLocale='tr'){
       FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.id=?`).bind(userId).first();
   }else{
     await env.DB.prepare('UPDATE users SET google_id=COALESCE(google_id,?),last_login_at=CURRENT_TIMESTAMP WHERE id=?').bind(String(claims.sub||''),user.id).run();
+    // Google's verified-email claim satisfies activation for the same address.
+    await env.DB.prepare('DELETE FROM email_verifications WHERE user_id=?').bind(user.id).run();
   }
   await audit(env,'login',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:'Google ile giriş'});
   return {user};
@@ -364,15 +380,38 @@ async function handleApi(request,env){
   if(path==='/api/auth/register'&&request.method==='POST'){
     const data=await body(request),email=String(data.email||'').trim().toLowerCase(),name=String(data.name||'').trim().slice(0,120),password=String(data.password||''),locale=cleanLocale(data.locale);
     if(!validEmail(email)||!passwordOk(password))return json({error:'Geçerli e-posta ve en az 8 karakter parola gerekli.'},400);
+    if(!hasEmailSender(env))return json({error:'E-posta doğrulama servisi hazır değil. Kayıt şu an yapılamıyor.'},503);
     if(await env.DB.prepare('SELECT id FROM users WHERE email=?').bind(email).first())return json({error:'Bu e-posta zaten kayıtlı.'},409);
-    const result=await env.DB.prepare(`INSERT INTO users(email,name,password_hash,role,nesting_credits,unlimited,last_login_at)
-      VALUES(?,?,?,'user',5,0,CURRENT_TIMESTAMP)`).bind(email,name,await hashPassword(password)).run();
+    const result=await env.DB.prepare("INSERT INTO users(email,name,password_hash,role,nesting_credits,unlimited) VALUES(?,?,?,'user',5,0)")
+      .bind(email,name,await hashPassword(password)).run();
     const userId=Number(result.meta.last_row_id);
-    await env.DB.prepare(`INSERT INTO user_preferences(user_id,locale,updated_at) VALUES(?,?,CURRENT_TIMESTAMP)
-      ON CONFLICT(user_id) DO UPDATE SET locale=excluded.locale,updated_at=CURRENT_TIMESTAMP`).bind(userId,locale).run();
-    const user=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,l.started_at license_started_at,l.expires_at license_expires_at
-      FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.id=?`).bind(userId).first();
-    return json({user:publicUser(user)},201,{'set-cookie':cookie(await makeSession(user.id,env))});
+    await env.DB.prepare("INSERT INTO user_preferences(user_id,locale,updated_at) VALUES(?,?,CURRENT_TIMESTAMP) ON CONFLICT(user_id) DO UPDATE SET locale=excluded.locale,updated_at=CURRENT_TIMESTAMP")
+      .bind(userId,locale).run();
+    const issued=await sendVerificationCode(env,{id:userId,email},{initial:true});
+    if(issued.error)return json({error:issued.error},issued.status);
+    await audit(env,'verification_sent',{targetUserId:userId,detail:'New password registration'});
+    // Never create an authenticated session before the emailed code is confirmed.
+    return json(issued,202);
+  }
+  if(path==='/api/auth/resend-verification'&&request.method==='POST'){
+    const data=await body(request),email=String(data.email||'').trim().toLowerCase(),password=String(data.password||'');
+    const user=validEmail(email)?await env.DB.prepare('SELECT id,email,password_hash FROM users WHERE email=?').bind(email).first():null;
+    if(!user||!await verifyPassword(password,user.password_hash))return json({error:'E-posta veya parola hatalı.'},401);
+    const pending=await env.DB.prepare('SELECT user_id FROM email_verifications WHERE user_id=?').bind(user.id).first();
+    if(!pending)return json({error:'E-posta adresi zaten doğrulanmış.'},400);
+    const issued=await sendVerificationCode(env,user);
+    if(issued.error)return json({error:issued.error},issued.status);
+    await audit(env,'verification_resent',{actorType:'user',actorUserId:user.id,targetUserId:user.id});
+    return json(issued);
+  }
+  if(path==='/api/auth/verify-email'&&request.method==='POST'){
+    const data=await body(request),email=String(data.email||'').trim().toLowerCase(),challenge=String(data.challenge||''),code=String(data.code||'');
+    const verified=await confirmVerificationCode(env,email,challenge,code);
+    if(verified.error)return json({error:verified.error},verified.status);
+    const user=await env.DB.prepare("SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,l.started_at license_started_at,l.expires_at license_expires_at FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.id=?")
+      .bind(verified.user.id).first();
+    await audit(env,'email_verified',{actorType:'user',actorUserId:user.id,targetUserId:user.id});
+    return json({user:publicUser(user)},200,{'set-cookie':cookie(await makeSession(user.id,env))});
   }
   if(path==='/api/auth/admin-me'&&request.method==='GET'){
     return await adminSessionValid(request,env)?json({user:{id:0,email:'',name:'Admin',role:'admin',credits:0,unlimited:true}}):json({user:null},401);
@@ -393,6 +432,11 @@ async function handleApi(request,env){
       l.started_at license_started_at,l.expires_at license_expires_at
       FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.email=?`).bind(email).first();
     if(!user||!await verifyPassword(password,user.password_hash)){await audit(env,'login_failed',{actorType:'user',detail:email,success:false});return json({error:'E-posta veya parola hatalı.'},401);}
+    const pending=await env.DB.prepare('SELECT user_id FROM email_verifications WHERE user_id=?').bind(user.id).first();
+    if(pending){
+      const issued=await sendVerificationCode(env,user);
+      return json(issued,issued.status||202);
+    }
     await env.DB.prepare('UPDATE users SET last_login_at=CURRENT_TIMESTAMP WHERE id=?').bind(user.id).run();
     await audit(env,'login',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:'E-posta ile giriş'});
     return json({user:publicUser(user)},200,{'set-cookie':cookie(await makeSession(user.id,env))});
@@ -823,11 +867,12 @@ async function handleApi(request,env){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
     const id=Number(resetMatch[1]),target=await env.DB.prepare('SELECT id,email FROM users WHERE id=?').bind(id).first();
     if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
-    if(!env.EMAIL)return json({error:'E-posta gönderim servisi yapılandırılmamış.'},503);
+    if(!hasEmailSender(env))return json({error:'E-posta gönderim servisi yapılandırılmamış.'},503);
     const raw=randomToken(),expires=new Date(Date.now()+3600000).toISOString();
     await env.DB.prepare('INSERT INTO password_reset_tokens(token_hash,user_id,expires_at) VALUES(?,?,?)').bind(await sha256(raw),id,expires).run();
     const resetUrl=new URL(request.url).origin+'/?reset='+encodeURIComponent(raw);
-    await env.EMAIL.send({to:target.email,from:'noreply@serula.site',subject:'Serula Nesting - Şifre Sıfırlama',text:'Şifrenizi yenilemek için bu bağlantıyı 1 saat içinde açın: '+resetUrl});
+    try{await sendAppEmail(env,{to:target.email,from:'noreply@serula.site',subject:'Serula Nesting - Şifre Sıfırlama',text:'Şifrenizi yenilemek için bu bağlantıyı 1 saat içinde açın: '+resetUrl});}
+    catch{return json({error:'Şifre sıfırlama e-postası gönderilemedi. Daha sonra yeniden deneyin.'},503);}
     await audit(env,'password_reset_sent',{actorType:'admin',targetUserId:id,detail:target.email});
     return json({ok:true});
   }

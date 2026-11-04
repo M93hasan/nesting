@@ -5,6 +5,7 @@ import './shadcn-dashboard.css';
 import './studio-dashboard.css';
 import './slate-ambience.css';
 import './compact-workspace.css';
+import './otp-form.css';
 
 
 

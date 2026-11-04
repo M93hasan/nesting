@@ -24,15 +24,28 @@ function database(){
     try{const results=[];for(const statement of statements)results.push(await statement.run());sqlite.exec('COMMIT');return results}
     catch(error){sqlite.exec('ROLLBACK');throw error}
   }};
-  return {DB,sqlite,fail(){failChunks=true}};
+  const sentEmails:{to:string;from:string;subject:string;text:string}[]=[];
+  return {DB,sqlite,sentEmails,EMAIL:{async send(message:{to:string;from:string;subject:string;text:string}){sentEmails.push(message)}},fail(){failChunks=true}};
 }
 async function call(env:any,path:string,data?:unknown,cookie=''){
   return worker.fetch(new Request('https://serula.site'+path,{method:data===undefined?'GET':'POST',headers:{'content-type':'application/json',origin:'https://serula.site',cookie},...(data===undefined?{}:{body:JSON.stringify(data)})}),env);
 }
+async function verifyRegistration(env:any,response:Response,email:string){
+  expect(response.status).toBe(202);
+  expect(response.headers.get('set-cookie')).toBeNull();
+  const {challenge,verificationRequired}=await response.json();
+  expect(verificationRequired).toBe(true);
+  const mail=env.sentEmails.at(-1)?.text||'';
+  const code=mail.match(/doğrulama kodunuz: (\d{6})/i)?.[1];
+  expect(code).toMatch(/^\d{6}$/);
+  const verified=await call(env,'/api/auth/verify-email',{email,challenge,code});
+  expect(verified.status).toBe(200);
+  return verified.headers.get('set-cookie')!.split(';')[0];
+}
 async function account(env:any){
-  const response=await call(env,'/api/auth/register',{email:'test@example.com',name:'Test',password:'a-good-password'});
-  expect(response.status).toBe(201);
-  return response.headers.get('set-cookie')!.split(';')[0];
+  const email='test@example.com';
+  const response=await call(env,'/api/auth/register',{email,name:'Test',password:'a-good-password'});
+  return verifyRegistration(env,response,email);
 }
 const payload={projectName:'Project',fileName:'test.dxf',dxf:'0\nSECTION\n0\nEOF',projectJson:'{}'};
 
@@ -143,8 +156,7 @@ describe('Worker accounts and credit transactions',()=>{
     expect(saved.status).toBe(200);
     const {exportId}=await saved.json();
     const otherResponse=await call(env,'/api/auth/register',{email:'other@example.com',name:'Other',password:'different-password'});
-    expect(otherResponse.status).toBe(201);
-    const other=otherResponse.headers.get('set-cookie')!.split(';')[0];
+    const other=await verifyRegistration(env,otherResponse,'other@example.com');
     const foreign=await call(env,`/api/exports/${exportId}`,undefined,other);
     expect(foreign.status).toBe(404);
     const foreignList=await call(env,'/api/exports',undefined,other);
@@ -205,6 +217,100 @@ describe('Worker accounts and credit transactions',()=>{
     expect(users.users).toHaveLength(1);
     expect((await call(env,`/api/admin/users/${users.users[0].id}/credits`,{credits:12},cookie)).status).toBe(200);
     expect(env.sqlite.prepare('SELECT nesting_credits FROM users').get()?.nesting_credits).toBe(12);
+    env.sqlite.close();
+  });
+});
+
+describe('Mandatory email activation OTP',()=>{
+  const registration={email:'pending@example.com',name:'Pending',password:'safe-password-123'};
+  const send=async(env:any)=>call(env,'/api/auth/register',registration);
+  const lastCode=(env:any)=>String(env.sentEmails.at(-1)?.text||'').match(/doğrulama kodunuz: (\d{6})/)?.[1]||'';
+
+  it('does not create accounts or a session when no email delivery binding is configured',async()=>{
+    const env=database();delete (env as {EMAIL?:unknown}).EMAIL;
+    const result=await send(env);
+    expect(result.status).toBe(503);
+    expect(result.headers.get('set-cookie')).toBeNull();
+    expect(env.sqlite.prepare('SELECT COUNT(*) n FROM users').get()?.n).toBe(0);
+    env.sqlite.close();
+  });
+
+  it('requires a delivered code and 256-bit browser challenge before login or exports',async()=>{
+    const env=database();
+    const created=await send(env);
+    expect(created.status).toBe(202);
+    expect(created.headers.get('set-cookie')).toBeNull();
+    const data=await created.json();
+    expect(data.challenge).toMatch(/^[a-f0-9]{64}$/);
+    expect(data.verificationRequired).toBe(true);
+    expect(lastCode(env)).toMatch(/^\d{6}$/);
+    expect(env.sentEmails).toHaveLength(1);
+    const pending=env.sqlite.prepare('SELECT * FROM email_verifications').get();
+    expect(JSON.stringify(pending)).not.toContain(lastCode(env));
+    expect(JSON.stringify(pending)).not.toContain(data.challenge);
+    expect((await call(env,'/api/auth/me')).status).toBe(401);
+    expect((await call(env,'/api/auth/login',{email:registration.email,password:'wrong-password'})).status).toBe(401);
+    expect((await call(env,'/api/auth/verify-email',{email:registration.email,challenge:'f'.repeat(64),code:lastCode(env)})).status).toBe(400);
+    expect((await call(env,'/api/auth/verify-email',{email:registration.email,challenge:data.challenge,code:'999999'===lastCode(env)?'888888':'999999'})).status).toBe(400);
+    const verified=await call(env,'/api/auth/verify-email',{email:registration.email,challenge:data.challenge,code:lastCode(env)});
+    expect(verified.status).toBe(200);
+    const session=verified.headers.get('set-cookie')!.split(';')[0];
+    expect((await call(env,'/api/auth/me',undefined,session)).status).toBe(200);
+    expect((await call(env,'/api/auth/verify-email',{email:registration.email,challenge:data.challenge,code:lastCode(env)})).status).toBe(400);
+    expect((await call(env,'/api/auth/login',{email:registration.email,password:registration.password})).status).toBe(200);
+    env.sqlite.close();
+  });
+
+  it('never accepts expired codes, even with the right value',async()=>{
+    const env=database(),created=await send(env);
+    const {challenge}=await created.json(),code=lastCode(env);
+    env.sqlite.exec("UPDATE email_verifications SET expires_at='2000-01-01T00:00:00.000Z'");
+    expect((await call(env,'/api/auth/verify-email',{email:registration.email,challenge,code})).status).toBe(400);
+    expect((await call(env,'/api/auth/login',{email:registration.email,password:registration.password})).status).toBe(429);
+    env.sqlite.close();
+  });
+
+  it('locks the OTP after five bad attempts and blocks new codes during cooldown',async()=>{
+    const env=database(),created=await send(env);
+    const {challenge}=await created.json(),code=lastCode(env);
+    const wrong=code==='000000'?'111111':'000000';
+    for(let i=0;i<5;i++)expect((await call(env,'/api/auth/verify-email',{email:registration.email,challenge,code:wrong})).status).toBe(400);
+    expect((await call(env,'/api/auth/verify-email',{email:registration.email,challenge,code})).status).toBe(400);
+    expect((await call(env,'/api/auth/resend-verification',{email:registration.email,password:registration.password})).status).toBe(429);
+    expect(env.sentEmails).toHaveLength(1);
+    env.sqlite.close();
+  });
+
+  it('resends only with valid password after cooldown and invalidates the old challenge',async()=>{
+    const env=database(),created=await send(env);
+    const first=await created.json(),oldCode=lastCode(env);
+    expect((await call(env,'/api/auth/resend-verification',{email:registration.email,password:'incorrect'})).status).toBe(401);
+    env.sqlite.exec("UPDATE email_verifications SET sent_at='2000-01-01T00:00:00.000Z'");
+    const resent=await call(env,'/api/auth/resend-verification',{email:registration.email,password:registration.password});
+    expect(resent.status).toBe(200);
+    const second=await resent.json(),newCode=lastCode(env);
+    expect(second.challenge).toMatch(/^[a-f0-9]{64}$/);
+    expect(second.challenge).not.toBe(first.challenge);
+    expect((await call(env,'/api/auth/verify-email',{email:registration.email,challenge:first.challenge,code:oldCode})).status).toBe(400);
+    expect((await call(env,'/api/auth/verify-email',{email:registration.email,challenge:second.challenge,code:newCode})).status).toBe(200);
+    env.sqlite.close();
+  });
+
+  it('never removes the pending activation marker after delivery failure',async()=>{
+    const env=database();env.EMAIL.send=async()=>{throw Error('provider unavailable')};
+    const created=await send(env);
+    expect(created.status).toBe(503);
+    expect(created.headers.get('set-cookie')).toBeNull();
+    expect(env.sqlite.prepare('SELECT COUNT(*) n FROM email_verifications').get()?.n).toBe(1);
+    expect((await call(env,'/api/auth/login',{email:registration.email,password:registration.password})).status).toBe(429);
+    env.sqlite.close();
+  });
+
+  it('blocks a previously issued session whenever account activation is pending',async()=>{
+    const env=database(),session=await account(env);
+    env.sqlite.exec("INSERT INTO email_verifications(user_id,challenge_hash,code_hash,expires_at,attempts,sent_at,window_started_at,window_count) SELECT id,'f','g','2099-01-01',0,'2020-01-01','2020-01-01',1 FROM users");
+    expect((await call(env,'/api/auth/me',undefined,session)).status).toBe(401);
+    expect((await call(env,'/api/export/authorize',payload,session)).status).toBe(401);
     env.sqlite.close();
   });
 });
