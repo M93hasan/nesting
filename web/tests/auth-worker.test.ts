@@ -36,8 +36,8 @@ async function verifyRegistration(env:any,response:Response,email:string){
   const {challenge,verificationRequired}=await response.json();
   expect(verificationRequired).toBe(true);
   const mail=env.sentEmails.at(-1)?.text||'';
-  const code=mail.match(/doğrulama kodunuz: (\\d{6})/i)?.[1];
-  expect(code).toMatch(/^\\d{6}$/);
+  const code=mail.match(/doğrulama kodunuz: (\d{6})/i)?.[1];
+  expect(code).toMatch(/^\d{6}$/);
   const verified=await call(env,'/api/auth/verify-email',{email,challenge,code});
   expect(verified.status).toBe(200);
   return verified.headers.get('set-cookie')!.split(';')[0];
