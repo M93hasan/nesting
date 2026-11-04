@@ -57,6 +57,15 @@ test('studio stays within the viewport at phone, tablet and desktop widths',asyn
     await page.setViewportSize({width,height:900});
     await page.goto('/');
     await expect(page.locator('.main-workspace')).toBeAttached();
+    if(width===1440){
+      const overflow=await page.evaluate(()=>{
+        const viewport=document.documentElement.clientWidth;
+        return {viewport,scrollWidth:document.documentElement.scrollWidth,items:[...document.querySelectorAll<HTMLElement>('body *')]
+          .map(el=>{const r=el.getBoundingClientRect();const style=getComputedStyle(el);return {tag:el.tagName,cls:typeof el.className==='string'?el.className.slice(0,100):'',id:el.id,right:Math.round(r.right),left:Math.round(r.left),width:Math.round(r.width),scrollWidth:el.scrollWidth,clientWidth:el.clientWidth,display:style.display,overflowX:style.overflowX};})
+          .filter(v=>v.right>viewport+1 && v.left<viewport+100).sort((a,b)=>b.right-a.right).slice(0,25)};
+      });
+      console.log('AUTH_OVERFLOW_DIAGNOSTIC '+JSON.stringify(overflow));
+    }
     await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     const transfer=page.locator('.corel-transfer-button');
     await expect(transfer).toBeAttached();
