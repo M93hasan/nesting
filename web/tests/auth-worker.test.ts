@@ -256,6 +256,18 @@ describe('Administrative history and permission controls',()=>{
     env.sqlite.close();
   });
 
+  it('shows pending activation only when verification table exists',async()=>{
+    const env={...database(),ADMIN_PASSWORD:'test-admin-password'};
+    await account(env);
+    const cookie=await adminCookie(env);
+    const before=await (await call(env,'/api/admin/users',undefined,cookie)).json();
+    expect(before.users[0].emailVerified).toBe(true);
+    env.sqlite.exec('CREATE TABLE email_verifications (user_id INTEGER PRIMARY KEY)');
+    env.sqlite.exec('INSERT INTO email_verifications(user_id) VALUES(1)');
+    const pending=await (await call(env,'/api/admin/users',undefined,cookie)).json();
+    expect(pending.users[0].emailVerified).toBe(false);
+    env.sqlite.close();
+  });
   it('never resets settings for an unknown user',async()=>{
     const env={...database(),ADMIN_PASSWORD:'test-admin-password'};
     const cookie=await adminCookie(env);
