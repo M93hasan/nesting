@@ -20,6 +20,29 @@ const nav:{id:Section;label:string;icon:string}[]=[
   {id:'system',label:'Sistem Bilgisi',icon:'ⓘ'},
 ];
 
+type SearchItem={section:Section;label:string;keywords?:string;field?:string};
+const settingsSearchItems:SearchItem[]=[
+  ...nav.map(({id,label})=>({section:id,label})),
+  {section:'users',label:'Kullanıcı arama ve filtreler',keywords:'isim e-posta rol çevrim içi'},
+  {section:'users',label:'Lisans ve kullanım hakları',keywords:'kota süre sınırsız'},
+  {section:'users',label:'CorelDRAW, Test DXF ve şifre sıfırlama',keywords:'yetki parola'},
+  {section:'user-settings',label:'Kullanıcı seçimi',keywords:'kullanıcı ara isim e-posta',field:'user-lookup'},
+  {section:'user-settings',label:'Malzeme genişliği – kullanıcı',keywords:'mm',field:'user-width'},
+  {section:'user-settings',label:'Parça aralığı – kullanıcı',keywords:'mesafe clearance mm',field:'user-clearance'},
+  {section:'user-settings',label:'Rotasyon – kullanıcı',keywords:'döndürme açı',field:'user-rotation'},
+  {section:'user-settings',label:'Malzeme tipi – kullanıcı',keywords:'rulo plaka',field:'user-material'},
+  {section:'user-settings',label:'Solver profili – kullanıcı',keywords:'çözüm hızlı standart',field:'user-solver'},
+  {section:'user-settings',label:'Uzaktan destek ve ekran bağlantısı',keywords:'ekrana bağlan'},
+  {section:'defaults',label:'Malzeme genişliği – sistem',keywords:'varsayılan mm',field:'system-width'},
+  {section:'defaults',label:'Parça aralığı – sistem',keywords:'varsayılan mesafe clearance',field:'system-clearance'},
+  {section:'defaults',label:'Rotasyon – sistem',keywords:'varsayılan döndürme',field:'system-rotation'},
+  {section:'defaults',label:'Malzeme tipi – sistem',keywords:'varsayılan rulo plaka',field:'system-material'},
+  {section:'defaults',label:'Solver profili – sistem',keywords:'varsayılan hızlı',field:'system-solver'},
+  {section:'history',label:'Proje veya kullanıcı geçmişi arama',keywords:'işlem csv'},
+  {section:'logs',label:'Sistem işlem logları',keywords:'hata denetim'}
+];
+const normalizeSearch=(value:string)=>value.toLocaleLowerCase('tr-TR').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+
 function Empty({title,children}:{title:string;children:string}){
   return <div className="admin-empty"><strong>{title}</strong><p>{children}</p></div>;
 }
@@ -62,6 +85,9 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
   const [signedEmail,setSignedEmail]=useState('');
   const googleButton=useRef<HTMLDivElement>(null);
   const [section,setSection]=useState<Section>('overview');
+  const [globalSearch,setGlobalSearch]=useState('');
+  const [settingsUserSearch,setSettingsUserSearch]=useState('');
+  const [focusSetting,setFocusSetting]=useState<{section:Section;field:string}|null>(null);
   const [query,setQuery]=useState('');
   const [role,setRole]=useState<'all'|'admin'|'operator'>('all');
   const [userStatus,setUserStatus]=useState<UserStatusFilter>('all');
@@ -100,6 +126,25 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
   const [chatReply,setChatReply]=useState('');
   const [chatBusy,setChatBusy]=useState(false);
   const title=useMemo(()=>nav.find(item=>item.id===section)?.label??'Yönetim',[section]);
+  const searchMatches=useMemo(()=>{
+    const term=normalizeSearch(globalSearch);
+    return term?settingsSearchItems.filter(item=>normalizeSearch(item.label+' '+(item.keywords??'')+' '+(nav.find(n=>n.id===item.section)?.label??'')).includes(term)).slice(0,10):[];
+  },[globalSearch]);
+  const userSettingsMatches=useMemo(()=>{
+    const term=normalizeSearch(settingsUserSearch);
+    return term?users.filter(user=>normalizeSearch(user.name+' '+user.email).includes(term)).sort((a,b)=>(a.name||a.email).localeCompare(b.name||b.email,'tr')):[];
+  },[users,settingsUserSearch]);
+  function jumpToSetting(item:SearchItem){
+    setSection(item.section);
+    setGlobalSearch('');
+    setFocusSetting(item.field?{section:item.section,field:item.field}:null);
+  }
+  useEffect(()=>{
+    if(!focusSetting||focusSetting.section!==section)return;
+    const control=document.querySelector<HTMLElement>('[data-admin-search="'+focusSetting.field+'"] input, [data-admin-search="'+focusSetting.field+'"] select');
+    if(control){control.focus();control.scrollIntoView({block:'center'});}
+    setFocusSetting(null);
+  },[section,focusSetting]);
   const filteredUsers=useMemo(()=>{
     const search=query.trim().toLocaleLowerCase('tr');
     const filtered=users.filter(user=>
@@ -423,6 +468,15 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
     <div className="admin-shell">
       <aside className="admin-sidebar" aria-label="Yönetim menüsü">
         <div className="sd-sidebar-caption">ÇALIŞMA ALANI</div>
+        <div className="admin-global-search" role="search" aria-label="Yönetim arama">
+          <div className="sd-search-field">
+            <svg aria-hidden="true" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+            <input type="search" aria-label="Tüm ayarlarda ara" placeholder="Ayar veya bölüm ara…" value={globalSearch} onChange={e=>setGlobalSearch(e.target.value)} onKeyDown={e=>{if(e.key==='Escape')setGlobalSearch('');if(e.key==='Enter'&&searchMatches[0])jumpToSetting(searchMatches[0]);}}/>
+          </div>
+          {globalSearch.trim()&&<div className="admin-global-search-results" role="group" aria-label="Ayar arama sonuçları">
+            {searchMatches.length?searchMatches.map((item,index)=><button type="button" key={item.section+'-'+index} onClick={()=>jumpToSetting(item)}><span>{item.label}</span><small>{nav.find(n=>n.id===item.section)?.label}</small></button>):<p role="status">Eşleşen ayar bulunamadı.</p>}
+          </div>}
+        </div>
         <nav>{nav.map(item=><button key={item.id} type="button" className={section===item.id?'sd-nav-button active':'sd-nav-button'} aria-current={section===item.id?'page':undefined} onClick={()=>setSection(item.id)}><span className="sd-nav-icon"><DashboardIcon name={item.id}/></span><span className="sd-nav-label">{item.label}</span></button>)}</nav>
         <div className="admin-security-note"><strong>Güvenli yönetim</strong><small>Kullanıcı ve yetki değişiklikleri sunucu kimlik doğrulaması olmadan uygulanmaz.</small></div>
       </aside>
@@ -508,6 +562,17 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
 
         {section==='user-settings'&&<section className="admin-card">
           <div className="admin-card-head"><div><h2>Kullanıcıya Özel Varsayılanlar</h2><p>Seçilen kullanıcı için sistem varsayılanlarının üzerine uygulanır.</p></div><select aria-label="Kullanıcı seç" value={selectedUserId??''} onChange={e=>{const id=Number(e.target.value);if(id)void loadUserSettings(id);else setSelectedUserId(undefined)}}><option value="">Kullanıcı seç…</option>{users.map(user=><option key={user.id} value={user.id}>{user.name||user.email} · {user.email}</option>)}</select></div>
+          <div className="admin-user-settings-lookup" data-admin-search="user-lookup">
+            <div className="sd-search-field">
+              <svg aria-hidden="true" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+              <input type="search" aria-label="Kullanıcı ayarlarında kullanıcı ara" placeholder="İsim veya e-posta ile kullanıcı ara…" value={settingsUserSearch} onChange={e=>setSettingsUserSearch(e.target.value)} onKeyDown={e=>{if(e.key==='Escape')setSettingsUserSearch('');if(e.key==='Enter'&&userSettingsMatches[0]){void loadUserSettings(userSettingsMatches[0].id);setSettingsUserSearch('');}}}/>
+            </div>
+            {settingsUserSearch.trim()&&<div className="admin-user-settings-results" role="group" aria-label="Kullanıcı arama sonuçları">
+              <p role="status">{userSettingsMatches.length} kullanıcı bulundu</p>
+              {userSettingsMatches.slice(0,12).map(user=><button type="button" key={user.id} onClick={()=>{void loadUserSettings(user.id);setSettingsUserSearch('');}}><strong>{user.name||user.email}</strong><small>{user.email}</small></button>)}
+              {userSettingsMatches.length>12&&<small>İlk 12 sonuç gösteriliyor; aramayı daraltın.</small>}
+            </div>}
+          </div>
           {usersError&&<p className="field-error" role="alert">{usersError}</p>}{userNotice&&<p className="admin-notice" role="status">{userNotice}</p>}{selectedUserId?<><div className="admin-selected-user"><strong>{users.find(u=>u.id===selectedUserId)?.name||users.find(u=>u.id===selectedUserId)?.email}</strong><span>{customSettings?'Özel varsayılanlar aktif':'Sistem varsayılanları kullanılıyor'}</span></div>
           <div className="admin-support-box"><div><strong>{support?.mode==='screen'?'Ekran bağlantısı':'Uzaktan destek'}</strong><small>{support?.mode==='screen'&&support?.status!=='ended'?screenConnectionLabel:support?.status==='approved'?'Aktif · kullanıcı onayladı':support?.status==='pending'?'Kullanıcı onayı bekleniyor':'Kapalı'}</small><p>{support?.mode==='screen'?'Kullanıcı onayladığında seçtiği ekranı canlı görebilirsiniz. Kullanıcı istediği an paylaşımı durdurabilir.':'Bu özellik yalnızca Serula içindeki ayarları canlı uygular. Kullanıcının onayı olmadan aktif olmaz.'}</p></div><div>{support?.status==='approved'||support?.status==='pending'?<button className="danger-button" onClick={()=>void endSupport()} disabled={adminBusy==='support'}>Desteği bitir</button>:<><button onClick={()=>void requestSupport('screen')} disabled={adminBusy==='support'}>Ekrana bağlan</button><button className="primary" onClick={()=>void requestSupport('settings')} disabled={adminBusy==='support'}>{adminBusy==='support'?'Gönderiliyor…':'Ayar desteği iste'}</button></>}</div></div>
           {support?.mode==='screen'&&support.status==='approved'&&<div className={'admin-screen-view screen-'+screenConnection}>
@@ -519,24 +584,24 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
             <small>{screenFrame&&!screenStream?'Yedek bağlantı üzerinden ekran görüntüsü · yaklaşık 1–2 saniye gecikmeli':'Kullanıcının paylaştığı ekran · “Tam ekran” ile büyütebilirsiniz.'}</small>
           </div>}
           <div className="admin-settings-grid" role="group" aria-label="Kullanıcı varsayılanları">
-            <label>Malzeme genişliği (mm)<input type="number" min="1" value={userSettings.materialWidthMm} onChange={e=>setUserSettings({...userSettings,materialWidthMm:e.target.valueAsNumber})}/></label>
-            <label>Parça aralığı (mm)<input type="number" min="0" step="0.1" value={userSettings.clearanceMm} onChange={e=>setUserSettings({...userSettings,clearanceMm:e.target.valueAsNumber})}/></label>
+            <label data-admin-search="user-width">Malzeme genişliği (mm)<input type="number" min="1" value={userSettings.materialWidthMm} onChange={e=>setUserSettings({...userSettings,materialWidthMm:e.target.valueAsNumber})}/></label>
+            <label data-admin-search="user-clearance">Parça aralığı (mm)<input type="number" min="0" step="0.1" value={userSettings.clearanceMm} onChange={e=>setUserSettings({...userSettings,clearanceMm:e.target.valueAsNumber})}/></label>
             
-            <label>Rotasyon<select value={userSettings.rotation} onChange={e=>setUserSettings({...userSettings,rotation:e.target.value as AdminSettings['rotation']})}><option value="fixed">0°</option><option value="half">0° / 180°</option><option value="free">Her yöne</option></select></label>
-            <label>Malzeme tipi<select value={userSettings.materialType} onChange={e=>setUserSettings({...userSettings,materialType:e.target.value as AdminSettings['materialType']})}><option value="roll">Rulo</option><option value="sheet">Plaka</option></select></label>
-            <label>Solver profili<select value={userSettings.solverPreset} onChange={e=>setUserSettings({...userSettings,solverPreset:e.target.value as AdminSettings['solverPreset']})}><option value="standard">Standart</option><option value="fast">Hızlı</option></select></label>
+            <label data-admin-search="user-rotation">Rotasyon<select value={userSettings.rotation} onChange={e=>setUserSettings({...userSettings,rotation:e.target.value as AdminSettings['rotation']})}><option value="fixed">0°</option><option value="half">0° / 180°</option><option value="free">Her yöne</option></select></label>
+            <label data-admin-search="user-material">Malzeme tipi<select value={userSettings.materialType} onChange={e=>setUserSettings({...userSettings,materialType:e.target.value as AdminSettings['materialType']})}><option value="roll">Rulo</option><option value="sheet">Plaka</option></select></label>
+            <label data-admin-search="user-solver">Solver profili<select value={userSettings.solverPreset} onChange={e=>setUserSettings({...userSettings,solverPreset:e.target.value as AdminSettings['solverPreset']})}><option value="standard">Standart</option><option value="fast">Hızlı</option></select></label>
           </div><div className="admin-save-row"><button onClick={()=>void resetUserSettings()} disabled={adminBusy==='user-settings'}>Sistem varsayılanlarına dön</button><button className="primary" onClick={()=>void saveUserSettings()} disabled={adminBusy==='user-settings'}>{adminBusy==='user-settings'?'Kaydediliyor…':'Kullanıcı ayarlarını kaydet'}</button></div></>:<Empty title="Kullanıcı seçin">Yukarıdaki listeden bir kullanıcı seçerek ona özel varsayılanları düzenleyebilirsiniz.</Empty>}
         </section>}
 
         {section==='defaults'&&<section className="admin-card">
           <div className="admin-card-head"><div><h2>Sistem Varsayılanları</h2><p>Yeni kullanıcı ve projeler için başlangıç ayarları. Ana uygulamadaki gerçek kullanıcı seçenekleriyle senkron çalışır.</p></div><span className="admin-badge">Aktif</span></div>
           <div className="admin-settings-grid" role="group" aria-label="Sistem varsayılanları">
-            <label>Varsayılan malzeme genişliği (mm)<input type="number" min="1" value={systemSettings.materialWidthMm} onChange={e=>setSystemSettings({...systemSettings,materialWidthMm:e.target.valueAsNumber})}/></label>
-            <label>Parça aralığı (mm)<input type="number" min="0" step="0.1" value={systemSettings.clearanceMm} onChange={e=>setSystemSettings({...systemSettings,clearanceMm:e.target.valueAsNumber})}/></label>
+            <label data-admin-search="system-width">Varsayılan malzeme genişliği (mm)<input type="number" min="1" value={systemSettings.materialWidthMm} onChange={e=>setSystemSettings({...systemSettings,materialWidthMm:e.target.valueAsNumber})}/></label>
+            <label data-admin-search="system-clearance">Parça aralığı (mm)<input type="number" min="0" step="0.1" value={systemSettings.clearanceMm} onChange={e=>setSystemSettings({...systemSettings,clearanceMm:e.target.valueAsNumber})}/></label>
             
-            <label>Varsayılan rotasyon<select value={systemSettings.rotation} onChange={e=>setSystemSettings({...systemSettings,rotation:e.target.value as AdminSettings['rotation']})}><option value="fixed">0°</option><option value="half">0° / 180°</option><option value="free">Her yöne</option></select></label>
-            <label>Varsayılan malzeme<select value={systemSettings.materialType} onChange={e=>setSystemSettings({...systemSettings,materialType:e.target.value as AdminSettings['materialType']})}><option value="roll">Rulo</option><option value="sheet">Plaka</option></select></label>
-            <label>Solver profili<select value={systemSettings.solverPreset} onChange={e=>setSystemSettings({...systemSettings,solverPreset:e.target.value as AdminSettings['solverPreset']})}><option value="standard">Standart</option><option value="fast">Hızlı</option></select></label>
+            <label data-admin-search="system-rotation">Varsayılan rotasyon<select value={systemSettings.rotation} onChange={e=>setSystemSettings({...systemSettings,rotation:e.target.value as AdminSettings['rotation']})}><option value="fixed">0°</option><option value="half">0° / 180°</option><option value="free">Her yöne</option></select></label>
+            <label data-admin-search="system-material">Varsayılan malzeme<select value={systemSettings.materialType} onChange={e=>setSystemSettings({...systemSettings,materialType:e.target.value as AdminSettings['materialType']})}><option value="roll">Rulo</option><option value="sheet">Plaka</option></select></label>
+            <label data-admin-search="system-solver">Solver profili<select value={systemSettings.solverPreset} onChange={e=>setSystemSettings({...systemSettings,solverPreset:e.target.value as AdminSettings['solverPreset']})}><option value="standard">Standart</option><option value="fast">Hızlı</option></select></label>
           </div>
           <div className="admin-save-row"><small>Kullanıcıya özel ayar yoksa bu değerler kullanılır.</small><button className="primary" onClick={()=>void saveSystemSettings()} disabled={adminBusy==='system-settings'}>{adminBusy==='system-settings'?'Kaydediliyor…':'Kaydet'}</button></div>
         </section>}
