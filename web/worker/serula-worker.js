@@ -1,5 +1,6 @@
 import {hashPassword,verifyPassword} from './passwords.js';
 import {sendVerificationCode,confirmVerificationCode} from './email-otp.js';
+import {hasEmailSender,sendAppEmail} from './email-sender.js';
 
 import packageInfo from '../package.json';
 const GOOGLE_CLIENT_ID='207092733568-2h2751l65c8cbnb3o6qfpvl4uug9f975.apps.googleusercontent.com';
@@ -379,7 +380,7 @@ async function handleApi(request,env){
   if(path==='/api/auth/register'&&request.method==='POST'){
     const data=await body(request),email=String(data.email||'').trim().toLowerCase(),name=String(data.name||'').trim().slice(0,120),password=String(data.password||''),locale=cleanLocale(data.locale);
     if(!validEmail(email)||!passwordOk(password))return json({error:'Geçerli e-posta ve en az 8 karakter parola gerekli.'},400);
-    if(!env.EMAIL?.send)return json({error:'E-posta doğrulama servisi hazır değil. Kayıt şu an yapılamıyor.'},503);
+    if(!hasEmailSender(env))return json({error:'E-posta doğrulama servisi hazır değil. Kayıt şu an yapılamıyor.'},503);
     if(await env.DB.prepare('SELECT id FROM users WHERE email=?').bind(email).first())return json({error:'Bu e-posta zaten kayıtlı.'},409);
     const result=await env.DB.prepare("INSERT INTO users(email,name,password_hash,role,nesting_credits,unlimited) VALUES(?,?,?,'user',5,0)")
       .bind(email,name,await hashPassword(password)).run();
@@ -866,11 +867,12 @@ async function handleApi(request,env){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
     const id=Number(resetMatch[1]),target=await env.DB.prepare('SELECT id,email FROM users WHERE id=?').bind(id).first();
     if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
-    if(!env.EMAIL)return json({error:'E-posta gönderim servisi yapılandırılmamış.'},503);
+    if(!hasEmailSender(env))return json({error:'E-posta gönderim servisi yapılandırılmamış.'},503);
     const raw=randomToken(),expires=new Date(Date.now()+3600000).toISOString();
     await env.DB.prepare('INSERT INTO password_reset_tokens(token_hash,user_id,expires_at) VALUES(?,?,?)').bind(await sha256(raw),id,expires).run();
     const resetUrl=new URL(request.url).origin+'/?reset='+encodeURIComponent(raw);
-    await env.EMAIL.send({to:target.email,from:'noreply@serula.site',subject:'Serula Nesting - Şifre Sıfırlama',text:'Şifrenizi yenilemek için bu bağlantıyı 1 saat içinde açın: '+resetUrl});
+    try{await sendAppEmail(env,{to:target.email,from:'noreply@serula.site',subject:'Serula Nesting - Şifre Sıfırlama',text:'Şifrenizi yenilemek için bu bağlantıyı 1 saat içinde açın: '+resetUrl});}
+    catch{return json({error:'Şifre sıfırlama e-postası gönderilemedi. Daha sonra yeniden deneyin.'},503);}
     await audit(env,'password_reset_sent',{actorType:'admin',targetUserId:id,detail:target.email});
     return json({ok:true});
   }
