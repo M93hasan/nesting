@@ -192,6 +192,8 @@ export function solverInput(doc: Document): string {
   if(!copies.length)throw Error('Add at least one copy before nesting.');
   preflightSolverFit(doc);
   const parts=new Map(doc.parts.map(part=>[part.id,part]));
+  // DXF detail unions can be expensive: calculate once per part type.
+  const collisionRings=new Map(doc.parts.map(part=>[part.id,collisionRing(part)] as const));
   const edgePadding=solverEdgePadding(doc.settings.clearanceMm);
   return JSON.stringify({name:doc.name,strip_height:doc.settings.materialWidthMm+2*edgePadding,min_item_separation:doc.settings.clearanceMm,items:copies.map(copy=>{
     const p=parts.get(copy.partId)!;
@@ -202,7 +204,7 @@ export function solverInput(doc: Document): string {
       orientation:{rotation:p.rotations.kind==='continuous'
         ?{mode:'continuous'}
         :{mode:'discrete',angles:p.rotations.degrees.map(angle=>-angle)}},
-      shape:{type:'simple_polygon',data:collisionRing(p).map(([x,y])=>[y,x])},
+      shape:{type:'simple_polygon',data:collisionRings.get(p.id)!.map(([x,y])=>[y,x])},
     };
   })});
 }
