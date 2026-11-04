@@ -3,6 +3,7 @@ import packageInfo from '../package.json';
 import {DashboardIcon} from './components/dashboard/DashboardIcon';
 import {RegistrationChart} from './components/dashboard/RegistrationChart';
 import {LanguageSelect,localeTag,useI18n} from './i18n';
+import {filterHistory,historyCsv,parseCredits,validAdminSettings,type AdminHistoryRow} from './adminControls';
 
 type Section='overview'|'users'|'messages'|'roles'|'user-settings'|'defaults'|'history'|'logs'|'system';
 type UserStatusFilter='all'|'online'|'offline';
@@ -26,7 +27,7 @@ function Metric({label,value,detail,icon}:{label:string;value:string;detail:stri
   return <article className="admin-metric"><span className="admin-metric-icon" aria-hidden="true">{icon}</span><span>{label}</span><strong>{value}</strong><small>{detail}</small></article>;
 }
 
-type AdminUser={id:number;email:string;name:string;role:string;credits:number;unlimited:boolean;testDxfEnabled?:boolean;corelTransferEnabled?:boolean;authProvider?:string;suspended?:boolean;licenseStartedAt?:string|null;licenseExpiresAt?:string|null;licenseExpired?:boolean;createdAt?:string;lastLoginAt?:string;lastSeen?:string|null;online?:boolean};
+type AdminUser={id:number;email:string;name:string;role:string;credits:number;unlimited:boolean;testDxfEnabled?:boolean;corelTransferEnabled?:boolean;authProvider?:string;emailVerified?:boolean;suspended?:boolean;licenseStartedAt?:string|null;licenseExpiresAt?:string|null;licenseExpired?:boolean;createdAt?:string;lastLoginAt?:string;lastSeen?:string|null;online?:boolean};
 type AdminSettings={materialWidthMm:number;clearanceMm:number;marginMm:number;rotation:'fixed'|'half'|'free';materialType:'roll'|'sheet';solverPreset:'standard'|'fast'};
 type AuditLog={id:number;actorType:string;actorEmail:string;targetEmail:string;action:string;detail:string;success:boolean;createdAt:string};
 type Health={adminApi:boolean;auth:boolean;userStore:boolean};
@@ -76,6 +77,11 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
   const [customSettings,setCustomSettings]=useState(false);
   const [systemSettings,setSystemSettings]=useState<AdminSettings>(FALLBACK_SETTINGS);
   const [logs,setLogs]=useState<AuditLog[]>([]);
+  const [historyRows,setHistoryRows]=useState<AdminHistoryRow[]>([]);
+  const [historyDays,setHistoryDays]=useState<7|30>(30);
+  const [historySearch,setHistorySearch]=useState('');
+  const [historyLoading,setHistoryLoading]=useState(false);
+  const [historyError,setHistoryError]=useState('');
   const [health,setHealth]=useState<Health>();
   const [adminBusy,setAdminBusy]=useState('');
   const [support,setSupport]=useState<SupportSession|null>(null);
@@ -111,6 +117,7 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
     });
   },[users,query,role,userStatus,userSort]);
   const userFiltersActive=!!query.trim()||role!=='all'||userStatus!=='all'||userSort!=='name';
+  const filteredHistory=useMemo(()=>filterHistory(historyRows,historySearch),[historyRows,historySearch]);
   const screenConnectionLabel=screenStream?'Canlı':screenFrame?'Canlı · yedek bağlantı':({idle:'Hazır',waiting:'Kullanıcı onayı bekleniyor',connecting:'Bağlanıyor…',connected:'Canlı',failed:'Bağlantı kurulamadı'}[screenConnection]);
   function resetScreenView(){
     screenPeer.current?.close();screenPeer.current=null;screenOfferKey.current='';
@@ -177,7 +184,7 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
     finally{setUsersLoading(false)}
   }
   useEffect(()=>{if(auth==='allowed'){void loadUsers();void loadHealth();void loadSystemSettings();void loadChats()}},[auth]);
-  useEffect(()=>{if(section==='logs'||section==='overview')void loadLogs();if(section==='system')void loadHealth();if(section==='messages')void loadChats()},[section]);
+  useEffect(()=>{if(auth!=='allowed')return;if(section==='logs'||section==='overview')void loadLogs();if(section==='system')void loadHealth();if(section==='messages')void loadChats();if(section==='history')void loadHistory(historyDays)},[section,auth,historyDays]);
   useEffect(()=>{
     if(auth!=='allowed')return;
     const timer=window.setInterval(()=>{void loadUsers();if(section==='messages'||section==='overview')void loadChats()},6000);
@@ -273,14 +280,34 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
   async function loadHealth(){try{const data=await getJson('/api/admin/health');setHealth(data)}catch{setHealth({adminApi:false,auth:false,userStore:false})}}
   async function loadSystemSettings(){try{const data=await getJson('/api/admin/settings');setSystemSettings(data.settings??FALLBACK_SETTINGS)}catch(e){setUsersError(e instanceof Error?e.message:String(e))}}
   async function loadLogs(){try{const data=await getJson('/api/admin/logs');setLogs(data.logs??[])}catch(e){setUsersError(e instanceof Error?e.message:String(e))}}
-  async function loadUserSettings(id:number){
+  async function loadHistory(days:7|30){
+    setHistoryLoading(true);setHistoryError('');
+    try{
+      const data=await getJson('/api/admin/history?days='+days);
+      setHistoryRows(Array.isArray(data.items)?data.items:[]);
+    }catch(error){
+      setHistoryRows([]);
+      setHistoryError(error instanceof Error?error.message:String(error));
+    }finally{setHistoryLoading(false)}
+  }
+  function exportHistory(){
+    if(!filteredHistory.length||historyLoading)return;
+    const blob=new Blob([historyCsv(filteredHistory)],{type:'text/csv;charset=utf-8'});
+    const url=URL.createObjectURL(blob),anchor=document.createElement('a');
+    anchor.href=url;anchor.download='serula-islem-gecmisi-'+historyDays+'-gun.csv';
+    document.body.appendChild(anchor);anchor.click();anchor.remove();
+    window.setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }
+  async function loadUserSettings(id:number):Promise<boolean>{
     setSelectedUserId(id);setAdminBusy('user-settings');setUsersError('');setSupport(null);
-    try{const data=await getJson(`/api/admin/users/${id}/settings`);setUserSettings(data.settings??systemSettings);setCustomSettings(!!data.custom);await loadSupport(id)}
-    catch(e){setUsersError(e instanceof Error?e.message:String(e))}
+    try{const data=await getJson(`/api/admin/users/${id}/settings`);setUserSettings(data.settings??systemSettings);setCustomSettings(!!data.custom);await loadSupport(id);return true;}
+    catch(e){setUsersError(e instanceof Error?e.message:String(e));return false;}
     finally{setAdminBusy('')}
   }
   async function saveUserSettings(){
-    if(!selectedUserId)return;setAdminBusy('user-settings');setUsersError('');
+    if(!selectedUserId)return;
+    if(!validAdminSettings(userSettings)){setUsersError('Geçerli malzeme genişliği ve parça aralığı girin.');return;}
+    setAdminBusy('user-settings');setUsersError('');
     try{const data=await getJson(`/api/admin/users/${selectedUserId}/settings`,{method:'POST',body:JSON.stringify({settings:userSettings})});setUserSettings(data.settings);setCustomSettings(true);setUserNotice(support?.status==='approved'?'Ayarlar kaydedildi ve kullanıcının açık Serula oturumuna uygulanıyor.':'Kullanıcıya özel varsayılanlar kaydedildi.')}
     catch(e){setUsersError(e instanceof Error?e.message:String(e))}
     finally{setAdminBusy('')}
@@ -313,6 +340,7 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
     finally{setAdminBusy('')}
   }
   async function saveSystemSettings(){
+    if(!validAdminSettings(systemSettings)){setUsersError('Geçerli malzeme genişliği ve parça aralığı girin.');return;}
     setAdminBusy('system-settings');setUsersError('');
     try{const data=await getJson('/api/admin/settings',{method:'POST',body:JSON.stringify({settings:systemSettings})});setSystemSettings(data.settings);setUserNotice('Sistem varsayılanları kaydedildi.')}
     catch(e){setUsersError(e instanceof Error?e.message:String(e))}
@@ -430,7 +458,7 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
               <svg aria-hidden="true" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
               <input value={query} onChange={e=>setQuery(e.target.value)} placeholder="İsim veya e-posta ara…" aria-label="Kullanıcı ara"/>
             </div>
-            <label className="sd-select-field"><span>Rol</span><select aria-label="Kullanıcı rolü" value={role} onChange={e=>setRole(e.target.value as 'all'|'admin'|'operator')}><option value="all">Tüm roller</option><option value="admin">Yönetici</option><option value="operator">Operatör</option></select></label>
+            <label className="sd-select-field"><span>Rol</span><select aria-label="Kullanıcı rolü" value={role} onChange={e=>setRole(e.target.value as 'all'|'admin'|'operator')}><option value="all">Tüm roller</option><option value="admin">Yönetici</option><option value="operator">Normal kullanıcı</option></select></label>
             <label className="sd-select-field"><span>Durum</span><select aria-label="Kullanıcı durumu" value={userStatus} onChange={e=>setUserStatus(e.target.value as UserStatusFilter)}><option value="all">Tüm durumlar</option><option value="online">Çevrim içi</option><option value="offline">Çevrim dışı</option></select></label>
             <label className="sd-select-field"><span>Sırala</span><select aria-label="Kullanıcı sıralaması" value={userSort} onChange={e=>setUserSort(e.target.value as UserSort)}><option value="name">İsme göre</option><option value="recent">Son girişe göre</option><option value="credits">Hak sayısına göre</option></select></label>
           </div>
@@ -443,10 +471,10 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
           <div className="admin-table" role="table" aria-label="Kullanıcı listesi"><div className="admin-table-head" role="row"><span role="columnheader">Kullanıcı</span><span role="columnheader">Rol / Giriş</span><span role="columnheader">Yerleştirme hakkı</span><span role="columnheader">Lisans</span><span role="columnheader">İşlemler</span></div>
             {usersLoading?<Empty title="Yükleniyor">Kullanıcı bilgileri D1 veritabanından alınıyor.</Empty>:filteredUsers.length?filteredUsers.map(user=><div className="admin-user-row" role="row" key={user.id}>
               <span role="cell" className="admin-user-identity"><strong>{user.online&&<i className="admin-presence-tick" aria-label="Çevrim içi">✓</i>}{user.name||'İsimsiz'}</strong><small>{user.email}</small><span className={'sd-user-status '+(user.online?'sd-user-status-online':'sd-user-status-offline')}>{user.online?'Çevrim içi':'Çevrim dışı'}</span><small>{user.online?'Şu anda çevrim içi':user.lastLoginAt?'Son giriş: '+new Date(user.lastLoginAt).toLocaleString(localeTag(locale)):'Henüz giriş yok'}</small></span>
-              <span role="cell"><strong>{user.role==='admin'?'Yönetici':'Kullanıcı'}</strong><small>{user.authProvider==='google'?'Google / Gmail':'E-posta'}</small></span>
-              <span role="cell" className="admin-user-quota"><div className="admin-switch-row"><label className="switch"><input type="checkbox" checked={user.unlimited} disabled={savingUserId===user.id} onChange={e=>void setUnlimited(user,e.target.checked)}/><span className="slider"><span className="glow"/><span className="icon-on">✓</span><span className="icon-off">○</span></span></label><span>Kotasız / Sınırsız</span></div>{!user.unlimited&&<label>Hak<input aria-label={user.email+' yerleştirme hakkı'} type="number" min="0" max="100000" defaultValue={user.credits} key={user.id+'-'+user.credits} onBlur={e=>{const value=Math.max(0,Math.trunc(e.currentTarget.valueAsNumber||0));if(value!==user.credits)void saveCredits(user,value)}}/></label>}</span>
-              <span role="cell" className="admin-user-license"><strong>{user.licenseExpiresAt?(user.licenseExpired?'Süresi doldu · ':'Bitiş · ')+new Date(user.licenseExpiresAt).toLocaleDateString(localeTag(locale)):'Süresiz'}</strong><small>{user.licenseStartedAt?'Başlangıç: '+new Date(user.licenseStartedAt).toLocaleDateString(localeTag(locale)):'Lisans süresi sınırlandırılmamış'}</small><div className="admin-license-controls"><select aria-label={user.email+' hızlı lisans süresi'} defaultValue="" disabled={savingUserId===user.id} onChange={e=>{const days=Number(e.currentTarget.value);if(days>0)void setLicenseDays(user,days);e.currentTarget.value=''}}><option value="">Süre ver…</option><option value="7">7 gün</option><option value="30">30 gün</option><option value="90">90 gün</option><option value="180">180 gün</option><option value="365">1 yıl</option></select><input key={user.id+'-'+String(user.licenseExpiresAt)} aria-label={user.email+' özel lisans günü'} type="number" min="1" max="36500" placeholder="Özel gün" disabled={savingUserId===user.id} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur()}} onBlur={e=>{const days=Math.trunc(e.currentTarget.valueAsNumber);if(Number.isFinite(days)&&days>0)void setLicenseDays(user,days)}}/><button type="button" disabled={savingUserId===user.id||!user.licenseExpiresAt} onClick={()=>void setLicenseDays(user,null)}>Süresiz</button></div></span>
-              <span role="cell" className="admin-user-actions"><button type="button" className={user.corelTransferEnabled?'primary corel-transfer-toggle':'corel-transfer-toggle'} aria-pressed={!!user.corelTransferEnabled} aria-label={user.email+' CorelDRAW aktarımını '+(user.corelTransferEnabled?'kapat':'aç')} title="CorelDRAW aktarım yetkisi" disabled={savingUserId===user.id} onClick={()=>void setCorelPermission(user,!user.corelTransferEnabled)}>CorelDRAW {user.corelTransferEnabled?'Kapat':'Aç'}</button><button className={user.testDxfEnabled?'primary':''} onClick={()=>void setTestDxf(user,!user.testDxfEnabled)} disabled={savingUserId===user.id}>{user.testDxfEnabled?'Test DXF Kapat':'Test DXF Aç'}</button><button onClick={()=>{setSection('user-settings');void loadUserSettings(user.id)}}>Ayarlar</button><button onClick={()=>{setSection('messages');void loadChat(user.id)}}>Mesajlar</button><button className="screen-support-button" onClick={()=>{setSection('user-settings');void loadUserSettings(user.id).then(()=>requestSupport('screen',user.id))}}>Ekrana bağlan</button><button onClick={()=>void sendPasswordReset(user)} disabled={resettingUserId===user.id}>{resettingUserId===user.id?'Gönderiliyor…':'Şifre sıfırla'}</button><button className="danger-button" onClick={()=>void deleteUser(user)} disabled={savingUserId===user.id}>{savingUserId===user.id?'Siliniyor…':'Kullanıcıyı sil'}</button></span>
+              <span role="cell"><strong>{user.role==='admin'?'Yönetici':'Kullanıcı'}</strong><small>{user.emailVerified===false?'E-posta onayı bekleniyor':user.authProvider==='google'?'Google / Gmail':'E-posta'}</small></span>
+              <span role="cell" className="admin-user-quota"><div className="admin-switch-row"><label className="switch"><input type="checkbox" checked={user.unlimited} disabled={savingUserId===user.id} onChange={e=>void setUnlimited(user,e.target.checked)}/><span className="slider"><span className="glow"/><span className="icon-on">✓</span><span className="icon-off">○</span></span></label><span>Kotasız / Sınırsız</span></div>{!user.unlimited&&<label>Hak<input aria-label={user.email+' yerleştirme hakkı'} type="number" min="0" max="100000" defaultValue={user.credits} key={user.id+'-'+user.credits} onBlur={e=>{const value=parseCredits(e.currentTarget.value);if(value===null){setUsersError('Hak sayısı 0–100000 arasında tam sayı olmalıdır.');e.currentTarget.value=String(user.credits)}else if(value!==user.credits)void saveCredits(user,value)}}/></label>}</span>
+              <span role="cell" className="admin-user-license"><strong>{user.licenseExpiresAt?(user.licenseExpired?'Süresi doldu · ':'Bitiş · ')+new Date(user.licenseExpiresAt).toLocaleDateString(localeTag(locale)):'Süresiz'}</strong><small>{user.licenseStartedAt?'Başlangıç: '+new Date(user.licenseStartedAt).toLocaleDateString(localeTag(locale)):'Lisans süresi sınırlandırılmamış'}</small><div className="admin-license-controls"><select aria-label={user.email+' hızlı lisans süresi'} defaultValue="" disabled={savingUserId===user.id} onChange={e=>{const days=Number(e.currentTarget.value);if(days>0)void setLicenseDays(user,days);e.currentTarget.value=''}}><option value="">Süre ver…</option><option value="7">7 gün</option><option value="30">30 gün</option><option value="90">90 gün</option><option value="180">180 gün</option><option value="365">1 yıl</option></select><input key={user.id+'-'+String(user.licenseExpiresAt)} aria-label={user.email+' özel lisans günü'} type="number" min="1" max="36500" placeholder="Özel gün" disabled={savingUserId===user.id} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur()}} onBlur={e=>{const days=e.currentTarget.valueAsNumber;if(e.currentTarget.value.trim()&&!Number.isInteger(days)){setUsersError('Lisans süresi tam sayı olmalıdır.');e.currentTarget.value=''}else if(Number.isInteger(days)&&days>=1&&days<=36500)void setLicenseDays(user,days)}}/><button type="button" disabled={savingUserId===user.id||!user.licenseExpiresAt} onClick={()=>void setLicenseDays(user,null)}>Süresiz</button></div></span>
+              <span role="cell" className="admin-user-actions"><button type="button" className={user.corelTransferEnabled?'primary corel-transfer-toggle':'corel-transfer-toggle'} aria-pressed={!!user.corelTransferEnabled} aria-label={user.email+' CorelDRAW aktarımını '+(user.corelTransferEnabled?'kapat':'aç')} title="CorelDRAW aktarım yetkisi" disabled={savingUserId===user.id} onClick={()=>void setCorelPermission(user,!user.corelTransferEnabled)}>CorelDRAW {user.corelTransferEnabled?'Kapat':'Aç'}</button><button className={user.testDxfEnabled?'primary':''} onClick={()=>void setTestDxf(user,!user.testDxfEnabled)} disabled={savingUserId===user.id}>{user.testDxfEnabled?'Test DXF Kapat':'Test DXF Aç'}</button><button onClick={()=>{setSection('user-settings');void loadUserSettings(user.id)}}>Ayarlar</button><button onClick={()=>{setSection('messages');void loadChat(user.id)}}>Mesajlar</button><button className="screen-support-button" onClick={()=>{setSection('user-settings');void loadUserSettings(user.id).then(ok=>{if(ok)return requestSupport('screen',user.id)})}}>Ekrana bağlan</button><button onClick={()=>void sendPasswordReset(user)} disabled={resettingUserId===user.id}>{resettingUserId===user.id?'Gönderiliyor…':'Şifre sıfırla'}</button><button className="danger-button" onClick={()=>void deleteUser(user)} disabled={savingUserId===user.id}>{savingUserId===user.id?'Siliniyor…':'Kullanıcıyı sil'}</button></span>
             </div>):<Empty title="Kullanıcı bulunamadı">Filtreye uyan kullanıcı yok.</Empty>}
           </div>
         </section>}
@@ -474,7 +502,7 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
 
         {section==='roles'&&<section className="admin-grid-two">
           <article className="admin-card"><div className="admin-card-head"><h2>Yönetici</h2><span className="admin-badge">Tam erişim</span></div><ul className="admin-check-list"><li>✓ Kullanıcı yönetimi</li><li>✓ Sistem varsayılanları</li><li>✓ Log ve geçmiş</li><li>✓ Kullanıcı ayarlarını kilitleme</li></ul></article>
-          <article className="admin-card"><div className="admin-card-head"><h2>Operatör</h2><span className="admin-badge muted">Sınırlı</span></div><ul className="admin-check-list"><li>✓ DXF içe aktarma</li><li>✓ Yerleştirme çalıştırma</li><li>✓ DXF dışa aktarma</li><li>— Yönetici erişimi yok</li></ul></article>
+          <article className="admin-card"><div className="admin-card-head"><h2>Normal kullanıcı</h2><span className="admin-badge muted">Sınırlı</span></div><ul className="admin-check-list"><li>✓ DXF içe aktarma</li><li>✓ Yerleştirme çalıştırma</li><li>✓ DXF dışa aktarma (hak ve lisansa bağlı)</li><li>— Yönetici erişimi yok</li></ul></article>
           <article className="admin-card admin-span-two"><Empty title="Rol düzenleme sunucu bağlantısı gerektiriyor">Yetki değişiklikleri istemci tarafında taklit edilmeyecek; güvenli API bağlandığında bu bölüm aktif olacak.</Empty></article>
         </section>}
 
@@ -514,9 +542,21 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
         </section>}
 
         {section==='history'&&<section className="admin-card">
-          <div className="admin-card-head"><div><h2>İşlem Geçmişi</h2><p>Yerleştirme, proje ve dışa aktarma kayıtları.</p></div><button disabled>Dışa aktar</button></div>
-          <div className="admin-toolbar"><input placeholder="Proje veya kullanıcı ara…" disabled/><select disabled><option>Son 30 gün</option></select></div>
-          <Empty title="Geçmiş kaydı yok">Sunucu kayıt altyapısı bağlandığında işlem süresi, malzeme kullanımı, plaka sayısı ve kullanıcı bilgisi burada görünecek.</Empty>
+          <div className="admin-card-head"><div><h2>İşlem Geçmişi</h2><p>Son {historyDays} günün kayıtlı yerleştirme ve dışa aktarma hareketleri.</p></div><div className="admin-save-row"><button type="button" onClick={()=>void loadHistory(historyDays)} disabled={historyLoading}>↻ Yenile</button><button type="button" onClick={exportHistory} disabled={!filteredHistory.length||historyLoading}>Dışa aktar (CSV)</button></div></div>
+          <div className="admin-toolbar"><input aria-label="Geçmişte ara" placeholder="Proje veya kullanıcı ara…" value={historySearch} onChange={e=>setHistorySearch(e.target.value)}/><select aria-label="Geçmiş tarih aralığı" value={historyDays} onChange={e=>setHistoryDays(Number(e.target.value) as 7|30)}><option value={7}>Son 7 gün</option><option value={30}>Son 30 gün</option></select></div>
+          {historyError&&<p role="alert" className="field-error">{historyError}</p>}
+          <p className="admin-history-count" role="status">{historyLoading?'Geçmiş yükleniyor…':filteredHistory.length+' / '+historyRows.length+' işlem görüntüleniyor'}</p>
+          {historyLoading?<Empty title="Geçmiş yükleniyor">İşlemler sunucudan alınıyor.</Empty>:filteredHistory.length?
+            <div className="admin-table" role="table" aria-label="Yerleştirme geçmişi">
+              <div className="admin-table-head" role="row"><span role="columnheader">Tarih</span><span role="columnheader">Kullanıcı</span><span role="columnheader">Proje</span><span role="columnheader">Kaynak</span><span role="columnheader">Hak</span></div>
+              {filteredHistory.map(entry=><div className="admin-user-row" role="row" key={entry.id}>
+                <span role="cell">{new Date(entry.createdAt).toLocaleString(localeTag(locale))}</span>
+                <span role="cell"><strong>{entry.name||entry.email}</strong><small>{entry.email}</small></span>
+                <span role="cell">{entry.projectName||'İsimsiz proje'}</span>
+                <span role="cell">{entry.sourceFileName||'—'}</span>
+                <span role="cell">{entry.usedCredit}</span>
+              </div>)}
+            </div>:<Empty title="İşlem bulunamadı">Seçilen tarih aralığında kayıtlı işlem yok.</Empty>}
         </section>}
 
         {section==='logs'&&<section className="admin-card">
