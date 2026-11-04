@@ -6,6 +6,7 @@ import './studio-dashboard.css';
 import './slate-ambience.css';
 import './compact-workspace.css';
 import './otp-form.css';
+import './admin-compact-controls.css';
 
 
 
