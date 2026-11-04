@@ -81,12 +81,13 @@ export function validate(doc: Document, result: Result, serialized?: WorldPart[]
     }else if(result.usedLengthMm>LIMITS.extent) throw Error('Used length must be at most 100,000 mm.');
     if(!Array.isArray(result.placements) || result.placements.length!==doc.parts.reduce((n,p)=>n+p.quantity,0)) throw Error('Layout does not contain exactly the demanded copies.');
     const parts=new Map(doc.parts.map(p=>[p.id,p]));
+    const originals=new Map((doc.placements??[]).map(copy=>[`${copy.partId}:${copy.copyIndex}`,copy] as const));
     const seen=new Set<string>();
     for(const p of result.placements) {
       const part=parts.get(p.partId);
       if(!part || !Number.isInteger(p.copyIndex) || p.copyIndex<0 || p.copyIndex>=part.quantity) throw Error('Unknown part or copy index.');
-      if(Object.keys(p).some(k=>!['partId','copyIndex','xMm','yMm','angleDeg','mirrorX','mirrorY','sheetIndex'].includes(k))) throw Error('Placement contains an unsupported transform.');
-      if(![p.xMm,p.yMm,p.angleDeg].every(Number.isFinite)||(p.mirrorX!==undefined&&typeof p.mirrorX!=='boolean')||(p.mirrorY!==undefined&&typeof p.mirrorY!=='boolean')) throw Error('Placement contains an invalid transform.');
+      if(Object.keys(p).some(k=>!['partId','copyIndex','xMm','yMm','angleDeg','mirrorX','mirrorY','orientationLocked','sheetIndex'].includes(k))) throw Error('Placement contains an unsupported transform.');
+      if(![p.xMm,p.yMm,p.angleDeg].every(Number.isFinite)||(p.mirrorX!==undefined&&typeof p.mirrorX!=='boolean')||(p.mirrorY!==undefined&&typeof p.mirrorY!=='boolean')||(p.orientationLocked!==undefined&&typeof p.orientationLocked!=='boolean')) throw Error('Placement contains an invalid transform.');
       if(doc.settings.materialType==='sheet') {
         const sheetCount=result.sheetCount??1;
         const sheetIndex=p.sheetIndex??0;
@@ -95,7 +96,15 @@ export function validate(doc: Document, result: Result, serialized?: WorldPart[]
       const key=JSON.stringify([p.partId,p.copyIndex]);
       if(seen.has(key)) throw Error('Duplicate part copy.');
       seen.add(key);
-      if(part.rotations.kind==='discrete' && !part.rotations.degrees.some(a=>Math.abs(((p.angleDeg-a)%360+540)%360-180)<=POLICY.angleDeg)) throw Error(`Disallowed rotation for ${part.name}.`);
+      const manual=originals.get(`${p.partId}:${p.copyIndex}`);
+      if(!!p.mirrorX!==!!manual?.mirrorX||!!p.mirrorY!==!!manual?.mirrorY)
+        throw Error(`Mirroring was not preserved for ${part.name}.`);
+      if(!!p.orientationLocked!==!!manual?.orientationLocked)
+        throw Error(`Manual orientation lock was not preserved for ${part.name}.`);
+      if(manual?.orientationLocked){
+        if(Math.abs(((p.angleDeg-manual.angleDeg)%360+540)%360-180)>POLICY.angleDeg)
+          throw Error(`Manual orientation was not honored for ${part.name}.`);
+      }else if(part.rotations.kind==='discrete' && !part.rotations.degrees.some(a=>Math.abs(((p.angleDeg-a)%360+540)%360-180)<=POLICY.angleDeg)) throw Error(`Disallowed rotation for ${part.name}.`);
     }
     const expected=worldParts(doc,result),world=serialized ?? expected,collision=collisionWorldRings(doc,result);
     if(world.length!==result.placements.length) throw Error('Serialized contour count differs from the layout.');
