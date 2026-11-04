@@ -3,7 +3,7 @@
  * Scoped: does not change login, admin, nesting controls or other inputs.
  */
 #root .auth-screen.shadcn-auth .auth-card.serula-otp-form{
-  width:min(340px,calc(100vw - 32px));
+  width:min(290px,calc(100vw - 32px));
   min-height:380px;
   height:auto;
   display:flex;
