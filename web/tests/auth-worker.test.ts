@@ -314,3 +314,70 @@ describe('Mandatory email activation OTP',()=>{
     env.sqlite.close();
   });
 });
+
+describe('Administrative history and permission controls',()=>{
+  async function adminCookie(env:any){
+    const login=await call(env,'/api/auth/admin-login',{email:'m93hasan@icloud.com',password:env.ADMIN_PASSWORD});
+    expect(login.status).toBe(200);
+    return login.headers.get('set-cookie')!.split(';')[0];
+  }
+  it('denies anonymous users historical data and returns real export usage to authorized admin',async()=>{
+    const env={...database(),ADMIN_PASSWORD:'test-admin-password'};
+    const userCookie=await account(env);
+    expect((await call(env,'/api/export/authorize',{...payload,sourceFileName:'test.dxf'},userCookie)).status).toBe(200);
+    expect((await call(env,'/api/admin/history?days=30')).status).toBe(403);
+    expect((await call(env,'/api/admin/history?days=30',undefined,userCookie)).status).toBe(403);
+    const cookie=await adminCookie(env);
+    const response=await call(env,'/api/admin/history?days=30',undefined,cookie);
+    expect(response.status).toBe(200);
+    const data=await response.json();
+    expect(data.items).toHaveLength(1);
+    expect(data.items[0]).toMatchObject({email:'test@example.com',projectName:'Project',sourceFileName:'test.dxf',usedCredit:1});
+    expect((await call(env,'/api/admin/history?days=999',undefined,cookie)).status).toBe(400);
+    env.sqlite.close();
+  });
+
+  it('rejects malformed credit values without resetting real user credits',async()=>{
+    const env={...database(),ADMIN_PASSWORD:'test-admin-password'};
+    await account(env);
+    const cookie=await adminCookie(env);
+    for(const credits of ['',null,'2','abc',-1,4.5,100001,Number.MAX_SAFE_INTEGER]){
+      expect((await call(env,'/api/admin/users/1/credits',{credits},cookie)).status).toBe(400);
+      expect(env.sqlite.prepare('SELECT nesting_credits FROM users WHERE id=1').get()?.nesting_credits).toBe(5);
+    }
+    expect((await call(env,'/api/admin/users/1/credits',{credits:0},cookie)).status).toBe(200);
+    expect(env.sqlite.prepare('SELECT nesting_credits FROM users WHERE id=1').get()?.nesting_credits).toBe(0);
+    env.sqlite.close();
+  });
+
+  it('requires actual booleans for privileged access switches',async()=>{
+    const env={...database(),ADMIN_PASSWORD:'test-admin-password'};
+    await account(env);
+    const cookie=await adminCookie(env);
+    expect((await call(env,'/api/admin/users/1/unlimited',{unlimited:'false'},cookie)).status).toBe(400);
+    expect((await call(env,'/api/admin/users/1/test-dxf',{enabled:'true'},cookie)).status).toBe(400);
+    expect(env.sqlite.prepare('SELECT unlimited FROM users WHERE id=1').get()?.unlimited).toBe(0);
+    expect((await call(env,'/api/admin/users/1/unlimited',{unlimited:true},cookie)).status).toBe(200);
+    expect((await call(env,'/api/admin/users/1/test-dxf',{enabled:true},cookie)).status).toBe(200);
+    env.sqlite.close();
+  });
+
+  it('shows pending activation only when verification table exists',async()=>{
+    const env={...database(),ADMIN_PASSWORD:'test-admin-password'};
+    await account(env);
+    const cookie=await adminCookie(env);
+    const before=await (await call(env,'/api/admin/users',undefined,cookie)).json();
+    expect(before.users[0].emailVerified).toBe(true);
+    env.sqlite.exec("INSERT INTO email_verifications(user_id,challenge_hash,code_hash,expires_at,attempts,sent_at,window_started_at,window_count) VALUES(1,'f','g','2099-01-01',0,'2020-01-01','2020-01-01',1)");
+    const pending=await (await call(env,'/api/admin/users',undefined,cookie)).json();
+    expect(pending.users[0].emailVerified).toBe(false);
+    env.sqlite.close();
+  });
+  it('never resets settings for an unknown user',async()=>{
+    const env={...database(),ADMIN_PASSWORD:'test-admin-password'};
+    const cookie=await adminCookie(env);
+    const result=await worker.fetch(new Request('https://serula.site/api/admin/users/999/settings',{method:'DELETE',headers:{origin:'https://serula.site',cookie}}),env);
+    expect(result.status).toBe(404);
+    env.sqlite.close();
+  });
+});
