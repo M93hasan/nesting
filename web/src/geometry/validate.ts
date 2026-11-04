@@ -97,7 +97,7 @@ export function validate(doc: Document, result: Result, serialized?: WorldPart[]
       if(seen.has(key)) throw Error('Duplicate part copy.');
       seen.add(key);
       const manual=originals.get(`${p.partId}:${p.copyIndex}`);
-      if(!!p.mirrorX!==!!manual?.mirrorX||!!p.mirrorY!==!!manual?.mirrorY)
+      if((manual?.mirrorX!==undefined&&!!p.mirrorX!==manual.mirrorX)||(manual?.mirrorY!==undefined&&!!p.mirrorY!==manual.mirrorY))
         throw Error(`Mirroring was not preserved for ${part.name}.`);
       if(!!p.orientationLocked!==!!manual?.orientationLocked)
         throw Error(`Manual orientation lock was not preserved for ${part.name}.`);
