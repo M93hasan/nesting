@@ -251,7 +251,7 @@
 }
 
 /* Keep the studio description on one line when the desktop caption is shown. */
-@media (min-width:1100px) {
+@media (min-width:1301px) {
   :root #root .app.shadcn-studio .studio-canvas-context {
     max-width:none;
     white-space:nowrap;
