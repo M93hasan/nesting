@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { DEFAULT_SETTINGS, rotationSummary, type Document, type Part, type Point, type Result, type RotationRule } from './model';
 import { bounds } from './geometry/normalize';
-import { netArea } from './geometry/validate';
+import { safeFullPlateQuantity } from './geometry/fullPlate';
 import { pathData } from './geometry/path';
 import { geometryTask } from './workers/geometryTask';
 import {loadExample} from './datasets';
@@ -21,7 +21,7 @@ import {authorizeExport} from './AuthGate';
 import {displayLength,unitScale,type DisplayUnit} from './units';
 import {selectionBounds,type GeometryEdit} from './geometry/manipulate';
 import {isEditableTarget,preparationShortcut} from './geometry/gestures';
-import {applySeriesMultiplier,copyRefsFor,documentPlacements,duplicateCopies,mirrorPlacements,removeCopies,rotatePlacements,rotateToNextOrientation,setPlacementAngles,movePlacements,placementLayoutsEqual,syncQuantity,updatePlacements,withDocumentPlacements,type CopyRef} from './geometry/placements';
+import {applySeriesMultiplier,copyRefsFor,documentPlacements,duplicateCopies,mirrorPlacements,removeCopies,rotatePlacements,rotateToNextOrientation,setPlacementAngles,releasePlacementAngleLocks,movePlacements,placementLayoutsEqual,syncQuantity,updatePlacements,withDocumentPlacements,type CopyRef} from './geometry/placements';
 import {LanguageSelect} from './i18n';
 import {productionTotals} from './geometry/production';
 
@@ -45,6 +45,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   // Safari clears the focus selection on mouse-up; preserve it for the first click only.
   const partAnchor=useRef(0),focusClick=useRef<HTMLInputElement|null>(null);
   const clipboardParts=useRef<string[]>([]);
+  const fullPlateUndo=useRef<{before:Document;selection:CopyRef[];unused:string[]}|undefined>(undefined);
   const [busy,setBusy]=useState(false),[error,setError]=useState(initialError);
   const [fitRequest,setFitRequest]=useState(0);
   const [resultMode,setResultMode]=useState<'live'|'checked'>('live');
@@ -246,6 +247,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   },[running,result,doc]);
   useEffect(()=>{if(!running&&result)setResultMode('checked');},[running,result]);
   function commit(next:Document,geometry=true,field?:string) {
+    if(field!=='full-plate')fullPlateUndo.current=undefined;
     const parts=new Map(next.parts.map(part=>[part.id,part]));
     const placements=next.placements?.filter(copy=>parts.has(copy.partId)&&copy.copyIndex<(Number.isInteger(parts.get(copy.partId)!.quantity)?Math.max(0,parts.get(copy.partId)!.quantity):1));
     let canonical:Document;
@@ -294,6 +296,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   }
   function restore(redo=false) {
     if(locked) return;
+    fullPlateUndo.current=undefined;
     fieldEdit.current=undefined;
     const from=redo?future:history,to=redo?history:future,entry=from.current.pop();
     if(!entry) return;
@@ -388,20 +391,23 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   });
   async function fullPlateSelected() {
     if(locked||selected.length!==1||!chosen)return;
-    if((doc.settings.materialType??'roll')!=='sheet') {setError('Tam plaka için malzeme tipini Plaka seçin.');return;}
-    const plateLength=doc.settings.materialLengthMm;
-    if(typeof plateLength!=='number'||!Number.isFinite(plateLength)||plateLength<=0){setError('Geçerli bir plaka uzunluğu girin.');return;}
-    const clearance=doc.settings.clearanceMm;
-    const usableWidth=doc.settings.materialWidthMm-2*clearance;
-    const usableLength=plateLength-2*clearance;
-    const area=netArea(chosen);
-    if(!(usableWidth>0&&usableLength>0&&area>0)) {setError('Tam plaka için plaka ölçülerini ve parça geometrisini kontrol edin.');return;}
-    const quantity=Math.max(1,Math.min(500,Math.floor((usableWidth*usableLength)/area)));
-    const next=syncQuantity({...doc,parts:doc.parts.map(part=>({...part,quantity:part.id===chosen.id?quantity:0}))});
-    commit(next);
-    setUnusedSelection(doc.parts.filter(part=>part.id!==chosen.id).map(part=>part.id));
-    setSelectedCopies(copyRefsFor(next,[chosen.id]));
-    await run(next,revision+1);
+    try {
+      const quantity=safeFullPlateQuantity(doc,chosen);
+      if(quantity===chosen.quantity){setError('Seçili parça zaten hesaplanan güvenli plaka kapasitesinde.');return;}
+      const next=syncQuantity({...doc,parts:doc.parts.map(part=>part.id===chosen.id?{...part,quantity}:part)});
+      const before={before:doc,selection:selectedCopies,unused:unusedSelection};
+      commit(next,true,'full-plate');
+      fullPlateUndo.current=before;
+      setSelectedCopies(copyRefsFor(next,[chosen.id]));
+      await run(next,revision+1);
+    }catch(error){setError(error instanceof Error?error.message:String(error));}
+  }
+  function undoFullPlate() {
+    const snapshot=fullPlateUndo.current;
+    if(locked||!snapshot)return;
+    commit(snapshot.before,true,'full-plate-undo');
+    setSelectedCopies(snapshot.selection);
+    setUnusedSelection(snapshot.unused);
   }
   async function run(document=doc,rev=revision) {
     const missingRotation=document.parts.find(part=>part.quantity>0&&!validRotationRule(part.rotations));
@@ -476,6 +482,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     setUnusedSelection([]);setSelectedCopies(copyRefsFor(next,parts.map(part=>part.id)));setImportWarnings(previous=>[...previous,...warnings]);
   }
   function switchProject(next:ProjectSwitch) {
+    fullPlateUndo.current=undefined;
     cancelDefaultExample();
     const nextRevision=revision+1,checked=next.result?{...next.result,documentRevision:nextRevision}:undefined;
     const normalizedDocument={...next.document,parts:next.document.parts.map(part=>({...part,rotations:normalizedRotationRule(part.rotations)}))};
@@ -536,6 +543,11 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   function setSelectionAngle(degrees:number) {
     if(locked||!selectedRefs.length||!Number.isFinite(degrees))return;
     const next=setPlacementAngles(canvasDocument,selectedRefs,degrees);
+    if(!placementLayoutsEqual(canvasDocument,next))commit(next);
+  }
+  function unlockSelectionAngles() {
+    if(locked||!selectedRefs.length)return;
+    const next=releasePlacementAngleLocks(canvasDocument,selectedRefs);
     if(!placementLayoutsEqual(canvasDocument,next))commit(next);
   }
   function mirrorSelection(axis:'x'|'y') {
@@ -666,8 +678,8 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         <button className="danger-button clear-all-parts" disabled={locked||!doc.parts.length} onClick={()=>commit({...doc,parts:[]})}>Tümünü sil</button>
 
         <details className="part-properties-inline part-properties-disclosure" aria-label="Parça özellikleri"><summary>Parça özellikleri</summary><div className="part-settings">{chosen?<>{selected.length===1?<label>Ad<input data-undo-field value={chosen.name} disabled={locked} onChange={e=>editPart({name:e.target.value},false,`name:${chosen.id}`)}/></label>:<h2>{selected.length} parça seçildi</h2>}
-          {selectedBox?<SelectionControls key={JSON.stringify(selectedCopies)} unit={unit} box={selectedBox} disabled={locked} sizeLocked={selected.some(id=>doc.parts.some(part=>part.id===id&&(part.source.format==='dxf'||part.source.format==='plt')))} angle={selectedTransform.angle} mirroredX={selectedTransform.mirrorX} mirroredY={selectedTransform.mirrorY} onPosition={positionSelection} onSize={(axis,value)=>void transformSelection({kind:'scale',factor:value/(selectedBox[axis+2]-selectedBox[axis]),pivot:[selectedBox[0],selectedBox[1]]})} onSetAngle={setSelectionAngle} onRotate={degrees=>void transformSelection({kind:'rotate',degrees,pivot:[(selectedBox[0]+selectedBox[2])/2,(selectedBox[1]+selectedBox[3])/2]})} onMirror={mirrorSelection} onValidity={setSizeValid}/>:<p className="muted">Kopya seçilmedi. Bu parçayı taşımak veya boyutlandırmak için adet alanından bir kopya ekleyin.</p>}
-          {selected.length===1&&<div className="row-actions"><button className="primary" disabled={locked||(doc.settings.materialType??'roll')!=='sheet'} title={(doc.settings.materialType??'roll')!=='sheet'?'Önce malzeme tipini Plaka seçin.':'Seçili parçayı plakanın tamamına yerleştir.'} onClick={()=>void fullPlateSelected()}>Tam plaka</button><button disabled={locked||!history.current.length} onClick={()=>restore()}>Tam plaka iptal</button></div>}
+          {selectedBox?<SelectionControls key={JSON.stringify(selectedCopies)} unit={unit} box={selectedBox} disabled={locked} sizeLocked={selected.some(id=>doc.parts.some(part=>part.id===id&&(part.source.format==='dxf'||part.source.format==='plt')))} angle={selectedTransform.angle} angleLocked={selectedTransform.angleLocked} mirroredX={selectedTransform.mirrorX} mirroredY={selectedTransform.mirrorY} onPosition={positionSelection} onSize={(axis,value)=>void transformSelection({kind:'scale',factor:value/(selectedBox[axis+2]-selectedBox[axis]),pivot:[selectedBox[0],selectedBox[1]]})} onSetAngle={setSelectionAngle} onRotate={degrees=>void transformSelection({kind:'rotate',degrees,pivot:[(selectedBox[0]+selectedBox[2])/2,(selectedBox[1]+selectedBox[3])/2]})} onMirror={mirrorSelection} onUnlockAngle={unlockSelectionAngles} onValidity={setSizeValid}/>:<p className="muted">Kopya seçilmedi. Bu parçayı taşımak veya boyutlandırmak için adet alanından bir kopya ekleyin.</p>}
+          {selected.length===1&&<div className="row-actions"><button className="primary" disabled={locked||(doc.settings.materialType??'roll')!=='sheet'} title={(doc.settings.materialType??'roll')!=='sheet'?'Önce malzeme tipini Plaka seçin.':'Diğer parçalara dokunmadan seçili parçanın güvenli kopya kapasitesini hesaplar.'} onClick={()=>void fullPlateSelected()}>Tam plaka</button><button disabled={locked||!fullPlateUndo.current} onClick={undoFullPlate}>Tam plaka iptal</button></div>}
 
         </>:<p className="muted">Özelliklerini görmek için bir parça seçin.</p>}</div></details>
       </aside>
@@ -686,7 +698,10 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         <div className="panel-title"><h2>{"Malzeme ve Yerleşim"}</h2></div>
         <section className="settings material-settings">
           <div className="material-rotation">
-          <RotationControl key={JSON.stringify([selected,mixedRotations,chosen?.rotations])} rule={chosen?normalizedRotationRule(chosen.rotations):DEFAULT_ROTATIONS} mixed={!!chosen&&!!mixedRotations} disabled={locked||!chosen} required onChange={rotations=>{if(chosen)editPart({rotations})}}/>
+          <RotationControl key={JSON.stringify([selected,mixedRotations,chosen?.rotations])} rule={chosen?normalizedRotationRule(chosen.rotations):DEFAULT_ROTATIONS} mixed={!!chosen&&!!mixedRotations} disabled={locked||!chosen} required onChange={rotations=>{if(chosen){
+              const updated={...doc,parts:doc.parts.map(part=>selected.includes(part.id)?{...part,rotations}:part)};
+              commit(releasePlacementAngleLocks(updated,copyRefsFor(doc,selected)));
+            }}}/>
           {chosen&&!validRotationRule(chosen.rotations)&&<small role="alert" className="field-error">İzin verilen dönüşler zorunludur.</small>}
           {!chosen&&<small className="muted">Dönüş ayarını değiştirmek için bir parça seçin.</small>}
         </div>
