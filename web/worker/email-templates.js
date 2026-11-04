@@ -10,7 +10,7 @@ const HTML = String.raw`<!DOCTYPE html>
     @media only screen and (max-width:620px) {
       .email-container {width:100%!important;}
       .email-content {padding:30px 22px!important;}
-      .otp-digits {font-size:32px!important;letter-spacing:5px!important;}
+      .otp-digits {font-size:26px!important;letter-spacing:2px!important;}
     }
   </style>
 </head>
@@ -38,7 +38,15 @@ const HTML = String.raw`<!DOCTYPE html>
           <table role="presentation" border="0" cellspacing="0" cellpadding="0" width="100%">
             <tr><td align="center" style="background-color:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:26px 10px 22px;">
               <div style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:1.5px;margin-bottom:12px;">DOĞRULAMA KODUNUZ</div>
-              <div class="otp-digits" style="font-family:Arial,Helvetica,sans-serif;font-size:38px;line-height:1.3;font-weight:800;letter-spacing:8px;color:#1d4ed8;white-space:nowrap;">{{CODE}}</div>
+              <table role="presentation" border="0" cellspacing="0" cellpadding="0" align="center" style="margin:0 auto;"><tr>
+                <td style="vertical-align:middle;padding-right:12px;">
+                  <span class="otp-digits" style="font-family:Arial,Helvetica,sans-serif;font-size:34px;line-height:1.3;font-weight:800;letter-spacing:5px;color:#1d4ed8;white-space:nowrap;user-select:all;">{{CODE}}</span>
+                </td>
+                <td style="vertical-align:middle;">
+                  <a href="https://serula.site/otp-copy.html#{{CODE}}" style="display:inline-block;background:#ffffff;border:1px solid #93c5fd;border-radius:8px;color:#1d4ed8;padding:11px 12px;font-size:12px;line-height:1.4;font-weight:700;text-align:center;text-decoration:none;white-space:nowrap;">Kodu kopyala</a>
+                </td>
+              </tr></table>
+              <p style="margin:14px 0 0;font-size:11px;line-height:1.5;color:#64748b;">Kopyala bağlantısı Serula'nın güvenli sayfasını açar.</p>
             </td></tr>
           </table>
           <p style="margin:22px 0 0;font-size:14px;line-height:1.7;text-align:center;color:#475569;">Bu kod <strong style="color:#0f172a;">10 dakika</strong> geçerlidir ve yalnızca bir kez kullanılabilir.</p>
@@ -71,6 +79,7 @@ export function verificationEmail(code){
       '',
       'Serula Nesting hesabınızı etkinleştirmek için doğrulama kodunuz: '+code,
       '',
+      'Kodu kopyalama sayfasında kopyalayın: https://serula.site/otp-copy.html#'+code,
       'Bu kod 10 dakika geçerlidir ve yalnızca bir kez kullanılabilir.',
       'Kodu kimseyle paylaşmayın. Kayıt işlemini siz başlatmadıysanız bu e-postayı görmezden gelebilirsiniz.',
       '',
