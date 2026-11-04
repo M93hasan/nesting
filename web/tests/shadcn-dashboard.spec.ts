@@ -359,9 +359,13 @@ test('compact desktop workbench leaves phone-size touch controls intact',async({
 
 test('desktop canvas description stays on one line without horizontal overflow',async({page})=>{
   await page.goto('/');
-  for(const width of [1100,1280,1440,1920]){
+  const caption=page.locator('.app.shadcn-studio .studio-canvas-context');
+  for(const width of [1100,1280]){
     await page.setViewportSize({width,height:900});
-    const caption=page.locator('.app.shadcn-studio .studio-canvas-context');
+    await expect(caption).toBeHidden();
+  }
+  for(const width of [1301,1440,1920]){
+    await page.setViewportSize({width,height:900});
     await expect(caption).toBeVisible();
     await expect(caption).toHaveCSS('white-space','nowrap');
     const geometry=await caption.evaluate(element=>({height:element.getBoundingClientRect().height,lineHeight:parseFloat(getComputedStyle(element).lineHeight),scrollWidth:element.scrollWidth,clientWidth:element.clientWidth}));
