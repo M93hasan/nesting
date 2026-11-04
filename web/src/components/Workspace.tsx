@@ -171,7 +171,7 @@ export default function Workspace({ document: doc, result, live, selected, selec
   const snapMenu=useRef<HTMLDetailsElement>(null);useDismissibleMenu(snapMenu);
   return <div className="canvas-wrap">
     <div className="canvas-tools"><details className="cad-snapping" ref={snapMenu}><summary>Yakalama{snapping ? ' açık' : ' kapalı'}</summary><div>
-      <label className="checkbox"><input type="checkbox" checked={snapping} onChange={event => setSnapping(event.target.checked)} />Yakalamayı etkinleştir</label>
+      <label className="checkbox checkbox-container"><input className="custom-checkbox" type="checkbox" checked={snapping} onChange={event => setSnapping(event.target.checked)} /><span className="checkmark" aria-hidden="true"/><span className="checkbox-label">Yakalamayı etkinleştir</span></label>
       <label>Izgara, {displayUnit}<select value={grid} onChange={event => setGrid(Number(event.target.value))}>{[.1, 1, 5, 10].map(value => <option key={value} value={value}>{displayLength(value, displayUnit)}</option>)}</select></label>
       <label>Açı adımı<select value={angleStep} onChange={event => setAngleStep(Number(event.target.value))}>{[1, 5, 15, 45, 90].map(value => <option key={value} value={value}>{value}°</option>)}</select></label>
       <small>Geçici olarak kapatmak için Alt tuşunu basılı tutun. Sayısal alanlar tam değerini korur.</small>
