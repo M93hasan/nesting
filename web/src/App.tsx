@@ -629,6 +629,15 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     <main className="main-workspace">
       <aside id="parts-settings" className={`sidebar ${panel?'open':''}`}>
         <div className="panel-title"><h2>{"Parçalar"} <span title="Bir serideki parça sayısı">{displayedPieceCount(doc.parts)}</span></h2><div className="panel-title-actions"><button onClick={()=>setInfo('help')}>Yardım</button></div></div>
+        <section className="production-series" aria-label="Üretim toplamı">
+          <div className="production-series__row">
+            <label htmlFor="production-series-count">Üretim serisi</label>
+            <div className="series-multiplier" title="Yerleşim ve indirilen DXF tek seri içindir. Seri adedi üretim toplamını ve malzeme ihtiyacını hesaplar."><span aria-hidden="true">×</span><input id="production-series-count" aria-label="Proje seri adedi" inputMode="numeric" type="text" pattern="[0-9]*" value={seriesDraft??String(seriesMultiplier)} disabled={busy||!doc.parts.length} onFocus={e=>{setSeriesDraft(String(seriesMultiplier));e.currentTarget.select();}} onChange={e=>{if(/^\d*$/.test(e.target.value))setSeriesDraft(e.target.value)}} onBlur={finishSeriesEdit} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();e.currentTarget.blur()}}}/></div>
+          </div>
+          <p className="production-series__total">Toplam üretim: <strong>{displayedProductionPieces}</strong> parça</p>
+          {production.material&&<p className="production-series__material">Toplam malzeme: <strong>{displayedProductionMaterial} {production.material.unit}</strong></p>}
+          <small>Bir seride {displayedPieceCount(doc.parts)} parça bulunur. Yerleşim ve indirilen DXF tek seri içindir.</small>
+        </section>
         <div className="parts-list">{doc.parts.map((p,i)=>{const b=bounds(p.outer);return <div key={p.id} className={`part-row ${selected.includes(p.id)?'selected':''}`}>
           <button className="part-select" aria-pressed={selected.includes(p.id)} onClick={e=>{
             const additive=e.metaKey||e.ctrlKey;
@@ -649,15 +658,6 @@ export default function App({initialDocument=emptyProject(),initialError='',load
           <button className="remove-part" aria-label={`${p.name} kaldır`} title={`${p.name} ve tüm kopyalarını kaldır`} disabled={locked} onClick={()=>commit({...doc,parts:doc.parts.filter(part=>part.id!==p.id)})}><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/></svg></button>
           {!validQuantity(p.quantity)&&<small role="alert" className="field-error quantity-error">0 ile 500 arasında bir tam sayı girin.</small>}
         </div>;})}</div>
-        <section className="production-series" aria-label="Üretim toplamı">
-          <div className="production-series__row">
-            <label htmlFor="production-series-count">Üretim serisi</label>
-            <div className="series-multiplier" title="Yerleşim ve indirilen DXF tek seri içindir. Seri adedi üretim toplamını ve malzeme ihtiyacını hesaplar."><span aria-hidden="true">×</span><input id="production-series-count" aria-label="Proje seri adedi" inputMode="numeric" type="text" pattern="[0-9]*" value={seriesDraft??String(seriesMultiplier)} disabled={locked||!doc.parts.length} onFocus={e=>{setSeriesDraft(String(seriesMultiplier));e.currentTarget.select();}} onChange={e=>{if(/^\d*$/.test(e.target.value))setSeriesDraft(e.target.value)}} onBlur={finishSeriesEdit} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();e.currentTarget.blur()}}}/></div>
-          </div>
-          <p className="production-series__total">Toplam üretim: <strong>{displayedProductionPieces}</strong> parça</p>
-          {production.material&&<p className="production-series__material">Toplam malzeme: <strong>{displayedProductionMaterial} {production.material.unit}</strong></p>}
-          <small>Bir seride {displayedPieceCount(doc.parts)} parça bulunur. Yerleşim ve indirilen DXF tek seri içindir.</small>
-        </section>
         {doc.parts.reduce((n,p)=>n+(Number.isFinite(p.quantity)?p.quantity:0),0)>500&&<p role="alert" className="field-error quantity-total">Bu çizim 500 kopya sınırını aşıyor. Devam etmek için adetleri azaltın.</p>}
         {doc.parts.some(part=>part.quantity===0)&&<button className="text-button clear-unused" disabled={locked} onClick={()=>commit({...doc,parts:doc.parts.filter(part=>part.quantity!==0)})}>Adedi sıfır olan parçaları kaldır</button>}
         <div className="add-shape"><button disabled={locked} onClick={()=>setShape('rectangle')}>Şekil çiz</button><button className="primary" disabled={locked} onClick={()=>input.current?.click()}>DXF İçe Aktar</button></div>
