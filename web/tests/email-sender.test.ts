@@ -31,6 +31,22 @@ describe('Resend email delivery on Cloudflare Workers',()=>{
       expect(String(error)).not.toContain('re_test_secret');
     }
   });
+
+  it('passes both HTML and plain text formats to Resend',async()=>{
+    const fetchMock=vi.fn().mockResolvedValue(new Response('{"id":"queued"}',{status:200}));
+    vi.stubGlobal('fetch',fetchMock);
+    await sendAppEmail({RESEND_API_KEY:'re_test_secret'},{...msg,html:'<p>OTP: <strong>547298</strong></p>'});
+    const payload=JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(payload.html).toContain('<strong>547298</strong>');
+    expect(payload.text).toBe(msg.text);
+    expect(payload.from).toBe(msg.from);
+  });
+  it('drops HTML for the legacy Workers EMAIL fallback',async()=>{
+    const send=vi.fn().mockResolvedValue(undefined);
+    await sendAppEmail({EMAIL:{send}},{...msg,html:'<h1>OTP</h1>'});
+    expect(send).toHaveBeenCalledWith(msg);
+  });
+
   it('supports the existing mock binding used by Worker SQLite regression tests',async()=>{
     const send=vi.fn().mockResolvedValue(undefined),env={EMAIL:{send}};
     expect(hasEmailSender(env)).toBe(true);

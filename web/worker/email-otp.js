@@ -1,4 +1,5 @@
 import {hasEmailSender,sendAppEmail} from './email-sender.js';
+import {verificationEmail} from './email-templates.js';
 /*
  * Email verification for password sign-ups.
  * A six-digit OTP is only usable with a separate 256-bit browser challenge.
@@ -43,9 +44,8 @@ export async function sendVerificationCode(env,user,{initial=false}={}){
   if(!saved.meta.changes)return {error:'Çok sık kod istendi. Lütfen daha sonra deneyin.',status:429};
   try{
     await sendAppEmail(env,{
-      to:user.email,from:'noreply@serula.site',
-      subject:'Serula Nesting - E-posta Doğrulama',
-      text:`Serula Nesting doğrulama kodunuz: ${code}\n\nKodunuz 10 dakika geçerlidir. Bu kaydı siz başlatmadıysanız mesajı yok sayın.`
+      to:user.email,from:'Serula Nesting <noreply@serula.site>',
+      ...verificationEmail(code)
     });
   }catch{
     // Never remove a pending marker after a delivery failure.

@@ -21,7 +21,8 @@ export async function sendAppEmail(env,message){
         from:message.from,
         to:[message.to],
         subject:message.subject,
-        text:message.text
+        text:message.text,
+        ...(typeof message.html==='string'?{html:message.html}:{})
       })
     });
     if(!response.ok){
@@ -31,7 +32,9 @@ export async function sendAppEmail(env,message){
     return;
   }
   if(typeof env.EMAIL?.send==='function'){
-    await env.EMAIL.send(message);
+    // Workers EMAIL fallback accepts text, not Resend's HTML JSON property.
+    const {html,...textMessage}=message;
+    await env.EMAIL.send(textMessage);
     return;
   }
   throw new Error('E-posta servisi yapılandırılmamış.');
