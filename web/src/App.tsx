@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { DEFAULT_SETTINGS, rotationSummary, type Document, type Part, type Point, type Result, type RotationRule } from './model';
 import { bounds } from './geometry/normalize';
 import { safeFullPlateQuantity } from './geometry/fullPlate';
+import { netArea } from './geometry/validate';
 import { pathData } from './geometry/path';
 import { geometryTask } from './workers/geometryTask';
 import {loadExample} from './datasets';
