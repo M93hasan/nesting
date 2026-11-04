@@ -7,6 +7,7 @@ import { importDXF } from '../import/dxf';
 import { importPLT } from '../import/plt';
 import { importProject } from '../import/project';
 import { liveGeometry } from '../geometry/live';
+import { packResultIntoSheets } from '../geometry/multiSheet';
 import {libraryDocument} from '../import/library';
 import {editSelection} from '../geometry/manipulate';
 import {arrangePreparation,labelPoints} from '../geometry/preparation';
@@ -64,7 +65,15 @@ self.onmessage=async({data}: MessageEvent<GeometryRequest>)=>{
       }
       case 'export': reply={...ids,type:'export-result',bundle:exportSVG(data.document,data.result)}; break;
       case 'archive': reply={...ids,type:'archive-result',archive:exportProjectArchive(data.document,data.documentRevision,data.result)};break;
-      case 'live-preview':reply={...ids,type:'live-frame',sequence:data.sequence,geometry:liveGeometry(data.document,data.result)};break;
+      case 'live-preview': {
+        try {
+          const packed=packResultIntoSheets(data.document,data.result);
+          reply={...ids,type:'live-frame',sequence:data.sequence,geometry:liveGeometry(data.document,packed),result:packed};
+        } catch(error) {
+          reply={...ids,type:'live-preview-skipped',sequence:data.sequence,message:error instanceof Error?error.message:String(error)};
+        }
+        break;
+      }
     }
     if(reply.type==='archive-result') self.postMessage(reply,[reply.archive.buffer as ArrayBuffer]);
     else self.postMessage(reply);
