@@ -168,13 +168,21 @@ function rotatedWidth(ring:Ring,angleDeg:number):number {
 }
 export function preflightSolverFit(doc:Document):void {
   const width=doc.settings.materialWidthMm,tolerance=1e-7;
+  const positions=new Map((doc.placements??[]).map(copy=>[`${copy.partId}:${copy.copyIndex}`,copy] as const));
   for(const part of doc.parts){
-    if(part.quantity<=0||part.rotations.kind==='continuous')continue;
+    if(part.quantity<=0)continue;
     const ring=collisionRing(part);
-    const fits=part.rotations.degrees.some(angle=>rotatedWidth(ring,angle)<=width+tolerance);
-    if(!fits){
-      const angles=part.rotations.degrees.map(angle=>`${angle}°`).join(', ');
-      throw Error(`${part.name} seçilen dönüş kuralıyla ${width} mm malzeme genişliğine sığmıyor. İzin verilen açılar: ${angles}.`);
+    for(let index=0;index<part.quantity;index++){
+      const locked=positions.get(`${part.id}:${index}`);
+      const angles=locked?.orientationLocked?[locked.angleDeg]
+        :part.rotations.kind==='discrete'?part.rotations.degrees:undefined;
+      if(!angles)continue;
+      const transformed=locked?.mirrorX||locked?.mirrorY
+        ?ring.map(([x,y]):[number,number]=>[locked.mirrorX?-x:x,locked.mirrorY?-y:y]):ring;
+      if(angles.some(angle=>rotatedWidth(transformed,angle)<=width+tolerance))continue;
+      const text=angles.map(angle=>`${angle}°`).join(', ');
+      if(locked?.orientationLocked)throw Error(`${part.name} — Kopya ${index+1} için kilitlenen ${text} yönü ${width} mm malzeme genişliğine sığmıyor. Açıyı veya malzeme genişliğini değiştirin.`);
+      throw Error(`${part.name} seçilen dönüş kuralıyla ${width} mm malzeme genişliğine sığmıyor. İzin verilen açılar: ${text}.`);
     }
   }
 }
@@ -192,17 +200,27 @@ export function solverInput(doc: Document): string {
   if(!copies.length)throw Error('Add at least one copy before nesting.');
   preflightSolverFit(doc);
   const parts=new Map(doc.parts.map(part=>[part.id,part]));
+  const positions=new Map((doc.placements??[]).map(copy=>[`${copy.partId}:${copy.copyIndex}`,copy] as const));
   const edgePadding=solverEdgePadding(doc.settings.clearanceMm);
   return JSON.stringify({name:doc.name,strip_height:doc.settings.materialWidthMm+2*edgePadding,min_item_separation:doc.settings.clearanceMm,items:copies.map(copy=>{
     const p=parts.get(copy.partId)!;
+    const placement=positions.get(`${copy.partId}:${copy.copyIndex}`);
+    // Do not discard an explicit manual angle when the nesting engine starts.
+    const fixedAngle=placement?.orientationLocked?placement.angleDeg:undefined;
+    const sourceRing=collisionRing(p);
+    const reflected=!!placement?.mirrorX!==!!placement?.mirrorY;
+    const ring=placement?.mirrorX||placement?.mirrorY
+      ?sourceRing.map(([x,y]):[number,number]=>[placement.mirrorX?-x:x,placement.mirrorY?-y:y])
+      :sourceRing;
     return {
-      // Keep each physical copy as its own Sparrow item. Demand=1 preserves
-      // stable physical copy identity for footwear DXF parts.
+      // One physical copy per item; a manual angle is a per-copy constraint.
       id:copy.itemId,demand:1,
-      orientation:{rotation:p.rotations.kind==='continuous'
-        ?{mode:'continuous'}
-        :{mode:'discrete',angles:p.rotations.degrees.map(angle=>-angle)}},
-      shape:{type:'simple_polygon',data:collisionRing(p).map(([x,y])=>[y,x])},
+      orientation:{rotation:fixedAngle!==undefined
+        ?{mode:'discrete',angles:[-fixedAngle]}
+        :p.rotations.kind==='continuous'
+          ?{mode:'continuous'}
+          :{mode:'discrete',angles:p.rotations.degrees.map(angle=>-angle)}},
+      shape:{type:'simple_polygon',data:(reflected?[...ring].reverse():ring).map(([x,y])=>[y,x])},
     };
   })});
 }
