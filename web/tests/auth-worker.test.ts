@@ -218,7 +218,7 @@ describe('Administrative history and permission controls',()=>{
   it('denies anonymous users historical data and returns real export usage to authorized admin',async()=>{
     const env={...database(),ADMIN_PASSWORD:'test-admin-password'};
     const userCookie=await account(env);
-    expect((await call(env,'/api/export/authorize',payload,userCookie)).status).toBe(200);
+    expect((await call(env,'/api/export/authorize',{...payload,sourceFileName:'test.dxf'},userCookie)).status).toBe(200);
     expect((await call(env,'/api/admin/history?days=30')).status).toBe(403);
     expect((await call(env,'/api/admin/history?days=30',undefined,userCookie)).status).toBe(403);
     const cookie=await adminCookie(env);
