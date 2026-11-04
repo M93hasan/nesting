@@ -1,6 +1,6 @@
 import {LIMITS,type Document,type Part,type Point} from '../model';
 import {bounds} from './normalize';
-import {netArea} from './validate';
+import {collisionRing,netArea} from './validate';
 
 /** Conservative, bounded sheet capacity for a selected part without deleting any others. */
 export function safeFullPlateQuantity(document:Document,selected:Part):number {
@@ -10,6 +10,7 @@ export function safeFullPlateQuantity(document:Document,selected:Part):number {
   if(!length||!Number.isFinite(length)||length<=0||!Number.isFinite(width)||width<=0||!Number.isFinite(gap)||gap<0)
     throw Error('Geçerli plaka ölçüleri ve parça aralığı girin.');
   const usableWidth=width-2*gap,usableLength=length-2*gap;
+  const envelope=collisionRing(selected);
   const area=netArea(selected);
   if(usableWidth<=0||usableLength<=0||!Number.isFinite(area)||area<=0)
     throw Error('Tam plaka için parça geometrisini ve plaka ölçülerini kontrol edin.');
@@ -29,7 +30,7 @@ export function safeFullPlateQuantity(document:Document,selected:Part):number {
     :selected.rotations.kind==='discrete'?selected.rotations.degrees:[0,90];
   const possible=angles.map(degrees=>{
     const rad=degrees*Math.PI/180,c=Math.cos(rad),s=Math.sin(rad);
-    const rotated=selected.outer.map(([x,y]):Point=>[x*c-y*s,x*s+y*c]);
+    const rotated=envelope.map(([x,y]):Point=>[x*c-y*s,x*s+y*c]);
     const [minX,minY,maxX,maxY]=bounds(rotated);
     const w=maxX-minX,h=maxY-minY;
     if(!(w>0&&h>0))return 0;
