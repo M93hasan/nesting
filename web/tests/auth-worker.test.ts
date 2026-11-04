@@ -368,8 +368,7 @@ describe('Administrative history and permission controls',()=>{
     const cookie=await adminCookie(env);
     const before=await (await call(env,'/api/admin/users',undefined,cookie)).json();
     expect(before.users[0].emailVerified).toBe(true);
-    env.sqlite.exec('CREATE TABLE email_verifications (user_id INTEGER PRIMARY KEY)');
-    env.sqlite.exec('INSERT INTO email_verifications(user_id) VALUES(1)');
+    env.sqlite.exec("INSERT INTO email_verifications(user_id,challenge_hash,code_hash,expires_at,attempts,sent_at,window_started_at,window_count) VALUES(1,'f','g','2099-01-01',0,'2020-01-01','2020-01-01',1)");
     const pending=await (await call(env,'/api/admin/users',undefined,cookie)).json();
     expect(pending.users[0].emailVerified).toBe(false);
     env.sqlite.close();
