@@ -47,11 +47,11 @@ export function collisionRing(part:Part):Ring {
   return convexHull(source.flat());
 }
 export function collisionWorldRings(doc:Document,result:Pick<Result,'placements'>):Ring[] {
-  const parts=new Map(doc.parts.map(part=>[part.id,part]));
+  const envelopes=new Map(doc.parts.map(part=>[part.id,collisionRing(part)] as const));
   return result.placements.map(placement=>{
-    const part=parts.get(placement.partId);
-    if(!part)throw Error(`Unknown part ${placement.partId}.`);
-    return transform(collisionRing(part),placement);
+    const ring=envelopes.get(placement.partId);
+    if(!ring)throw Error(`Unknown part ${placement.partId}.`);
+    return transform(ring,placement);
   });
 }
 export function pointSegmentDistance(p: Point, a: Point, b: Point): number {
