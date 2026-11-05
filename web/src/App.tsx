@@ -187,7 +187,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     if(!/^\d+$/.test(raw))return;
     if(!/^[1-9][0-9]*$/.test(raw)){setError('Seri adedi 1 veya daha büyük bir tam sayı olmalıdır.');return;}
     if(raw===seriesMultiplier)return;
-    try{commit(applySeriesMultiplier(doc,raw),false,'series-multiplier')}
+    try{commit(applySeriesMultiplier(doc,raw),true,'series-multiplier')}
     catch(error){setError(error instanceof Error?error.message:String(error))}
   };
   const canvasDocument=useMemo(()=>visibleResult?{...doc,placements:visibleResult.placements}:doc,[doc,visibleResult]);
@@ -246,6 +246,15 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   },[running,result,doc]);
   useEffect(()=>{if(!running&&result)setResultMode('checked');},[running,result]);
   function commit(next:Document,geometry=true,field?:string) {
+    // Editing a physical copy count creates a new one-series baseline, so a
+    // later series edit multiplies that new count rather than stale old totals.
+    const quantitiesChanged=next.parts.length!==doc.parts.length
+      ||next.parts.some(part=>doc.parts.find(old=>old.id===part.id)?.quantity!==part.quantity);
+    if(doc.seriesCountMode==='expanded'&&String(doc.seriesMultiplier??1)!=='1'
+      &&next.seriesCountMode==='expanded'
+      &&String(next.seriesMultiplier??1)===String(doc.seriesMultiplier??1)
+      &&quantitiesChanged)
+      next={...next,seriesMultiplier:undefined};
     const parts=new Map(next.parts.map(part=>[part.id,part]));
     const placements=next.placements?.filter(copy=>parts.has(copy.partId)&&copy.copyIndex<(Number.isInteger(parts.get(copy.partId)!.quantity)?Math.max(0,parts.get(copy.partId)!.quantity):1));
     let canonical:Document;
@@ -632,11 +641,11 @@ export default function App({initialDocument=emptyProject(),initialError='',load
         <section className="production-series" aria-label="Üretim toplamı">
           <div className="production-series__row">
             <label htmlFor="production-series-count">Üretim serisi</label>
-            <div className="series-multiplier" title="Yerleşim ve indirilen DXF tek seri içindir. Seri adedi üretim toplamını ve malzeme ihtiyacını hesaplar."><span aria-hidden="true">×</span><input id="production-series-count" aria-label="Proje seri adedi" inputMode="numeric" type="text" pattern="[0-9]*" value={seriesDraft??String(seriesMultiplier)} disabled={busy||!doc.parts.length} onFocus={e=>{setSeriesDraft(String(seriesMultiplier));e.currentTarget.select();}} onChange={e=>{if(/^\d*$/.test(e.target.value))setSeriesDraft(e.target.value)}} onBlur={finishSeriesEdit} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();e.currentTarget.blur()}}}/></div>
+            <div className="series-multiplier" title="Seri sayısı parça adetlerini çoğaltır. Yerleşim ve DXF toplam üretim içindir."><span aria-hidden="true">×</span><input id="production-series-count" aria-label="Proje seri adedi" inputMode="numeric" type="text" pattern="[0-9]*" value={seriesDraft??String(seriesMultiplier)} disabled={busy||!doc.parts.length} onFocus={e=>{setSeriesDraft(String(seriesMultiplier));e.currentTarget.select();}} onChange={e=>{if(/^\d*$/.test(e.target.value))setSeriesDraft(e.target.value)}} onBlur={finishSeriesEdit} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();e.currentTarget.blur()}}}/></div>
           </div>
           <p className="production-series__total">Toplam üretim: <strong>{displayedProductionPieces}</strong> parça</p>
           {production.material&&<p className="production-series__material">Toplam malzeme: <strong>{displayedProductionMaterial} {production.material.unit}</strong></p>}
-          <small>Bir seride {displayedPieceCount(doc.parts)} parça bulunur. Yerleşim ve indirilen DXF tek seri içindir.</small>
+          <small>Bir seride {BigInt(production.piecesPerSeries).toLocaleString('tr-TR')} parça bulunur. {doc.seriesCountMode==='production'?'Bu eski proje tek seri yerleşimini kullanıyor; seri sayısını yeniden girerek tüm parçaları yerleştirin.':'Yerleşim ve indirilen DXF toplam üretim içindir.'}</small>
         </section>
         <div className="parts-list">{doc.parts.map((p,i)=>{const b=bounds(p.outer);return <div key={p.id} className={`part-row ${selected.includes(p.id)?'selected':''}`}>
           <button className="part-select" aria-pressed={selected.includes(p.id)} onClick={e=>{

@@ -163,10 +163,23 @@ export function syncQuantity(document: Document): Document {
   return withDocumentPlacements({ ...document, placements: kept }, kept);
 }
 
-/** The nesting engine places one series only; this value records production runs. */
+/** Expand the real copy quantities for nesting, drawing and DXF. Never compound a previous series count. */
 export function applySeriesMultiplier(document:Document,next:string):Document {
   if(!/^[1-9][0-9]*$/.test(next))throw Error('Seri adedi 1 veya daha büyük bir tam sayı olmalıdır.');
-  return {...document,seriesMultiplier:next==='1'?undefined:next,seriesCountMode:'production'};
+  const previous=document.seriesCountMode==='expanded'?BigInt(String(document.seriesMultiplier??1)):1n;
+  const multiplier=BigInt(next);
+  const parts=document.parts.map(part=>{
+    const quantity=BigInt(part.quantity);
+    if(quantity%previous!==0n)throw Error('Parça adetleri seri sayısıyla uyumsuz. Önce parça adetlerini düzeltin.');
+    const count=quantity/previous*multiplier;
+    if(count>BigInt(LIMITS.copies))throw Error('Üretim serisi toplamda en fazla 500 kopya içerebilir.');
+    return {...part,quantity:Number(count)};
+  });
+  const copies=parts.reduce((sum,part)=>sum+part.quantity,0);
+  const vertices=parts.reduce((sum,part)=>sum+part.quantity*(part.outer.length+part.holes.reduce((n,h)=>n+h.length,0)),0);
+  if(copies>LIMITS.copies||vertices>LIMITS.verticesTotal)
+    throw Error('Seri sayısı 500 kopya veya 100.000 köşe sınırını aşıyor.');
+  return syncQuantity({...document,parts,seriesMultiplier:next==='1'?undefined:next,seriesCountMode:'expanded'});
 }
 
 export function samePlacement(a: Placement | undefined, b: Placement | undefined): boolean {

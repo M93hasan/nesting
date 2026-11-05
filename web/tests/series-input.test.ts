@@ -26,5 +26,5 @@ test('production series input is editable and placed in the relevant section onl
 test('series changes count as new, unexported production changes',()=>{
   const source=readFileSync(new URL('../src/App.tsx',import.meta.url),'utf8');
   expect(source).toContain('String(doc.seriesMultiplier??1)!==String(exported.document.seriesMultiplier??1)');
-  expect(source).toContain('commit(applySeriesMultiplier(doc,raw),false');
+  expect(source).toContain('commit(applySeriesMultiplier(doc,raw),true');
 });

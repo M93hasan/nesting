@@ -79,14 +79,20 @@ export function normalizeDocument(doc: Document, allowEmpty=false): Document {
   if(s.groupSimilarParts!==undefined&&typeof s.groupSimilarParts!=='boolean')throw Error('Invalid similar-part grouping setting.');
   const seriesMultiplierText=String(doc.seriesMultiplier??1);
   if(!/^[1-9][0-9]*$/.test(seriesMultiplierText))throw Error('Series multiplier must be a positive whole number.');
-  // Older saved projects stored a small numeric multiplier and expanded every
-  // part quantity. Migrate them once; new production counts are arbitrary-length
-  // decimal strings and do not affect layout size.
-  const legacyMultiplier=doc.seriesCountMode==='production'?1:Number(seriesMultiplierText);
-  if(doc.seriesCountMode!=='production'&&!Number.isSafeInteger(legacyMultiplier))throw Error('Invalid legacy series multiplier.');
+  // Legacy projects without a mode expanded quantities already; migrate them
+  // into the old "production" representation without repeating any copies.
+  // "expanded" stores real, physical copy counts for the solver and DXF.
+  const modern=doc.seriesCountMode==='production'||doc.seriesCountMode==='expanded';
+  const legacyMultiplier=modern?1:Number(seriesMultiplierText);
+  if(!modern&&!Number.isSafeInteger(legacyMultiplier))throw Error('Invalid legacy series multiplier.');
   const parts = doc.parts.map(part => normalizePart(legacyMultiplier>1
     ? {...part,quantity:part.quantity/legacyMultiplier}
     : part));
+  if(doc.seriesCountMode==='expanded'){
+    const factor=BigInt(seriesMultiplierText);
+    if(parts.some(part=>BigInt(part.quantity)%factor!==0n))
+      throw Error('Expanded project quantities must be multiples of the series count.');
+  }
   if (new Set(parts.map(p=>p.id)).size !== parts.length) throw Error('Part IDs must be unique.');
   if (parts.reduce((n,p)=>n+p.quantity,0) > LIMITS.copies || parts.reduce((n,p)=>n+p.quantity*(p.outer.length+p.holes.reduce((m,h)=>m+h.length,0)),0) > LIMITS.verticesTotal) throw Error('Project exceeds 500 copies or 100,000 demanded vertices.');
   if(doc.placements!==undefined&&!Array.isArray(doc.placements))throw Error('Placements must be an array.');
@@ -114,5 +120,5 @@ export function normalizeDocument(doc: Document, allowEmpty=false): Document {
       seen.add(key);
     }
   }
-  return { ...doc, seriesMultiplier:seriesMultiplierText==='1'?undefined:seriesMultiplierText, parts, placements: inputPlacements, seriesCountMode:'production' };
+  return { ...doc, seriesMultiplier:seriesMultiplierText==='1'?undefined:seriesMultiplierText, parts, placements: inputPlacements, seriesCountMode:doc.seriesCountMode==='expanded'?'expanded':'production' };
 }
