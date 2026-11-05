@@ -3,11 +3,11 @@ import {useEffect,useId,useLayoutEffect,useRef,useState} from 'react';
 import {displayLength,unitScale,type DisplayUnit} from '../units';
 
 export default function SelectionControls({
-  box,disabled,sizeLocked=false,angle,mirroredX,mirroredY,onPosition,onSize,onSetAngle,onRotate,onMirror,onValidity,unit='mm'
+  box,disabled,sizeLocked=false,angle,angleLocked=false,mirroredX,mirroredY,onPosition,onSize,onSetAngle,onRotate,onMirror,onUnlockAngle,onValidity,unit='mm'
 }:{
-  box:number[];disabled:boolean;sizeLocked?:boolean;angle?:number;mirroredX?:boolean;mirroredY?:boolean;
+  box:number[];disabled:boolean;sizeLocked?:boolean;angle?:number;angleLocked?:boolean;mirroredX?:boolean;mirroredY?:boolean;
   onPosition:(axis:0|1,value:number)=>void;onSize:(axis:0|1,value:number)=>void;
-  onSetAngle:(degrees:number)=>void;onRotate:(degrees:number)=>void;onMirror:(axis:'x'|'y')=>void;
+  onSetAngle:(degrees:number)=>void;onRotate:(degrees:number)=>void;onMirror:(axis:'x'|'y')=>void;onUnlockAngle:()=>void;
   onValidity:(valid:boolean)=>void;unit?:DisplayUnit
 }) {
   const values=[box[0],box[1],box[2]-box[0],box[3]-box[1]];
@@ -37,6 +37,7 @@ export default function SelectionControls({
       <button disabled={disabled||!angleValid}>Açıyı uygula</button>
       {!angleValid&&<small className="field-error" id={angleErrorId} role="alert">Geçerli bir derece değeri girin.</small>}
     </form>
+    {angleLocked&&<div className="manual-orientation-lock"><small role="status">Verdiğiniz yön kilitli; Başlat sonrasında da korunur.</small><button type="button" disabled={disabled} onClick={onUnlockAngle}>Açı kilidini kaldır</button></div>}
     <div className="rotation-control">
       <label>Elle çevirme adımı, derece<input type="text" inputMode="decimal" value={step} aria-invalid={!stepValid} aria-describedby={!stepValid?stepErrorId:undefined} disabled={disabled} onFocus={e=>e.currentTarget.select()} onChange={e=>setStep(e.target.value.replace(',', '.'))}/></label>
       {!stepValid&&<small className="field-error" id={stepErrorId} role="alert">Döndürme adımı 0 ile 360 derece arasında pozitif olmalıdır.</small>}
