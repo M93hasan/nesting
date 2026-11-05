@@ -249,3 +249,13 @@
     max-width:140px;
   }
 }
+
+/* Keep the studio description on one line when the desktop caption is shown. */
+@media (min-width:1301px) {
+  :root #root .app.shadcn-studio .studio-canvas-context {
+    max-width:none;
+    white-space:nowrap;
+    flex:0 0 auto;
+    font-size:12px;
+  }
+}
