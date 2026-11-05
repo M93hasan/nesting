@@ -38,18 +38,24 @@ test('studio has no horizontal overflow at phone width',async({page})=>{
   await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
 
-test('similar-shape grouping uses a clear native checkbox and supports toggling',async({page})=>{
+test('similar-shape grouping uses the accessible blue checkbox and invalidates prior nesting',async({page})=>{
   await page.goto('/');
   const options=page.locator('.solver-options');
   await options.locator('summary').click();
   const checkbox=options.getByRole('checkbox',{name:/Benzer şekilleri/});
+  const label=options.locator('.group-similar-option');
+  const checkmark=label.locator('.checkmark');
   await expect(checkbox).toBeVisible();
   await expect(checkbox).not.toBeChecked();
-  expect(await checkbox.evaluate(element=>getComputedStyle(element).appearance)).toMatch(/^(auto|checkbox)$/);
-  await checkbox.check();
+  await expect(checkmark).toHaveCSS('width','25px');
+  await label.click();
   await expect(checkbox).toBeChecked();
-  await checkbox.uncheck();
+  await expect(checkmark).toHaveCSS('background-color','rgb(33, 150, 243)');
+  await expect(options.locator('#similar-grouping-status')).toContainText('Açık:');
+  await checkbox.focus();
+  await page.keyboard.press('Space');
   await expect(checkbox).not.toBeChecked();
+  await expect(options.locator('#similar-grouping-status')).toContainText('Kapalı:');
 });
 
 test('studio stays within the viewport at phone, tablet and desktop widths',async({page})=>{

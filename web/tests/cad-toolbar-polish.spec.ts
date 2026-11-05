@@ -18,6 +18,7 @@ test('CAD snapping menu is keyboard-visible and stays within a narrow viewport',
   expect(rect!.x).toBeGreaterThanOrEqual(-1);
   expect(rect!.x+rect!.width).toBeLessThanOrEqual(391);
   const toggle=menu.getByRole('checkbox');
+  await expect(menu.locator('.checkmark')).toHaveCSS('background-color','rgb(33, 150, 243)');
   await expect(toggle).toBeChecked();
   await toggle.uncheck();
   await expect(summary).toContainText('kapalı');
