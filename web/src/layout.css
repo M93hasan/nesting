@@ -1,6 +1,8 @@
 /* Serula structural CSS only; theme, custom palettes, shadows, visual effects and font overrides removed. */
 :root{color-scheme:light;--accent:Highlight;--ink:CanvasText;--muted:GrayText;--border:GrayText;--panel:Canvas;--page:Canvas;--material-fill:Canvas;--selected:Highlight;--error:Mark;--success:CanvasText;--radius-button:0px}
-body{background:Canvas;color:CanvasText}
+body{background:Canvas;color:CanvasText;font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Tahoma,Arial,sans-serif;font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+button,input,select,textarea{font:inherit}
+input,select,textarea{line-height:1.35}
 :focus-visible{outline:2px solid Highlight;outline-offset:2px}
 
 /* Structural declarations formerly in web/src/styles.css */
