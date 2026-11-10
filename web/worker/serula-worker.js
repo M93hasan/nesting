@@ -566,6 +566,17 @@ async function handleApi(request,env){
       FROM export_files WHERE user_id=? ORDER BY created_at DESC,id DESC LIMIT 200`).bind(user.id).all();
     return json({items:rows.results.map(row=>({id:Number(row.id),projectName:row.project_name||'',sourceFileName:row.source_file_name||'',fileName:row.file_name||'',byteSize:Number(row.byte_size||0),createdAt:row.created_at}))});
   }
+  if(path==='/api/history'&&request.method==='DELETE'){
+    const user=await sessionUser(request,env);if(!user)return json({error:'Geçmişi silmek için giriş yapmalısınız.'},401);
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM export_file_chunks WHERE export_id IN (SELECT id FROM export_files WHERE user_id=?)').bind(user.id),
+      env.DB.prepare('DELETE FROM export_files WHERE user_id=?').bind(user.id),
+      env.DB.prepare('DELETE FROM cloud_project_chunks WHERE user_id=?').bind(user.id),
+      env.DB.prepare('DELETE FROM cloud_projects WHERE user_id=?').bind(user.id)
+    ]);
+    await audit(env,'history_deleted',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:'All cloud autosave and DXF export history'});
+    return json({ok:true});
+  }
   const exportFileMatch=path.match(/^\/api\/exports\/(\d+)$/);
   if(exportFileMatch&&request.method==='GET'){
     const user=await sessionUser(request,env);if(!user)return json({error:'Giriş gerekli.'},401);
