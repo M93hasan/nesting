@@ -101,6 +101,18 @@ export default function ExportHistory({onClose,onOpen}:{onClose:()=>void;onOpen:
     }catch(e){setError(e instanceof Error?e.message:String(e))}
     finally{setBusy('')}
   }
+  async function deleteAll(){
+    if(!cloud&&!items.length)return;
+    if(!window.confirm('Tüm bulut proje kaydı ve DXF geçmişindeki kayıtlar kalıcı olarak silinsin mi?'))return;
+    setBusy('delete-all');setError('');
+    try{
+      const response=await fetch('/api/history',{method:'DELETE',credentials:'same-origin'});
+      if(!response.ok)throw Error(await responseError(response,'Geçmiş temizlenemedi.'));
+      setCloud(null);setItems([]);
+    }catch(e){setError(e instanceof Error?e.message:String(e))}
+    finally{setBusy('')}
+  }
+
   async function deleteItem(item:ExportItem){
     if(!window.confirm(`${item.fileName} geçmişten silinsin mi?`))return;
     setBusy('export-'+item.id);setError('');
@@ -114,7 +126,7 @@ export default function ExportHistory({onClose,onOpen}:{onClose:()=>void;onOpen:
 
   return <Modal title="Geçmiş" onClose={onClose} locked={!!busy}>
     <div className="export-history">
-      <div className="export-history-head"><div><strong>Bulut kayıtları</strong><small>Çalışma değiştikçe son temiz proje durumu otomatik kaydedilir; DXF dışa aktarımları ayrıca geçmişte tutulur.</small></div><button disabled={loading||!!busy} onClick={()=>void load()}>Yenile</button></div>
+      <div className="export-history-head"><div><strong>Bulut kayıtları</strong><small>Çalışma değiştikçe son temiz proje durumu otomatik kaydedilir; DXF dışa aktarımları ayrıca geçmişte tutulur.</small></div><div className="export-history-actions"><button className="danger-button" disabled={loading||!!busy||(!cloud&&!items.length)} onClick={()=>void deleteAll()}>Tümünü sil</button><button disabled={loading||!!busy} onClick={()=>void load()}>Yenile</button></div></div>
       {error&&<p role="alert" className="field-error">{error}</p>}
       {loading?<p className="muted">Geçmiş yükleniyor…</p>:<>
         {cloud&&<article className="export-history-item export-history-latest">
