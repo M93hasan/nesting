@@ -25,7 +25,8 @@ function finitePlacement(value: unknown): value is Placement {
     && Number.isFinite(p.yMm) && Math.abs(p.yMm) <= LIMITS.extent
     && Number.isFinite(p.angleDeg)
     && (p.mirrorX === undefined || typeof p.mirrorX === 'boolean')
-    && (p.mirrorY === undefined || typeof p.mirrorY === 'boolean');
+    && (p.mirrorY === undefined || typeof p.mirrorY === 'boolean')
+    && (p.orientationLocked === undefined || typeof p.orientationLocked === 'boolean');
 }
 
 function storedPlacements(document: Document): Map<string, Placement> {
@@ -103,7 +104,7 @@ export function rotatePlacements(document: Document, refs: CopyRef[], degrees: n
     if (!wanted.has(placementKey(placement))) return placement;
     const dx = placement.xMm - center[0], dy = placement.yMm - center[1];
     return { ...placement, xMm: center[0] + dx * c - dy * s, yMm: center[1] + dx * s + dy * c,
-      angleDeg: placement.angleDeg + degrees };
+      angleDeg: placement.angleDeg + degrees, orientationLocked:true };
   }));
 }
 
@@ -128,7 +129,16 @@ export function setPlacementAngles(document:Document,refs:CopyRef[],degrees:numb
   const wanted=new Set(refs.map(placementKey)),parts=new Map(document.parts.map(part=>[part.id,part]));
   return updatePlacements(document,documentPlacements(document).filter(copy=>wanted.has(placementKey(copy))).map(copy=>{
     const part=parts.get(copy.partId)!;
-    return keepCopyCenter(part,copy,{...copy,angleDeg:normalizedAngle(degrees)});
+    return keepCopyCenter(part,copy,{...copy,angleDeg:normalizedAngle(degrees),orientationLocked:true});
+  }));
+}
+
+/** Return selected copies to automatic rotation, keeping their preview orientation intact. */
+export function releasePlacementAngleLocks(document:Document,refs:CopyRef[]):Document {
+  const wanted=new Set(refs.map(placementKey));
+  return updatePlacements(document,documentPlacements(document).filter(copy=>wanted.has(placementKey(copy))&&copy.orientationLocked).map(copy=>{
+    const {orientationLocked:_locked,...unlocked}=copy;
+    return unlocked;
   }));
 }
 
@@ -163,16 +173,30 @@ export function syncQuantity(document: Document): Document {
   return withDocumentPlacements({ ...document, placements: kept }, kept);
 }
 
-/** The nesting engine places one series only; this value records production runs. */
+/** Expand the real copy quantities for nesting, drawing and DXF. Never compound a previous series count. */
 export function applySeriesMultiplier(document:Document,next:string):Document {
   if(!/^[1-9][0-9]*$/.test(next))throw Error('Seri adedi 1 veya daha büyük bir tam sayı olmalıdır.');
-  return {...document,seriesMultiplier:next==='1'?undefined:next,seriesCountMode:'production'};
+  const previous=document.seriesCountMode==='expanded'?BigInt(String(document.seriesMultiplier??1)):1n;
+  const multiplier=BigInt(next);
+  const parts=document.parts.map(part=>{
+    const quantity=BigInt(part.quantity);
+    if(quantity%previous!==0n)throw Error('Parça adetleri seri sayısıyla uyumsuz. Önce parça adetlerini düzeltin.');
+    const count=quantity/previous*multiplier;
+    if(count>BigInt(LIMITS.copies))throw Error('Üretim serisi toplamda en fazla 500 kopya içerebilir.');
+    return {...part,quantity:Number(count)};
+  });
+  const copies=parts.reduce((sum,part)=>sum+part.quantity,0);
+  const vertices=parts.reduce((sum,part)=>sum+part.quantity*(part.outer.length+part.holes.reduce((n,h)=>n+h.length,0)),0);
+  if(copies>LIMITS.copies||vertices>LIMITS.verticesTotal)
+    throw Error('Seri sayısı 500 kopya veya 100.000 köşe sınırını aşıyor.');
+  return syncQuantity({...document,parts,seriesMultiplier:next==='1'?undefined:next,seriesCountMode:'expanded'});
 }
 
 export function samePlacement(a: Placement | undefined, b: Placement | undefined): boolean {
   return !!a && !!b && a.partId === b.partId && a.copyIndex === b.copyIndex
     && a.xMm === b.xMm && a.yMm === b.yMm && a.angleDeg === b.angleDeg
-    && !!a.mirrorX === !!b.mirrorX && !!a.mirrorY === !!b.mirrorY;
+    && !!a.mirrorX === !!b.mirrorX && !!a.mirrorY === !!b.mirrorY
+    && !!a.orientationLocked === !!b.orientationLocked;
 }
 
 export function placementLayoutsEqual(a: Document, b: Document): boolean {
@@ -208,9 +232,6 @@ export function rotateToNextOrientation(document: Document, refs: CopyRef[]): Do
     const allowed=part.rotations.kind==='discrete'?[...new Set(part.rotations.degrees.map(angle=>((angle%360)+360)%360))].sort((a,b)=>a-b):undefined;
     const next=allowed?(allowed.find(angle=>angle>current+1e-7)??allowed[0]):current+90;
     if(Math.abs(next-current)<1e-7)return copy;
-    const b=bounds(part.outer),x=(b[0]+b[2])/2,y=(b[1]+b[3])/2;
-    const before=copy.angleDeg*Math.PI/180,after=next*Math.PI/180;
-    return {...copy,angleDeg:next,xMm:copy.xMm+x*(Math.cos(before)-Math.cos(after))-y*(Math.sin(before)-Math.sin(after)),
-      yMm:copy.yMm+x*(Math.sin(before)-Math.sin(after))+y*(Math.cos(before)-Math.cos(after))};
+    return keepCopyCenter(part,copy,{...copy,angleDeg:next,orientationLocked:true});
   }));
 }

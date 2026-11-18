@@ -3,8 +3,6 @@ import {DESIGN_ZONES,cleanZoneStyles,renderZoneCss,type DesignZone,type ZoneStyl
 import {BLOCK_KINDS,BLOCK_REGIONS,BLOCK_DEVICES,cleanBlocks,defaultBlock,isSafeImageSource,type BlockKind,type BlockRegion,type DesignBlock} from './design-blocks';
 import './DesignStudio.css';
 import {DESIGN_COMPONENTS,canReorder} from './design-component-registry';
-import {appearanceToPreviewTokens} from './design-appearance-adapter';
-import {useAppearance} from '../appearance';
 
 type Design = {background:string;panel:string;accent:string;radius:number;spacing:number;fontSize:number;heading:string;hidden?:string[];order?:string[];positions?:Record<string,{x:number;y:number}>;workspaceOrder?:string[];zoneStyles?:ZoneStyles;blocks?:DesignBlock[]};
 const initial:Design={background:'#121421',panel:'#242935',accent:'#5278ed',radius:12,spacing:16,fontSize:15,heading:'Serula çalışma alanı'};
@@ -32,7 +30,6 @@ function loadDraft():Design{
 }
 
 export default function DesignStudio({onClose}:{onClose:()=>void}){
-  const {appearance,loaded:appearanceLoaded}=useAppearance();
   const [history,setHistory]=useState<Design[]>(()=>[loadDraft()]);
   const [index,setIndex]=useState(0);
   const [selected,setSelected]=useState<(typeof samples)[number]>('Ana panel');
@@ -540,7 +537,7 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
       </aside>
       <main className="editor-stage-area">
         <div className="editor-stage-toolbar">
-          
+
           <div className="editor-crumb"><span>Nesting Studio</span><span aria-hidden="true">›</span><strong>{zoneNames[selectedZone]}</strong></div>
           <div className="editor-viewport-controls" role="group" aria-label="Ekran boyutu">
             {(['desktop','tablet','mobile'] as const).map(item=><button type="button" key={item} aria-label={({desktop:"Masaüstü",tablet:"Tablet",mobile:"Mobil"} as const)[item]} aria-pressed={device===item} onClick={()=>setDevice(item)}>{({desktop:'▭ Masaüstü',tablet:'▯ Tablet',mobile:'▮ Mobil'} as const)[item]}</button>)}
@@ -628,7 +625,6 @@ export default function DesignStudio({onClose}:{onClose:()=>void}){
           <button type="button" className="editor-reset-props" onClick={resetZone}>↺ Seçili bileşenin ayarlarını sıfırla</button>
           </>}
         </div>
-        <div className="editor-inspector-footer"><button type="button" disabled={!appearanceLoaded} onClick={()=>apply(appearanceToPreviewTokens(appearance))}>Serula renklerini içe al</button></div>
       </aside>
     </div>
     {importOpen&&<div className="editor-import-overlay"><div className="editor-import-dialog" role="dialog" aria-modal="true" aria-label="Tasarım JSON içe aktar"><h3>JSON içe aktar</h3><p>Yalnızca doğrulanmış Serula tasarım dosyaları kabul edilir.</p><textarea aria-label="Tasarım JSON içeriği" rows={7} maxLength={70000} value={importText} onChange={e=>setImportText(e.target.value)}/><div><button type="button" onClick={()=>setImportOpen(false)}>Vazgeç</button><button type="button" onClick={importJson}>Doğrula ve taslağa uygula</button></div></div></div>}

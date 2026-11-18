@@ -3,7 +3,8 @@ import {bounds,normalizeDocument} from './normalize';
 import {localize} from '../import/sparrow';
 import {documentPlacements,placementKey,type CopyRef,withDocumentPlacements} from './placements';
 
-export type GeometryEdit={kind:'rotate';degrees:number;pivot:Point}|{kind:'scale';factor:number;pivot:Point};
+import type {GeometryEdit} from './edit-types';
+export type {GeometryEdit} from './edit-types';
 export function placementBounds(part:Document['parts'][number],placement:Placement):[number,number,number,number] {
   const radians=placement.angleDeg*Math.PI/180,c=Math.cos(radians),s=Math.sin(radians),mx=placement.mirrorX?-1:1,my=placement.mirrorY?-1:1;
   const points=part.outer.map(([x,y])=>{x*=mx;y*=my;return [x*c-y*s+placement.xMm,x*s+y*c+placement.yMm] as Point});

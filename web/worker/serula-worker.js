@@ -1,6 +1,8 @@
 import {parseDesignPayload} from './design-document.js';
 import {hashPassword,verifyPassword} from './passwords.js';
-import {parseButtonStyles,validateCustomCss} from '../shared/button-styles.js';
+import {sendVerificationCode,confirmVerificationCode} from './email-otp.js';
+import {hasEmailSender,sendAppEmail} from './email-sender.js';
+
 import packageInfo from '../package.json';
 const GOOGLE_CLIENT_ID='207092733568-2h2751l65c8cbnb3o6qfpvl4uug9f975.apps.googleusercontent.com';
 const SESSION_DAYS=30;
@@ -43,6 +45,17 @@ async function ensureSchema(env){
       unlimited INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       last_login_at TEXT
+    )`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS email_verifications (
+      user_id INTEGER PRIMARY KEY,
+      challenge_hash TEXT NOT NULL,
+      code_hash TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      attempts INTEGER NOT NULL DEFAULT 0,
+      sent_at TEXT NOT NULL,
+      window_started_at TEXT NOT NULL,
+      window_count INTEGER NOT NULL DEFAULT 1,
+      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
     )`),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS sessions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -188,7 +201,8 @@ async function sessionUser(request,env){
       l.started_at license_started_at,l.expires_at license_expires_at
     FROM sessions s JOIN users u ON u.id=s.user_id
     LEFT JOIN user_licenses l ON l.user_id=u.id
-    WHERE s.token_hash=? AND datetime(s.expires_at)>datetime('now')`).bind(await sha256(raw)).first();
+    WHERE s.token_hash=? AND datetime(s.expires_at)>datetime('now')
+      AND NOT EXISTS (SELECT 1 FROM email_verifications v WHERE v.user_id=u.id)`).bind(await sha256(raw)).first();
   return row||null;
 }
 async function makeSession(userId,env){
@@ -308,6 +322,8 @@ async function googleUserFromCredential(credential,env,requestedLocale='tr'){
       FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.id=?`).bind(userId).first();
   }else{
     await env.DB.prepare('UPDATE users SET google_id=COALESCE(google_id,?),last_login_at=CURRENT_TIMESTAMP WHERE id=?').bind(String(claims.sub||''),user.id).run();
+    // Google's verified-email claim satisfies activation for the same address.
+    await env.DB.prepare('DELETE FROM email_verifications WHERE user_id=?').bind(user.id).run();
   }
   await audit(env,'login',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:'Google ile giriş'});
   return {user};
@@ -321,16 +337,6 @@ async function handleApi(request,env){
   if(path==='/api/auth/google-config'&&request.method==='GET')return json({clientId:GOOGLE_CLIENT_ID});
   if(request.method!=='GET'&&!sameOrigin(request))return json({error:'Geçersiz istek.'},403);
 
-  if(path==='/api/version'&&request.method==='GET')return json({version:APP_VERSION});
-  if(path==='/api/appearance'&&request.method==='GET'){
-    const row=await env.DB.prepare("SELECT value_json FROM system_settings WHERE key='appearance'").first();
-    let appearance={background:'#121421',panel:'#242935'};
-    try{
-      const value=JSON.parse(row?.value_json||'null');
-      if(/^#[0-9a-f]{6}$/i.test(value?.background)&&/^#[0-9a-f]{6}$/i.test(value?.panel))appearance={background:value.background.toLowerCase(),panel:value.panel.toLowerCase(),buttons:parseButtonStyles(value.buttons),customCss:validateCustomCss(value.customCss??'')};
-    }catch{}
-    return json({appearance});
-  }
   // Read-only published design. This does not override existing appearance or nesting data.
   if(path==='/api/design/published'&&request.method==='GET'){
     const row=await env.DB.prepare("SELECT value_json FROM system_settings WHERE key='design_published_v1'").first();
@@ -416,16 +422,7 @@ async function handleApi(request,env){
     }
     return json({error:'İşlem desteklenmiyor.'},405);
   }
-  if(path==='/api/admin/appearance'&&request.method==='POST'){
-    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
-    const value=(await body(request))?.appearance;
-    if(typeof value?.background!=='string'||typeof value?.panel!=='string'||!/^#[0-9a-f]{6}$/i.test(value.background)||!/^#[0-9a-f]{6}$/i.test(value.panel))return json({error:'Geçerli renkler seçin.'},400);
-    let buttons,customCss;try{buttons=parseButtonStyles(value.buttons);customCss=validateCustomCss(value.customCss??'');}catch(error){return json({error:error.message},400);}
-    const appearance={background:value.background.toLowerCase(),panel:value.panel.toLowerCase(),buttons,customCss};
-    await env.DB.prepare("INSERT INTO system_settings(key,value_json,updated_at) VALUES('appearance',?,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json,updated_at=CURRENT_TIMESTAMP").bind(JSON.stringify(appearance)).run();
-    await audit(env,'appearance_changed',{actorType:'admin',detail:JSON.stringify(appearance)});
-    return json({appearance});
-  }
+  if(path==='/api/version'&&request.method==='GET')return json({version:APP_VERSION});
   if(path==='/api/transfer/access'&&request.method==='GET'){
     const user=await sessionUser(request,env);
     if(!user||licenseExpired(user))return json({corel:false,rdworks:false});
@@ -469,15 +466,38 @@ async function handleApi(request,env){
   if(path==='/api/auth/register'&&request.method==='POST'){
     const data=await body(request),email=String(data.email||'').trim().toLowerCase(),name=String(data.name||'').trim().slice(0,120),password=String(data.password||''),locale=cleanLocale(data.locale);
     if(!validEmail(email)||!passwordOk(password))return json({error:'Geçerli e-posta ve en az 8 karakter parola gerekli.'},400);
+    if(!hasEmailSender(env))return json({error:'E-posta doğrulama servisi hazır değil. Kayıt şu an yapılamıyor.'},503);
     if(await env.DB.prepare('SELECT id FROM users WHERE email=?').bind(email).first())return json({error:'Bu e-posta zaten kayıtlı.'},409);
-    const result=await env.DB.prepare(`INSERT INTO users(email,name,password_hash,role,nesting_credits,unlimited,last_login_at)
-      VALUES(?,?,?,'user',5,0,CURRENT_TIMESTAMP)`).bind(email,name,await hashPassword(password)).run();
+    const result=await env.DB.prepare("INSERT INTO users(email,name,password_hash,role,nesting_credits,unlimited) VALUES(?,?,?,'user',5,0)")
+      .bind(email,name,await hashPassword(password)).run();
     const userId=Number(result.meta.last_row_id);
-    await env.DB.prepare(`INSERT INTO user_preferences(user_id,locale,updated_at) VALUES(?,?,CURRENT_TIMESTAMP)
-      ON CONFLICT(user_id) DO UPDATE SET locale=excluded.locale,updated_at=CURRENT_TIMESTAMP`).bind(userId,locale).run();
-    const user=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,l.started_at license_started_at,l.expires_at license_expires_at
-      FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.id=?`).bind(userId).first();
-    return json({user:publicUser(user)},201,{'set-cookie':cookie(await makeSession(user.id,env))});
+    await env.DB.prepare("INSERT INTO user_preferences(user_id,locale,updated_at) VALUES(?,?,CURRENT_TIMESTAMP) ON CONFLICT(user_id) DO UPDATE SET locale=excluded.locale,updated_at=CURRENT_TIMESTAMP")
+      .bind(userId,locale).run();
+    const issued=await sendVerificationCode(env,{id:userId,email},{initial:true});
+    if(issued.error)return json({error:issued.error},issued.status);
+    await audit(env,'verification_sent',{targetUserId:userId,detail:'New password registration'});
+    // Never create an authenticated session before the emailed code is confirmed.
+    return json(issued,202);
+  }
+  if(path==='/api/auth/resend-verification'&&request.method==='POST'){
+    const data=await body(request),email=String(data.email||'').trim().toLowerCase(),password=String(data.password||'');
+    const user=validEmail(email)?await env.DB.prepare('SELECT id,email,password_hash FROM users WHERE email=?').bind(email).first():null;
+    if(!user||!await verifyPassword(password,user.password_hash))return json({error:'E-posta veya parola hatalı.'},401);
+    const pending=await env.DB.prepare('SELECT user_id FROM email_verifications WHERE user_id=?').bind(user.id).first();
+    if(!pending)return json({error:'E-posta adresi zaten doğrulanmış.'},400);
+    const issued=await sendVerificationCode(env,user);
+    if(issued.error)return json({error:issued.error},issued.status);
+    await audit(env,'verification_resent',{actorType:'user',actorUserId:user.id,targetUserId:user.id});
+    return json(issued);
+  }
+  if(path==='/api/auth/verify-email'&&request.method==='POST'){
+    const data=await body(request),email=String(data.email||'').trim().toLowerCase(),challenge=String(data.challenge||''),code=String(data.code||'');
+    const verified=await confirmVerificationCode(env,email,challenge,code);
+    if(verified.error)return json({error:verified.error},verified.status);
+    const user=await env.DB.prepare("SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,l.started_at license_started_at,l.expires_at license_expires_at FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.id=?")
+      .bind(verified.user.id).first();
+    await audit(env,'email_verified',{actorType:'user',actorUserId:user.id,targetUserId:user.id});
+    return json({user:publicUser(user)},200,{'set-cookie':cookie(await makeSession(user.id,env))});
   }
   if(path==='/api/auth/admin-me'&&request.method==='GET'){
     return await adminSessionValid(request,env)?json({user:{id:0,email:'',name:'Admin',role:'admin',credits:0,unlimited:true}}):json({user:null},401);
@@ -498,6 +518,11 @@ async function handleApi(request,env){
       l.started_at license_started_at,l.expires_at license_expires_at
       FROM users u LEFT JOIN user_licenses l ON l.user_id=u.id WHERE u.email=?`).bind(email).first();
     if(!user||!await verifyPassword(password,user.password_hash)){await audit(env,'login_failed',{actorType:'user',detail:email,success:false});return json({error:'E-posta veya parola hatalı.'},401);}
+    const pending=await env.DB.prepare('SELECT user_id FROM email_verifications WHERE user_id=?').bind(user.id).first();
+    if(pending){
+      const issued=await sendVerificationCode(env,user);
+      return json(issued,issued.status||202);
+    }
     await env.DB.prepare('UPDATE users SET last_login_at=CURRENT_TIMESTAMP WHERE id=?').bind(user.id).run();
     await audit(env,'login',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:'E-posta ile giriş'});
     return json({user:publicUser(user)},200,{'set-cookie':cookie(await makeSession(user.id,env))});
@@ -627,6 +652,17 @@ async function handleApi(request,env){
       FROM export_files WHERE user_id=? ORDER BY created_at DESC,id DESC LIMIT 200`).bind(user.id).all();
     return json({items:rows.results.map(row=>({id:Number(row.id),projectName:row.project_name||'',sourceFileName:row.source_file_name||'',fileName:row.file_name||'',byteSize:Number(row.byte_size||0),createdAt:row.created_at}))});
   }
+  if(path==='/api/history'&&request.method==='DELETE'){
+    const user=await sessionUser(request,env);if(!user)return json({error:'Geçmişi silmek için giriş yapmalısınız.'},401);
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM export_file_chunks WHERE export_id IN (SELECT id FROM export_files WHERE user_id=?)').bind(user.id),
+      env.DB.prepare('DELETE FROM export_files WHERE user_id=?').bind(user.id),
+      env.DB.prepare('DELETE FROM cloud_project_chunks WHERE user_id=?').bind(user.id),
+      env.DB.prepare('DELETE FROM cloud_projects WHERE user_id=?').bind(user.id)
+    ]);
+    await audit(env,'history_deleted',{actorType:'user',actorUserId:user.id,targetUserId:user.id,detail:'All cloud autosave and DXF export history'});
+    return json({ok:true});
+  }
   const exportFileMatch=path.match(/^\/api\/exports\/(\d+)$/);
   if(exportFileMatch&&request.method==='GET'){
     const user=await sessionUser(request,env);if(!user)return json({error:'Giriş gerekli.'},401);
@@ -657,7 +693,13 @@ async function handleApi(request,env){
   }
   if(path==='/api/admin/users'&&request.method==='GET'){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    // Keep this UI compatible before and after the OTP activation PR ships.
+    const otpTable=await env.DB.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='email_verifications'").first();
+    const verifiedColumn=otpTable
+      ?'CASE WHEN EXISTS(SELECT 1 FROM email_verifications v WHERE v.user_id=u.id) THEN 0 ELSE 1 END'
+      :'1';
     const rows=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.role,u.nesting_credits,u.unlimited,u.google_id,u.created_at,u.last_login_at,
+      ${verifiedColumn} email_verified,
       COALESCE(f.test_dxf_enabled,0) test_dxf_enabled,COALESCE(ct.enabled,1) corel_enabled,p.last_seen,l.started_at license_started_at,l.expires_at license_expires_at,
       CASE WHEN ${onlineSql} THEN 1 ELSE 0 END online
       FROM users u
@@ -667,7 +709,7 @@ async function handleApi(request,env){
       LEFT JOIN user_licenses l ON l.user_id=u.id
       ORDER BY u.created_at DESC LIMIT 500`).all();
     const online=await env.DB.prepare("SELECT COUNT(*) n FROM user_presence WHERE datetime(last_seen)>=datetime('now','-15 seconds')").first();
-    return json({onlineCount:Number(online?.n||0),users:rows.results.map(u=>({...publicUser(u),testDxfEnabled:!!u.test_dxf_enabled,corelTransferEnabled:!!u.corel_enabled,authProvider:u.google_id?'google':'email',createdAt:u.created_at,lastLoginAt:u.last_login_at,lastSeen:u.last_seen||null,online:!!u.online}))});
+    return json({onlineCount:Number(online?.n||0),users:rows.results.map(u=>({...publicUser(u),testDxfEnabled:!!u.test_dxf_enabled,corelTransferEnabled:!!u.corel_enabled,authProvider:u.google_id?'google':'email',emailVerified:!!u.email_verified,createdAt:u.created_at,lastLoginAt:u.last_login_at,lastSeen:u.last_seen||null,online:!!u.online}))});
   }
   if(path==='/api/admin/chats'&&request.method==='GET'){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
@@ -733,6 +775,20 @@ async function handleApi(request,env){
     const auth=await adminSessionValid(request,env);if(!auth)return json({error:'Yetkisiz.'},403);
     let userStore=false;try{await env.DB.prepare('SELECT COUNT(*) AS n FROM users').first();userStore=true}catch{}
     return json({adminApi:true,auth:true,userStore});
+  }
+  if(path==='/api/admin/history'&&request.method==='GET'){
+    if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
+    const days=Number(url.searchParams.get('days')||30);
+    if(![7,30].includes(days))return json({error:'Geçersiz geçmiş aralığı.'},400);
+    const rows=await env.DB.prepare(`SELECT h.id,h.user_id,u.email,u.name,h.project_name,h.source_file_name,h.used_credit,h.created_at
+      FROM nesting_history h JOIN users u ON u.id=h.user_id
+      WHERE datetime(h.created_at)>=datetime('now',?)
+      ORDER BY h.id DESC LIMIT 500`).bind('-'+days+' days').all();
+    return json({days,items:rows.results.map(row=>({
+      id:row.id,userId:row.user_id,email:row.email,name:row.name||'',
+      projectName:row.project_name||'',sourceFileName:row.source_file_name||'',
+      usedCredit:Number(row.used_credit||0),createdAt:row.created_at
+    }))});
   }
   if(path==='/api/admin/logs'&&request.method==='GET'){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
@@ -886,7 +942,12 @@ async function handleApi(request,env){
   }
   if(userSettingsMatch&&request.method==='DELETE'){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
-    const id=Number(userSettingsMatch[1]);await env.DB.prepare('DELETE FROM user_settings WHERE user_id=?').bind(id).run();await audit(env,'user_settings_reset',{actorType:'admin',targetUserId:id});return json({settings:await systemDefaults(env),custom:false});
+    const id=Number(userSettingsMatch[1]);
+    const target=await env.DB.prepare('SELECT id FROM users WHERE id=?').bind(id).first();
+    if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
+    await env.DB.prepare('DELETE FROM user_settings WHERE user_id=?').bind(id).run();
+    await audit(env,'user_settings_reset',{actorType:'admin',targetUserId:id});
+    return json({settings:await systemDefaults(env),custom:false});
   }
   const licenseMatch=path.match(/^\/api\/admin\/users\/(\d+)\/license$/);
   if(licenseMatch&&request.method==='POST'){
@@ -910,7 +971,9 @@ async function handleApi(request,env){
   const testDxfMatch=path.match(/^\/api\/admin\/users\/(\d+)\/test-dxf$/);
   if(testDxfMatch&&request.method==='POST'){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
-    const id=Number(testDxfMatch[1]),data=await body(request),enabled=!!data.enabled;
+    const id=Number(testDxfMatch[1]),data=await body(request);
+    if(typeof data.enabled!=='boolean')return json({error:'Geçersiz Test DXF yetki değeri.'},400);
+    const enabled=data.enabled;
     const target=await env.DB.prepare('SELECT id FROM users WHERE id=?').bind(id).first();
     if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
     await env.DB.prepare(`INSERT INTO user_features(user_id,test_dxf_enabled,updated_at) VALUES(?,?,CURRENT_TIMESTAMP) ON CONFLICT(user_id) DO UPDATE SET test_dxf_enabled=excluded.test_dxf_enabled,updated_at=CURRENT_TIMESTAMP`).bind(id,enabled?1:0).run();
@@ -920,7 +983,9 @@ async function handleApi(request,env){
     const unlimitedMatch=path.match(/^\/api\/admin\/users\/(\d+)\/unlimited$/);
   if(unlimitedMatch&&request.method==='POST'){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
-    const id=Number(unlimitedMatch[1]),data=await body(request),unlimited=!!data.unlimited,target=await env.DB.prepare('SELECT id FROM users WHERE id=?').bind(id).first();if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
+    const id=Number(unlimitedMatch[1]),data=await body(request);
+    if(typeof data.unlimited!=='boolean')return json({error:'Geçersiz sınırsız kullanım değeri.'},400);
+    const unlimited=data.unlimited,target=await env.DB.prepare('SELECT id FROM users WHERE id=?').bind(id).first();if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
     await env.DB.prepare('UPDATE users SET unlimited=? WHERE id=?').bind(unlimited?1:0,id).run();await audit(env,'unlimited_changed',{actorType:'admin',targetUserId:id,detail:unlimited?'Açık':'Kapalı'});return json({ok:true,unlimited});
   }
   const resetMatch=path.match(/^\/api\/admin\/users\/(\d+)\/password-reset$/);
@@ -928,18 +993,21 @@ async function handleApi(request,env){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
     const id=Number(resetMatch[1]),target=await env.DB.prepare('SELECT id,email FROM users WHERE id=?').bind(id).first();
     if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
-    if(!env.EMAIL)return json({error:'E-posta gönderim servisi yapılandırılmamış.'},503);
+    if(!hasEmailSender(env))return json({error:'E-posta gönderim servisi yapılandırılmamış.'},503);
     const raw=randomToken(),expires=new Date(Date.now()+3600000).toISOString();
     await env.DB.prepare('INSERT INTO password_reset_tokens(token_hash,user_id,expires_at) VALUES(?,?,?)').bind(await sha256(raw),id,expires).run();
     const resetUrl=new URL(request.url).origin+'/?reset='+encodeURIComponent(raw);
-    await env.EMAIL.send({to:target.email,from:'noreply@serula.site',subject:'Serula Nesting - Şifre Sıfırlama',text:'Şifrenizi yenilemek için bu bağlantıyı 1 saat içinde açın: '+resetUrl});
+    try{await sendAppEmail(env,{to:target.email,from:'noreply@serula.site',subject:'Serula Nesting - Şifre Sıfırlama',text:'Şifrenizi yenilemek için bu bağlantıyı 1 saat içinde açın: '+resetUrl});}
+    catch{return json({error:'Şifre sıfırlama e-postası gönderilemedi. Daha sonra yeniden deneyin.'},503);}
     await audit(env,'password_reset_sent',{actorType:'admin',targetUserId:id,detail:target.email});
     return json({ok:true});
   }
   const m=path.match(/^\/api\/admin\/users\/(\d+)\/credits$/);
   if(m&&request.method==='POST'){
     if(!await adminSessionValid(request,env))return json({error:'Yetkisiz.'},403);
-    const data=await body(request),id=Number(m[1]),credits=Math.max(0,Math.min(100000,Math.trunc(Number(data.credits)||0)));
+    const data=await body(request),id=Number(m[1]),credits=data.credits;
+    if(typeof credits!=='number'||!Number.isSafeInteger(credits)||credits<0||credits>100000)
+      return json({error:'Hak sayısı 0 ile 100000 arasında tam sayı olmalıdır.'},400);
     const target=await env.DB.prepare('SELECT id,role FROM users WHERE id=?').bind(id).first();
     if(!target)return json({error:'Kullanıcı bulunamadı.'},404);
     await env.DB.prepare('UPDATE users SET nesting_credits=? WHERE id=?').bind(credits,id).run();

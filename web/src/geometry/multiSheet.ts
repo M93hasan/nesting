@@ -8,17 +8,18 @@ type SheetChunk={items:IntervalItem[];minY:number;maxY:number};
 // Match the independent validator's 0.01 mm linear tolerance at exact fits.
 const SHEET_LINEAR_TOLERANCE_MM=0.01;
 
-const rotatedBounds=(ring:Ring,angleDeg:number)=>{
+const rotatedBounds=(ring:Ring,angleDeg:number,mirrorX=false,mirrorY=false)=>{
   const a=angleDeg*Math.PI/180,c=Math.cos(a),s=Math.sin(a);
   let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
   for(const [x,y] of ring){
-    const rx=x*c-y*s,ry=x*s+y*c;
+    const mx=mirrorX?-x:x,my=mirrorY?-y:y;
+    const rx=mx*c-my*s,ry=mx*s+my*c;
     x0=Math.min(x0,rx);y0=Math.min(y0,ry);x1=Math.max(x1,rx);y1=Math.max(y1,ry);
   }
   return [x0,y0,x1,y1] as const;
 };
 
-function orientToStartCorner(doc:Document,result:Result):Result {
+function orientToStartCorner(doc:Document,result:Result,envelopes:Map<string,Ring>):Result {
   if(!result.placements.length)return result;
   const width=doc.settings.materialWidthMm,inset=0;
   const parts=new Map(doc.parts.map(part=>[part.id,part] as const));
@@ -33,7 +34,7 @@ function orientToStartCorner(doc:Document,result:Result):Result {
     for(const index of indices){
       const placement=placements[index],part=parts.get(placement.partId);
       if(!part)throw Error('Yerleşimde bilinmeyen parça bulundu.');
-      const b=rotatedBounds(collisionRing(part),placement.angleDeg);
+      const b=rotatedBounds(envelopes.get(part.id)!,placement.angleDeg,placement.mirrorX,placement.mirrorY);
       minX=Math.min(minX,placement.xMm+b[0]);maxX=Math.max(maxX,placement.xMm+b[2]);
       minY=Math.min(minY,placement.yMm+b[1]);maxY=Math.max(maxY,placement.yMm+b[3]);
     }
@@ -50,12 +51,13 @@ function orientToStartCorner(doc:Document,result:Result):Result {
 
 
 export function packResultIntoSheets(doc:Document,result:Result):Result {
-  if(doc.settings.materialType!=='sheet')return orientToStartCorner(doc,result);
+  const envelopes=new Map(doc.parts.map(part=>[part.id,collisionRing(part)] as const));
+  if(doc.settings.materialType!=='sheet')return orientToStartCorner(doc,result,envelopes);
   const width=doc.settings.materialWidthMm,length=doc.settings.materialLengthMm,gap=Math.max(0,doc.settings.clearanceMm);
   if(!length||!Number.isFinite(length)||length<=0)throw Error('Plaka uzunluğu pozitif bir değer olmalıdır.');
   if(result.placements.length&&result.placements.every(placement=>placement.sheetIndex!==undefined)){
     const sheetCount=Math.max(...result.placements.map(placement=>placement.sheetIndex??0))+1;
-    return orientToStartCorner(doc,{...result,sheetCount,usedLengthMm:length*sheetCount});
+    return orientToStartCorner(doc,{...result,sheetCount,usedLengthMm:length*sheetCount},envelopes);
   }
 
   const parts=new Map(doc.parts.map(p=>[p.id,p] as const));
@@ -65,7 +67,7 @@ export function packResultIntoSheets(doc:Document,result:Result):Result {
   let minLayoutX=Infinity,maxLayoutX=-Infinity;
   for(const placement of result.placements){
     const part=parts.get(placement.partId);if(!part)throw Error('Yerleşimde bilinmeyen parça bulundu.');
-    const b=rotatedBounds(collisionRing(part),placement.angleDeg);
+    const b=rotatedBounds(envelopes.get(part.id)!,placement.angleDeg,placement.mirrorX,placement.mirrorY);
     minLayoutX=Math.min(minLayoutX,placement.xMm+b[0]);
     maxLayoutX=Math.max(maxLayoutX,placement.xMm+b[2]);
   }
@@ -75,7 +77,7 @@ export function packResultIntoSheets(doc:Document,result:Result):Result {
   const normalizedPlacements=result.placements.map(placement=>({...placement,xMm:placement.xMm+normalizeX}));
   const items:IntervalItem[]=normalizedPlacements.map((placement,index)=>{
     const part=parts.get(placement.partId);if(!part)throw Error('Yerleşimde bilinmeyen parça bulundu.');
-    const b=rotatedBounds(collisionRing(part),placement.angleDeg);
+    const b=rotatedBounds(envelopes.get(part.id)!,placement.angleDeg,placement.mirrorX,placement.mirrorY);
     const minX=placement.xMm+b[0],maxX=placement.xMm+b[2],minY=placement.yMm+b[1],maxY=placement.yMm+b[3];
     if(minX<-1e-6||maxX>width+1e-6)throw Error(`${part.name} malzeme genişliğinin dışına taşıyor.`);
     if(maxY-minY>length+SHEET_LINEAR_TOLERANCE_MM)throw Error(`${part.name} seçilen plaka uzunluğuna sığmıyor.`);
@@ -132,5 +134,5 @@ export function packResultIntoSheets(doc:Document,result:Result):Result {
   }
 
   const sheetCount=Math.max(1,sheetIndex+1);
-  return orientToStartCorner(doc,{...result,sheetCount,usedLengthMm:length*sheetCount,placements:packed});
+  return orientToStartCorner(doc,{...result,sheetCount,usedLengthMm:length*sheetCount,placements:packed},envelopes);
 }

@@ -1,5 +1,5 @@
 import type {Point} from '../model';
-import type {GeometryEdit} from './manipulate';
+import type {GeometryEdit} from './edit-types';
 
 export type PreparationShortcut='rotate'|'increase-quantity'|'decrease-quantity';
 export function preparationShortcut(key:string):PreparationShortcut|undefined {

@@ -24,15 +24,28 @@ function database(){
     try{const results=[];for(const statement of statements)results.push(await statement.run());sqlite.exec('COMMIT');return results}
     catch(error){sqlite.exec('ROLLBACK');throw error}
   }};
-  return {DB,sqlite,fail(){failChunks=true}};
+  const sentEmails:{to:string;from:string;subject:string;text:string}[]=[];
+  return {DB,sqlite,sentEmails,EMAIL:{async send(message:{to:string;from:string;subject:string;text:string}){sentEmails.push(message)}},fail(){failChunks=true}};
 }
 async function call(env:any,path:string,data?:unknown,cookie=''){
   return worker.fetch(new Request('https://serula.site'+path,{method:data===undefined?'GET':'POST',headers:{'content-type':'application/json',origin:'https://serula.site',cookie},...(data===undefined?{}:{body:JSON.stringify(data)})}),env);
 }
+async function verifyRegistration(env:any,response:Response,email:string){
+  expect(response.status).toBe(202);
+  expect(response.headers.get('set-cookie')).toBeNull();
+  const {challenge,verificationRequired}=await response.json();
+  expect(verificationRequired).toBe(true);
+  const mail=env.sentEmails.at(-1)?.text||'';
+  const code=mail.match(/doğrulama kodunuz: (\d{6})/i)?.[1];
+  expect(code).toMatch(/^\d{6}$/);
+  const verified=await call(env,'/api/auth/verify-email',{email,challenge,code});
+  expect(verified.status).toBe(200);
+  return verified.headers.get('set-cookie')!.split(';')[0];
+}
 async function account(env:any){
-  const response=await call(env,'/api/auth/register',{email:'test@example.com',name:'Test',password:'a-good-password'});
-  expect(response.status).toBe(201);
-  return response.headers.get('set-cookie')!.split(';')[0];
+  const email='test@example.com';
+  const response=await call(env,'/api/auth/register',{email,name:'Test',password:'a-good-password'});
+  return verifyRegistration(env,response,email);
 }
 const payload={projectName:'Project',fileName:'test.dxf',dxf:'0\nSECTION\n0\nEOF',projectJson:'{}'};
 
@@ -111,6 +124,63 @@ describe('Worker accounts and credit transactions',()=>{
     expect((await call(env,'/api/nesting/start',{},cookie)).status).toBe(410);
     env.sqlite.close();
   });
+  it('rejects unauthenticated, cross-origin and out-of-credit export attempts without storage writes',async()=>{
+    const env=database(),cookie=await account(env);
+    expect((await call(env,'/api/export/authorize',payload)).status).toBe(401);
+    const foreign=await worker.fetch(new Request('https://serula.site/api/export/authorize',{
+      method:'POST',headers:{'content-type':'application/json',origin:'https://untrusted.example',cookie},
+      body:JSON.stringify(payload)
+    }),env);
+    expect(foreign.status).toBe(403);
+    expect(env.sqlite.prepare('SELECT nesting_credits FROM users').get()?.nesting_credits).toBe(5);
+    env.sqlite.exec('UPDATE users SET nesting_credits=0');
+    expect((await call(env,'/api/export/authorize',payload,cookie)).status).toBe(402);
+    for(const table of ['nesting_history','export_files','export_file_chunks'])
+      expect(env.sqlite.prepare(`SELECT count(*) n FROM ${table}`).get()?.n).toBe(0);
+    env.sqlite.close();
+  });
+  it('rejects an expired license without debiting credit or persisting export files',async()=>{
+    const env=database(),cookie=await account(env);
+    env.sqlite.exec("INSERT INTO user_licenses(user_id,started_at,expires_at) SELECT id,'2026-01-01T00:00:00.000Z','2026-01-02T00:00:00.000Z' FROM users");
+    const denied=await call(env,'/api/export/authorize',payload,cookie);
+    expect(denied.status).toBe(403);
+    expect((await denied.json()).error).toMatch(/Lisans süreniz doldu/);
+    expect(env.sqlite.prepare('SELECT nesting_credits FROM users').get()?.nesting_credits).toBe(5);
+    expect(env.sqlite.prepare('SELECT count(*) n FROM export_files').get()?.n).toBe(0);
+    expect(env.sqlite.prepare('SELECT count(*) n FROM nesting_history').get()?.n).toBe(0);
+    env.sqlite.close();
+  });
+  it('protects export retrieval between accounts and leaves credits untouched for read-only operations',async()=>{
+    const env=database(),owner=await account(env);
+    const saved=await call(env,'/api/export/authorize',payload,owner);
+    expect(saved.status).toBe(200);
+    const {exportId}=await saved.json();
+    const otherResponse=await call(env,'/api/auth/register',{email:'other@example.com',name:'Other',password:'different-password'});
+    const other=await verifyRegistration(env,otherResponse,'other@example.com');
+    const foreign=await call(env,`/api/exports/${exportId}`,undefined,other);
+    expect(foreign.status).toBe(404);
+    const foreignList=await call(env,'/api/exports',undefined,other);
+    expect(foreignList.status).toBe(200);
+    expect((await foreignList.json()).items).toEqual([]);
+    const ownerFile=await call(env,`/api/exports/${exportId}`,undefined,owner);
+    expect(ownerFile.status).toBe(200);
+    expect(await ownerFile.text()).toBe(payload.dxf);
+    expect(ownerFile.headers.get('cache-control')).toContain('no-store');
+    for(let i=0;i<2;i++){
+      const repeated=await call(env,`/api/exports/${exportId}`,undefined,owner);
+      expect(repeated.status).toBe(200);
+      expect(await repeated.text()).toBe(payload.dxf);
+    }
+    const project=await call(env,`/api/exports/${exportId}?kind=project`,undefined,owner);
+    expect(project.status).toBe(200);
+    expect(await project.text()).toBe(payload.projectJson);
+    expect((await call(env,`/api/exports/${exportId}?kind=project`,undefined,other)).status).toBe(404);
+    expect((await call(env,`/api/exports/${exportId}`)).status).toBe(401);
+    expect(env.sqlite.prepare("SELECT nesting_credits FROM users WHERE email='test@example.com'").get()?.nesting_credits).toBe(4);
+    expect(env.sqlite.prepare("SELECT nesting_credits FROM users WHERE email='other@example.com'").get()?.nesting_credits).toBe(5);
+    expect(env.sqlite.prepare('SELECT count(*) n FROM export_files').get()?.n).toBe(1);
+    env.sqlite.close();
+  });
   it('blocks protected example DXF assets until user permission is granted',async()=>{
     let assetReads=0;
     const env={...database(),ASSETS:{fetch:async()=>{assetReads++;return new Response('DXF DATA',{status:200})}}};
@@ -147,6 +217,167 @@ describe('Worker accounts and credit transactions',()=>{
     expect(users.users).toHaveLength(1);
     expect((await call(env,`/api/admin/users/${users.users[0].id}/credits`,{credits:12},cookie)).status).toBe(200);
     expect(env.sqlite.prepare('SELECT nesting_credits FROM users').get()?.nesting_credits).toBe(12);
+    env.sqlite.close();
+  });
+});
+
+describe('Mandatory email activation OTP',()=>{
+  const registration={email:'pending@example.com',name:'Pending',password:'safe-password-123'};
+  const send=async(env:any)=>call(env,'/api/auth/register',registration);
+  const lastCode=(env:any)=>String(env.sentEmails.at(-1)?.text||'').match(/doğrulama kodunuz: (\d{6})/)?.[1]||'';
+
+  it('does not create accounts or a session when no email delivery binding is configured',async()=>{
+    const env=database();delete (env as {EMAIL?:unknown}).EMAIL;
+    const result=await send(env);
+    expect(result.status).toBe(503);
+    expect(result.headers.get('set-cookie')).toBeNull();
+    expect(env.sqlite.prepare('SELECT COUNT(*) n FROM users').get()?.n).toBe(0);
+    env.sqlite.close();
+  });
+
+  it('requires a delivered code and 256-bit browser challenge before login or exports',async()=>{
+    const env=database();
+    const created=await send(env);
+    expect(created.status).toBe(202);
+    expect(created.headers.get('set-cookie')).toBeNull();
+    const data=await created.json();
+    expect(data.challenge).toMatch(/^[a-f0-9]{64}$/);
+    expect(data.verificationRequired).toBe(true);
+    expect(lastCode(env)).toMatch(/^\d{6}$/);
+    expect(env.sentEmails).toHaveLength(1);
+    const pending=env.sqlite.prepare('SELECT * FROM email_verifications').get();
+    expect(JSON.stringify(pending)).not.toContain(lastCode(env));
+    expect(JSON.stringify(pending)).not.toContain(data.challenge);
+    expect((await call(env,'/api/auth/me')).status).toBe(401);
+    expect((await call(env,'/api/auth/login',{email:registration.email,password:'wrong-password'})).status).toBe(401);
+    expect((await call(env,'/api/auth/verify-email',{email:registration.email,challenge:'f'.repeat(64),code:lastCode(env)})).status).toBe(400);
+    expect((await call(env,'/api/auth/verify-email',{email:registration.email,challenge:data.challenge,code:'999999'===lastCode(env)?'888888':'999999'})).status).toBe(400);
+    const verified=await call(env,'/api/auth/verify-email',{email:registration.email,challenge:data.challenge,code:lastCode(env)});
+    expect(verified.status).toBe(200);
+    const session=verified.headers.get('set-cookie')!.split(';')[0];
+    expect((await call(env,'/api/auth/me',undefined,session)).status).toBe(200);
+    expect((await call(env,'/api/auth/verify-email',{email:registration.email,challenge:data.challenge,code:lastCode(env)})).status).toBe(400);
+    expect((await call(env,'/api/auth/login',{email:registration.email,password:registration.password})).status).toBe(200);
+    env.sqlite.close();
+  });
+
+  it('never accepts expired codes, even with the right value',async()=>{
+    const env=database(),created=await send(env);
+    const {challenge}=await created.json(),code=lastCode(env);
+    env.sqlite.exec("UPDATE email_verifications SET expires_at='2000-01-01T00:00:00.000Z'");
+    expect((await call(env,'/api/auth/verify-email',{email:registration.email,challenge,code})).status).toBe(400);
+    expect((await call(env,'/api/auth/login',{email:registration.email,password:registration.password})).status).toBe(429);
+    env.sqlite.close();
+  });
+
+  it('locks the OTP after five bad attempts and blocks new codes during cooldown',async()=>{
+    const env=database(),created=await send(env);
+    const {challenge}=await created.json(),code=lastCode(env);
+    const wrong=code==='000000'?'111111':'000000';
+    for(let i=0;i<5;i++)expect((await call(env,'/api/auth/verify-email',{email:registration.email,challenge,code:wrong})).status).toBe(400);
+    expect((await call(env,'/api/auth/verify-email',{email:registration.email,challenge,code})).status).toBe(400);
+    expect((await call(env,'/api/auth/resend-verification',{email:registration.email,password:registration.password})).status).toBe(429);
+    expect(env.sentEmails).toHaveLength(1);
+    env.sqlite.close();
+  });
+
+  it('resends only with valid password after cooldown and invalidates the old challenge',async()=>{
+    const env=database(),created=await send(env);
+    const first=await created.json(),oldCode=lastCode(env);
+    expect((await call(env,'/api/auth/resend-verification',{email:registration.email,password:'incorrect'})).status).toBe(401);
+    env.sqlite.exec("UPDATE email_verifications SET sent_at='2000-01-01T00:00:00.000Z'");
+    const resent=await call(env,'/api/auth/resend-verification',{email:registration.email,password:registration.password});
+    expect(resent.status).toBe(200);
+    const second=await resent.json(),newCode=lastCode(env);
+    expect(second.challenge).toMatch(/^[a-f0-9]{64}$/);
+    expect(second.challenge).not.toBe(first.challenge);
+    expect((await call(env,'/api/auth/verify-email',{email:registration.email,challenge:first.challenge,code:oldCode})).status).toBe(400);
+    expect((await call(env,'/api/auth/verify-email',{email:registration.email,challenge:second.challenge,code:newCode})).status).toBe(200);
+    env.sqlite.close();
+  });
+
+  it('never removes the pending activation marker after delivery failure',async()=>{
+    const env=database();env.EMAIL.send=async()=>{throw Error('provider unavailable')};
+    const created=await send(env);
+    expect(created.status).toBe(503);
+    expect(created.headers.get('set-cookie')).toBeNull();
+    expect(env.sqlite.prepare('SELECT COUNT(*) n FROM email_verifications').get()?.n).toBe(1);
+    expect((await call(env,'/api/auth/login',{email:registration.email,password:registration.password})).status).toBe(429);
+    env.sqlite.close();
+  });
+
+  it('blocks a previously issued session whenever account activation is pending',async()=>{
+    const env=database(),session=await account(env);
+    env.sqlite.exec("INSERT INTO email_verifications(user_id,challenge_hash,code_hash,expires_at,attempts,sent_at,window_started_at,window_count) SELECT id,'f','g','2099-01-01',0,'2020-01-01','2020-01-01',1 FROM users");
+    expect((await call(env,'/api/auth/me',undefined,session)).status).toBe(401);
+    expect((await call(env,'/api/export/authorize',payload,session)).status).toBe(401);
+    env.sqlite.close();
+  });
+});
+
+describe('Administrative history and permission controls',()=>{
+  async function adminCookie(env:any){
+    const login=await call(env,'/api/auth/admin-login',{email:'m93hasan@icloud.com',password:env.ADMIN_PASSWORD});
+    expect(login.status).toBe(200);
+    return login.headers.get('set-cookie')!.split(';')[0];
+  }
+  it('denies anonymous users historical data and returns real export usage to authorized admin',async()=>{
+    const env={...database(),ADMIN_PASSWORD:'test-admin-password'};
+    const userCookie=await account(env);
+    expect((await call(env,'/api/export/authorize',{...payload,sourceFileName:'test.dxf'},userCookie)).status).toBe(200);
+    expect((await call(env,'/api/admin/history?days=30')).status).toBe(403);
+    expect((await call(env,'/api/admin/history?days=30',undefined,userCookie)).status).toBe(403);
+    const cookie=await adminCookie(env);
+    const response=await call(env,'/api/admin/history?days=30',undefined,cookie);
+    expect(response.status).toBe(200);
+    const data=await response.json();
+    expect(data.items).toHaveLength(1);
+    expect(data.items[0]).toMatchObject({email:'test@example.com',projectName:'Project',sourceFileName:'test.dxf',usedCredit:1});
+    expect((await call(env,'/api/admin/history?days=999',undefined,cookie)).status).toBe(400);
+    env.sqlite.close();
+  });
+
+  it('rejects malformed credit values without resetting real user credits',async()=>{
+    const env={...database(),ADMIN_PASSWORD:'test-admin-password'};
+    await account(env);
+    const cookie=await adminCookie(env);
+    for(const credits of ['',null,'2','abc',-1,4.5,100001,Number.MAX_SAFE_INTEGER]){
+      expect((await call(env,'/api/admin/users/1/credits',{credits},cookie)).status).toBe(400);
+      expect(env.sqlite.prepare('SELECT nesting_credits FROM users WHERE id=1').get()?.nesting_credits).toBe(5);
+    }
+    expect((await call(env,'/api/admin/users/1/credits',{credits:0},cookie)).status).toBe(200);
+    expect(env.sqlite.prepare('SELECT nesting_credits FROM users WHERE id=1').get()?.nesting_credits).toBe(0);
+    env.sqlite.close();
+  });
+
+  it('requires actual booleans for privileged access switches',async()=>{
+    const env={...database(),ADMIN_PASSWORD:'test-admin-password'};
+    await account(env);
+    const cookie=await adminCookie(env);
+    expect((await call(env,'/api/admin/users/1/unlimited',{unlimited:'false'},cookie)).status).toBe(400);
+    expect((await call(env,'/api/admin/users/1/test-dxf',{enabled:'true'},cookie)).status).toBe(400);
+    expect(env.sqlite.prepare('SELECT unlimited FROM users WHERE id=1').get()?.unlimited).toBe(0);
+    expect((await call(env,'/api/admin/users/1/unlimited',{unlimited:true},cookie)).status).toBe(200);
+    expect((await call(env,'/api/admin/users/1/test-dxf',{enabled:true},cookie)).status).toBe(200);
+    env.sqlite.close();
+  });
+
+  it('shows pending activation only when verification table exists',async()=>{
+    const env={...database(),ADMIN_PASSWORD:'test-admin-password'};
+    await account(env);
+    const cookie=await adminCookie(env);
+    const before=await (await call(env,'/api/admin/users',undefined,cookie)).json();
+    expect(before.users[0].emailVerified).toBe(true);
+    env.sqlite.exec("INSERT INTO email_verifications(user_id,challenge_hash,code_hash,expires_at,attempts,sent_at,window_started_at,window_count) VALUES(1,'f','g','2099-01-01',0,'2020-01-01','2020-01-01',1)");
+    const pending=await (await call(env,'/api/admin/users',undefined,cookie)).json();
+    expect(pending.users[0].emailVerified).toBe(false);
+    env.sqlite.close();
+  });
+  it('never resets settings for an unknown user',async()=>{
+    const env={...database(),ADMIN_PASSWORD:'test-admin-password'};
+    const cookie=await adminCookie(env);
+    const result=await worker.fetch(new Request('https://serula.site/api/admin/users/999/settings',{method:'DELETE',headers:{origin:'https://serula.site',cookie}}),env);
+    expect(result.status).toBe(404);
     env.sqlite.close();
   });
 });

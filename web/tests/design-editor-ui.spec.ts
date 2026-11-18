@@ -5,7 +5,6 @@ test('admin opens full-screen editor, selects actual layer, changes styles and u
   await page.route('**/api/admin/design/versions',r=>r.fulfill({status:200,contentType:'application/json',body:'{"versions":[]}'}));
   await page.route('**/api/admin/design/publications',r=>r.fulfill({status:200,contentType:'application/json',body:'{"publications":[]}'}));
   await page.goto('/admin');
-  await page.getByRole('button',{name:/Görünüm/}).click();
   await page.getByRole('button',{name:'Tasarım Editörünü Aç'}).click();
   await expect(page.getByRole('region',{name:'Serula görsel tasarım editörü'})).toBeVisible();
   await expect(page.getByRole('complementary',{name:'Sayfalar ve katmanlar'})).toBeVisible();
@@ -79,7 +78,6 @@ test('palette components can be dropped on the real canvas and nudged by keyboar
   await page.route('**/api/admin/design/versions',r=>r.fulfill({status:200,contentType:'application/json',body:'{"versions":[]}'}));
   await page.route('**/api/admin/design/publications',r=>r.fulfill({status:200,contentType:'application/json',body:'{"publications":[]}'}));
   await page.goto('/admin');
-  await page.getByRole('button',{name:/Görünüm/}).click();
   await page.getByRole('button',{name:'Tasarım Editörünü Aç'}).click();
   await page.getByRole('button',{name:'Ekle',exact:true}).click();
   await page.getByRole('button',{name:'+ Başlık'}).dragTo(page.getByRole('button',{name:'Önizlemeden bir öğe seç'}));
@@ -104,7 +102,6 @@ test('admin can open already published component layout as an editable draft wit
     }}
   })}));
   await page.goto('/admin');
-  await page.getByRole('button',{name:/Görünüm/}).click();
   await page.getByRole('button',{name:'Tasarım Editörünü Aç'}).click();
   await page.getByRole('button',{name:'Geçmiş',exact:true}).click();
   page.once('dialog',dialog=>dialog.accept());

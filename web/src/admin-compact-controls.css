@@ -1,0 +1,212 @@
+/*
+ * Compact only the admin dashboard controls.
+ * The older admin-buttons.css migration in layout.css forces all buttons to
+ * 44px tall with 14px horizontal padding. Override that rule here without
+ * touching the CAD workspace, login/OTP cards or admin event handlers.
+ */
+:root #root .admin-page.shadcn-dashboard :is(button,a.admin-workspace-link){
+  box-sizing:border-box;
+  min-height:34px!important;
+  padding:6px 10px!important;
+  font-size:12px;
+  line-height:1.3;
+  transform:none!important;
+}
+:root #root .admin-page.shadcn-dashboard .admin-sidebar nav button{
+  min-height:36px!important;
+  gap:7px;
+  padding:5px 9px!important;
+  font-size:12px;
+}
+:root #root .admin-page.shadcn-dashboard .admin-sidebar nav button>.sd-nav-icon{
+  flex:0 0 22px;
+  width:22px;
+  height:22px;
+}
+/* The legacy sidebar sets height:32px on every child span, including labels. */
+:root #root .admin-page.shadcn-dashboard .admin-sidebar nav button>.sd-nav-label{
+  width:auto;
+  height:auto;
+  min-height:0;
+  line-height:1.3;
+}
+:root #root .admin-page.shadcn-dashboard .admin-sidebar nav{
+  gap:3px;
+}
+:root #root .admin-page.shadcn-dashboard .admin-user-actions{
+  gap:5px!important;
+  align-items:start;
+}
+:root #root .admin-page.shadcn-dashboard .admin-user-actions>button{
+  flex:0 1 auto!important;
+  width:auto;
+  min-width:0;
+  max-width:100%;
+  padding:5px 8px!important;
+  min-height:32px!important;
+  font-size:11.5px;
+  line-height:1.3;
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+:root #root .admin-page.shadcn-dashboard .admin-license-controls{
+  gap:5px;
+}
+:root #root .admin-page.shadcn-dashboard .admin-license-controls button{
+  min-height:32px!important;
+  padding:5px 8px!important;
+}
+:root #root .admin-page.shadcn-dashboard .admin-license-controls :is(input,select){
+  min-height:34px;
+  padding:5px 7px;
+  font-size:12px;
+}
+:root #root .admin-page.shadcn-dashboard .admin-save-row{
+  gap:8px;
+}
+:root #root .admin-page.shadcn-dashboard .admin-save-row button{
+  width:auto;
+  padding:7px 11px!important;
+}
+:root #root .admin-page.shadcn-dashboard .admin-card-head>.admin-save-row{
+  margin-top:0;
+  padding-top:0;
+  border-top:0;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+}
+:root #root .admin-page.shadcn-dashboard .sd-user-summary>button{
+  min-height:28px!important;
+  padding:4px 8px!important;
+}
+:root #root .admin-page.shadcn-dashboard .admin-chat-compose button{
+  min-width:0;
+  width:max-content;
+  justify-self:end;
+}
+:root #root .admin-page.shadcn-dashboard .admin-support-box button{
+  width:auto;
+}
+:root #root .admin-page.shadcn-dashboard .admin-top-actions{
+  gap:6px;
+}
+:root #root .admin-page.shadcn-dashboard a.admin-workspace-link{
+  min-height:34px!important;
+  padding:6px 9px!important;
+}
+
+@media (max-width:760px){
+  /* Compact labels, but preserve 40px tap targets on phones and tablets. */
+  :root #root .admin-page.shadcn-dashboard :is(button,a.admin-workspace-link){
+    min-height:40px!important;
+    padding:8px 10px!important;
+  }
+  :root #root .admin-page.shadcn-dashboard .admin-sidebar nav button{
+    min-height:40px!important;
+    padding:7px 9px!important;
+    white-space:nowrap;
+  }
+  :root #root .admin-page.shadcn-dashboard .admin-save-row{
+    align-items:center;
+    flex-direction:row;
+    flex-wrap:wrap;
+    justify-content:flex-start;
+  }
+  :root #root .admin-page.shadcn-dashboard .admin-save-row button,
+  :root #root .admin-page.shadcn-dashboard .admin-support-box button{
+    width:auto!important;
+    max-width:100%;
+  }
+  :root #root .admin-page.shadcn-dashboard .admin-license-controls button,
+  :root #root .admin-page.shadcn-dashboard .admin-chat-compose button{
+    min-height:40px!important;
+  }
+  :root #root .admin-page.shadcn-dashboard .admin-chat-compose button{
+    width:max-content!important;
+  }
+}
+@media (max-width:699px){
+  /* Seven user actions no longer occupy seven full-width rows. */
+  :root #root .admin-page.shadcn-dashboard .admin-user-actions{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    column-gap:6px!important;
+    row-gap:6px!important;
+    width:100%;
+  }
+  :root #root .admin-page.shadcn-dashboard .admin-user-actions>button{
+    width:100%!important;
+    min-height:40px!important;
+    padding:7px 6px!important;
+    font-size:11.5px;
+  }
+}
+@media (max-width:350px){
+  :root #root .admin-page.shadcn-dashboard .admin-user-actions>button{
+    padding-inline:4px!important;
+    font-size:11px;
+  }
+}
+
+/* Admin-only search tools: keep discovery visible without altering app controls. */
+:root #root .admin-page.shadcn-dashboard .admin-global-search,
+:root #root .admin-page.shadcn-dashboard .admin-user-settings-lookup{
+  min-width:0;width:100%;
+}
+:root #root .admin-page.shadcn-dashboard .admin-global-search .sd-search-field{
+  min-height:38px;padding:0 10px;
+}
+:root #root .admin-page.shadcn-dashboard .admin-global-search .sd-search-field input,
+:root #root .admin-page.shadcn-dashboard .admin-user-settings-lookup .sd-search-field input{
+  min-width:0;min-height:36px;font-size:12px;border:0;outline:0;box-shadow:none;
+  padding:5px 0;background:transparent;
+}
+:root #root .admin-page.shadcn-dashboard .admin-global-search .sd-search-field input:focus-visible,
+:root #root .admin-page.shadcn-dashboard .admin-user-settings-lookup .sd-search-field input:focus-visible{outline:0;}
+:root #root .admin-page.shadcn-dashboard .admin-global-search-results,
+:root #root .admin-page.shadcn-dashboard .admin-user-settings-results{
+  display:grid;gap:3px;max-height:285px;overflow-y:auto;
+  margin-top:6px;padding:6px;border:1px solid var(--sd-border);
+  border-radius:9px;background:#fff;
+}
+:root #root .admin-page.shadcn-dashboard .admin-global-search-results button,
+:root #root .admin-page.shadcn-dashboard .admin-user-settings-results button{
+  display:grid;gap:3px;justify-content:start;text-align:left;min-width:0;
+  padding:7px 9px!important;background:#fff;border:0!important;
+}
+:root #root .admin-page.shadcn-dashboard .admin-global-search-results button:hover,
+:root #root .admin-page.shadcn-dashboard .admin-user-settings-results button:hover{
+  background:var(--sd-hover)!important;
+}
+:root #root .admin-page.shadcn-dashboard .admin-global-search-results button span,
+:root #root .admin-page.shadcn-dashboard .admin-user-settings-results button strong{
+  overflow-wrap:anywhere;font-size:12px;font-weight:600;
+}
+:root #root .admin-page.shadcn-dashboard .admin-global-search-results button small,
+:root #root .admin-page.shadcn-dashboard .admin-user-settings-results button small{
+  overflow-wrap:anywhere;color:var(--sd-muted);font-size:11px;
+}
+:root #root .admin-page.shadcn-dashboard .admin-global-search-results p,
+:root #root .admin-page.shadcn-dashboard .admin-user-settings-results p{
+  margin:5px 8px;color:var(--sd-muted);font-size:12px;
+}
+:root #root .admin-page.shadcn-dashboard .admin-user-settings-lookup{
+  max-width:520px;margin:-1px 0 17px;
+}
+:root #root .admin-page.shadcn-dashboard .admin-user-settings-lookup .sd-search-field{
+  min-height:40px;
+}
+/* Modest typography tightening, limited to large admin headings/metrics. */
+:root #root .admin-page.shadcn-dashboard .admin-heading h1{
+  font-size:clamp(22px,1.9vw,28px);
+}
+:root #root .admin-page.shadcn-dashboard .admin-metric strong{
+  font-size:clamp(23px,1.8vw,27px);
+}
+:root #root .admin-page.shadcn-dashboard .admin-card-head h2{
+  font-size:17px;
+}
+@media(max-width:760px){
+  :root #root .admin-page.shadcn-dashboard .admin-global-search{min-width:190px;}
+  :root #root .admin-page.shadcn-dashboard .admin-global-search-results{max-height:180px;}
+}

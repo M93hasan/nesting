@@ -1,2 +1,0 @@
-/* Honor the type hierarchy set by components; the family and base live in theme.css. */
-body { font-family: var(--font-ui); }

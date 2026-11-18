@@ -1,10 +1,14 @@
+import DesignStudio from './components/DesignStudio';
 import {useEffect,useMemo,useRef,useState} from 'react';
 import packageInfo from '../package.json';
+import {DashboardIcon} from './components/dashboard/DashboardIcon';
+import {RegistrationChart} from './components/dashboard/RegistrationChart';
 import {LanguageSelect,localeTag,useI18n} from './i18n';
-import AppearanceSettings from './components/AppearanceSettings';
-import DesignStudio from './components/DesignStudio';
+import {filterHistory,historyCsv,parseCredits,validAdminSettings,type AdminHistoryRow} from './adminControls';
 
-type Section='overview'|'users'|'messages'|'roles'|'user-settings'|'defaults'|'appearance'|'history'|'logs'|'system';
+type Section='overview'|'users'|'messages'|'roles'|'user-settings'|'defaults'|'history'|'logs'|'system';
+type UserStatusFilter='all'|'online'|'offline';
+type UserSort='name'|'credits'|'recent';
 
 const nav:{id:Section;label:string;icon:string}[]=[
   {id:'overview',label:'Genel Bakış',icon:'⌂'},
@@ -12,12 +16,33 @@ const nav:{id:Section;label:string;icon:string}[]=[
   {id:'messages',label:'Canlı Destek',icon:'✉'},
   {id:'roles',label:'Roller ve Yetkiler',icon:'◆'},
   {id:'user-settings',label:'Kullanıcı Ayarları',icon:'⚙'},
-  {id:'defaults',label:'Sistem Varsayılanları',icon:'◫'},
-  {id:'appearance',label:'Görünüm',icon:'◉'},
-  {id:'history',label:'İşlem Geçmişi',icon:'↺'},
+  {id:'defaults',label:'Sistem Varsayılanları',icon:'◫'},{id:'history',label:'İşlem Geçmişi',icon:'↺'},
   {id:'logs',label:'Sistem Logları',icon:'≡'},
   {id:'system',label:'Sistem Bilgisi',icon:'ⓘ'},
 ];
+
+type SearchItem={section:Section;label:string;keywords?:string;field?:string};
+const settingsSearchItems:SearchItem[]=[
+  ...nav.map(({id,label})=>({section:id,label})),
+  {section:'users',label:'Kullanıcı arama ve filtreler',keywords:'isim e-posta rol çevrim içi'},
+  {section:'users',label:'Lisans ve kullanım hakları',keywords:'kota süre sınırsız'},
+  {section:'users',label:'CorelDRAW, Test DXF ve şifre sıfırlama',keywords:'yetki parola'},
+  {section:'user-settings',label:'Kullanıcı seçimi',keywords:'kullanıcı ara isim e-posta',field:'user-lookup'},
+  {section:'user-settings',label:'Malzeme genişliği – kullanıcı',keywords:'mm',field:'user-width'},
+  {section:'user-settings',label:'Parça aralığı – kullanıcı',keywords:'mesafe clearance mm',field:'user-clearance'},
+  {section:'user-settings',label:'Rotasyon – kullanıcı',keywords:'döndürme açı',field:'user-rotation'},
+  {section:'user-settings',label:'Malzeme tipi – kullanıcı',keywords:'rulo plaka',field:'user-material'},
+  {section:'user-settings',label:'Solver profili – kullanıcı',keywords:'çözüm hızlı standart',field:'user-solver'},
+  {section:'user-settings',label:'Uzaktan destek ve ekran bağlantısı',keywords:'ekrana bağlan'},
+  {section:'defaults',label:'Malzeme genişliği – sistem',keywords:'varsayılan mm',field:'system-width'},
+  {section:'defaults',label:'Parça aralığı – sistem',keywords:'varsayılan mesafe clearance',field:'system-clearance'},
+  {section:'defaults',label:'Rotasyon – sistem',keywords:'varsayılan döndürme',field:'system-rotation'},
+  {section:'defaults',label:'Malzeme tipi – sistem',keywords:'varsayılan rulo plaka',field:'system-material'},
+  {section:'defaults',label:'Solver profili – sistem',keywords:'varsayılan hızlı',field:'system-solver'},
+  {section:'history',label:'Proje veya kullanıcı geçmişi arama',keywords:'işlem csv'},
+  {section:'logs',label:'Sistem işlem logları',keywords:'hata denetim'}
+];
+const normalizeSearch=(value:string)=>value.toLocaleLowerCase('tr-TR').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/ı/g,'i').trim();
 
 function Empty({title,children}:{title:string;children:string}){
   return <div className="admin-empty"><strong>{title}</strong><p>{children}</p></div>;
@@ -26,7 +51,7 @@ function Metric({label,value,detail,icon}:{label:string;value:string;detail:stri
   return <article className="admin-metric"><span className="admin-metric-icon" aria-hidden="true">{icon}</span><span>{label}</span><strong>{value}</strong><small>{detail}</small></article>;
 }
 
-type AdminUser={id:number;email:string;name:string;role:string;credits:number;unlimited:boolean;testDxfEnabled?:boolean;corelTransferEnabled?:boolean;authProvider?:string;suspended?:boolean;licenseStartedAt?:string|null;licenseExpiresAt?:string|null;licenseExpired?:boolean;createdAt?:string;lastLoginAt?:string;lastSeen?:string|null;online?:boolean};
+type AdminUser={id:number;email:string;name:string;role:string;credits:number;unlimited:boolean;testDxfEnabled?:boolean;corelTransferEnabled?:boolean;authProvider?:string;emailVerified?:boolean;suspended?:boolean;licenseStartedAt?:string|null;licenseExpiresAt?:string|null;licenseExpired?:boolean;createdAt?:string;lastLoginAt?:string;lastSeen?:string|null;online?:boolean};
 type AdminSettings={materialWidthMm:number;clearanceMm:number;marginMm:number;rotation:'fixed'|'half'|'free';materialType:'roll'|'sheet';solverPreset:'standard'|'fast'};
 type AuditLog={id:number;actorType:string;actorEmail:string;targetEmail:string;action:string;detail:string;success:boolean;createdAt:string};
 type Health={adminApi:boolean;auth:boolean;userStore:boolean};
@@ -56,14 +81,19 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
   const localDevelopment=import.meta.env.DEV&&(location.hostname==='127.0.0.1'||location.hostname==='localhost');
   const bypassAuth=skipAuth||localDevelopment;
   const adminPath=mobileMode?'/admin2':'/admin';
-  const adminPageClass='admin-page'+(mobileMode?' admin-mobile-page':'');
+  const adminPageClass='admin-page shadcn-dashboard'+(mobileMode?' admin-mobile-page':'');
   const [auth,setAuth]=useState<'loading'|'signed-out'|'allowed'|'denied'>(bypassAuth?'allowed':'loading');
   const [signedEmail,setSignedEmail]=useState('');
   const googleButton=useRef<HTMLDivElement>(null);
+  const [designOpen,setDesignOpen]=useState(false);
   const [section,setSection]=useState<Section>('overview');
-  const [designStudioOpen,setDesignStudioOpen]=useState(false);
+  const [globalSearch,setGlobalSearch]=useState('');
+  const [settingsUserSearch,setSettingsUserSearch]=useState('');
+  const [focusSetting,setFocusSetting]=useState<{section:Section;field:string}|null>(null);
   const [query,setQuery]=useState('');
   const [role,setRole]=useState<'all'|'admin'|'operator'>('all');
+  const [userStatus,setUserStatus]=useState<UserStatusFilter>('all');
+  const [userSort,setUserSort]=useState<UserSort>('name');
   const [users,setUsers]=useState<AdminUser[]>([]);
   const [usersLoading,setUsersLoading]=useState(false);
   const [usersError,setUsersError]=useState('');
@@ -75,6 +105,11 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
   const [customSettings,setCustomSettings]=useState(false);
   const [systemSettings,setSystemSettings]=useState<AdminSettings>(FALLBACK_SETTINGS);
   const [logs,setLogs]=useState<AuditLog[]>([]);
+  const [historyRows,setHistoryRows]=useState<AdminHistoryRow[]>([]);
+  const [historyDays,setHistoryDays]=useState<7|30>(30);
+  const [historySearch,setHistorySearch]=useState('');
+  const [historyLoading,setHistoryLoading]=useState(false);
+  const [historyError,setHistoryError]=useState('');
   const [health,setHealth]=useState<Health>();
   const [adminBusy,setAdminBusy]=useState('');
   const [support,setSupport]=useState<SupportSession|null>(null);
@@ -93,7 +128,42 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
   const [chatReply,setChatReply]=useState('');
   const [chatBusy,setChatBusy]=useState(false);
   const title=useMemo(()=>nav.find(item=>item.id===section)?.label??'Yönetim',[section]);
-  const filteredUsers=useMemo(()=>users.filter(user=>(!query.trim()||(user.email+' '+user.name).toLowerCase().includes(query.trim().toLowerCase()))&&(role==='all'||(role==='admin'?user.role==='admin':user.role!=='admin'))),[users,query,role]);
+  const searchMatches=useMemo(()=>{
+    const term=normalizeSearch(globalSearch);
+    return term?settingsSearchItems.filter(item=>normalizeSearch(item.label+' '+(item.keywords??'')+' '+(nav.find(n=>n.id===item.section)?.label??'')).includes(term)).slice(0,10):[];
+  },[globalSearch]);
+  const userSettingsMatches=useMemo(()=>{
+    const term=normalizeSearch(settingsUserSearch);
+    return term?users.filter(user=>normalizeSearch(user.name+' '+user.email).includes(term)).sort((a,b)=>(a.name||a.email).localeCompare(b.name||b.email,'tr')):[];
+  },[users,settingsUserSearch]);
+  function jumpToSetting(item:SearchItem){
+    setSection(item.section);
+    setGlobalSearch('');
+    setFocusSetting(item.field?{section:item.section,field:item.field}:null);
+  }
+  useEffect(()=>{
+    if(!focusSetting||focusSetting.section!==section)return;
+    const control=document.querySelector<HTMLElement>('[data-admin-search="'+focusSetting.field+'"] input, [data-admin-search="'+focusSetting.field+'"] select');
+    if(control){control.focus();control.scrollIntoView({block:'center'});setFocusSetting(null);}
+  },[section,focusSetting,selectedUserId]);
+  const filteredUsers=useMemo(()=>{
+    const search=query.trim().toLocaleLowerCase('tr');
+    const filtered=users.filter(user=>
+      (!search||(user.email+' '+user.name).toLocaleLowerCase('tr').includes(search))&&
+      (role==='all'||(role==='admin'?user.role==='admin':user.role!=='admin'))&&
+      (userStatus==='all'||(userStatus==='online'?!!user.online:!user.online))
+    );
+    return filtered.sort((a,b)=>{
+      if(userSort==='credits')return b.credits-a.credits||a.id-b.id;
+      if(userSort==='recent'){
+        const latest=(u:AdminUser)=>Date.parse(u.lastLoginAt||u.createdAt||'')||0;
+        return latest(b)-latest(a)||a.id-b.id;
+      }
+      return (a.name||a.email).localeCompare(b.name||b.email,'tr',{sensitivity:'base'})||a.id-b.id;
+    });
+  },[users,query,role,userStatus,userSort]);
+  const userFiltersActive=!!query.trim()||role!=='all'||userStatus!=='all'||userSort!=='name';
+  const filteredHistory=useMemo(()=>filterHistory(historyRows,historySearch),[historyRows,historySearch]);
   const screenConnectionLabel=screenStream?'Canlı':screenFrame?'Canlı · yedek bağlantı':({idle:'Hazır',waiting:'Kullanıcı onayı bekleniyor',connecting:'Bağlanıyor…',connected:'Canlı',failed:'Bağlantı kurulamadı'}[screenConnection]);
   function resetScreenView(){
     screenPeer.current?.close();screenPeer.current=null;screenOfferKey.current='';
@@ -160,7 +230,7 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
     finally{setUsersLoading(false)}
   }
   useEffect(()=>{if(auth==='allowed'){void loadUsers();void loadHealth();void loadSystemSettings();void loadChats()}},[auth]);
-  useEffect(()=>{if(section==='logs')void loadLogs();if(section==='system')void loadHealth();if(section==='messages')void loadChats()},[section]);
+  useEffect(()=>{if(auth!=='allowed')return;if(section==='logs'||section==='overview')void loadLogs();if(section==='system')void loadHealth();if(section==='messages')void loadChats();if(section==='history')void loadHistory(historyDays)},[section,auth,historyDays]);
   useEffect(()=>{
     if(auth!=='allowed')return;
     const timer=window.setInterval(()=>{void loadUsers();if(section==='messages'||section==='overview')void loadChats()},6000);
@@ -256,14 +326,34 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
   async function loadHealth(){try{const data=await getJson('/api/admin/health');setHealth(data)}catch{setHealth({adminApi:false,auth:false,userStore:false})}}
   async function loadSystemSettings(){try{const data=await getJson('/api/admin/settings');setSystemSettings(data.settings??FALLBACK_SETTINGS)}catch(e){setUsersError(e instanceof Error?e.message:String(e))}}
   async function loadLogs(){try{const data=await getJson('/api/admin/logs');setLogs(data.logs??[])}catch(e){setUsersError(e instanceof Error?e.message:String(e))}}
-  async function loadUserSettings(id:number){
+  async function loadHistory(days:7|30){
+    setHistoryLoading(true);setHistoryError('');
+    try{
+      const data=await getJson('/api/admin/history?days='+days);
+      setHistoryRows(Array.isArray(data.items)?data.items:[]);
+    }catch(error){
+      setHistoryRows([]);
+      setHistoryError(error instanceof Error?error.message:String(error));
+    }finally{setHistoryLoading(false)}
+  }
+  function exportHistory(){
+    if(!filteredHistory.length||historyLoading)return;
+    const blob=new Blob([historyCsv(filteredHistory)],{type:'text/csv;charset=utf-8'});
+    const url=URL.createObjectURL(blob),anchor=document.createElement('a');
+    anchor.href=url;anchor.download='serula-islem-gecmisi-'+historyDays+'-gun.csv';
+    document.body.appendChild(anchor);anchor.click();anchor.remove();
+    window.setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }
+  async function loadUserSettings(id:number):Promise<boolean>{
     setSelectedUserId(id);setAdminBusy('user-settings');setUsersError('');setSupport(null);
-    try{const data=await getJson(`/api/admin/users/${id}/settings`);setUserSettings(data.settings??systemSettings);setCustomSettings(!!data.custom);await loadSupport(id)}
-    catch(e){setUsersError(e instanceof Error?e.message:String(e))}
+    try{const data=await getJson(`/api/admin/users/${id}/settings`);setUserSettings(data.settings??systemSettings);setCustomSettings(!!data.custom);await loadSupport(id);return true;}
+    catch(e){setUsersError(e instanceof Error?e.message:String(e));return false;}
     finally{setAdminBusy('')}
   }
   async function saveUserSettings(){
-    if(!selectedUserId)return;setAdminBusy('user-settings');setUsersError('');
+    if(!selectedUserId)return;
+    if(!validAdminSettings(userSettings)){setUsersError('Geçerli malzeme genişliği ve parça aralığı girin.');return;}
+    setAdminBusy('user-settings');setUsersError('');
     try{const data=await getJson(`/api/admin/users/${selectedUserId}/settings`,{method:'POST',body:JSON.stringify({settings:userSettings})});setUserSettings(data.settings);setCustomSettings(true);setUserNotice(support?.status==='approved'?'Ayarlar kaydedildi ve kullanıcının açık Serula oturumuna uygulanıyor.':'Kullanıcıya özel varsayılanlar kaydedildi.')}
     catch(e){setUsersError(e instanceof Error?e.message:String(e))}
     finally{setAdminBusy('')}
@@ -296,6 +386,7 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
     finally{setAdminBusy('')}
   }
   async function saveSystemSettings(){
+    if(!validAdminSettings(systemSettings)){setUsersError('Geçerli malzeme genişliği ve parça aralığı girin.');return;}
     setAdminBusy('system-settings');setUsersError('');
     try{const data=await getJson('/api/admin/settings',{method:'POST',body:JSON.stringify({settings:systemSettings})});setSystemSettings(data.settings);setUserNotice('Sistem varsayılanları kaydedildi.')}
     catch(e){setUsersError(e instanceof Error?e.message:String(e))}
@@ -368,23 +459,32 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
       </section>
     </main></div>;
   }
-  if(designStudioOpen&&section==='appearance')return <DesignStudio onClose={()=>setDesignStudioOpen(false)}/>;
+  if(designOpen)return <DesignStudio onClose={()=>setDesignOpen(false)}/>;
   return <div className={adminPageClass}>
     <header className="admin-topbar">
       <div className="admin-brand"><img src={import.meta.env.BASE_URL+'serula-logo.svg'} alt="" /><div><strong>Serula</strong><span>Yönetim Paneli</span></div></div>
-      <div className="admin-top-actions"><LanguageSelect compact/>{localDevelopment&&<span className="admin-badge">Yerel test</span>}<span className="admin-version">v{packageInfo.version}</span><a className="admin-workspace-link" href={import.meta.env.BASE_URL}>Çalışma alanına dön</a></div>
+      <div className="sd-breadcrumb" aria-label="Gezinme yolu"><span>Yönetim</span><span aria-hidden="true">/</span><strong>{title}</strong></div>
+      <div className="admin-top-actions"><button type="button" onClick={()=>setDesignOpen(true)}>Tasarım Editörünü Aç</button><LanguageSelect compact/>{localDevelopment&&<span className="admin-badge">Yerel test</span>}<span className="admin-version">v{packageInfo.version}</span><a className="admin-workspace-link" href={import.meta.env.BASE_URL}>Çalışma alanına dön</a></div>
     </header>
 
     <div className="admin-shell">
       <aside className="admin-sidebar" aria-label="Yönetim menüsü">
-        <nav>{nav.map(item=><button data-button-style={'nav-'+item.id} key={item.id} className={section===item.id?'active':''} onClick={()=>setSection(item.id)}><span>{item.icon}</span>{item.label}</button>)}</nav>
+        <div className="sd-sidebar-caption">ÇALIŞMA ALANI</div>
+        <div className="admin-global-search" role="search" aria-label="Yönetim arama">
+          <div className="sd-search-field">
+            <svg aria-hidden="true" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+            <input type="search" aria-label="Tüm ayarlarda ara" placeholder="Ayar veya bölüm ara…" value={globalSearch} onChange={e=>setGlobalSearch(e.target.value)} onKeyDown={e=>{if(e.key==='Escape')setGlobalSearch('');if(e.key==='Enter'&&searchMatches[0])jumpToSetting(searchMatches[0]);}}/>
+          </div>
+          {globalSearch.trim()&&<div className="admin-global-search-results" role="group" aria-label="Ayar arama sonuçları">
+            {searchMatches.length?searchMatches.map((item,index)=><button type="button" key={item.section+'-'+index} onClick={()=>jumpToSetting(item)}><span>{item.label}</span><small>{nav.find(n=>n.id===item.section)?.label}</small></button>):<p role="status">Eşleşen ayar bulunamadı.</p>}
+          </div>}
+        </div>
+        <nav>{nav.map(item=><button key={item.id} type="button" className={section===item.id?'sd-nav-button active':'sd-nav-button'} aria-current={section===item.id?'page':undefined} onClick={()=>setSection(item.id)}><span className="sd-nav-icon"><DashboardIcon name={item.id}/></span><span className="sd-nav-label">{item.label}</span></button>)}</nav>
         <div className="admin-security-note"><strong>Güvenli yönetim</strong><small>Kullanıcı ve yetki değişiklikleri sunucu kimlik doğrulaması olmadan uygulanmaz.</small></div>
       </aside>
 
       <main className="admin-main">
-        <div className="admin-heading"><div className="admin-heading-copy"><p>YÖNETİM MERKEZİ</p><h1>{title}</h1><small>{({overview:'Serula sistemini, kullanıcı hareketlerini ve servis sağlığını tek ekrandan takip edin.',users:'Hesapları, kullanım haklarını ve lisans sürelerini yönetin.',messages:'Kullanıcı destek taleplerini ve mesajlaşmaları takip edin.',roles:'Yönetim yetkilerinin kapsamını ve sınırlarını inceleyin.','user-settings':'Seçilen kullanıcı için üretim varsayılanlarını ve destek bağlantısını yönetin.',defaults:'Yeni projelerde kullanılacak üretim başlangıç değerlerini belirleyin.',appearance:'Yönetim arayüzünün görünüm ve erişilebilirlik tercihlerini ayarlayın.',history:'Yönetim ve üretim işlemlerinin kayıtlarını inceleyin.',logs:'Servis olaylarını ve başarısız işlemleri kontrol edin.',system:'API, kimlik doğrulama ve veri katmanı durumunu kontrol edin.'} as Record<Section,string>)[section]}</small></div><span className="admin-connection"><i aria-hidden="true"/>{health?.adminApi?'Sunucu bağlı':health?'Sunucu hatası':'Kontrol ediliyor…'}</span></div>
-
-        {section==='appearance'&&(designStudioOpen?<DesignStudio onClose={()=>setDesignStudioOpen(false)}/>:<><section className="admin-card"><div className="admin-card-head"><div><h2>Tasarım Editörü</h2><p>Builder.io tarzında görsel düzenleme çalışma alanını aç.</p></div></div><button type="button" className="primary" onClick={()=>setDesignStudioOpen(true)}>Tasarım Editörünü Aç</button></section><AppearanceSettings/></>)}
+        <div className="admin-heading"><div className="admin-heading-copy"><p>YÖNETİM MERKEZİ</p><h1>{title}</h1><small>{({overview:'Serula sistemini, kullanıcı hareketlerini ve servis sağlığını tek ekrandan takip edin.',users:'Hesapları, kullanım haklarını ve lisans sürelerini yönetin.',messages:'Kullanıcı destek taleplerini ve mesajlaşmaları takip edin.',roles:'Yönetim yetkilerinin kapsamını ve sınırlarını inceleyin.','user-settings':'Seçilen kullanıcı için üretim varsayılanlarını ve destek bağlantısını yönetin.',defaults:'Yeni projelerde kullanılacak üretim başlangıç değerlerini belirleyin.',history:'Yönetim ve üretim işlemlerinin kayıtlarını inceleyin.',logs:'Servis olaylarını ve başarısız işlemleri kontrol edin.',system:'API, kimlik doğrulama ve veri katmanı durumunu kontrol edin.'} as Record<Section,string>)[section]}</small></div><span className="admin-connection" data-status={health?.adminApi?'ok':health?'error':'checking'}><i aria-hidden="true"/>{health?.adminApi?'Sunucu bağlı':health?'Sunucu hatası':'Kontrol ediliyor…'}</span></div>
         {section==='overview'&&<>
           <section className="admin-metrics">
             <Metric label="Toplam kullanıcı" value={String(users.length)} detail="D1 kullanıcı veritabanı" icon="♙"/>
@@ -392,25 +492,45 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
             <Metric label="Destek konuşması" value={String(conversations.length)} detail="Kalıcı mesajlaşma" icon="✉"/>
             <Metric label="Sistem durumu" value={health?.adminApi?'Aktif':health?'Kontrol et':'Hazır'} detail={(localDevelopment?'Yerel geliştirme':'Serula servisleri')+' · v'+packageInfo.version} icon="⌁"/>
           </section>
+          <RegistrationChart registrations={users.map(user=>user.createdAt)}/>
           <section className="admin-grid-two">
             <article className="admin-card"><div className="admin-card-head"><h2>Hızlı Durum</h2><span className="admin-badge">İstemci</span></div>
-              <dl className="admin-status-list"><div><dt>Uygulama</dt><dd>Çalışıyor</dd></div><div><dt>Yönetici yolu</dt><dd>{adminPath}</dd></div><div><dt>Kimlik doğrulama</dt><dd>{localDevelopment?'Yerel test modu':'E-posta + parola'}</dd></div><div><dt>Kalıcı veritabanı</dt><dd>D1 bağlı</dd></div></dl>
+              <dl className="admin-status-list"><div><dt>Uygulama</dt><dd>Çalışıyor</dd></div><div><dt>Yönetici yolu</dt><dd>{adminPath}</dd></div><div><dt>Kimlik doğrulama</dt><dd>{localDevelopment?'Yerel test modu':'E-posta + parola'}</dd></div><div><dt>Kalıcı veritabanı</dt><dd>{health?.userStore?'Bağlı':health?'Bağlantı hatası':'Kontrol ediliyor'}</dd></div></dl>
             </article>
-            <article className="admin-card"><div className="admin-card-head"><h2>Son İşlemler</h2></div><Empty title="Henüz veri yok">Kalıcı işlem geçmişi bağlandığında burada kullanıcı, proje, nesting ve dışa aktarma kayıtları gösterilecek.</Empty></article>
+            <article className="admin-card sd-activity-card"><div className="admin-card-head"><h2>Son İşlemler</h2><button type="button" onClick={()=>setSection('logs')}>Tüm loglar</button></div>
+              {logs.length?<ol className="sd-activity-list">{logs.slice(0,5).map(log=><li key={log.id}>
+                <span className={'sd-activity-marker '+(log.success?'is-success':'is-error')} aria-hidden="true"/>
+                <div><strong>{log.action}</strong><small>{log.actorEmail||log.actorType}{log.targetEmail?' → '+log.targetEmail:''}</small></div>
+                <time dateTime={log.createdAt}>{new Date(log.createdAt).toLocaleString(localeTag(locale))}</time>
+              </li>)}</ol>:<Empty title="Henüz işlem kaydı yok">Yönetim işlemleri kaydedildikçe burada son olaylar görünecek.</Empty>}
+            </article>
           </section>
         </>}
 
         {section==='users'&&<section className="admin-card admin-users">
           <div className="admin-card-head"><div><h2>Kullanıcı Yönetimi</h2><p>E-posta veya Google ile giriş yapan kullanıcıların hesap, kota ve lisans sürelerini yönetin.</p></div><button onClick={()=>void loadUsers()} disabled={usersLoading}>↻ Yenile</button></div>
-          <div className="admin-toolbar"><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Kullanıcı ara…" aria-label="Kullanıcı ara"/><select value={role} onChange={e=>setRole(e.target.value as 'all'|'admin'|'operator')}><option value="all">Tümü</option><option value="admin">Yönetici</option><option value="operator">Operatör</option></select></div>
+          <div className="admin-toolbar sd-user-toolbar">
+            <div className="sd-search-field">
+              <svg aria-hidden="true" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+              <input value={query} onChange={e=>setQuery(e.target.value)} placeholder="İsim veya e-posta ara…" aria-label="Kullanıcı ara"/>
+            </div>
+            <label className="sd-select-field"><span>Rol</span><select aria-label="Kullanıcı rolü" value={role} onChange={e=>setRole(e.target.value as 'all'|'admin'|'operator')}><option value="all">Tüm roller</option><option value="admin">Yönetici</option><option value="operator">Normal kullanıcı</option></select></label>
+            <label className="sd-select-field"><span>Durum</span><select aria-label="Kullanıcı durumu" value={userStatus} onChange={e=>setUserStatus(e.target.value as UserStatusFilter)}><option value="all">Tüm durumlar</option><option value="online">Çevrim içi</option><option value="offline">Çevrim dışı</option></select></label>
+            <label className="sd-select-field"><span>Sırala</span><select aria-label="Kullanıcı sıralaması" value={userSort} onChange={e=>setUserSort(e.target.value as UserSort)}><option value="name">İsme göre</option><option value="recent">Son girişe göre</option><option value="credits">Hak sayısına göre</option></select></label>
+          </div>
+          <div className="sd-user-summary" aria-live="polite">
+            <span><strong>{filteredUsers.length}</strong> / {users.length} kullanıcı</span>
+            <span className="sd-user-online"><i aria-hidden="true"/>{users.filter(user=>user.online).length} çevrim içi</span>
+            <button type="button" disabled={!userFiltersActive} onClick={()=>{setQuery('');setRole('all');setUserStatus('all');setUserSort('name')}}>Filtreleri temizle</button>
+          </div>
           {usersError&&<p className="field-error" role="alert">{usersError}</p>}{userNotice&&<p className="admin-notice" role="status">{userNotice}</p>}
-          <div className="admin-table"><div className="admin-table-head"><span>Kullanıcı</span><span>Rol / Giriş</span><span>Yerleştirme hakkı</span><span>Lisans</span><span>İşlemler</span></div>
-            {usersLoading?<Empty title="Yükleniyor">Kullanıcı bilgileri D1 veritabanından alınıyor.</Empty>:filteredUsers.length?filteredUsers.map(user=><div className="admin-user-row" key={user.id}>
-              <span className="admin-user-identity"><strong>{user.online&&<i className="admin-presence-tick" aria-label="Çevrim içi">✓</i>}{user.name||'İsimsiz'}</strong><small>{user.email}</small><small>{user.online?'Şu anda çevrim içi':user.lastLoginAt?'Son giriş: '+new Date(user.lastLoginAt).toLocaleString(localeTag(locale)):'Henüz giriş yok'}</small></span>
-              <span><strong>{user.role==='admin'?'Yönetici':'Kullanıcı'}</strong><small>{user.authProvider==='google'?'Google / Gmail':'E-posta'}</small></span>
-              <span className="admin-user-quota"><div className="admin-switch-row"><label className="switch"><input type="checkbox" checked={user.unlimited} disabled={savingUserId===user.id} onChange={e=>void setUnlimited(user,e.target.checked)}/><span className="slider"><span className="glow"/><span className="icon-on">✓</span><span className="icon-off">○</span></span></label><span>Kotasız / Sınırsız</span></div>{!user.unlimited&&<label>Hak<input aria-label={user.email+' yerleştirme hakkı'} type="number" min="0" max="100000" defaultValue={user.credits} key={user.id+'-'+user.credits} onBlur={e=>{const value=Math.max(0,Math.trunc(e.currentTarget.valueAsNumber||0));if(value!==user.credits)void saveCredits(user,value)}}/></label>}</span>
-              <span className="admin-user-license"><strong>{user.licenseExpiresAt?(user.licenseExpired?'Süresi doldu · ':'Bitiş · ')+new Date(user.licenseExpiresAt).toLocaleDateString(localeTag(locale)):'Süresiz'}</strong><small>{user.licenseStartedAt?'Başlangıç: '+new Date(user.licenseStartedAt).toLocaleDateString(localeTag(locale)):'Lisans süresi sınırlandırılmamış'}</small><div className="admin-license-controls"><select aria-label={user.email+' hızlı lisans süresi'} defaultValue="" disabled={savingUserId===user.id} onChange={e=>{const days=Number(e.currentTarget.value);if(days>0)void setLicenseDays(user,days);e.currentTarget.value=''}}><option value="">Süre ver…</option><option value="7">7 gün</option><option value="30">30 gün</option><option value="90">90 gün</option><option value="180">180 gün</option><option value="365">1 yıl</option></select><input key={user.id+'-'+String(user.licenseExpiresAt)} aria-label={user.email+' özel lisans günü'} type="number" min="1" max="36500" placeholder="Özel gün" disabled={savingUserId===user.id} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur()}} onBlur={e=>{const days=Math.trunc(e.currentTarget.valueAsNumber);if(Number.isFinite(days)&&days>0)void setLicenseDays(user,days)}}/><button type="button" disabled={savingUserId===user.id||!user.licenseExpiresAt} onClick={()=>void setLicenseDays(user,null)}>Süresiz</button></div></span>
-              <span className="admin-user-actions"><button type="button" className={user.corelTransferEnabled?'primary corel-transfer-toggle':'corel-transfer-toggle'} aria-pressed={!!user.corelTransferEnabled} aria-label={user.email+' CorelDRAW aktarımını '+(user.corelTransferEnabled?'kapat':'aç')} title="CorelDRAW aktarım yetkisi" disabled={savingUserId===user.id} onClick={()=>void setCorelPermission(user,!user.corelTransferEnabled)}>CorelDRAW {user.corelTransferEnabled?'Kapat':'Aç'}</button><button className={user.testDxfEnabled?'primary':''} onClick={()=>void setTestDxf(user,!user.testDxfEnabled)} disabled={savingUserId===user.id}>{user.testDxfEnabled?'Test DXF Kapat':'Test DXF Aç'}</button><button onClick={()=>{setSection('user-settings');void loadUserSettings(user.id)}}>Ayarlar</button><button onClick={()=>{setSection('messages');void loadChat(user.id)}}>Mesajlar</button><button className="screen-support-button" onClick={()=>{setSection('user-settings');void loadUserSettings(user.id).then(()=>requestSupport('screen',user.id))}}>Ekrana bağlan</button><button onClick={()=>void sendPasswordReset(user)} disabled={resettingUserId===user.id}>{resettingUserId===user.id?'Gönderiliyor…':'Şifre sıfırla'}</button><button className="danger-button" onClick={()=>void deleteUser(user)} disabled={savingUserId===user.id}>{savingUserId===user.id?'Siliniyor…':'Kullanıcıyı sil'}</button></span>
+          <div className="admin-table" role="table" aria-label="Kullanıcı listesi"><div className="admin-table-head" role="row"><span role="columnheader">Kullanıcı</span><span role="columnheader">Rol / Giriş</span><span role="columnheader">Yerleştirme hakkı</span><span role="columnheader">Lisans</span><span role="columnheader">İşlemler</span></div>
+            {usersLoading?<Empty title="Yükleniyor">Kullanıcı bilgileri D1 veritabanından alınıyor.</Empty>:filteredUsers.length?filteredUsers.map(user=><div className="admin-user-row" role="row" key={user.id}>
+              <span role="cell" className="admin-user-identity"><strong>{user.online&&<i className="admin-presence-tick" aria-label="Çevrim içi">✓</i>}{user.name||'İsimsiz'}</strong><small>{user.email}</small><span className={'sd-user-status '+(user.online?'sd-user-status-online':'sd-user-status-offline')}>{user.online?'Çevrim içi':'Çevrim dışı'}</span><small>{user.online?'Şu anda çevrim içi':user.lastLoginAt?'Son giriş: '+new Date(user.lastLoginAt).toLocaleString(localeTag(locale)):'Henüz giriş yok'}</small></span>
+              <span role="cell"><strong>{user.role==='admin'?'Yönetici':'Kullanıcı'}</strong><small>{user.emailVerified===false?'E-posta onayı bekleniyor':user.authProvider==='google'?'Google / Gmail':'E-posta'}</small></span>
+              <span role="cell" className="admin-user-quota"><div className="admin-switch-row"><label className="switch"><input type="checkbox" checked={user.unlimited} disabled={savingUserId===user.id} onChange={e=>void setUnlimited(user,e.target.checked)}/><span className="slider"><span className="glow"/><span className="icon-on">✓</span><span className="icon-off">○</span></span></label><span>Kotasız / Sınırsız</span></div>{!user.unlimited&&<label>Hak<input aria-label={user.email+' yerleştirme hakkı'} type="number" min="0" max="100000" defaultValue={user.credits} key={user.id+'-'+user.credits} onBlur={e=>{const value=parseCredits(e.currentTarget.value);if(value===null){setUsersError('Hak sayısı 0–100000 arasında tam sayı olmalıdır.');e.currentTarget.value=String(user.credits)}else if(value!==user.credits)void saveCredits(user,value)}}/></label>}</span>
+              <span role="cell" className="admin-user-license"><strong>{user.licenseExpiresAt?(user.licenseExpired?'Süresi doldu · ':'Bitiş · ')+new Date(user.licenseExpiresAt).toLocaleDateString(localeTag(locale)):'Süresiz'}</strong><small>{user.licenseStartedAt?'Başlangıç: '+new Date(user.licenseStartedAt).toLocaleDateString(localeTag(locale)):'Lisans süresi sınırlandırılmamış'}</small><div className="admin-license-controls"><select aria-label={user.email+' hızlı lisans süresi'} defaultValue="" disabled={savingUserId===user.id} onChange={e=>{const days=Number(e.currentTarget.value);if(days>0)void setLicenseDays(user,days);e.currentTarget.value=''}}><option value="">Süre ver…</option><option value="7">7 gün</option><option value="30">30 gün</option><option value="90">90 gün</option><option value="180">180 gün</option><option value="365">1 yıl</option></select><input key={user.id+'-'+String(user.licenseExpiresAt)} aria-label={user.email+' özel lisans günü'} type="number" min="1" max="36500" placeholder="Özel gün" disabled={savingUserId===user.id} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur()}} onBlur={e=>{const days=e.currentTarget.valueAsNumber;if(e.currentTarget.value.trim()&&!Number.isInteger(days)){setUsersError('Lisans süresi tam sayı olmalıdır.');e.currentTarget.value=''}else if(Number.isInteger(days)&&days>=1&&days<=36500)void setLicenseDays(user,days)}}/><button type="button" disabled={savingUserId===user.id||!user.licenseExpiresAt} onClick={()=>void setLicenseDays(user,null)}>Süresiz</button></div></span>
+              <span role="cell" className="admin-user-actions"><button type="button" className={user.corelTransferEnabled?'primary corel-transfer-toggle':'corel-transfer-toggle'} aria-pressed={!!user.corelTransferEnabled} aria-label={user.email+' CorelDRAW aktarımını '+(user.corelTransferEnabled?'kapat':'aç')} title="CorelDRAW aktarım yetkisi" disabled={savingUserId===user.id} onClick={()=>void setCorelPermission(user,!user.corelTransferEnabled)}>CorelDRAW {user.corelTransferEnabled?'Kapat':'Aç'}</button><button className={user.testDxfEnabled?'primary':''} onClick={()=>void setTestDxf(user,!user.testDxfEnabled)} disabled={savingUserId===user.id}>{user.testDxfEnabled?'Test DXF Kapat':'Test DXF Aç'}</button><button onClick={()=>{setSection('user-settings');void loadUserSettings(user.id)}}>Ayarlar</button><button onClick={()=>{setSection('messages');void loadChat(user.id)}}>Mesajlar</button><button className="screen-support-button" onClick={()=>{setSection('user-settings');void loadUserSettings(user.id).then(ok=>{if(ok)return requestSupport('screen',user.id)})}}>Ekrana bağlan</button><button onClick={()=>void sendPasswordReset(user)} disabled={resettingUserId===user.id}>{resettingUserId===user.id?'Gönderiliyor…':'Şifre sıfırla'}</button><button className="danger-button" onClick={()=>void deleteUser(user)} disabled={savingUserId===user.id}>{savingUserId===user.id?'Siliniyor…':'Kullanıcıyı sil'}</button></span>
             </div>):<Empty title="Kullanıcı bulunamadı">Filtreye uyan kullanıcı yok.</Empty>}
           </div>
         </section>}
@@ -438,12 +558,23 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
 
         {section==='roles'&&<section className="admin-grid-two">
           <article className="admin-card"><div className="admin-card-head"><h2>Yönetici</h2><span className="admin-badge">Tam erişim</span></div><ul className="admin-check-list"><li>✓ Kullanıcı yönetimi</li><li>✓ Sistem varsayılanları</li><li>✓ Log ve geçmiş</li><li>✓ Kullanıcı ayarlarını kilitleme</li></ul></article>
-          <article className="admin-card"><div className="admin-card-head"><h2>Operatör</h2><span className="admin-badge muted">Sınırlı</span></div><ul className="admin-check-list"><li>✓ DXF içe aktarma</li><li>✓ Yerleştirme çalıştırma</li><li>✓ DXF dışa aktarma</li><li>— Yönetici erişimi yok</li></ul></article>
+          <article className="admin-card"><div className="admin-card-head"><h2>Normal kullanıcı</h2><span className="admin-badge muted">Sınırlı</span></div><ul className="admin-check-list"><li>✓ DXF içe aktarma</li><li>✓ Yerleştirme çalıştırma</li><li>✓ DXF dışa aktarma (hak ve lisansa bağlı)</li><li>— Yönetici erişimi yok</li></ul></article>
           <article className="admin-card admin-span-two"><Empty title="Rol düzenleme sunucu bağlantısı gerektiriyor">Yetki değişiklikleri istemci tarafında taklit edilmeyecek; güvenli API bağlandığında bu bölüm aktif olacak.</Empty></article>
         </section>}
 
         {section==='user-settings'&&<section className="admin-card">
           <div className="admin-card-head"><div><h2>Kullanıcıya Özel Varsayılanlar</h2><p>Seçilen kullanıcı için sistem varsayılanlarının üzerine uygulanır.</p></div><select aria-label="Kullanıcı seç" value={selectedUserId??''} onChange={e=>{const id=Number(e.target.value);if(id)void loadUserSettings(id);else setSelectedUserId(undefined)}}><option value="">Kullanıcı seç…</option>{users.map(user=><option key={user.id} value={user.id}>{user.name||user.email} · {user.email}</option>)}</select></div>
+          <div className="admin-user-settings-lookup" data-admin-search="user-lookup">
+            <div className="sd-search-field">
+              <svg aria-hidden="true" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+              <input type="search" aria-label="Kullanıcı ayarlarında kullanıcı ara" placeholder="İsim veya e-posta ile kullanıcı ara…" value={settingsUserSearch} onChange={e=>setSettingsUserSearch(e.target.value)} onKeyDown={e=>{if(e.key==='Escape')setSettingsUserSearch('');if(e.key==='Enter'&&userSettingsMatches[0]){void loadUserSettings(userSettingsMatches[0].id);setSettingsUserSearch('');}}}/>
+            </div>
+            {settingsUserSearch.trim()&&<div className="admin-user-settings-results" role="group" aria-label="Kullanıcı arama sonuçları">
+              <p role="status">{userSettingsMatches.length} kullanıcı bulundu</p>
+              {userSettingsMatches.slice(0,12).map(user=><button type="button" key={user.id} onClick={()=>{void loadUserSettings(user.id);setSettingsUserSearch('');}}><strong>{user.name||user.email}</strong><small>{user.email}</small></button>)}
+              {userSettingsMatches.length>12&&<small>İlk 12 sonuç gösteriliyor; aramayı daraltın.</small>}
+            </div>}
+          </div>
           {usersError&&<p className="field-error" role="alert">{usersError}</p>}{userNotice&&<p className="admin-notice" role="status">{userNotice}</p>}{selectedUserId?<><div className="admin-selected-user"><strong>{users.find(u=>u.id===selectedUserId)?.name||users.find(u=>u.id===selectedUserId)?.email}</strong><span>{customSettings?'Özel varsayılanlar aktif':'Sistem varsayılanları kullanılıyor'}</span></div>
           <div className="admin-support-box"><div><strong>{support?.mode==='screen'?'Ekran bağlantısı':'Uzaktan destek'}</strong><small>{support?.mode==='screen'&&support?.status!=='ended'?screenConnectionLabel:support?.status==='approved'?'Aktif · kullanıcı onayladı':support?.status==='pending'?'Kullanıcı onayı bekleniyor':'Kapalı'}</small><p>{support?.mode==='screen'?'Kullanıcı onayladığında seçtiği ekranı canlı görebilirsiniz. Kullanıcı istediği an paylaşımı durdurabilir.':'Bu özellik yalnızca Serula içindeki ayarları canlı uygular. Kullanıcının onayı olmadan aktif olmaz.'}</p></div><div>{support?.status==='approved'||support?.status==='pending'?<button className="danger-button" onClick={()=>void endSupport()} disabled={adminBusy==='support'}>Desteği bitir</button>:<><button onClick={()=>void requestSupport('screen')} disabled={adminBusy==='support'}>Ekrana bağlan</button><button className="primary" onClick={()=>void requestSupport('settings')} disabled={adminBusy==='support'}>{adminBusy==='support'?'Gönderiliyor…':'Ayar desteği iste'}</button></>}</div></div>
           {support?.mode==='screen'&&support.status==='approved'&&<div className={'admin-screen-view screen-'+screenConnection}>
@@ -454,33 +585,45 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
             </div>
             <small>{screenFrame&&!screenStream?'Yedek bağlantı üzerinden ekran görüntüsü · yaklaşık 1–2 saniye gecikmeli':'Kullanıcının paylaştığı ekran · “Tam ekran” ile büyütebilirsiniz.'}</small>
           </div>}
-          <div className="admin-settings-grid">
-            <label>Malzeme genişliği (mm)<input type="number" min="1" value={userSettings.materialWidthMm} onChange={e=>setUserSettings({...userSettings,materialWidthMm:e.target.valueAsNumber})}/></label>
-            <label>Parça aralığı (mm)<input type="number" min="0" step="0.1" value={userSettings.clearanceMm} onChange={e=>setUserSettings({...userSettings,clearanceMm:e.target.valueAsNumber})}/></label>
+          <div className="admin-settings-grid" role="group" aria-label="Kullanıcı varsayılanları">
+            <label data-admin-search="user-width">Malzeme genişliği (mm)<input type="number" min="1" value={userSettings.materialWidthMm} onChange={e=>setUserSettings({...userSettings,materialWidthMm:e.target.valueAsNumber})}/></label>
+            <label data-admin-search="user-clearance">Parça aralığı (mm)<input type="number" min="0" step="0.1" value={userSettings.clearanceMm} onChange={e=>setUserSettings({...userSettings,clearanceMm:e.target.valueAsNumber})}/></label>
             
-            <label>Rotasyon<select value={userSettings.rotation} onChange={e=>setUserSettings({...userSettings,rotation:e.target.value as AdminSettings['rotation']})}><option value="fixed">0°</option><option value="half">0° / 180°</option><option value="free">Her yöne</option></select></label>
-            <label>Malzeme tipi<select value={userSettings.materialType} onChange={e=>setUserSettings({...userSettings,materialType:e.target.value as AdminSettings['materialType']})}><option value="roll">Rulo</option><option value="sheet">Plaka</option></select></label>
-            <label>Solver profili<select value={userSettings.solverPreset} onChange={e=>setUserSettings({...userSettings,solverPreset:e.target.value as AdminSettings['solverPreset']})}><option value="standard">Standart</option><option value="fast">Hızlı</option></select></label>
+            <label data-admin-search="user-rotation">Rotasyon<select value={userSettings.rotation} onChange={e=>setUserSettings({...userSettings,rotation:e.target.value as AdminSettings['rotation']})}><option value="fixed">0°</option><option value="half">0° / 180°</option><option value="free">Her yöne</option></select></label>
+            <label data-admin-search="user-material">Malzeme tipi<select value={userSettings.materialType} onChange={e=>setUserSettings({...userSettings,materialType:e.target.value as AdminSettings['materialType']})}><option value="roll">Rulo</option><option value="sheet">Plaka</option></select></label>
+            <label data-admin-search="user-solver">Solver profili<select value={userSettings.solverPreset} onChange={e=>setUserSettings({...userSettings,solverPreset:e.target.value as AdminSettings['solverPreset']})}><option value="standard">Standart</option><option value="fast">Hızlı</option></select></label>
           </div><div className="admin-save-row"><button onClick={()=>void resetUserSettings()} disabled={adminBusy==='user-settings'}>Sistem varsayılanlarına dön</button><button className="primary" onClick={()=>void saveUserSettings()} disabled={adminBusy==='user-settings'}>{adminBusy==='user-settings'?'Kaydediliyor…':'Kullanıcı ayarlarını kaydet'}</button></div></>:<Empty title="Kullanıcı seçin">Yukarıdaki listeden bir kullanıcı seçerek ona özel varsayılanları düzenleyebilirsiniz.</Empty>}
         </section>}
 
         {section==='defaults'&&<section className="admin-card">
           <div className="admin-card-head"><div><h2>Sistem Varsayılanları</h2><p>Yeni kullanıcı ve projeler için başlangıç ayarları. Ana uygulamadaki gerçek kullanıcı seçenekleriyle senkron çalışır.</p></div><span className="admin-badge">Aktif</span></div>
-          <div className="admin-settings-grid">
-            <label>Varsayılan malzeme genişliği (mm)<input type="number" min="1" value={systemSettings.materialWidthMm} onChange={e=>setSystemSettings({...systemSettings,materialWidthMm:e.target.valueAsNumber})}/></label>
-            <label>Parça aralığı (mm)<input type="number" min="0" step="0.1" value={systemSettings.clearanceMm} onChange={e=>setSystemSettings({...systemSettings,clearanceMm:e.target.valueAsNumber})}/></label>
+          <div className="admin-settings-grid" role="group" aria-label="Sistem varsayılanları">
+            <label data-admin-search="system-width">Varsayılan malzeme genişliği (mm)<input type="number" min="1" value={systemSettings.materialWidthMm} onChange={e=>setSystemSettings({...systemSettings,materialWidthMm:e.target.valueAsNumber})}/></label>
+            <label data-admin-search="system-clearance">Parça aralığı (mm)<input type="number" min="0" step="0.1" value={systemSettings.clearanceMm} onChange={e=>setSystemSettings({...systemSettings,clearanceMm:e.target.valueAsNumber})}/></label>
             
-            <label>Varsayılan rotasyon<select value={systemSettings.rotation} onChange={e=>setSystemSettings({...systemSettings,rotation:e.target.value as AdminSettings['rotation']})}><option value="fixed">0°</option><option value="half">0° / 180°</option><option value="free">Her yöne</option></select></label>
-            <label>Varsayılan malzeme<select value={systemSettings.materialType} onChange={e=>setSystemSettings({...systemSettings,materialType:e.target.value as AdminSettings['materialType']})}><option value="roll">Rulo</option><option value="sheet">Plaka</option></select></label>
-            <label>Solver profili<select value={systemSettings.solverPreset} onChange={e=>setSystemSettings({...systemSettings,solverPreset:e.target.value as AdminSettings['solverPreset']})}><option value="standard">Standart</option><option value="fast">Hızlı</option></select></label>
+            <label data-admin-search="system-rotation">Varsayılan rotasyon<select value={systemSettings.rotation} onChange={e=>setSystemSettings({...systemSettings,rotation:e.target.value as AdminSettings['rotation']})}><option value="fixed">0°</option><option value="half">0° / 180°</option><option value="free">Her yöne</option></select></label>
+            <label data-admin-search="system-material">Varsayılan malzeme<select value={systemSettings.materialType} onChange={e=>setSystemSettings({...systemSettings,materialType:e.target.value as AdminSettings['materialType']})}><option value="roll">Rulo</option><option value="sheet">Plaka</option></select></label>
+            <label data-admin-search="system-solver">Solver profili<select value={systemSettings.solverPreset} onChange={e=>setSystemSettings({...systemSettings,solverPreset:e.target.value as AdminSettings['solverPreset']})}><option value="standard">Standart</option><option value="fast">Hızlı</option></select></label>
           </div>
           <div className="admin-save-row"><small>Kullanıcıya özel ayar yoksa bu değerler kullanılır.</small><button className="primary" onClick={()=>void saveSystemSettings()} disabled={adminBusy==='system-settings'}>{adminBusy==='system-settings'?'Kaydediliyor…':'Kaydet'}</button></div>
         </section>}
 
         {section==='history'&&<section className="admin-card">
-          <div className="admin-card-head"><div><h2>İşlem Geçmişi</h2><p>Yerleştirme, proje ve dışa aktarma kayıtları.</p></div><button disabled>Dışa aktar</button></div>
-          <div className="admin-toolbar"><input placeholder="Proje veya kullanıcı ara…" disabled/><select disabled><option>Son 30 gün</option></select></div>
-          <Empty title="Geçmiş kaydı yok">Sunucu kayıt altyapısı bağlandığında işlem süresi, malzeme kullanımı, plaka sayısı ve kullanıcı bilgisi burada görünecek.</Empty>
+          <div className="admin-card-head"><div><h2>İşlem Geçmişi</h2><p>Son {historyDays} günün kayıtlı yerleştirme ve dışa aktarma hareketleri.</p></div><div className="admin-save-row"><button type="button" onClick={()=>void loadHistory(historyDays)} disabled={historyLoading}>↻ Yenile</button><button type="button" onClick={exportHistory} disabled={!filteredHistory.length||historyLoading}>Dışa aktar (CSV)</button></div></div>
+          <div className="admin-toolbar"><input aria-label="Geçmişte ara" placeholder="Proje veya kullanıcı ara…" value={historySearch} onChange={e=>setHistorySearch(e.target.value)}/><select aria-label="Geçmiş tarih aralığı" value={historyDays} onChange={e=>setHistoryDays(Number(e.target.value) as 7|30)}><option value={7}>Son 7 gün</option><option value={30}>Son 30 gün</option></select></div>
+          {historyError&&<p role="alert" className="field-error">{historyError}</p>}
+          <p className="admin-history-count" role="status">{historyLoading?'Geçmiş yükleniyor…':filteredHistory.length+' / '+historyRows.length+' işlem görüntüleniyor'}</p>
+          {historyLoading?<Empty title="Geçmiş yükleniyor">İşlemler sunucudan alınıyor.</Empty>:filteredHistory.length?
+            <div className="admin-table" role="table" aria-label="Yerleştirme geçmişi">
+              <div className="admin-table-head" role="row"><span role="columnheader">Tarih</span><span role="columnheader">Kullanıcı</span><span role="columnheader">Proje</span><span role="columnheader">Kaynak</span><span role="columnheader">Hak</span></div>
+              {filteredHistory.map(entry=><div className="admin-user-row" role="row" key={entry.id}>
+                <span role="cell">{new Date(entry.createdAt).toLocaleString(localeTag(locale))}</span>
+                <span role="cell"><strong>{entry.name||entry.email}</strong><small>{entry.email}</small></span>
+                <span role="cell">{entry.projectName||'İsimsiz proje'}</span>
+                <span role="cell">{entry.sourceFileName||'—'}</span>
+                <span role="cell">{entry.usedCredit}</span>
+              </div>)}
+            </div>:<Empty title="İşlem bulunamadı">Seçilen tarih aralığında kayıtlı işlem yok.</Empty>}
         </section>}
 
         {section==='logs'&&<section className="admin-card">
@@ -493,6 +636,7 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
           <article className="admin-card"><h2>Uygulama</h2><dl className="admin-status-list"><div><dt>Ürün</dt><dd>Serula Nesting</dd></div><div><dt>Sürüm</dt><dd>v{packageInfo.version}</dd></div><div><dt>Yönetim yolu</dt><dd>{adminPath}</dd></div><div><dt>Dağıtım</dt><dd>Cloudflare</dd></div></dl></article>
           <article className="admin-card"><div className="admin-card-head"><h2>Güvenlik</h2><button onClick={()=>void loadHealth()}>Kontrol et</button></div><dl className="admin-status-list"><div><dt>Yönetici API</dt><dd className={health?.adminApi?'status-ok':'status-error'}>{health?.adminApi?'Aktif':health?'Hata':'Kontrol ediliyor'}</dd></div><div><dt>Kimlik doğrulama</dt><dd className={health?.auth?'status-ok':'status-error'}>{health?.auth?'Aktif':health?'Hata':'Kontrol ediliyor'}</dd></div><div><dt>Kalıcı kullanıcı deposu</dt><dd className={health?.userStore?'status-ok':'status-error'}>{health?.userStore?'Aktif':health?'Hata':'Kontrol ediliyor'}</dd></div></dl></article>
         </section>}
+        <footer className="sd-attribution"><span>Serula Yönetim</span><a href="https://shadcndashboard.dev/" target="_blank" rel="noopener noreferrer">Shadcn Dashboard</a></footer>
       </main>
     </div>
   </div>;
