@@ -8,7 +8,7 @@ import { placementBounds, selectionBounds, type GeometryEdit } from '../geometry
 import { moveDelta, resizeEdit, rotationEdit, screenTransform, pinchCamera, type Camera } from '../geometry/gestures';
 import { documentPlacements, placementKey, type CopyRef } from '../geometry/placements';
 import { displayLength, unitScale, type DisplayUnit } from '../units';
-import './Workspace.css';
+
 import { coordinateGrid } from '../geometry/grid';
 
 type Gesture = {
@@ -171,7 +171,7 @@ export default function Workspace({ document: doc, result, live, selected, selec
   const snapMenu=useRef<HTMLDetailsElement>(null);useDismissibleMenu(snapMenu);
   return <div className="canvas-wrap">
     <div className="canvas-tools"><details className="cad-snapping" ref={snapMenu}><summary>Yakalama{snapping ? ' açık' : ' kapalı'}</summary><div>
-      <label className="checkbox"><input type="checkbox" checked={snapping} onChange={event => setSnapping(event.target.checked)} />Yakalamayı etkinleştir</label>
+      <label className="checkbox checkbox-container"><input className="custom-checkbox" type="checkbox" checked={snapping} onChange={event => setSnapping(event.target.checked)} /><span className="checkmark" aria-hidden="true"/><span className="checkbox-label">Yakalamayı etkinleştir</span></label>
       <label>Izgara, {displayUnit}<select value={grid} onChange={event => setGrid(Number(event.target.value))}>{[.1, 1, 5, 10].map(value => <option key={value} value={value}>{displayLength(value, displayUnit)}</option>)}</select></label>
       <label>Açı adımı<select value={angleStep} onChange={event => setAngleStep(Number(event.target.value))}>{[1, 5, 15, 45, 90].map(value => <option key={value} value={value}>{value}°</option>)}</select></label>
       <small>Geçici olarak kapatmak için Alt tuşunu basılı tutun. Sayısal alanlar tam değerini korur.</small>
@@ -274,9 +274,10 @@ export default function Workspace({ document: doc, result, live, selected, selec
         : <><rect x="0" y={-result!.usedLengthMm} width={doc.settings.materialWidthMm} height={result!.usedLengthMm} fill={outlines ? 'none' : 'var(--material-fill)'} stroke="var(--secondary)" vectorEffect="non-scaling-stroke" /><text x="0" y={-result!.usedLengthMm - 2} fontSize={camera.w / 70} fill="var(--muted)">Rulo {displayLength(doc.settings.materialWidthMm, displayUnit)} {displayUnit} · kullanılan {(result!.usedLengthMm / unitScale(displayUnit)).toFixed(2)} {displayUnit}</text></>)}
       {showGenişlik && <g className="material-width-band" data-material-width-band={doc.settings.materialWidthMm} pointerEvents="none" aria-hidden="true"><rect x="0" y={coordinates.top} width={doc.settings.materialWidthMm} height={size.height * unit} /><path d={`M0,${coordinates.top}v${size.height * unit}M${doc.settings.materialWidthMm},${coordinates.top}v${size.height * unit}`} vectorEffect="non-scaling-stroke" /></g>}
       <g className="coordinate-grid" aria-hidden="true" pointerEvents="none" data-grid-step={coordinates.major}>{(['minor', 'major', 'origin'] as const).map(kind => <path key={kind} className={kind} fill="none" vectorEffect="non-scaling-stroke" d={[...coordinates.x.filter(t => (t.value === 0 ? 'origin' : t.major ? 'major' : 'minor') === kind).map(t => `M${t.mm},${coordinates.top}v${size.height * unit}`), ...coordinates.y.filter(t => (t.value === 0 ? 'origin' : t.major ? 'major' : 'minor') === kind).map(t => `M${coordinates.left},${-t.mm}h${size.width * unit}`)].join(' ')} />)}</g>
+      {/* Outside-material background must never cover an imported DXF or other shape. */}
+      {showGenişlik && <g className="material-width-outside" pointerEvents="none" aria-hidden="true"><rect x={coordinates.left} y={coordinates.top} width={Math.max(0,-coordinates.left)} height={size.height * unit} /><rect x={doc.settings.materialWidthMm} y={coordinates.top} width={Math.max(0,coordinates.left+size.width * unit-doc.settings.materialWidthMm)} height={size.height * unit} /></g>}
       {shapes}
       {marquee&&<rect data-selection-marquee x={Math.min(marquee.start[0],marquee.end[0])} y={Math.min(marquee.start[1],marquee.end[1])} width={Math.abs(marquee.end[0]-marquee.start[0])} height={Math.abs(marquee.end[1]-marquee.start[1])} fill="var(--accent)" fillOpacity=".12" stroke="var(--accent)" strokeDasharray="4 3" vectorEffect="non-scaling-stroke" pointerEvents="none"/>}
-      {showGenişlik && <g className="material-width-outside" pointerEvents="none" aria-hidden="true"><rect x={coordinates.left} y={coordinates.top} width={Math.max(0,-coordinates.left)} height={size.height * unit} /><rect x={doc.settings.materialWidthMm} y={coordinates.top} width={Math.max(0,coordinates.left+size.width * unit-doc.settings.materialWidthMm)} height={size.height * unit} /></g>}
       {!disabled && !polygon && selection && <g transform={screenTransform(preview)} className="cad-handles">
         <rect x={selection[0] + (drag?.copies.length ? drag.delta[0] : 0)} y={-selection[3] - (drag?.copies.length ? drag.delta[1] : 0)} width={selection[2] - selection[0]} height={selection[3] - selection[1]} fill="none" stroke="var(--accent)" strokeDasharray="4 3" vectorEffect="non-scaling-stroke" pointerEvents="none" />
         {!drag?.copies.length && <>{(['sw', 'se', 'nw', 'ne'] as const).map(corner => { const x = corner.includes('e') ? selection[2] : selection[0], y = -(corner.includes('n') ? selection[3] : selection[1]); return <g key={corner} data-handle={corner} style={{ cursor: corner === 'ne' || corner === 'sw' ? 'nesw-resize' : 'nwse-resize' }}><rect x={x - hit} y={y - hit} width={2 * hit} height={2 * hit} fill="transparent" /><rect x={x - 4 * unit} y={y - 4 * unit} width={8 * unit} height={8 * unit} fill="var(--panel)" stroke="var(--accent)" vectorEffect="non-scaling-stroke" /><title>{corner} köşesini boyutlandır</title></g>; })}

@@ -9,7 +9,6 @@ import {LIBRARY_MEDIAN_MM2} from '../import/library';
 import Modal from './Modal';
 import SizeControls from './SizeControls';
 import {displayLength,unitScale,type DisplayUnit} from '../units';
-import './ShapeLibrary.css';
 
 const sourceName=(dataset:Dataset)=>dataset.file.replace(/\.json$/i,'');
 
