@@ -1,4 +1,4 @@
-name: Visual editor removal smoke
+name: Design editor integration
 on:
   pull_request:
     branches:
@@ -19,5 +19,6 @@ jobs:
           cache-dependency-path: web/package-lock.json
       - run: npm ci --no-audit --no-fund
       - run: npm run build
+      - run: npx vitest run --config vitest.design.config.ts
       - run: npx playwright install --with-deps chromium
-      - run: npx playwright test tests/visual-editor-removal.spec.ts --project=chromium
+      - run: npx playwright test tests/design-editor-ui.spec.ts tests/design-publication.spec.ts tests/visual-editor-removal.spec.ts --project=chromium

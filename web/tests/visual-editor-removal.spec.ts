@@ -2,19 +2,19 @@ import {test,expect} from '@playwright/test';
 
 test.use({serviceWorkers:'block'});
 
-test('admin has no appearance customization or visual design editors',async({page})=>{
+test('admin offers the design editor and keeps the retired Puck editor hidden',async({page})=>{
   await page.route('**/api/auth/admin-me',route=>route.fulfill({
     status:200,contentType:'application/json',
     body:JSON.stringify({user:{id:1,email:'qa@example.test',name:'QA',role:'admin',credits:0,unlimited:true}})
   }));
   await page.goto('/admin');
   await expect(page.getByRole('button',{name:'Puck Editörünü Aç'})).toHaveCount(0);
-  await expect(page.getByRole('button',{name:'Tasarım Editörünü Aç'})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Tasarım Editörünü Aç'})).toBeVisible();
   await expect(page.getByText('Puck Tasarım Editörü')).toHaveCount(0);
   await expect(page.getByRole('button',{name:/Görünüm/})).toHaveCount(0);
 });
 
-test('Nesting does not fetch or apply retired published visual designs',async({page})=>{
+test('Nesting loads the published design and preserves workspace regions',async({page})=>{
   let attempted=0;
   await page.route('**/api/design/published',route=>{
     attempted++;
@@ -24,8 +24,8 @@ test('Nesting does not fetch or apply retired published visual designs',async({p
   });
   await page.goto('/');
   await expect(page.locator('.app')).toBeVisible();
-  expect(attempted).toBe(0);
-  await expect(page.locator('.app')).not.toHaveCSS('background-color','rgb(17, 51, 85)');
+  await expect.poll(()=>attempted).toBeGreaterThan(0);
+  await expect(page.locator('.app')).toHaveCSS('background-color','rgb(17, 51, 85)');
   await expect(page.locator('.app > .header .tagline')).toContainText('Akıllı DXF yerleştirme');
   await expect(page.locator('.main-workspace > .drawing-panel')).toBeVisible();
   await expect(page.locator('.main-workspace > #parts-settings')).toBeVisible();
@@ -49,6 +49,6 @@ test('only obsolete editor browser drafts are cleared, unrelated project storage
     ].map(k=>localStorage.getItem(k)),
     preserved:localStorage.getItem('serula-project-data-safety-test')
   }));
-  expect(values.removed).toEqual([null,null,null,null]);
+  expect(values.removed).toEqual([null,null,'old design draft','old preview']);
   expect(values.preserved).toBe('preserve');
 });

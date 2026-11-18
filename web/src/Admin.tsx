@@ -1,3 +1,4 @@
+import DesignStudio from './components/DesignStudio';
 import {useEffect,useMemo,useRef,useState} from 'react';
 import packageInfo from '../package.json';
 import {DashboardIcon} from './components/dashboard/DashboardIcon';
@@ -84,6 +85,7 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
   const [auth,setAuth]=useState<'loading'|'signed-out'|'allowed'|'denied'>(bypassAuth?'allowed':'loading');
   const [signedEmail,setSignedEmail]=useState('');
   const googleButton=useRef<HTMLDivElement>(null);
+  const [designOpen,setDesignOpen]=useState(false);
   const [section,setSection]=useState<Section>('overview');
   const [globalSearch,setGlobalSearch]=useState('');
   const [settingsUserSearch,setSettingsUserSearch]=useState('');
@@ -457,11 +459,12 @@ export default function Admin({allowedEmail,clientId,skipAuth=false,mobileMode=f
       </section>
     </main></div>;
   }
+  if(designOpen)return <DesignStudio onClose={()=>setDesignOpen(false)}/>;
   return <div className={adminPageClass}>
     <header className="admin-topbar">
       <div className="admin-brand"><img src={import.meta.env.BASE_URL+'serula-logo.svg'} alt="" /><div><strong>Serula</strong><span>Yönetim Paneli</span></div></div>
       <div className="sd-breadcrumb" aria-label="Gezinme yolu"><span>Yönetim</span><span aria-hidden="true">/</span><strong>{title}</strong></div>
-      <div className="admin-top-actions"><LanguageSelect compact/>{localDevelopment&&<span className="admin-badge">Yerel test</span>}<span className="admin-version">v{packageInfo.version}</span><a className="admin-workspace-link" href={import.meta.env.BASE_URL}>Çalışma alanına dön</a></div>
+      <div className="admin-top-actions"><button type="button" onClick={()=>setDesignOpen(true)}>Tasarım Editörünü Aç</button><LanguageSelect compact/>{localDevelopment&&<span className="admin-badge">Yerel test</span>}<span className="admin-version">v{packageInfo.version}</span><a className="admin-workspace-link" href={import.meta.env.BASE_URL}>Çalışma alanına dön</a></div>
     </header>
 
     <div className="admin-shell">

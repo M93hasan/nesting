@@ -29,9 +29,7 @@ const GOOGLE_CLIENT_ID='207092733568-2h2751l65c8cbnb3o6qfpvl4uug9f975.apps.googl
 try{
   for(const key of [
     'serula-puck-page-v1',
-    'serula-puck-real-nesting-v1',
-    'serula-design-studio-draft-v1',
-    'serula-design-studio-live-preview-v1'
+    'serula-puck-real-nesting-v1'
   ])localStorage.removeItem(key);
 }catch{/* Some browsers deny storage access; do not block the application. */}
 
