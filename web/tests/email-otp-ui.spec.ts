@@ -28,7 +28,7 @@ test('new registration displays the supplied six-digit OTP card and blocks login
   const form=page.locator('.serula-otp-form');
   await expect(form).toBeVisible();
   await expect(form.getByText('E-posta doğrulama')).toBeVisible();
-  await expect(form).toHaveCSS('border-radius','15px');
+  await expect(form).toHaveCSS('border-radius','24px');
   const digits=form.locator('.serula-otp-digit');
   await expect(digits).toHaveCount(6);
   await expect(form.getByRole('button',{name:'Doğrula ve giriş yap'})).toBeDisabled();

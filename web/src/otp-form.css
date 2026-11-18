@@ -3,7 +3,7 @@
  * Scoped: does not change login, admin, nesting controls or other inputs.
  */
 #root .auth-screen.shadcn-auth .auth-card.serula-otp-form{
-  width:min(290px,calc(100vw - 32px));
+  width:min(340px,calc(100vw - 32px));
   min-height:380px;
   height:auto;
   display:flex;
@@ -11,7 +11,7 @@
   align-items:stretch;
   gap:12px;
   padding:25px 20px 18px;
-  border-radius:15px;
+  border-radius:24px;
   border:1px solid #e8e8e8;
   background-color:#fff;
   box-shadow:0 4px 30px rgba(0,0,0,.1);
@@ -23,14 +23,15 @@
 #root .serula-otp-check{
   display:grid;
   place-items:center;
-  color:#2563eb;
+  color:#5d2a1a;
   margin:0 auto;
 }
 #root .serula-otp-heading{
   text-align:center;
   color:#18181b;
-  font-size:18px;
-  font-weight:750;
+  font-size:26px;
+  font-family:Georgia,serif;
+  font-weight:400;
 }
 #root .serula-otp-description{
   color:#52525b;
@@ -57,12 +58,12 @@
   text-align:center;
   font-size:20px;
   font-weight:700;
-  border-radius:5px;
+  border-radius:16px;
   border:0;
   outline:none;
   color:#111827;
-  background:rgb(235,235,235);
-  box-shadow:inset 3px 3px 6px #d1d1d1,inset -3px -3px 6px #ffffff;
+  background:#f2f2f3;
+  border:1px solid #dedede;
   transition:background-color .4s ease-in-out,box-shadow .4s ease-in-out;
 }
 #root .auth-screen.shadcn-auth .auth-card.serula-otp-form .serula-otp-digit:is(:hover,:focus){
@@ -70,21 +71,21 @@
   box-shadow:inset 0 0 0 #d1d1d1,inset 0 0 0 #fff;
 }
 #root .auth-screen.shadcn-auth .auth-card.serula-otp-form .serula-otp-digit:focus-visible{
-  outline:2px solid #2563eb;
+  outline:2px solid #5d2a1a;
   outline-offset:2px;
 }
 #root .auth-screen.shadcn-auth .auth-card.serula-otp-form :is(.serula-otp-btn1,.serula-otp-btn2){
   width:100%;
   min-height:42px;
   padding:10px 12px;
-  border-radius:5px;
+  border-radius:16px;
   font-weight:650;
   transition:box-shadow .4s ease-in-out,background .2s;
   box-shadow:1px 1px 3px #b5b5b5,-1px -1px 3px #ffffff;
 }
 #root .auth-screen.shadcn-auth .auth-card.serula-otp-form .serula-otp-btn1{
-  background:#2563eb;
-  border:1px solid #2563eb;
+  background:#5d2a1a;
+  border:1px solid #5d2a1a;
   color:white;
 }
 #root .auth-screen.shadcn-auth .auth-card.serula-otp-form .serula-otp-btn2{
