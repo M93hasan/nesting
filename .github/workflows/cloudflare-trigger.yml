@@ -1,14 +1,42 @@
-name: Fast Cloudflare trigger
+name: Record live Cloudflare deployment
 
-# Push this commit to refresh the Cloudflare Git integration deployment.
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
-permissions:
-  contents: read
+permissions: {}
+
+concurrency:
+  group: record-live-production
+  cancel-in-progress: true
 
 jobs:
-  disabled:
+  verify:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - run: echo "Automatic deploy hook disabled. Cloudflare Git integration handles production deploys."
+      - name: Wait for the deployed commit on serula.site
+        shell: bash
+        run: |
+          for attempt in {1..60}; do
+            if marker=$(curl --fail --silent --show-error --max-time 8 \
+                "https://serula.site/deploy-version.txt?sha=${GITHUB_SHA}&attempt=${attempt}") &&
+                [[ "$marker" == "Git commit: $GITHUB_SHA" ]]; then
+              echo "Verified $GITHUB_SHA on serula.site"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::Cloudflare did not serve the expected commit before the timeout."
+          exit 1
+
+  record:
+    needs: verify
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://serula.site
+    steps:
+      - run: echo "Cloudflare served the verified production commit $GITHUB_SHA."
