@@ -252,7 +252,7 @@ export function useSolver() {
             const entry:Timing={phase:r.diagnostics.phases?.at(-1)?.phase,sequence:data.sequence,
               elapsedMs:data.elapsedMs,lengthMm:data.solution.strip_width,validation:'pending'};
             r.diagnostics.history.push(entry);
-            if(doc.settings.materialType!=='sheet'&&r.best&&data.solution.strip_width>=r.best.usedLengthMm){
+            if(doc.settings.materialType!=='sheet'&&r.best&&data.solution.strip_width>r.best.usedLengthMm+1e-6){
               entry.validation='skipped';break;
             }
             let next:PendingCandidate;
