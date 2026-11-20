@@ -43,7 +43,7 @@ describe('static public SEO landing pages',()=>{
     expect(html).toContain('href="/lazer-kesim-nesting/"');
     expect(html).toContain('href="/cnc-nesting/"');
     expect(html).not.toContain('script src=');
-    const ld=JSON.parse(html.match(/<script type="application\\/ld\\+json">(.+?)<\\/script>/s)?.[1]??'null');
+    const ld=JSON.parse(html.match(/<script type="application\/ld\+json">(.+?)<\/script>/s)?.[1]??'null');
     expect(ld['@graph']).toEqual(expect.arrayContaining([
       expect.objectContaining({'@type':'Article',inLanguage:'tr',mainEntityOfPage:'https://serula.site/nesting-rehberi/'}),
       expect.objectContaining({'@type':'BreadcrumbList'}),
