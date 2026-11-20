@@ -70,9 +70,15 @@ export function compactValidatedGaps(doc:Document,original:Result):Result {
         dys.add(boxes[j].bottom-clearance-box.top);
         dys.add(boxes[j].top+clearance-box.bottom);
       }
+      const dxCandidates=[...dxs].filter(d=>Math.abs(d)>EPS).sort((a,b)=>Math.abs(a)-Math.abs(b)).slice(0,6);
+      const dyCandidates=[...dys].filter(d=>Math.abs(d)>EPS).sort((a,b)=>Math.abs(a)-Math.abs(b)).slice(0,6);
+      // Irregular DXF outlines can require moving in BOTH axes to enter a
+      // concave pocket. Single-axis proposals cannot reach such placements.
+      // The full polygon validator checks every accepted 2D move.
       const moves:[number,number][]=[
-        ...[...dxs].filter(d=>Math.abs(d)>EPS).sort((a,b)=>Math.abs(a)-Math.abs(b)).slice(0,8).map(d=>[d,0] as [number,number]),
-        ...[...dys].filter(d=>Math.abs(d)>EPS).sort((a,b)=>Math.abs(a)-Math.abs(b)).slice(0,8).map(d=>[0,d] as [number,number])
+        ...dxCandidates.map(d=>[d,0] as [number,number]),
+        ...dyCandidates.map(d=>[0,d] as [number,number]),
+        ...dxCandidates.slice(0,4).flatMap(dx=>dyCandidates.slice(0,4).map(dy=>[dx,dy] as [number,number]))
       ];
       for(const [dx,dy] of moves){
         if(performance.now()>deadline)return best;
