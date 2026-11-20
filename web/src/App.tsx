@@ -3,7 +3,12 @@ import {DesignBlocks,cleanBlocks,type DesignBlock} from './components/design-blo
 import './components/design-blocks.css';
 import RotationControl from './components/RotationControl';
 import packageInfo from '../package.json';
-import {readRecovery,saveRecovery} from './storage/recovery';
+import { IndexedDbRecoveryStore } from './infrastructure/persistence/IndexedDbRecoveryStore';
+import { HttpProjectAutosave } from './infrastructure/persistence/HttpProjectAutosave';
+import { autosaveProject } from './application/use-cases/AutosaveProject';
+import { WorkerCadGeometry } from './infrastructure/cad/WorkerCadGeometry';
+import { prepareCadExport } from './application/use-cases/PrepareCadExport';
+import { importCadFiles } from './application/use-cases/ImportCadFiles';
 import {useDismissibleMenu} from './components/useDismissibleMenu';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -28,6 +33,10 @@ import {isEditableTarget,preparationShortcut} from './geometry/gestures';
 import {applySeriesMultiplier,copyRefsFor,documentPlacements,duplicateCopies,mirrorPlacements,removeCopies,rotatePlacements,rotateToNextOrientation,setPlacementAngles,releasePlacementAngleLocks,movePlacements,placementLayoutsEqual,syncQuantity,updatePlacements,withDocumentPlacements,type CopyRef} from './geometry/placements';
 import {LanguageSelect} from './i18n';
 import {productionTotals} from './geometry/production';
+
+const recoveryStore = new IndexedDbRecoveryStore();
+const cloudAutosave = new HttpProjectAutosave();
+const cadGeometry = new WorkerCadGeometry();
 
 const emptyProject=(name='Adsız proje'):Document=>({name,parts:[],settings:{...DEFAULT_SETTINGS}});
 const CLOUD_SAVE_NAME='Serula Nesting En Temiz Hali';
@@ -193,7 +202,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     void (async()=>{
       try {
         try {
-          const saved=await readRecovery();
+          const saved=await recoveryStore.loadLatest();
           if(disposed)return;
           if(defaultExampleCancelled.current){setRecoveryReady(true);return;}
           if(saved) {
@@ -264,7 +273,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     let written=false,active=true;
     const write=()=>{
       if(written)return;written=true;
-      void saveRecovery(project).then(()=>{if(active){setBrowserSaved({document:doc,result:recoveryResult,revision});setRecoveryError('');}},()=>{if(active)setRecoveryError('Değişiklikler bu tarayıcıya kaydedilemedi. Bir kopya saklamak için projeyi dışa aktarın.');});
+      void recoveryStore.saveLatest(project).then(()=>{if(active){setBrowserSaved({document:doc,result:recoveryResult,revision});setRecoveryError('');}},()=>{if(active)setRecoveryError('Değişiklikler bu tarayıcıya kaydedilemedi. Bir kopya saklamak için projeyi dışa aktarın.');});
     };
     const timer=setTimeout(write,500);
     const hidden=()=>{if(document.visibilityState==='hidden')write();};
@@ -279,10 +288,9 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     const write=async()=>{
       if(written)return;written=true;
       try{
-        const response=await fetch('/api/project/autosave',{method:'PUT',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({projectName:doc.name,projectJson:JSON.stringify(project)})});
+        const outcome=await autosaveProject(cloudAutosave,doc.name,JSON.stringify(project));
         if(!active)return;
-        if(response.status===401){setCloudSaveState('signed-out');return;}
-        setCloudSaveState(response.ok?'saved':'error');
+        setCloudSaveState(outcome);
       }catch{if(active)setCloudSaveState('error')}
     };
     const timer=setTimeout(()=>void write(),1200);
@@ -534,7 +542,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   }
   async function preview() {
     if(!files) return;setBusy(true);setError('');setExcludeIssues(false);
-    try {const reply=await geometryTask({type:'import',runId:++operation.current,documentRevision:revision,files,scale,tolerance,enclosed,layers});if(reply.type==='import-review'){setReview(reply.review);setPreviewStale(false);setAvailableLayers(reply.review.layers??[]);}}
+    try {const review=await importCadFiles(cadGeometry,files,revision,++operation.current,{scale,tolerance,enclosed,layers});setReview(review);setPreviewStale(false);setAvailableLayers(review.layers??[]);}
     catch(e){setError(String(e));}finally{setBusy(false);}
   }
   async function addParts(parts:Part[],warnings:string[]=[],preserveSourceLayout=false) {
@@ -633,9 +641,9 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     if(busy||invalidSettings||showingLive||(running&&!result))return false;
     setBusy(true);setError('');
     try {
-      const reply=await geometryTask({type:'export',runId:++operation.current,documentRevision:revision,document:canvasDocument,result});
-      if(reply.type==='export-result'){
-        const content=reply.bundle.dxf;
+      const bundle=await prepareCadExport(cadGeometry,canvasDocument,revision,++operation.current,result);
+      {
+        const content=bundle.dxf;
         const fileName=`${exportAd}.dxf`;
         const sourceFileName=doc.parts.find(part=>part.source.format==='dxf'||part.source.format==='plt')?.source.fileName??doc.name;
         const projectJson=JSON.stringify({...doc,...(result?{placements:result.placements,result}:{}),schemaVersion:1,revision,serulaCloud:{label:CLOUD_SAVE_NAME,ui:{unit}}});
@@ -661,9 +669,8 @@ export default function App({initialDocument=emptyProject(),initialError='',load
       bridgePreflight=false;
       // Prepare DXF before obtaining a short-lived one-use ticket. Large DXF
       // exports can otherwise cause the ticket to expire before redemption.
-      const reply=await geometryTask({type:'export',runId:++operation.current,documentRevision:revision,document:canvasDocument,result});
-      if(reply.type!=='export-result')throw Error('Güncel yerleşimin DXF verisi hazırlanamadı.');
-      const dxf=reply.bundle.dxf;
+      const bundle=await prepareCadExport(cadGeometry,canvasDocument,revision,++operation.current,result);
+      const dxf=bundle.dxf;
       const auth=await fetch('/api/transfer/ticket',{method:'POST',credentials:'same-origin',
         headers:{'content-type':'application/json'},body:JSON.stringify({target})});
       const permit=await auth.json() as {ticket?:string;error?:string};
