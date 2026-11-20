@@ -4,6 +4,7 @@ const pages = [
   ['dxf-nesting','DXF nesting'],
   ['lazer-kesim-nesting','Lazer kesim'],
   ['cnc-nesting','CNC kesim'],
+  ['nesting-rehberi','Nesting nasıl yapılır'],
 ] as const;
 
 for (const [slug, heading] of pages) {
@@ -18,9 +19,17 @@ for (const [slug, heading] of pages) {
   });
 }
 
-test('crawler-visible sitemap lists the three public resources',async({request})=>{
+test('crawler-visible sitemap lists all public resources',async({request})=>{
   const response=await request.get('/sitemap.xml');
   expect(response.ok()).toBe(true);
   const body=await response.text();
   for(const [slug] of pages)expect(body).toContain(`https://serula.site/${slug}/`);
+});
+
+test('homepage HTTP response exposes indexable content and four topic links before JavaScript',async({request})=>{
+  const response=await request.get('/');
+  expect(response.status()).toBe(200);
+  const html=await response.text();
+  expect(html).toContain('<h1>Serula Nesting Pro: DXF nesting ve otomatik parça yerleştirme</h1>');
+  for(const [slug] of pages)expect(html).toContain(`href="/${slug}/"`);
 });

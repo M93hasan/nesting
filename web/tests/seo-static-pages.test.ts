@@ -28,8 +28,44 @@ describe('static public SEO landing pages',()=>{
     for(const slug of cases.map(([s])=>s)){
       expect(xml).toContain(`https://serula.site/${slug}/`);
     }
+    expect(xml).toContain('https://serula.site/nesting-rehberi/');
+    expect(xml).toContain('<lastmod>2026-11-20</lastmod>');
     expect(xml).toContain('https://serula.site/</loc>');
     expect(xml).not.toContain('/admin');
+  });
+
+  it('nesting guide offers useful indexable steps and structured Article information',()=>{
+    const html=read('../nesting-rehberi/index.html');
+    expect(html).toContain('<h1>Nesting nasıl yapılır? DXF yerleştirme rehberi</h1>');
+    expect(html).toContain('<link rel="canonical" href="https://serula.site/nesting-rehberi/">');
+    expect(html).toContain('content="index,follow"');
+    expect(html).toContain('href="/dxf-nesting/"');
+    expect(html).toContain('href="/lazer-kesim-nesting/"');
+    expect(html).toContain('href="/cnc-nesting/"');
+    expect(html).not.toContain('script src=');
+    const ld=JSON.parse(html.match(/<script type="application\/ld\+json">(.+?)<\/script>/s)?.[1]??'null');
+    expect(ld['@graph']).toEqual(expect.arrayContaining([
+      expect.objectContaining({'@type':'Article',inLanguage:'tr',mainEntityOfPage:'https://serula.site/nesting-rehberi/'}),
+      expect.objectContaining({'@type':'BreadcrumbList'}),
+    ]));
+  });
+
+  it('all topic pages link directly to the public nesting guide',()=>{
+    for(const slug of cases.map(([s])=>s)){
+      expect(read(`../${slug}/index.html`)).toContain('<a href="/nesting-rehberi/">Nesting rehberi</a>');
+    }
+  });
+
+  it('pre-renders a visible product summary and crawlable links before React boots',()=>{
+    const html=read('../index.html');
+    expect(html).toContain('<h1>Serula Nesting Pro: DXF nesting ve otomatik parça yerleştirme</h1>');
+    expect(html).toContain('aria-label="Nesting bilgileri"');
+    expect(html).toContain('DXF, SVG veya PLT');
+    for(const slug of [...cases.map(([s])=>s),'nesting-rehberi']){
+      expect(html).toContain(`href="/${slug}/"`);
+    }
+    expect(html).toContain('<div id="root">');
+    expect(html).toContain('src="/src/main.tsx"');
   });
 
   it('main app has structured data with no invented price or reviews',()=>{
@@ -52,9 +88,9 @@ describe('static public SEO landing pages',()=>{
     expect(admin).toContain("import './admin-compact-controls.css'");
   });
 
-  it('Vite builds the three pages separately without changing the editor entry',()=>{
+  it('Vite builds the public pages separately without changing the editor entry',()=>{
     const config=read('../vite.config.ts');
     expect(config).toContain("app:'index.html'");
-    for(const slug of cases.map(([s])=>s))expect(config).toContain(`'${slug}/index.html'`);
+    for(const slug of [...cases.map(([s])=>s),'nesting-rehberi'])expect(config).toContain(`'${slug}/index.html'`);
   });
 });
