@@ -25,7 +25,9 @@ test('reflected candidates are rejected rather than silently transformed', () =>
 
 test('phase metrics preserve public interface', () => {
   const history = [{ sequence: 1, elapsedMs: 100, lengthMm: 100, validation: 'passed', phase: 'Exploration' }, { sequence: 2, elapsedMs: 200, lengthMm: 80, validation: 'passed', phase: 'Exploration' }, { sequence: 3, elapsedMs: 300, lengthMm: 70, validation: 'passed', phase: 'Compression' }];
-  expect(phaseImprovements(history, 70)).toEqual({ explore: 20, compress: 12.5 });
+  const metrics = phaseImprovements(history, 70);
+  expect(metrics?.explore).toBeCloseTo(20, 10);
+  expect(metrics?.compress).toBeCloseTo(12.5, 10);
   expect(legacyPhaseImprovements).toBe(phaseImprovements);
   expect(wallClockLimitSeconds(doc)).toBe(30);
   expect(wallClockLimitSeconds({ ...doc, settings: { ...doc.settings, timeLimitSeconds: null } })).toBe(59);
