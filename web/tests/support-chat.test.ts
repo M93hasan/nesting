@@ -2,6 +2,8 @@ import {readFileSync} from 'node:fs';
 import {expect,test} from 'vitest';
 
 const worker=readFileSync(new URL('../worker/serula-worker.js',import.meta.url),'utf8');
+const userChatRoutes=readFileSync(new URL('../worker/user-chat-routes.js',import.meta.url),'utf8');
+const adminOverviewRoutes=readFileSync(new URL('../worker/admin-overview-routes.js',import.meta.url),'utf8');
 const admin=readFileSync(new URL('../src/Admin.tsx',import.meta.url),'utf8');
 const app=readFileSync(new URL('../src/App.tsx',import.meta.url),'utf8');
 const main=readFileSync(new URL('../src/main.tsx',import.meta.url),'utf8');
@@ -11,10 +13,12 @@ const layoutCss=readFileSync(new URL('../src/layout.css',import.meta.url),'utf8'
 test('persistent live support schema and APIs stay wired',()=>{
   expect(worker).toContain('CREATE TABLE IF NOT EXISTS chat_messages');
   expect(worker).toContain('CREATE TABLE IF NOT EXISTS user_presence');
-  expect(worker).toContain("path==='/api/chat'");
-  expect(worker).toContain("path==='/api/admin/chats'");
-  expect(worker).toContain("request.method==='DELETE'");
-  expect(worker).toContain("DELETE FROM users WHERE id=?");
+  expect(worker).toContain('handleUserChatRoutes');
+  expect(worker).toContain('handleAdminOverviewRoutes');
+  expect(userChatRoutes).toContain("path==='/api/chat'");
+  expect(adminOverviewRoutes).toContain("path==='/api/admin/chats'");
+  expect(adminOverviewRoutes).toContain("request.method==='DELETE'");
+  expect(adminOverviewRoutes).toContain("DELETE FROM users WHERE id=?");
 });
 
 test('contact and admin support UIs remain connected',()=>{
