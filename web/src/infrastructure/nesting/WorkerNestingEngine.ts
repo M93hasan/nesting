@@ -1,6 +1,6 @@
 import type { SolverBinary } from '../../wasm';
 import { SOLVER_REVISION, type Document, type Result } from '../../model';
-import { candidateResult } from '../../infrastructure/nesting/candidateResult';
+import { candidateResult } from './candidateResult';
 import type { Timing } from '../../application/nesting/phaseImprovements';
 import { wallClockLimitSeconds } from '../../domain/nesting/wallClockLimitSeconds';
 import { enqueueValidationCandidate } from '../../application/nesting/validationQueue';
@@ -9,7 +9,7 @@ import { createSolverWorkers, releaseSolverWorkers } from '../../infrastructure/
 import { calculateSolverDeadline, scheduleSolverDeadline } from '../../infrastructure/nesting/solverDeadline';
 import { matchesRunMessage, matchesValidationReply, startNestingWorker, initializeNestingWorkers, validateNestingCandidate } from '../../infrastructure/nesting/workerMessages';
 import { bindNestingWorkerEvents } from '../../infrastructure/nesting/workerEvents';
-import type { Candidate, GeometryReply, SolverMessage } from './protocol';
+import type { Candidate, GeometryReply, SolverMessage } from '../../workers/protocol';
 import type {LiveGeometry} from '../../geometry/live';
 
 export type RunState='Ready'|'Initializing'|'Running'|'Complete'|'Stopped'|'Error';
@@ -273,6 +273,6 @@ export function createWorkerNestingEngine() {
     setSkipping(true);r.diagnostics.compressionRequestedMs=r.startedAt?performance.now()-r.startedAt:0;
     r.solver.postMessage({type:'skip'});
   }
-  return {subscribe,getSnapshot,activate,markResultRendered,start,stop:()=>end('Stopped'),invalidate,load,skipToCompression,diagnostics};
+  return {subscribe,getSnapshot,activate,markResultRendered,start,stop:()=>end('Stopped'),invalidate,load,skipToCompression,diagnostics} satisfies NestingSession<ReturnType<typeof makeSnapshot>,Diagnostics>;
 
 }
