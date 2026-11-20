@@ -4,13 +4,12 @@ import './components/design-blocks.css';
 import RotationControl from './components/RotationControl';
 import packageInfo from '../package.json';
 import { IndexedDbRecoveryStore } from './infrastructure/persistence/IndexedDbRecoveryStore';
-import { HttpProjectAutosave } from './infrastructure/persistence/HttpProjectAutosave';
-import { autosaveProject } from './application/use-cases/AutosaveProject';
 import { WorkerCadGeometry } from './infrastructure/cad/WorkerCadGeometry';
 import { prepareCadExport } from './application/use-cases/PrepareCadExport';
 import { importCadFiles } from './application/use-cases/ImportCadFiles';
 import { WorkerNestingPreparation } from './infrastructure/nesting/WorkerNestingPreparation';
 import { prepareNestingDocument } from './application/use-cases/PrepareNestingDocument';
+import { useProjectAutosave } from './presentation/hooks/useProjectAutosave';
 import {useDismissibleMenu} from './components/useDismissibleMenu';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -38,7 +37,6 @@ import {productionTotals} from './geometry/production';
 import { DEFAULT_ROTATIONS, validRotationRule, normalizedRotationRule, rotationValue, validQuantity, displayedPieceCount } from './domain/project/editorRules';
 
 const recoveryStore = new IndexedDbRecoveryStore();
-const cloudAutosave = new HttpProjectAutosave();
 const cadGeometry = new WorkerCadGeometry();
 const nestingPreparation = new WorkerNestingPreparation();
 
@@ -266,37 +264,11 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const browserSavePending=browserSaved?.document!==doc||browserSaved?.result!==recoveryResult||browserSaved?.revision!==revision;
   const browserSaveState=recoveryError?'error':!recoveryReady||loadingExample?'loading':invalidSettings||!!polygon?.length?'unsaved':browserSavePending?'saving':'saved';
   const browserSaveLabel={error:'Tarayıcıya kaydedilmedi',loading:'',unsaved:'Tarayıcıya kaydedilmedi',saving:'Tarayıcıya kaydediliyor…',saved:'Tarayıcıya kaydedildi'}[browserSaveState];
-  useEffect(()=>{
-    if(!recoveryReady||loadingExample||invalidSettings||!doc.name.trim())return;
-    const project={...doc,...(recoveryResult?{placements:recoveryResult.placements,result:recoveryResult}:{}),schemaVersion:1 as const,revision};
-    let written=false,active=true;
-    const write=()=>{
-      if(written)return;written=true;
-      void recoveryStore.saveLatest(project).then(()=>{if(active){setBrowserSaved({document:doc,result:recoveryResult,revision});setRecoveryError('');}},()=>{if(active)setRecoveryError('Değişiklikler bu tarayıcıya kaydedilemedi. Bir kopya saklamak için projeyi dışa aktarın.');});
-    };
-    const timer=setTimeout(write,500);
-    const hidden=()=>{if(document.visibilityState==='hidden')write();};
-    window.addEventListener('pagehide',write);document.addEventListener('visibilitychange',hidden);
-    return ()=>{active=false;clearTimeout(timer);window.removeEventListener('pagehide',write);document.removeEventListener('visibilitychange',hidden);};
-  },[doc,recoveryResult,revision,loadingExample,recoveryReady,invalidSettings]);
-  useEffect(()=>{
-    if(!recoveryReady||loadingExample||invalidSettings||!!polygon?.length||!doc.name.trim())return;
-    const project={...doc,...(recoveryResult?{placements:recoveryResult.placements,result:recoveryResult}:{}),schemaVersion:1 as const,revision,serulaCloud:{label:CLOUD_SAVE_NAME,ui:{unit}}};
-    let active=true,written=false;
-    setCloudSaveState('saving');
-    const write=async()=>{
-      if(written)return;written=true;
-      try{
-        const outcome=await autosaveProject(cloudAutosave,doc.name,JSON.stringify(project));
-        if(!active)return;
-        setCloudSaveState(outcome);
-      }catch{if(active)setCloudSaveState('error')}
-    };
-    const timer=setTimeout(()=>void write(),1200);
-    const hidden=()=>{if(document.visibilityState==='hidden')void write();};
-    window.addEventListener('pagehide',write);document.addEventListener('visibilitychange',hidden);
-    return()=>{active=false;clearTimeout(timer);window.removeEventListener('pagehide',write);document.removeEventListener('visibilitychange',hidden)};
-  },[doc,recoveryResult,revision,loadingExample,recoveryReady,invalidSettings,polygon,unit,cloudSaveTick]);
+  useProjectAutosave({
+    doc,recoveryResult,revision,loadingExample,recoveryReady,invalidSettings,
+    polygonOpen:!!polygon?.length,unit,cloudSaveTick,
+    recoveryStore,setBrowserSaved,setRecoveryError,setCloudSaveState,
+  });
   useEffect(()=>{
     if(running||!result) return;
     const next=withDocumentPlacements(doc,result.placements);
