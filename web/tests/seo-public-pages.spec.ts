@@ -4,6 +4,7 @@ const pages = [
   ['dxf-nesting','DXF nesting'],
   ['lazer-kesim-nesting','Lazer kesim'],
   ['cnc-nesting','CNC kesim'],
+  ['nesting-rehberi','Nesting nasıl yapılır'],
 ] as const;
 
 for (const [slug, heading] of pages) {
@@ -18,7 +19,7 @@ for (const [slug, heading] of pages) {
   });
 }
 
-test('crawler-visible sitemap lists the three public resources',async({request})=>{
+test('crawler-visible sitemap lists all public resources',async({request})=>{
   const response=await request.get('/sitemap.xml');
   expect(response.ok()).toBe(true);
   const body=await response.text();
