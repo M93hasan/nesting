@@ -1,5 +1,5 @@
 import type { CadExportAuthorization } from '../../application/ports/CadExportAuthorization';
-import { authorizeExport } from '../../AuthGate';
+import { authorizeExport } from './HttpCadAuthorization';
 
 /** Reuse the existing authenticated credits and export-history API. */
 export class AuthGateCadAuthorization implements CadExportAuthorization {
