@@ -68,6 +68,21 @@ describe('static public SEO landing pages',()=>{
     expect(html).toContain('src="/src/main.tsx"');
   });
 
+  it('serves the required IndexNow key as a plain static asset',()=>{
+    const key='188fe1a1a113422da8ec84b424ab172c';
+    expect(read(`../public/${key}.txt`)).toBe(key);
+  });
+
+  it('explains nesting and practical production steps in the initial HTML',()=>{
+    const html=read('../index.html');
+    expect(html).toContain('<h2 id="seo-nesting-is">Nesting nedir, Serula ne işe yarar?</h2>');
+    expect(html).toContain('<h2 id="seo-workflow">DXF yerleştirme nasıl yapılır?</h2>');
+    expect(html).toContain('<h2 id="seo-use-cases">Hangi üretim işlerinde kullanılabilir?</h2>');
+    expect(html).toContain('kesim veya CAM yazılımınızda tekrar açarak');
+    expect(html).toContain('belirli bir tasarruf oranı garanti edilmez');
+    expect(html).toContain('<noscript>Serula Nesting kullanmak için JavaScript etkin olmalıdır.</noscript>');
+  });
+
   it('main app has structured data with no invented price or reviews',()=>{
     const html=read('../index.html');
     const data=JSON.parse(html.match(/<script type="application\/ld\+json">(.+?)<\/script>/s)?.[1]??'null');
