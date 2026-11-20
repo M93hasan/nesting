@@ -1,0 +1,104 @@
+# Azure Pipelines CI for Serula Nesting Pro.
+# Cloudflare deploys continue to be managed by the existing GitHub integration.
+trigger:
+  branches:
+    include:
+      - main
+
+pr:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  npm_config_cache: $(Pipeline.Workspace)/.npm
+
+jobs:
+  - job: validate
+    displayName: 'Build and validate Serula'
+    timeoutInMinutes: 60
+    steps:
+      - checkout: self
+        clean: true
+
+      - task: NodeTool@0
+        displayName: 'Use Node.js 22'
+        inputs:
+          versionSpec: '22.x'
+
+      - task: Cache@2
+        displayName: 'Cache npm downloads'
+        inputs:
+          key: 'npm | "$(Agent.OS)" | web/package-lock.json'
+          restoreKeys: |
+            npm | "$(Agent.OS)"
+          path: $(npm_config_cache)
+
+      - bash: npm ci --prefer-offline --no-audit --no-fund
+        displayName: 'Install dependencies'
+        workingDirectory: web
+
+      - bash: |
+          set -euo pipefail
+          expected="$(node scripts/wasm-fingerprint.mjs)"
+          actual="$(cat wasm/prebuilt.sha256 2>/dev/null || true)"
+          ready=true
+          if [ "$expected" != "$actual" ]; then ready=false; fi
+          for dir in wasm/pkg wasm/pkg-threads wasm/pkg-nosimd wasm/pkg-threads-nosimd; do
+            if [ ! -d "$dir" ] || ! find "$dir" -maxdepth 1 -name '*.wasm' -print -quit | grep -q .; then
+              ready=false
+              break
+            fi
+          done
+          echo "WASM prebuilt ready: $ready"
+          if [ "$ready" != true ]; then
+            rustup toolchain install nightly-2026-08-30 --profile minimal --component rust-src --target wasm32-unknown-unknown
+            npm install --global wasm-pack@0.15.0
+            npm run wasm:build
+            node scripts/wasm-fingerprint.mjs > wasm/prebuilt.sha256
+          fi
+        displayName: 'Verify or rebuild Rust/WASM packages'
+        workingDirectory: web
+
+      - bash: npm run typecheck
+        displayName: 'TypeScript type check'
+        workingDirectory: web
+
+      - bash: npm test
+        displayName: 'Vitest unit tests'
+        workingDirectory: web
+
+      - bash: npm run build
+        displayName: 'Production build'
+        workingDirectory: web
+
+      - bash: |
+          npx playwright install --with-deps chromium
+          npx playwright test \
+            tests/critical-smoke.spec.ts \
+            tests/visual-editor-removal.spec.ts \
+            tests/layout-only.spec.ts \
+            tests/shadcn-dashboard.spec.ts \
+            tests/email-otp-ui.spec.ts \
+            --project=chromium --reporter=line
+        displayName: 'Playwright Chromium regression'
+        workingDirectory: web
+
+      - task: PublishPipelineArtifact@1
+        displayName: 'Publish production build'
+        condition: succeeded()
+        inputs:
+          targetPath: '$(Build.SourcesDirectory)/web/dist'
+          artifact: 'serula-web-dist'
+          publishLocation: 'pipeline'
+
+      - task: PublishPipelineArtifact@1
+        displayName: 'Publish Playwright diagnostics'
+        condition: failed()
+        inputs:
+          targetPath: '$(Build.SourcesDirectory)/web/test-results'
+          artifact: 'playwright-test-results'
+          publishLocation: 'pipeline'
