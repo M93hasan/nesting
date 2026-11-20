@@ -44,7 +44,9 @@ describe('safe roll gap compaction',()=>{
     const lShape={...newPart([[0,0],[6,0],[6,2],[2,2],[2,6],[0,6]]),id:'concave',quantity:1};
     const insert={...newPart([[0,0],[1.5,0],[1.5,1.5],[0,1.5]]),id:'insert',quantity:1};
     const doc:Document={name:'concave DXF gap',parts:[lShape,insert],
-      settings:{...DEFAULT_SETTINGS,materialWidthMm:14,clearanceMm:0.2}};
+      settings:{...DEFAULT_SETTINGS,materialWidthMm:14,clearanceMm:0.2},
+      placements:[{partId:'concave',copyIndex:0,xMm:2,yMm:0,angleDeg:0,orientationLocked:true},
+        {partId:'insert',copyIndex:0,xMm:10,yMm:8,angleDeg:0}]};
     const input:Result={documentRevision:1,solverRevision:'test',seed:'2',elapsedSeconds:1,
       usedLengthMm:14,placements:[
         {partId:'concave',copyIndex:0,xMm:2,yMm:0,angleDeg:0,orientationLocked:true},
