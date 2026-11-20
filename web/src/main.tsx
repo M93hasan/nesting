@@ -1,6 +1,7 @@
 import { createRoot } from 'react-dom/client';
 import App from './App';
-import Admin from './Admin';
+import { lazy, Suspense } from 'react';
+const Admin = lazy(() => import('./Admin'));
 import './shadcn-dashboard.css';
 import './studio-dashboard.css';
 import './slate-ambience.css';
@@ -44,6 +45,6 @@ void prepareIsolation().catch(()=>{}).then(async () => {
   const route=location.pathname.replace(/\/$/,'');
   const isAdmin=route==='/admin'||route==='/admin2';
   const mobileAdmin=route==='/admin2';
-  createRoot(document.getElementById('root')!).render(<I18nProvider>{isAdmin?<AdminGate><Admin allowedEmail={ADMIN_EMAIL} clientId={GOOGLE_CLIENT_ID} skipAuth mobileMode={mobileAdmin}/></AdminGate>:<UserGate><App/></UserGate>}</I18nProvider>);
+  createRoot(document.getElementById('root')!).render(<I18nProvider>{isAdmin?<AdminGate><Suspense fallback={<div role="status" aria-live="polite">Yönetici paneli yükleniyor…</div>}><Admin allowedEmail={ADMIN_EMAIL} clientId={GOOGLE_CLIENT_ID} skipAuth mobileMode={mobileAdmin}/></Suspense></AdminGate>:<UserGate><App/></UserGate>}</I18nProvider>);
   void loadCatalog().catch(()=>{});
 });
