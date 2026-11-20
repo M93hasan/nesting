@@ -56,6 +56,18 @@ describe('static public SEO landing pages',()=>{
     }
   });
 
+  it('pre-renders a visible product summary and crawlable links before React boots',()=>{
+    const html=read('../index.html');
+    expect(html).toContain('<h1>Serula Nesting Pro: DXF nesting ve otomatik parça yerleştirme</h1>');
+    expect(html).toContain('aria-label="Nesting bilgileri"');
+    expect(html).toContain('DXF, SVG veya PLT');
+    for(const slug of [...cases.map(([s])=>s),'nesting-rehberi']){
+      expect(html).toContain(`href="/${slug}/"`);
+    }
+    expect(html).toContain('<div id="root">');
+    expect(html).toContain('src="/src/main.tsx"');
+  });
+
   it('main app has structured data with no invented price or reviews',()=>{
     const html=read('../index.html');
     const data=JSON.parse(html.match(/<script type="application\/ld\+json">(.+?)<\/script>/s)?.[1]??'null');
