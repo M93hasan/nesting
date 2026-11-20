@@ -5,12 +5,13 @@ import type { Timing } from '../../application/nesting/phaseImprovements';
 import { wallClockLimitSeconds } from '../../domain/nesting/wallClockLimitSeconds';
 import { enqueueValidationCandidate } from '../../application/nesting/validationQueue';
 import { selectBestNestingResult } from '../../application/nesting/selectBestNestingResult';
-import { createSolverWorkers, releaseSolverWorkers } from '../../infrastructure/nesting/solverWorkers';
-import { calculateSolverDeadline, scheduleSolverDeadline } from '../../infrastructure/nesting/solverDeadline';
-import { matchesRunMessage, matchesValidationReply, startNestingWorker, initializeNestingWorkers, validateNestingCandidate } from '../../infrastructure/nesting/workerMessages';
-import { bindNestingWorkerEvents } from '../../infrastructure/nesting/workerEvents';
+import { createSolverWorkers, releaseSolverWorkers } from './solverWorkers';
+import { calculateSolverDeadline, scheduleSolverDeadline } from './solverDeadline';
+import { matchesRunMessage, matchesValidationReply, startNestingWorker, initializeNestingWorkers, validateNestingCandidate } from './workerMessages';
+import { bindNestingWorkerEvents } from './workerEvents';
 import type { Candidate, GeometryReply, SolverMessage } from '../../workers/protocol';
 import type {LiveGeometry} from '../../geometry/live';
+import type { NestingSession } from '../../application/ports/NestingEngine';
 
 export type RunState='Ready'|'Initializing'|'Running'|'Complete'|'Stopped'|'Error';
 // Cumulative milliseconds since Nest was requested, including preparation and worker loading.
