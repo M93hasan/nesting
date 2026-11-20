@@ -3,10 +3,11 @@ import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../src/', import.meta.url));
-const layers = ['domain', 'application'];
+const layers = ['domain', 'application', 'infrastructure'];
 const forbidden = {
   domain: new Set(['application', 'infrastructure', 'workers', 'components', 'storage', 'import', 'export']),
   application: new Set(['infrastructure', 'workers', 'components', 'storage', 'import', 'export']),
+  infrastructure: new Set(['presentation', 'components']),
 };
 const failures = [];
 
@@ -29,7 +30,8 @@ for (const layer of layers) {
       if (!specifier.startsWith('.')) continue;
       const target = relative(root, resolve(file, '..', specifier));
       const targetLayer = target.split(/[\\/]/)[0];
-      if (forbidden[layer].has(targetLayer)) {
+      if (forbidden[layer].has(targetLayer)
+        || (layer === 'infrastructure' && /^(App|AuthGate)(?:\\.|$)/.test(target))) {
         failures.push(`${relative(root, file)}: forbidden ${layer} -> ${targetLayer} dependency`);
       }
     }
