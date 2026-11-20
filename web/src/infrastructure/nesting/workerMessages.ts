@@ -1,5 +1,5 @@
 import type { Document, Result } from '../../model';
-import type { Identity, SolverMessage } from '../../workers/protocol';
+import type { Identity, SolverMessage, Start } from '../../workers/protocol';
 
 /** Treat obsolete run/revision messages as stale: never apply them to a new run. */
 export interface SolverRunIdentity { id: number; revision: number }
@@ -49,7 +49,7 @@ export function startNestingWorker(
     seed,
     threads,
     hardLimitMs,
-  } satisfies Extract<import('../../workers/protocol').Start, { type: 'start' }>);
+  } satisfies Start);
 }
 
 /** Initialize validation and live-preview workers in the existing order. */
