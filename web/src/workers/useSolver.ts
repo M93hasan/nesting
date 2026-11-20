@@ -1,55 +1,29 @@
 import type { SolverBinary } from '../wasm';
 import { useEffect, useRef, useState } from 'react';
 import { SOLVER_REVISION, type Document, type Result } from '../model';
+import { candidateResult } from '../infrastructure/nesting/candidateResult';
+import { phaseImprovements, type Timing } from '../application/nesting/phaseImprovements';
+import { wallClockLimitSeconds } from '../domain/nesting/wallClockLimitSeconds';
 import type { Candidate, GeometryReply, SolverMessage } from './protocol';
 import type {LiveGeometry} from '../geometry/live';
-import {solverCopies} from '../import/sparrow';
 
 export type RunState='Ready'|'Initializing'|'Running'|'Complete'|'Stopped'|'Error';
-export type Timing={phase?:string;sequence:number;elapsedMs:number;lengthMm:number;validation?:string;validationMs?:number;errors?:string[]};
 // Cumulative milliseconds since Nest was requested, including preparation and worker loading.
 type StartupTiming={preparedMs:number;solverReadyMs?:number;firstCandidateMs?:number;firstValidMs?:number;firstPreviewMs?:number;firstResultRenderedMs?:number};
 export type Diagnostics={runDocument?:Document;attempts?:(Extract<SolverMessage,{type:"run-input"}> & {configuration?:string})[];logs?:string[];droppedLogs?:number;phases?:{phase:string;elapsedMs:number}[];compressionRequestedMs?:number;solverRevision:string;seed:string;buildMode:string;solverBinary?:SolverBinary;initializationMs?:number;startup?:StartupTiming;stopReason?:string;history:Timing[];liveSnapshots?:number;liveErrors:{sequence:number;message:string}[]};
 export type LiveFrame=LiveGeometry & {sequence:number;result:Result;report:string};
 type PendingCandidate={candidate:Candidate;result:Result};
 type ValidationReply={type:'validated-candidate';runId:number;documentRevision:number;sequence:number;result?:Result;error?:string};
-export const wallClockLimitSeconds=(doc:Document)=>doc.settings.timeLimitSeconds??59;
 type Run={id:number;revision:number;doc:Document;seed:string;requestedAt:number;solver?:Worker;preview:Worker;validator:Worker;
   latest?:Candidate;previewActive?:{candidate:Candidate;result:Result};frame?:LiveFrame;previewSequence:number;previewError?:string;
   best?:Result;bestSheetSolverLength?:number;ended?:'Complete'|'Stopped'|'Error';startedAt?:number;watchdog:ReturnType<typeof setTimeout>;deadline?:ReturnType<typeof setTimeout>;
   deadlineAtEpochMs?:number;visibilityHandler?:()=>void;lastPaintAt?:number;lastPreviewAt?:number;renderIntervalMs:number;
   checking?:PendingCandidate;pending:PendingCandidate[];finalizing?:boolean;validationTimeout?:ReturnType<typeof setTimeout>;
   diagnostics:Diagnostics};
-export function candidateResult(doc:Document,candidate:Candidate,seed:string):Result {
-  const copies=solverCopies(doc);
-  const originals=new Map((doc.placements??[]).map(copy=>[`${copy.partId}:${copy.copyIndex}`,copy] as const));
-  return {documentRevision:candidate.documentRevision,solverRevision:SOLVER_REVISION,seed:candidate.attemptSeed??seed,
-    elapsedSeconds:candidate.elapsedMs/1000,usedLengthMm:candidate.solution.strip_width,
-    placements:candidate.solution.layout.placed_items.map(p=>{
-      if(p.transformation.reflected)throw Error('Solver returned a reflected part, but Serula reflection is disabled.');
-      const copy=copies[p.item_id],partId=copy?.partId ?? `unknown:${p.item_id}`,copyIndex=copy?.copyIndex ?? 0;
-      const original=originals.get(`${partId}:${copyIndex}`);
-      // solverInput transposes the solver geometry. Swap the translation axes
-      // back and invert the solver rotation so the original DXF orientation is
-      // preserved while nesting advances down the material length.
-      const rawY=p.transformation.translation[0],sheetLength=doc.settings.materialLengthMm;
-      const sheetIndex=doc.settings.materialType==='sheet'&&candidate.report==='SheetFeas'&&sheetLength
-        ? Math.max(0,Math.floor((rawY+1e-7)/sheetLength)) : undefined;
-      const yMm=sheetIndex===undefined?rawY:rawY-sheetIndex*sheetLength!;
-      return {partId,copyIndex,xMm:p.transformation.translation[1],yMm,angleDeg:-p.transformation.rotation,
-        ...(original?.mirrorX?{mirrorX:true}:{}),...(original?.mirrorY?{mirrorY:true}:{}),
-        ...(original?.orientationLocked?{orientationLocked:true}:{}),
-        ...(sheetIndex===undefined?{}:{sheetIndex})};
-    }), validation:{status:'pending',overlapAreaMm2:0,maxBoundaryViolationMm:0,minClearanceMm:null,errors:[]}};
-}
-export function phaseImprovements(history:Timing[],lengthMm:number) {
-  const valid=history.filter(entry=>entry.validation==='passed'),first=valid[0];
-  if(!first)return undefined;
-  const exploration=valid.filter(entry=>entry.phase!=='Compression');
-  if(!exploration.length)return undefined;
-  const explored=Math.min(...exploration.map(entry=>entry.lengthMm));
-  return {explore:(1-explored/first.lengthMm)*100,compress:Math.max(0,(1-lengthMm/explored)*100)};
-}
+// Compatibility exports: existing callers keep the same public module API.
+export { candidateResult, phaseImprovements, wallClockLimitSeconds };
+export type { Timing };
+
 export function useSolver() {
   const [state,setState]=useState<RunState>('Ready'),[result,setResult]=useState<Result>(),[elapsed,setElapsed]=useState(0),[error,setError]=useState('');
   const [phase,setPhase]=useState<string>(),[skipping,setSkipping]=useState(false),[canSkip,setCanSkip]=useState(false);
