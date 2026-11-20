@@ -1,16 +1,16 @@
-import {cleanZoneStyles,renderZoneCss,type ZoneStyles} from './components/design-zone-styles';
-import {DesignBlocks,cleanBlocks,type DesignBlock} from './components/design-blocks';
+import {renderZoneCss} from './components/design-zone-styles';
+import {DesignBlocks} from './components/design-blocks';
 import './components/design-blocks.css';
 import RotationControl from './components/RotationControl';
 import packageInfo from '../package.json';
 import { IndexedDbRecoveryStore } from './infrastructure/persistence/IndexedDbRecoveryStore';
-import { HttpProjectAutosave } from './infrastructure/persistence/HttpProjectAutosave';
-import { autosaveProject } from './application/use-cases/AutosaveProject';
 import { WorkerCadGeometry } from './infrastructure/cad/WorkerCadGeometry';
 import { prepareCadExport } from './application/use-cases/PrepareCadExport';
 import { importCadFiles } from './application/use-cases/ImportCadFiles';
 import { WorkerNestingPreparation } from './infrastructure/nesting/WorkerNestingPreparation';
 import { prepareNestingDocument } from './application/use-cases/PrepareNestingDocument';
+import { useProjectAutosave } from './presentation/hooks/useProjectAutosave';
+import { useDesignStudioAppearance } from './presentation/hooks/useDesignStudioAppearance';
 import {useDismissibleMenu} from './components/useDismissibleMenu';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -28,7 +28,8 @@ import Modal from './components/Modal';
 import SelectionControls from './components/SelectionControls';
 import SupportChat from './components/SupportChat';
 import ExportHistory from './components/ExportHistory';
-import {authorizeExport} from './AuthGate';
+import { AuthGateCadAuthorization } from './infrastructure/cad/AuthGateCadAuthorization';
+import { authorizeCadExport } from './application/use-cases/AuthorizeCadExport';
 import {displayLength,unitScale,type DisplayUnit} from './units';
 import {selectionBounds,type GeometryEdit} from './geometry/manipulate';
 import {isEditableTarget,preparationShortcut} from './geometry/gestures';
@@ -36,11 +37,12 @@ import {applySeriesMultiplier,copyRefsFor,documentPlacements,duplicateCopies,mir
 import {LanguageSelect} from './i18n';
 import {productionTotals} from './geometry/production';
 import { DEFAULT_ROTATIONS, validRotationRule, normalizedRotationRule, rotationValue, validQuantity, displayedPieceCount } from './domain/project/editorRules';
+import { hasInvalidNestingSettings, reconcileExpandedSeries } from './domain/project/nestingDocumentRules';
 
 const recoveryStore = new IndexedDbRecoveryStore();
-const cloudAutosave = new HttpProjectAutosave();
 const cadGeometry = new WorkerCadGeometry();
 const nestingPreparation = new WorkerNestingPreparation();
+const cadAuthorization = new AuthGateCadAuthorization();
 
 const emptyProject=(name='Adsız proje'):Document=>({name,parts:[],settings:{...DEFAULT_SETTINGS}});
 const CLOUD_SAVE_NAME='Serula Nesting En Temiz Hali';
@@ -52,52 +54,7 @@ function download(name:string,text:BlobPart,type='application/json') {
   link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 export default function App({initialDocument=emptyProject(),initialError='',loadDefaultExample=false}:{initialDocument?:Document;initialError?:string;loadDefaultExample?:boolean}) {
-  // An explicit URL flag is required. The editor preview never changes the normal application.
-  const designPreviewEnabled=typeof window!=='undefined'&&new URLSearchParams(window.location.search).get('design-preview')==='1';
-  const [designPreview,setDesignPreview]=useState<{background:string;panel:string;accent:string;radius:number;spacing:number;fontSize:number;workspaceOrder?:string[];zoneStyles?:ZoneStyles;blocks?:DesignBlock[]}|null>(null);
-  const [publishedVisual,setPublishedVisual]=useState<{background:string;panel:string;accent:string;radius:number;spacing:number;fontSize:number;workspaceOrder?:string[];zoneStyles?:ZoneStyles;blocks?:DesignBlock[]}|null>(null);
-  useEffect(()=>{
-    if(designPreviewEnabled)return;
-    let active=true;
-    const read=async()=>{
-      try{
-        const response=await fetch('/api/design/published',{credentials:'same-origin',cache:'no-store'});
-        if(!response.ok)return;
-        const data:unknown=await response.json();
-        const d=(data as {published?:{design?:Record<string,unknown>}|null})?.published?.design;
-        if(!d){if(active)setPublishedVisual(null);return;}
-        const color=/^#[0-9a-f]{6}$/i;
-        if(!['background','panel','accent'].every(k=>typeof d[k]==='string'&&color.test(d[k] as string)))return;
-        if(!([['radius',0,32],['spacing',8,40],['fontSize',12,22]] as const).every(([k,lo,hi])=>typeof d[k]==='number'&&Number.isFinite(d[k])&&(d[k] as number)>=lo&&(d[k] as number)<=hi))return;
-        const orderCandidate=d.workspaceOrder;
-        const workspaceOrder=Array.isArray(orderCandidate)&&orderCandidate.length===3&&new Set(orderCandidate).size===3&&['parts','canvas','material'].every(x=>orderCandidate.includes(x))?[...orderCandidate] as string[]:undefined;
-        if(active)setPublishedVisual({background:d.background as string,panel:d.panel as string,accent:d.accent as string,radius:d.radius as number,spacing:d.spacing as number,fontSize:d.fontSize as number,workspaceOrder,zoneStyles:cleanZoneStyles(d.zoneStyles),blocks:cleanBlocks(d.blocks)});
-      }catch{/* Published design failure must never block Nesting functionality. */}
-    };
-    void read();window.addEventListener('focus',read);
-    return()=>{active=false;window.removeEventListener('focus',read);};
-  },[designPreviewEnabled]);
-  useEffect(()=>{
-    if(!designPreviewEnabled)return;
-    const update=()=>{
-      try{
-        const raw=localStorage.getItem('serula-design-studio-live-preview-v1');
-        const value:unknown=JSON.parse(raw??'null');
-        if(!value||typeof value!=='object')return;
-        const d=value as Record<string,unknown>,color=/^#[0-9a-f]{6}$/i;
-        if(!['background','panel','accent'].every(k=>typeof d[k]==='string'&&color.test(d[k] as string)))return;
-        if(!([['radius',0,32],['spacing',8,40],['fontSize',12,22]] as const).every(([k,lo,hi])=>typeof d[k]==='number'&&(d[k] as number)>=lo&&(d[k] as number)<=hi))return;
-        const orderCandidate=d.workspaceOrder;
-        const workspaceOrder=Array.isArray(orderCandidate)&&orderCandidate.length===3&&new Set(orderCandidate).size===3&&['parts','canvas','material'].every(x=>orderCandidate.includes(x))?[...orderCandidate] as string[]:undefined;
-        setDesignPreview({background:d.background as string,panel:d.panel as string,accent:d.accent as string,radius:d.radius as number,spacing:d.spacing as number,fontSize:d.fontSize as number,workspaceOrder,zoneStyles:cleanZoneStyles(d.zoneStyles),blocks:cleanBlocks(d.blocks)});
-      }catch{/* Keep the original style when preview data is invalid. */}
-    };
-    const onRefresh=(event:MessageEvent)=>{
-      if(event.origin===window.location.origin&&event.source===window.parent&&event.data==='serula-design-preview-refresh')update();
-    };
-    update();window.addEventListener('storage',update);window.addEventListener('message',onRefresh);
-    return()=>{window.removeEventListener('storage',update);window.removeEventListener('message',onRefresh);};
-  },[designPreviewEnabled]);
+  const { designPreviewEnabled, designPreview, publishedVisual } = useDesignStudioAppearance();
   const [doc,setDoc]=useState<Document>(()=>withDocumentPlacements(initialDocument)),[revision,setRevision]=useState(1),[selectedCopies,setSelectedCopies]=useState<CopyRef[]>([]);
   const [unusedSelection,setUnusedSelection]=useState<string[]>([]);
   // Safari clears the focus selection on mouse-up; preserve it for the first click only.
@@ -261,42 +218,16 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     const xs=[...new Set(copies.map(copy=>!!copy.mirrorX))],ys=[...new Set(copies.map(copy=>!!copy.mirrorY))];
     return {angle:angles.length===1?angles[0]:undefined,mirrorX:xs.length===1?xs[0]:undefined,mirrorY:ys.length===1?ys[0]:undefined,angleLocked:copies.some(copy=>copy.orientationLocked)};
   },[canvasDocument,selectedRefs]);
-  const invalidSettings=!sizeValid||!Number.isFinite(doc.settings.materialWidthMm)||doc.settings.materialWidthMm<=0||doc.settings.materialWidthMm>100_000||((doc.settings.materialType??'roll')==='sheet'&&(!Number.isFinite(doc.settings.materialLengthMm)||doc.settings.materialLengthMm!<=0||doc.settings.materialLengthMm!>100_000))||!Number.isFinite(doc.settings.clearanceMm)||doc.settings.clearanceMm<0||doc.settings.clearanceMm>=doc.settings.materialWidthMm||doc.parts.some(p=>!validQuantity(p.quantity)||(p.quantity>0&&!validRotationRule(p.rotations)))||doc.parts.reduce((n,p)=>n+p.quantity,0)>500;
+  const invalidSettings=hasInvalidNestingSettings(doc,sizeValid);
   const recoveryResult=running?undefined:result;
   const browserSavePending=browserSaved?.document!==doc||browserSaved?.result!==recoveryResult||browserSaved?.revision!==revision;
   const browserSaveState=recoveryError?'error':!recoveryReady||loadingExample?'loading':invalidSettings||!!polygon?.length?'unsaved':browserSavePending?'saving':'saved';
   const browserSaveLabel={error:'Tarayıcıya kaydedilmedi',loading:'',unsaved:'Tarayıcıya kaydedilmedi',saving:'Tarayıcıya kaydediliyor…',saved:'Tarayıcıya kaydedildi'}[browserSaveState];
-  useEffect(()=>{
-    if(!recoveryReady||loadingExample||invalidSettings||!doc.name.trim())return;
-    const project={...doc,...(recoveryResult?{placements:recoveryResult.placements,result:recoveryResult}:{}),schemaVersion:1 as const,revision};
-    let written=false,active=true;
-    const write=()=>{
-      if(written)return;written=true;
-      void recoveryStore.saveLatest(project).then(()=>{if(active){setBrowserSaved({document:doc,result:recoveryResult,revision});setRecoveryError('');}},()=>{if(active)setRecoveryError('Değişiklikler bu tarayıcıya kaydedilemedi. Bir kopya saklamak için projeyi dışa aktarın.');});
-    };
-    const timer=setTimeout(write,500);
-    const hidden=()=>{if(document.visibilityState==='hidden')write();};
-    window.addEventListener('pagehide',write);document.addEventListener('visibilitychange',hidden);
-    return ()=>{active=false;clearTimeout(timer);window.removeEventListener('pagehide',write);document.removeEventListener('visibilitychange',hidden);};
-  },[doc,recoveryResult,revision,loadingExample,recoveryReady,invalidSettings]);
-  useEffect(()=>{
-    if(!recoveryReady||loadingExample||invalidSettings||!!polygon?.length||!doc.name.trim())return;
-    const project={...doc,...(recoveryResult?{placements:recoveryResult.placements,result:recoveryResult}:{}),schemaVersion:1 as const,revision,serulaCloud:{label:CLOUD_SAVE_NAME,ui:{unit}}};
-    let active=true,written=false;
-    setCloudSaveState('saving');
-    const write=async()=>{
-      if(written)return;written=true;
-      try{
-        const outcome=await autosaveProject(cloudAutosave,doc.name,JSON.stringify(project));
-        if(!active)return;
-        setCloudSaveState(outcome);
-      }catch{if(active)setCloudSaveState('error')}
-    };
-    const timer=setTimeout(()=>void write(),1200);
-    const hidden=()=>{if(document.visibilityState==='hidden')void write();};
-    window.addEventListener('pagehide',write);document.addEventListener('visibilitychange',hidden);
-    return()=>{active=false;clearTimeout(timer);window.removeEventListener('pagehide',write);document.removeEventListener('visibilitychange',hidden)};
-  },[doc,recoveryResult,revision,loadingExample,recoveryReady,invalidSettings,polygon,unit,cloudSaveTick]);
+  useProjectAutosave({
+    doc,recoveryResult,revision,loadingExample,recoveryReady,invalidSettings,
+    polygonOpen:!!polygon?.length,unit,cloudSaveTick,
+    recoveryStore,setBrowserSaved,setRecoveryError,setCloudSaveState,
+  });
   useEffect(()=>{
     if(running||!result) return;
     const next=withDocumentPlacements(doc,result.placements);
@@ -305,15 +236,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   useEffect(()=>{if(!running&&result)setResultMode('checked');},[running,result]);
   function commit(next:Document,geometry=true,field?:string) {
     if(field!=='full-plate')fullPlateUndo.current=undefined;
-    // Editing a physical copy count creates a new one-series baseline, so a
-    // later series edit multiplies that new count rather than stale old totals.
-    const quantitiesChanged=next.parts.length!==doc.parts.length
-      ||next.parts.some(part=>doc.parts.find(old=>old.id===part.id)?.quantity!==part.quantity);
-    if(doc.seriesCountMode==='expanded'&&String(doc.seriesMultiplier??1)!=='1'
-      &&next.seriesCountMode==='expanded'
-      &&String(next.seriesMultiplier??1)===String(doc.seriesMultiplier??1)
-      &&quantitiesChanged)
-      next={...next,seriesMultiplier:undefined};
+    next=reconcileExpandedSeries(doc,next);
     const parts=new Map(next.parts.map(part=>[part.id,part]));
     const placements=next.placements?.filter(copy=>parts.has(copy.partId)&&copy.copyIndex<(Number.isInteger(parts.get(copy.partId)!.quantity)?Math.max(0,parts.get(copy.partId)!.quantity):1));
     let canonical:Document;
@@ -640,16 +563,13 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     if(busy||invalidSettings||showingLive||(running&&!result))return false;
     setBusy(true);setError('');
     try {
-      const bundle=await prepareCadExport(cadGeometry,canvasDocument,revision,++operation.current,result);
-      {
-        const content=bundle.dxf;
-        const fileName=`${exportAd}.dxf`;
-        const sourceFileName=doc.parts.find(part=>part.source.format==='dxf'||part.source.format==='plt')?.source.fileName??doc.name;
-        const projectJson=JSON.stringify({...doc,...(result?{placements:result.placements,result}:{}),schemaVersion:1,revision,serulaCloud:{label:CLOUD_SAVE_NAME,ui:{unit}}});
-        await authorizeExport(doc.name,sourceFileName,fileName,content,projectJson);
-        download(fileName,content,'application/dxf');setDownloadedResult(true);setExported({document:doc,result});return true;
-      }
-      return false;
+      const fileName=`${exportAd}.dxf`;
+      const content=await authorizeCadExport(cadGeometry,cadAuthorization,{
+        sourceDocument:doc,exportDocument:canvasDocument,result,revision,
+        runId:++operation.current,fileName,unit,cloudLabel:CLOUD_SAVE_NAME,
+      });
+      download(fileName,content,'application/dxf');
+      setDownloadedResult(true);setExported({document:doc,result});return true;
     } catch(e){setError(String(e));return false;}finally{setBusy(false);}
   }
   async function transferLayout(target:'corel') {
