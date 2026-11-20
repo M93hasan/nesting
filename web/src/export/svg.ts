@@ -1,7 +1,8 @@
 import { documentPlacements } from '../geometry/placements';
 import type { Document, Result, Ring } from '../model';
 import { worldParts, netArea, type WorldPart } from '../geometry/validate';
-import { exportDXF, STUDIO_CREDIT } from './dxf';
+import { STUDIO_CREDIT } from './dxf';
+import { NativeDxfExporter } from '../infrastructure/cad/NativeDxfExporter';
 import {DOMParser} from '@xmldom/xmldom';
 import {pathData} from '../geometry/path';
 import {colors} from '../colors';
@@ -54,5 +55,5 @@ ${paths}
     return {...world[i],outer:rings[0],holes:rings.slice(1)};
   });
   if(JSON.stringify(reparsed)!==JSON.stringify(world))throw Error('Serialized SVG changed canvas coordinates.');
-  return {world,dxf:exportDXF(doc,world,placements,true),svg};
+  return {world,dxf:new NativeDxfExporter().serialize(doc,world,placements,true),svg};
 }
