@@ -5,6 +5,7 @@ import { candidateResult } from '../infrastructure/nesting/candidateResult';
 import { phaseImprovements, type Timing } from '../application/nesting/phaseImprovements';
 import { wallClockLimitSeconds } from '../domain/nesting/wallClockLimitSeconds';
 import { enqueueValidationCandidate } from '../application/nesting/validationQueue';
+import { createSolverWorkers, releaseSolverWorkers } from '../infrastructure/nesting/solverWorkers';
 import type { Candidate, GeometryReply, SolverMessage } from './protocol';
 import type {LiveGeometry} from '../geometry/live';
 
@@ -41,7 +42,7 @@ export function useSolver() {
   function clear() {
     const r=run.current;
     if(r) {
-      r.solver?.postMessage({type:'stop'});r.preview.terminate();r.validator.terminate();
+      releaseSolverWorkers(r);
       clearTimeout(r.watchdog);if(r.deadline)clearTimeout(r.deadline);if(r.validationTimeout)clearTimeout(r.validationTimeout);
       if(r.visibilityHandler&&typeof document!=='undefined')document.removeEventListener('visibilitychange',r.visibilityHandler);
     }
@@ -114,9 +115,7 @@ export function useSolver() {
     const startup:StartupTiming={preparedMs:performance.now()-requestedAt};
     clear();setWorkers(undefined);setResult(undefined);setLive(undefined);setLiveError('');setError('');setElapsed(0);setState('Initializing');
     const id=++serial.current,seed=crypto.getRandomValues(new BigUint64Array(1))[0].toString();
-    const solver=new Worker(new URL('./solver.worker.ts',import.meta.url),{type:'module'});
-    const preview=new Worker(new URL('./geometry.worker.ts',import.meta.url),{type:'module'});
-    const validator=new Worker(new URL('./candidate-validator.worker.ts',import.meta.url),{type:'module'});
+    const { solver, preview, validator } = createSolverWorkers();
     const complexity=doc.parts.reduce((sum,part)=>sum+part.quantity*(part.outer.length+part.holes.reduce((n,h)=>n+h.length,0)),0);
     const r:Run={id,revision,doc,seed,requestedAt,solver,preview,validator,pending:[],previewSequence:0,
       renderIntervalMs:complexity>15_000?500:250,
