@@ -35,6 +35,7 @@ import {applySeriesMultiplier,copyRefsFor,documentPlacements,duplicateCopies,mir
 import {LanguageSelect} from './i18n';
 import {productionTotals} from './geometry/production';
 import { DEFAULT_ROTATIONS, validRotationRule, normalizedRotationRule, rotationValue, validQuantity, displayedPieceCount } from './domain/project/editorRules';
+import { hasInvalidNestingSettings, reconcileExpandedSeries } from './domain/project/nestingDocumentRules';
 
 const recoveryStore = new IndexedDbRecoveryStore();
 const cadGeometry = new WorkerCadGeometry();
@@ -259,7 +260,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     const xs=[...new Set(copies.map(copy=>!!copy.mirrorX))],ys=[...new Set(copies.map(copy=>!!copy.mirrorY))];
     return {angle:angles.length===1?angles[0]:undefined,mirrorX:xs.length===1?xs[0]:undefined,mirrorY:ys.length===1?ys[0]:undefined,angleLocked:copies.some(copy=>copy.orientationLocked)};
   },[canvasDocument,selectedRefs]);
-  const invalidSettings=!sizeValid||!Number.isFinite(doc.settings.materialWidthMm)||doc.settings.materialWidthMm<=0||doc.settings.materialWidthMm>100_000||((doc.settings.materialType??'roll')==='sheet'&&(!Number.isFinite(doc.settings.materialLengthMm)||doc.settings.materialLengthMm!<=0||doc.settings.materialLengthMm!>100_000))||!Number.isFinite(doc.settings.clearanceMm)||doc.settings.clearanceMm<0||doc.settings.clearanceMm>=doc.settings.materialWidthMm||doc.parts.some(p=>!validQuantity(p.quantity)||(p.quantity>0&&!validRotationRule(p.rotations)))||doc.parts.reduce((n,p)=>n+p.quantity,0)>500;
+  const invalidSettings=hasInvalidNestingSettings(doc,sizeValid);
   const recoveryResult=running?undefined:result;
   const browserSavePending=browserSaved?.document!==doc||browserSaved?.result!==recoveryResult||browserSaved?.revision!==revision;
   const browserSaveState=recoveryError?'error':!recoveryReady||loadingExample?'loading':invalidSettings||!!polygon?.length?'unsaved':browserSavePending?'saving':'saved';
@@ -277,15 +278,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   useEffect(()=>{if(!running&&result)setResultMode('checked');},[running,result]);
   function commit(next:Document,geometry=true,field?:string) {
     if(field!=='full-plate')fullPlateUndo.current=undefined;
-    // Editing a physical copy count creates a new one-series baseline, so a
-    // later series edit multiplies that new count rather than stale old totals.
-    const quantitiesChanged=next.parts.length!==doc.parts.length
-      ||next.parts.some(part=>doc.parts.find(old=>old.id===part.id)?.quantity!==part.quantity);
-    if(doc.seriesCountMode==='expanded'&&String(doc.seriesMultiplier??1)!=='1'
-      &&next.seriesCountMode==='expanded'
-      &&String(next.seriesMultiplier??1)===String(doc.seriesMultiplier??1)
-      &&quantitiesChanged)
-      next={...next,seriesMultiplier:undefined};
+    next=reconcileExpandedSeries(doc,next);
     const parts=new Map(next.parts.map(part=>[part.id,part]));
     const placements=next.placements?.filter(copy=>parts.has(copy.partId)&&copy.copyIndex<(Number.isInteger(parts.get(copy.partId)!.quantity)?Math.max(0,parts.get(copy.partId)!.quantity):1));
     let canonical:Document;
