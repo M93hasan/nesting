@@ -26,7 +26,8 @@ describe('solver worker resources', () => {
     const preview = { terminate: vi.fn() };
     const validator = { terminate: vi.fn() };
     releaseSolverWorkers({ solver, preview, validator });
-    expect(solver.postMessage).toHaveBeenCalledExactlyOnceWith({ type: 'stop' });
+    expect(solver.postMessage).toHaveBeenCalledTimes(1);
+    expect(solver.postMessage).toHaveBeenCalledWith({ type: 'stop' });
     expect(preview.terminate).toHaveBeenCalledOnce();
     expect(validator.terminate).toHaveBeenCalledOnce();
   });
