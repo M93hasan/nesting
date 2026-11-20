@@ -5,6 +5,7 @@ import { candidateResult } from '../infrastructure/nesting/candidateResult';
 import { phaseImprovements, type Timing } from '../application/nesting/phaseImprovements';
 import { wallClockLimitSeconds } from '../domain/nesting/wallClockLimitSeconds';
 import { enqueueValidationCandidate } from '../application/nesting/validationQueue';
+import { selectBestNestingResult } from '../application/nesting/selectBestNestingResult';
 import { createSolverWorkers, releaseSolverWorkers } from '../infrastructure/nesting/solverWorkers';
 import { calculateSolverDeadline, scheduleSolverDeadline } from '../infrastructure/nesting/solverDeadline';
 import type { Candidate, GeometryReply, SolverMessage } from './protocol';
@@ -169,19 +170,17 @@ export function useSolver() {
         const packed=data.result,checked=packed.validation;
         if(entry){entry.validation=checked.status;entry.errors=checked.status==='passed'?undefined:checked.errors;}
         if(checked.status==='passed'){
-          if(doc.settings.materialType!=='sheet'){
-            if(!r.best||packed.usedLengthMm<r.best.usedLengthMm){
-              startup.firstValidMs??=performance.now()-requestedAt;
-              r.best=packed;
-            }
-          }else{
-            const sheets=packed.sheetCount??1,bestSheets=r.best?.sheetCount??Infinity;
-            if(!r.best||sheets<bestSheets
-              ||(sheets===bestSheets&&(r.bestSheetSolverLength===undefined
-                ||candidate.solution.strip_width<r.bestSheetSolverLength))){
-              startup.firstValidMs??=performance.now()-requestedAt;
-              r.best=packed;r.bestSheetSolverLength=candidate.solution.strip_width;
-            }
+          const selection=selectBestNestingResult({
+            materialType:doc.settings.materialType,
+            best:r.best,
+            bestSheetSolverLength:r.bestSheetSolverLength,
+            candidate:packed,
+            candidateSolverLength:candidate.solution.strip_width,
+          });
+          if(selection.accepted){
+            startup.firstValidMs??=performance.now()-requestedAt;
+            r.best=selection.best;
+            r.bestSheetSolverLength=selection.bestSheetSolverLength;
           }
         }
       }
