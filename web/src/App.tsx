@@ -12,6 +12,7 @@ import { prepareNestingDocument } from './application/use-cases/PrepareNestingDo
 import { useProjectAutosave } from './presentation/hooks/useProjectAutosave';
 import { useDesignStudioAppearance } from './presentation/hooks/useDesignStudioAppearance';
 import { useCadAccess } from './presentation/hooks/useCadAccess';
+import { useSolverWarmup } from './presentation/hooks/useSolverWarmup';
 import { WorkerLayoutPreparation } from './infrastructure/cad/WorkerLayoutPreparation';
 import { prepareLayoutDocument } from './application/use-cases/PrepareLayoutDocument';
 import {useDismissibleMenu} from './components/useDismissibleMenu';
@@ -102,16 +103,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const [cloudSaveState,setCloudSaveState]=useState<'idle'|'saving'|'saved'|'signed-out'|'error'>('idle'),[cloudSaveTick,setCloudSaveTick]=useState(0);
   useEffect(()=>{const changed=()=>setCloudSaveTick(value=>value+1);window.addEventListener('serula-auth-updated',changed);return()=>window.removeEventListener('serula-auth-updated',changed)},[]);
   const [bridgeInstallPrompt,setBridgeInstallPrompt]=useState(false);
-  useEffect(()=>{
-    if(loadingExample)return;
-    const worker=new Worker(new URL('./workers/solver-runtime.worker.ts',import.meta.url),{type:'module'});
-    const timeout=setTimeout(()=>worker.terminate(),15_000);
-    const done=()=>{clearTimeout(timeout);worker.terminate();};
-    worker.onmessage=done;
-    worker.onerror=event=>{event.preventDefault();done();};
-    worker.postMessage({type:'preload',threads:1});
-    return done;
-  },[loadingExample]);
+  useSolverWarmup(loadingExample);
   const defaultExampleCancelled=useRef(false);
   function cancelDefaultExample() {defaultExampleCancelled.current=true;setLoadingExample(false);}
   useEffect(()=>{
