@@ -8,6 +8,7 @@ import { enqueueValidationCandidate } from '../application/nesting/validationQue
 import { selectBestNestingResult } from '../application/nesting/selectBestNestingResult';
 import { createSolverWorkers, releaseSolverWorkers } from '../infrastructure/nesting/solverWorkers';
 import { calculateSolverDeadline, scheduleSolverDeadline } from '../infrastructure/nesting/solverDeadline';
+import { matchesRunMessage, matchesValidationReply, startNestingWorker, initializeNestingWorkers, validateNestingCandidate } from '../infrastructure/nesting/workerMessages';
 import type { Candidate, GeometryReply, SolverMessage } from './protocol';
 import type {LiveGeometry} from '../geometry/live';
 
@@ -129,7 +130,7 @@ export function useSolver() {
     if(typeof document!=='undefined')document.addEventListener('visibilitychange',r.visibilityHandler);
     scheduleDeadline(r);
     preview.onmessage=({data}:MessageEvent<GeometryReply>)=>{
-      if(run.current!==r||data.runId!==r.id||data.documentRevision!==r.revision)return;
+      if(run.current!==r||!matchesRunMessage(data,r))return;
       if(data.type==='error'){r.previewError=data.message;r.previewActive=undefined;preview.terminate();return;}
       if(data.type==='live-preview-skipped'){
         r.previewActive=undefined;
@@ -154,13 +155,10 @@ export function useSolver() {
       if(r.checking||!r.pending.length||r.ended)return;
       const task=r.pending.shift()!;
       r.checking=task;
-      validator.postMessage({type:'validate',runId:r.id,documentRevision:r.revision,
-        sequence:task.candidate.sequence,result:task.result});
+      validateNestingCandidate(validator,r,task.candidate.sequence,task.result);
     }
     validator.onmessage=({data}:MessageEvent<ValidationReply>)=>{
-      if(run.current!==r||r.ended||data.type!=='validated-candidate'
-        ||data.runId!==r.id||data.documentRevision!==r.revision
-        ||data.sequence!==r.checking?.candidate.sequence)return;
+      if(run.current!==r||r.ended||!matchesValidationReply(data,r,r.checking?.candidate.sequence))return;
       const candidate=r.checking!.candidate;
       r.checking=undefined;
       const entry=r.diagnostics.history.find(item=>item.sequence===data.sequence);
@@ -190,10 +188,9 @@ export function useSolver() {
     validator.onerror=event=>{
       if(run.current===r&&!r.ended)end('Error',event.message||'Yerleşim doğrulama işçisi durdu.');
     };
-    validator.postMessage({type:'init',document:doc});
-    preview.postMessage({type:'live-preview-init',runId:r.id,documentRevision:r.revision,document:doc});
+    initializeNestingWorkers(validator,preview,r,doc);
     solver.onmessage=({data}:MessageEvent<SolverMessage>)=>{
-      if(run.current!==r || !r.solver || data.runId!==r.id || data.documentRevision!==r.revision) return;
+      if(run.current!==r || !r.solver || !matchesRunMessage(data,r)) return;
       switch(data.type) {
         case 'run-input': (r.diagnostics.attempts??=[]).push(data);break;
         case 'configuration': {const attempt=r.diagnostics.attempts?.at(-1);if(attempt)attempt.configuration=data.configuration;break;}
@@ -240,8 +237,7 @@ export function useSolver() {
       }
     };
     solver.onerror=e=>{if(run.current===r && r.solver) end('Error',e.message||'Arka plan işçisi yüklenemedi. Sayfayı yenileyip tekrar deneyin.');};
-    solver.postMessage({type:'start',runId:id,documentRevision:revision,document:doc,seed,threads,
-      hardLimitMs:Math.max(0,(r.deadlineAtEpochMs??Date.now())-Date.now())});
+    startNestingWorker(solver,r,doc,seed,threads,Math.max(0,(r.deadlineAtEpochMs??Date.now())-Date.now()));
   }
   function invalidate() {clear();setWorkers(undefined);setResult(undefined);setLive(undefined);setLiveError('');setState('Ready');setError('');}
   function load(checked:Result) {
