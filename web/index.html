@@ -26,10 +26,31 @@
   <meta name="twitter:image:alt" content="Serula Nesting çalışma alanında düzensiz parçaların doğrulanmış kompakt kesim yerleşimi.">
   <link rel="icon" type="image/svg+xml" href="/serula-logo.svg">
   <link rel="stylesheet" href="/src/layout.css">
+  <style>
+    .seo-boot{max-width:860px;margin:7vh auto;padding:24px;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#1f3145;line-height:1.65}
+    .seo-boot h1{font-size:clamp(1.65rem,4vw,2.6rem);line-height:1.2}
+    .seo-boot nav{display:flex;flex-wrap:wrap;gap:12px;margin:24px 0}
+    .seo-boot nav a{color:#07588f;background:#eff6fd;padding:9px 12px;border-radius:8px;text-decoration:none}
+    .seo-boot nav a:focus-visible{outline:3px solid #0868ba;outline-offset:2px}
+  </style>
+
   
 </head>
 <body>
-  <div id="root"><noscript>Serula Nesting kullanmak için JavaScript etkin olmalıdır.</noscript></div>
+  <div id="root">
+    <main class="seo-boot" aria-label="Serula Nesting tanıtımı">
+      <h1>Serula Nesting Pro: DXF nesting ve otomatik parça yerleştirme</h1>
+      <p>Serula Nesting Pro, lazer kesim ve CNC üretim hazırlığı için web tabanlı 2B nesting yazılımıdır. DXF, SVG veya PLT çizimlerini içe aktararak parçaları rulo ya da plaka malzeme üzerinde yerleştirebilir, sonuçları inceleyebilir ve DXF çıktısı oluşturabilirsiniz.</p>
+      <nav aria-label="Nesting bilgileri">
+        <a href="/dxf-nesting/">DXF nesting ve parça yerleştirme</a>
+        <a href="/lazer-kesim-nesting/">Lazer kesim nesting</a>
+        <a href="/cnc-nesting/">CNC nesting</a>
+        <a href="/nesting-rehberi/">Adım adım nesting rehberi</a>
+      </nav>
+      <p>Uygulama açıldığında çizimlerinizi içe aktarabilir ve yerleşime başlayabilirsiniz. Üretimden önce ölçüleri, konturları ve DXF çıktısını doğrulayın.</p>
+      <noscript>Serula Nesting editörünü çalıştırmak için JavaScript etkin olmalıdır. Yukarıdaki rehberler JavaScript olmadan okunabilir.</noscript>
+    </main>
+  </div>
   <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
