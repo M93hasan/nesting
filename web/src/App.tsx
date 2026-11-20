@@ -12,6 +12,8 @@ import { prepareNestingDocument } from './application/use-cases/PrepareNestingDo
 import { useProjectAutosave } from './presentation/hooks/useProjectAutosave';
 import { useDesignStudioAppearance } from './presentation/hooks/useDesignStudioAppearance';
 import { useCadAccess } from './presentation/hooks/useCadAccess';
+import { WorkerLayoutPreparation } from './infrastructure/cad/WorkerLayoutPreparation';
+import { prepareLayoutDocument } from './application/use-cases/PrepareLayoutDocument';
 import {useDismissibleMenu} from './components/useDismissibleMenu';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -44,6 +46,7 @@ const recoveryStore = new IndexedDbRecoveryStore();
 const cadGeometry = new WorkerCadGeometry();
 const nestingPreparation = new WorkerNestingPreparation();
 const cadAuthorization = new AuthGateCadAuthorization();
+const layoutPreparation = new WorkerLayoutPreparation();
 
 const emptyProject=(name='Adsız proje'):Document=>({name,parts:[],settings:{...DEFAULT_SETTINGS}});
 const CLOUD_SAVE_NAME='Serula Nesting En Temiz Hali';
@@ -232,15 +235,7 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     return()=>{window.removeEventListener('serula-user-settings',apply);window.removeEventListener('serula-remote-settings',apply)};
   },[doc,locked]);
   async function prepareDocument(next:Document,pinnedIds:string[]=[],compact=false) {
-    const reply=await geometryTask({type:'prepare-layout',runId:++operation.current,documentRevision:revision,document:next,pinnedIds,compact});
-    if(reply.type!=='normalized')throw Error('Hazırlık çizimi düzenlenemedi.');
-    const parts=next.parts.map((part,i)=>({...part,preparationPosition:reply.document.parts[i].preparationPosition}));
-    const placements=documentPlacements(next).map(placement=>{
-      const before=next.parts.find(part=>part.id===placement.partId)!.preparationPosition;
-      const after=parts.find(part=>part.id===placement.partId)!.preparationPosition;
-      return {...placement,xMm:placement.xMm+after[0]-before[0],yMm:placement.yMm+after[1]-before[1]};
-    });
-    return withDocumentPlacements({...next,parts},placements);
+    return prepareLayoutDocument(layoutPreparation,next,revision,++operation.current,pinnedIds,compact);
   }
   function restore(redo=false) {
     if(locked) return;
