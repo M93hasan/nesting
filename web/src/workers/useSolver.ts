@@ -6,6 +6,7 @@ import { phaseImprovements, type Timing } from '../application/nesting/phaseImpr
 import { wallClockLimitSeconds } from '../domain/nesting/wallClockLimitSeconds';
 import { enqueueValidationCandidate } from '../application/nesting/validationQueue';
 import { createSolverWorkers, releaseSolverWorkers } from '../infrastructure/nesting/solverWorkers';
+import { calculateSolverDeadline, scheduleSolverDeadline } from '../infrastructure/nesting/solverDeadline';
 import type { Candidate, GeometryReply, SolverMessage } from './protocol';
 import type {LiveGeometry} from '../geometry/live';
 
@@ -49,11 +50,7 @@ export function useSolver() {
     run.current=undefined;setPhase(undefined);setSkipping(false);setCanSkip(false);
   }
   function scheduleDeadline(r:Run) {
-    if(r.ended)return;
-    if(r.deadline)clearTimeout(r.deadline);
-    const remaining=Math.max(0,(r.deadlineAtEpochMs??Date.now())-Date.now());
-    if(remaining<=0){end('Complete');return;}
-    r.deadline=setTimeout(()=>end('Complete'),remaining);
+    scheduleSolverDeadline(r,()=>end('Complete'));
   }
   useEffect(()=>{
     const timer=setInterval(()=>{
@@ -124,9 +121,7 @@ export function useSolver() {
     run.current=r;diagnostics.current=r.diagnostics;
     // Automatic mode is a hard wall-clock budget: preparation + initialization +
     // solving may consume at most 59 seconds. Hiding the tab never pauses the budget.
-    const wallClockSeconds=wallClockLimitSeconds(doc);
-    const elapsedBeforeDeadlineMs=Math.max(0,performance.now()-requestedAt);
-    r.deadlineAtEpochMs=Date.now()+Math.max(0,wallClockSeconds*1000-elapsedBeforeDeadlineMs);
+    r.deadlineAtEpochMs=calculateSolverDeadline(doc,requestedAt,performance.now(),Date.now());
     r.visibilityHandler=()=>{
       if(run.current===r&&!r.ended)scheduleDeadline(r);
     };
