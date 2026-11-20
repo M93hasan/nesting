@@ -35,7 +35,7 @@ import {isEditableTarget,preparationShortcut} from './geometry/gestures';
 import {applySeriesMultiplier,copyRefsFor,documentPlacements,duplicateCopies,mirrorPlacements,removeCopies,rotatePlacements,rotateToNextOrientation,setPlacementAngles,releasePlacementAngleLocks,movePlacements,placementLayoutsEqual,syncQuantity,updatePlacements,withDocumentPlacements,type CopyRef} from './geometry/placements';
 import {LanguageSelect} from './i18n';
 import {productionTotals} from './geometry/production';
-import { validRotationRule, normalizedRotationRule, rotationValue, validQuantity, displayedPieceCount } from './domain/project/editorRules';
+import { DEFAULT_ROTATIONS, validRotationRule, normalizedRotationRule, rotationValue, validQuantity, displayedPieceCount } from './domain/project/editorRules';
 
 const recoveryStore = new IndexedDbRecoveryStore();
 const cloudAutosave = new HttpProjectAutosave();
