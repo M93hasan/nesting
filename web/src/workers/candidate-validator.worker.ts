@@ -1,4 +1,5 @@
 import {packResultIntoSheets} from '../geometry/multiSheet';
+import {compactValidatedGaps} from '../geometry/gapCompaction';
 import {validate} from '../geometry/validate';
 import type {Document,Result} from '../model';
 
@@ -15,7 +16,15 @@ self.onmessage=({data}:MessageEvent<Incoming>)=>{
     if(!document)throw Error('Validator has not received the project.');
     const packed=packResultIntoSheets(document,data.result);
     const checked=validate(document,packed);
-    self.postMessage({...identity,result:{...packed,validation:{...checked,source:'local' as const}}});
+    const original={...packed,validation:{...checked,source:'local' as const}};
+    // Only optimize already-safe roll candidates; the independent validator
+    // checks every accepted translation, and any failure keeps the original.
+    let result:Result=original;
+    if(checked.status==='passed'){
+      try {result=compactValidatedGaps(document,original);}
+      catch {result=original;} // Never discard a valid Sparrow layout on experimental failure.
+    }
+    self.postMessage({...identity,result});
   }catch(error){
     self.postMessage({...identity,error:error instanceof Error?error.message:String(error)});
   }
