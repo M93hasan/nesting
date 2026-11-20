@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Serula Nesting | DXF Yerleştirme</title>
+  <title>DXF Nesting Programı ve Otomatik Parça Yerleştirme | Serula</title>
   <meta name="description" content="Lazer kesim, CNC ve tekstil üretimi için çevrim içi nesting yazılımı. SVG, DXF ve PLT parçalarını yerleştirerek malzeme kaybını azaltın.">
   <link rel="canonical" href="https://serula.site/">
   <link rel="ai-catalog" href="https://serula.site/.well-known/ai-catalog.json" type="application/json">
@@ -29,6 +29,7 @@
   <style>
     .seo-boot{max-width:860px;margin:7vh auto;padding:24px;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#1f3145;line-height:1.65}
     .seo-boot h1{font-size:clamp(1.65rem,4vw,2.6rem);line-height:1.2}
+    .seo-boot h2{font-size:1.22rem;margin:20px 0 7px}.seo-boot section{border-top:1px solid #d7e1ea;padding-top:6px}
     .seo-boot nav{display:flex;flex-wrap:wrap;gap:12px;margin:24px 0}
     .seo-boot nav a{color:#07588f;background:#eff6fd;padding:9px 12px;border-radius:8px;text-decoration:none}
     .seo-boot nav a:focus-visible{outline:3px solid #0868ba;outline-offset:2px}
@@ -47,7 +48,18 @@
         <a href="/cnc-nesting/">CNC nesting</a>
         <a href="/nesting-rehberi/">Adım adım nesting rehberi</a>
       </nav>
-      <p>Uygulama açıldığında çizimlerinizi içe aktarabilir ve yerleşime başlayabilirsiniz. Üretimden önce ölçüleri, konturları ve DXF çıktısını doğrulayın.</p>
+      <section aria-labelledby="seo-nesting-is">
+        <h2 id="seo-nesting-is">Nesting nedir, Serula ne işe yarar?</h2>
+        <p>Nesting, birden fazla iki boyutlu parçayı malzeme sınırları ve üretim boşlukları içinde yerleştirme işlemidir. Serula, değişik şekil ve adetlerdeki parçaların rulo veya plaka üzerinde yerleşimini hazırlamanıza yardımcı olur. Yerleşim sonucunu kontrol ederek üretim öncesi DXF çıktısı elde edebilirsiniz. Amaç, malzeme kullanımını değerlendirmektir; her çizimde belirli bir tasarruf oranı garanti edilmez.</p>
+      </section>
+      <section aria-labelledby="seo-workflow">
+        <h2 id="seo-workflow">DXF yerleştirme nasıl yapılır?</h2>
+        <p>Önce DXF, SVG veya PLT dosyanızı içe aktarın ve ölçü birimini doğrulayın. Ardından malzeme enini ve gerekiyorsa plaka boyunu, parça adetlerini, boşlukları ve izin verilen döndürmeleri seçin. Otomatik yerleşimi çalıştırdıktan sonra bütün parçaların malzeme sınırları içinde kaldığını, deliklerin ve konturların korunduğunu ve kopya adetlerinin doğru olduğunu gözden geçirin. Son adımda DXF çıktısını hazırlayın ve kesim veya CAM yazılımınızda tekrar açarak üretim kontrollerini tamamlayın.</p>
+      </section>
+      <section aria-labelledby="seo-use-cases">
+        <h2 id="seo-use-cases">Hangi üretim işlerinde kullanılabilir?</h2>
+        <p><a href="/lazer-kesim-nesting/">Lazer kesim nesting</a> sayfasında plaka ölçüsü, parçalar arası mesafe ve DXF konturlarını; <a href="/cnc-nesting/">CNC nesting</a> sayfasında geometrik yerleşim ve CAM hazırlığı farklarını açıklıyoruz. <a href="/dxf-nesting/">DXF nesting</a> sayfası dosya aktarımı ve yerleşim kurallarını, <a href="/nesting-rehberi/">nesting rehberi</a> ise tüm süreci adım adım anlatır. Makineye özgü kerf, bağlama ve takım yolu ayarları ilgili üretim yazılımında ayrıca doğrulanmalıdır.</p>
+      </section>
       <noscript>Serula Nesting kullanmak için JavaScript etkin olmalıdır.</noscript>
     </main>
   </div>
