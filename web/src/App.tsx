@@ -33,6 +33,7 @@ import {isEditableTarget,preparationShortcut} from './geometry/gestures';
 import {applySeriesMultiplier,copyRefsFor,documentPlacements,duplicateCopies,mirrorPlacements,removeCopies,rotatePlacements,rotateToNextOrientation,setPlacementAngles,releasePlacementAngleLocks,movePlacements,placementLayoutsEqual,syncQuantity,updatePlacements,withDocumentPlacements,type CopyRef} from './geometry/placements';
 import {LanguageSelect} from './i18n';
 import {productionTotals} from './geometry/production';
+import { validRotationRule, normalizedRotationRule, rotationValue, validQuantity, displayedPieceCount } from './domain/project/editorRules';
 
 const recoveryStore = new IndexedDbRecoveryStore();
 const cloudAutosave = new HttpProjectAutosave();
@@ -41,12 +42,7 @@ const cadGeometry = new WorkerCadGeometry();
 const emptyProject=(name='Adsız proje'):Document=>({name,parts:[],settings:{...DEFAULT_SETTINGS}});
 const CLOUD_SAVE_NAME='Serula Nesting En Temiz Hali';
 type ProjectSwitch={document:Document;result?:Result;warnings?:string[];saved?:boolean;nest?:boolean};
-const DEFAULT_ROTATIONS:RotationRule={kind:'discrete',degrees:[0,180]};
-const validRotationRule=(rule:RotationRule|undefined)=>!!rule&&(rule.kind==='continuous'||(rule.kind==='discrete'&&Array.isArray(rule.degrees)&&rule.degrees.length>0&&rule.degrees.every(Number.isFinite)));
-const normalizedRotationRule=(rule:RotationRule|undefined):RotationRule=>validRotationRule(rule)?rule!:DEFAULT_ROTATIONS;
-const rotationValue=(rule:RotationRule|undefined)=>!validRotationRule(rule)?'invalid':rule!.kind==='continuous'?'free':JSON.stringify([...new Set(rule!.degrees.map(d=>((d%360)+360)%360))].sort((a,b)=>a-b));
-const validQuantity=(n:number)=>Number.isInteger(n)&&n>=0&&n<=500;
-const displayedPieceCount=(parts:Part[])=>parts.reduce((total,part)=>total+part.quantity*(part.source.dxfSourceEntityCount??1),0);
+
 type RemoteAdminSettings={materialWidthMm?:number;clearanceMm?:number;rotation?:'fixed'|'half'|'free';materialType?:'roll'|'sheet';solverPreset?:'standard'|'fast'};
 function download(name:string,text:BlobPart,type='application/json') {
   const url=URL.createObjectURL(new Blob([text],{type})),link=document.createElement('a');
