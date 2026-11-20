@@ -8,7 +8,7 @@ test('Serula metadata, sitemap and sharing image are available without rendering
   expect(html).toContain('<link rel="canonical" href="https://serula.site/">');
   expect(html).toContain('property="og:url" content="https://serula.site/"');
   expect(html).toContain('name="twitter:card" content="summary_large_image"');
-  expect(html).toContain('<title>Serula Nesting | DXF Yerleştirme</title>');
+  expect(html).toContain('<title>DXF Nesting Programı ve Otomatik Parça Yerleştirme | Serula</title>');
   expect(html).toContain('property="og:title" content="Serula Nesting | DXF Yerleştirme"');
   const imageUrl=html.match(/property="og:image" content="([^"]+)"/)?.[1];
   expect(imageUrl).toBe('https://serula.site/sparrow-studio-social.png');
@@ -37,7 +37,7 @@ test('JavaScript-disabled visitors receive the explicit application requirement'
 
 test('Serula provides its viewport and page description on mobile and desktop',async({page})=>{
   await page.goto('/');
-  await expect(page).toHaveTitle('Serula Nesting | DXF Yerleştirme');
+  await expect(page).toHaveTitle('DXF Nesting Programı ve Otomatik Parça Yerleştirme | Serula');
   for(const width of [1440,390]){
     await page.setViewportSize({width,height:900});
     await expect(page.locator('meta[name="viewport"]')).toHaveAttribute('content','width=device-width,initial-scale=1');
