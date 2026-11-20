@@ -1,3 +1,4 @@
+import './admin-compact-controls.css';
 import DesignStudio from './components/DesignStudio';
 import {useEffect,useMemo,useRef,useState} from 'react';
 import packageInfo from '../package.json';

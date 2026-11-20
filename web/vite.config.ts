@@ -25,5 +25,5 @@ export default defineConfig({
   worker:{format:'es'},
   preview:{headers:{}},
   server:{headers:{'Cross-Origin-Opener-Policy':'same-origin','Cross-Origin-Embedder-Policy':'require-corp'}},
-  build:{rollupOptions:{input:{app:'index.html',bridge:'bridge.html'}}},
+  build:{rollupOptions:{input:{app:'index.html',bridge:'bridge.html',dxfNesting:'dxf-nesting/index.html',laserNesting:'lazer-kesim-nesting/index.html',cncNesting:'cnc-nesting/index.html'}}},
 });
