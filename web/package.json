@@ -4,7 +4,8 @@
   "version": "0.1.16",
   "type": "module",
   "scripts": {
-    "source:check": "node scripts/check-source-integrity.mjs",
+    "source:check": "node scripts/check-source-integrity.mjs && npm run architecture:check",
+    "architecture:check": "node scripts/check-architecture.mjs",
     "wasm:build": "node scripts/build-wasm.mjs",
     "wasm:verify": "node scripts/verify-prebuilt-wasm.mjs",
     "test-dxf:catalog": "node scripts/generate-test-dxf-catalog.mjs",
