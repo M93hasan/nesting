@@ -19,7 +19,7 @@ self.onmessage=({data}:MessageEvent<Incoming>)=>{
     const original={...packed,validation:{...checked,source:'local' as const}};
     // Only optimize already-safe roll candidates; the independent validator
     // checks every accepted translation, and any failure keeps the original.
-    let result=original;
+    let result:Result=original;
     if(checked.status==='passed'){
       try {result=compactValidatedGaps(document,original);}
       catch {result=original;} // Never discard a valid Sparrow layout on experimental failure.
