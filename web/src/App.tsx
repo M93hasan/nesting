@@ -9,6 +9,8 @@ import { autosaveProject } from './application/use-cases/AutosaveProject';
 import { WorkerCadGeometry } from './infrastructure/cad/WorkerCadGeometry';
 import { prepareCadExport } from './application/use-cases/PrepareCadExport';
 import { importCadFiles } from './application/use-cases/ImportCadFiles';
+import { WorkerNestingPreparation } from './infrastructure/nesting/WorkerNestingPreparation';
+import { prepareNestingDocument } from './application/use-cases/PrepareNestingDocument';
 import {useDismissibleMenu} from './components/useDismissibleMenu';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -38,6 +40,7 @@ import { validRotationRule, normalizedRotationRule, rotationValue, validQuantity
 const recoveryStore = new IndexedDbRecoveryStore();
 const cloudAutosave = new HttpProjectAutosave();
 const cadGeometry = new WorkerCadGeometry();
+const nestingPreparation = new WorkerNestingPreparation();
 
 const emptyProject=(name='Adsız proje'):Document=>({name,parts:[],settings:{...DEFAULT_SETTINGS}});
 const CLOUD_SAVE_NAME='Serula Nesting En Temiz Hali';
@@ -488,9 +491,9 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     setBusy(true);setError('');setResultMode('live');
     const id=++operation.current;
     try {
-      const reply=await geometryTask({type:'normalize',runId:id,documentRevision:rev,document});
-      if(id!==operation.current || reply.type!=='normalized') return;
-      solver.start(reply.document,rev,threads||undefined,requestedAt);
+      const prepared=await prepareNestingDocument(nestingPreparation,document,rev,id);
+      if(id!==operation.current) return;
+      solver.start(prepared,rev,threads||undefined,requestedAt);
     } catch(e) {setError(String(e));} finally {if(id===operation.current)setBusy(false);}
   }
   async function openFiles(list:FileList|File[],intent:'project'|'shapes'|'auto'='auto') {
