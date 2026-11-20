@@ -24,7 +24,8 @@ test('preparation use case preserves physical copy offset, rotation and mirrorin
     type:'prepare-layout',runId:3,documentRevision:7,document,pinnedIds:['p'],compact:true,
   });
   expect(next.placements).toMatchObject([{partId:'p',copyIndex:0,xMm:36,yMm:55,angleDeg:180,mirrorX:true}]);
-  expect(next.parts[0].preparationPosition).toEqual([30,50]);
+  // Canonical document placement owns the part's editable anchor after normalization.
+  expect(next.parts[0].preparationPosition).toEqual([36,55]);
   expect(document.parts[0].preparationPosition).toEqual([10,20]);
 });
 
