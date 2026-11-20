@@ -4,6 +4,7 @@ import { SOLVER_REVISION, type Document, type Result } from '../model';
 import { candidateResult } from '../infrastructure/nesting/candidateResult';
 import { phaseImprovements, type Timing } from '../application/nesting/phaseImprovements';
 import { wallClockLimitSeconds } from '../domain/nesting/wallClockLimitSeconds';
+import { enqueueValidationCandidate } from '../application/nesting/validationQueue';
 import type { Candidate, GeometryReply, SolverMessage } from './protocol';
 import type {LiveGeometry} from '../geometry/live';
 
@@ -232,17 +233,12 @@ export function useSolver() {
             let next:PendingCandidate;
             try{next={candidate:data,result:candidateResult(doc,data,seed)};}
             catch(error){entry.validation='failed';entry.errors=[String(error)];break;}
-            if(r.pending.length>=6){
-              const worst=r.pending.reduce((index,item,i)=>item.candidate.solution.strip_width
-                >r.pending[index].candidate.solution.strip_width?i:index,0);
-              if(data.solution.strip_width>=r.pending[worst].candidate.solution.strip_width){
-                entry.validation='skipped';break;
-              }
-              const dropped=r.pending.splice(worst,1)[0];
-              const old=r.diagnostics.history.find(item=>item.sequence===dropped.candidate.sequence);
+            const queued=enqueueValidationCandidate(r.pending,next);
+            if(!queued.accepted){entry.validation='skipped';break;}
+            if(queued.dropped){
+              const old=r.diagnostics.history.find(item=>item.sequence===queued.dropped!.candidate.sequence);
               if(old)old.validation='skipped';
             }
-            r.pending.push(next);
             sendNextValidation();
           }
           break;
