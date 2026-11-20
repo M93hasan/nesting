@@ -11,6 +11,7 @@ import { WorkerNestingPreparation } from './infrastructure/nesting/WorkerNesting
 import { prepareNestingDocument } from './application/use-cases/PrepareNestingDocument';
 import { useProjectAutosave } from './presentation/hooks/useProjectAutosave';
 import { useDesignStudioAppearance } from './presentation/hooks/useDesignStudioAppearance';
+import { useCadAccess } from './presentation/hooks/useCadAccess';
 import {useDismissibleMenu} from './components/useDismissibleMenu';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -72,36 +73,8 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const factor=unitScale(unit),length=(mm:number)=>(mm/factor).toLocaleString(undefined,{maximumFractionDigits:unit==='mm'?2:4});
   const inputLength=(mm:number)=>Number.isFinite(mm)?displayLength(mm,unit):'';
   const [panel,setPanel]=useState(true),[info,setInfo]=useState<'admin'|'about'|'contact'|'help'>(),[historyOpen,setHistoryOpen]=useState(false);
-  const [testDxfOpen,setTestDxfOpen]=useState(false),[testDxfBusy,setTestDxfBusy]=useState(''),[testDxfFiles,setTestDxfFiles]=useState<string[]>([]);
-  const [testDxfAllowed,setTestDxfAllowed]=useState(false);
-  useEffect(()=>{
-    let cancelled=false;
-    const refresh=async()=>{
-      try{
-        const response=await fetch('/api/test-dxf',{credentials:'same-origin',cache:'no-store'});
-        const data=await response.json().catch(()=>({}));
-        if(!cancelled){
-          const allowed=response.ok&&data.allowed===true;
-          setTestDxfAllowed(allowed);
-          if(!allowed){setTestDxfOpen(false);setTestDxfFiles([]);}
-          else{
-            try{
-              const catalogResponse=await fetch('/examples/test%20klasoru%20dxf/catalog.json',{cache:'no-store'});
-              const catalog=await catalogResponse.json() as {files?:unknown};
-              const names=Array.isArray(catalog.files)?catalog.files.filter((name):name is string=>typeof name==='string'&&/\.dxf$/i.test(name)):[];
-              if(!cancelled)setTestDxfFiles(names);
-            }catch{if(!cancelled)setTestDxfFiles([])}
-          }
-        }
-      }catch{if(!cancelled){setTestDxfAllowed(false);setTestDxfOpen(false)}}
-    };
-    void refresh();
-    const timer=setInterval(()=>void refresh(),10000);
-    const changed=()=>void refresh();
-    window.addEventListener('serula-auth-updated',changed);
-    window.addEventListener('focus',changed);
-    return()=>{cancelled=true;clearInterval(timer);window.removeEventListener('serula-auth-updated',changed);window.removeEventListener('focus',changed)};
-  },[]);
+  const [testDxfBusy,setTestDxfBusy]=useState('');
+  const {testDxfOpen,setTestDxfOpen,testDxfFiles,testDxfAllowed,transferAccess}=useCadAccess();
   const [files,setFiles]=useState<{name:string;text:string}[]>(),[scale,setScale]=useState(1),[review,setReview]=useState<ImportReview>();
   const [tolerance,setTolerance]=useState(.01),[enclosed,setEnclosed]=useState<'holes'|'parts'>('holes');
   const [layers,setLayers]=useState<string[]>(),[availableLayers,setAvailableLayers]=useState<string[]>([]),[excludeIssues,setExcludeIssues]=useState(false);
@@ -125,22 +98,8 @@ export default function App({initialDocument=emptyProject(),initialError='',load
   const [recoveryReady,setRecoveryReady]=useState(false),[recoveryError,setRecoveryError]=useState('');
   const [cloudSaveState,setCloudSaveState]=useState<'idle'|'saving'|'saved'|'signed-out'|'error'>('idle'),[cloudSaveTick,setCloudSaveTick]=useState(0);
   useEffect(()=>{const changed=()=>setCloudSaveTick(value=>value+1);window.addEventListener('serula-auth-updated',changed);return()=>window.removeEventListener('serula-auth-updated',changed)},[]);
-  const [transferAccess,setTransferAccess]=useState({corel:false});
   const [bridgeInstallPrompt,setBridgeInstallPrompt]=useState(false);
   useEffect(()=>{
-    let active=true;
-    const refresh=async()=>{
-      try{
-        const response=await fetch('/api/transfer/access',{credentials:'same-origin',cache:'no-store'});
-        const data=await response.json() as {corel?:boolean};
-        if(active)setTransferAccess({corel:response.ok&&data.corel===true});
-      }catch{if(active)setTransferAccess({corel:false});}
-    };
-    void refresh();
-    const timer=window.setInterval(()=>void refresh(),15000);
-    window.addEventListener('serula-auth-updated',refresh);
-    return()=>{active=false;window.clearInterval(timer);window.removeEventListener('serula-auth-updated',refresh)};
-  },[]);  useEffect(()=>{
     if(loadingExample)return;
     const worker=new Worker(new URL('./workers/solver-runtime.worker.ts',import.meta.url),{type:'module'});
     const timeout=setTimeout(()=>worker.terminate(),15_000);
