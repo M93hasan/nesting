@@ -9,6 +9,7 @@ import { selectBestNestingResult } from '../application/nesting/selectBestNestin
 import { createSolverWorkers, releaseSolverWorkers } from '../infrastructure/nesting/solverWorkers';
 import { calculateSolverDeadline, scheduleSolverDeadline } from '../infrastructure/nesting/solverDeadline';
 import { matchesRunMessage, matchesValidationReply, startNestingWorker, initializeNestingWorkers, validateNestingCandidate } from '../infrastructure/nesting/workerMessages';
+import { bindNestingWorkerEvents } from '../infrastructure/nesting/workerEvents';
 import type { Candidate, GeometryReply, SolverMessage } from './protocol';
 import type {LiveGeometry} from '../geometry/live';
 
@@ -129,7 +130,7 @@ export function useSolver() {
     };
     if(typeof document!=='undefined')document.addEventListener('visibilitychange',r.visibilityHandler);
     scheduleDeadline(r);
-    preview.onmessage=({data}:MessageEvent<GeometryReply>)=>{
+    const onPreviewMessage=({data}:MessageEvent<GeometryReply>)=>{
       if(run.current!==r||!matchesRunMessage(data,r))return;
       if(data.type==='error'){r.previewError=data.message;r.previewActive=undefined;preview.terminate();return;}
       if(data.type==='live-preview-skipped'){
@@ -147,7 +148,7 @@ export function useSolver() {
       }
       r.frame={...data.geometry,sequence:data.sequence,result:data.result,report:r.previewActive.candidate.report};r.previewActive=undefined;
     };
-    preview.onerror=e=>{if(run.current===r){r.previewError=e.message;r.previewActive=undefined;preview.terminate();}};
+    const onPreviewError=(e:ErrorEvent)=>{if(run.current===r){r.previewError=e.message;r.previewActive=undefined;preview.terminate();}};
     // Do not execute DXF polygon clipping and per-copy validation on the React
     // thread. Keep the expensive queue bounded; preserve the earliest candidate
     // and the most promising improvements during heavy WASM bursts.
@@ -157,7 +158,7 @@ export function useSolver() {
       r.checking=task;
       validateNestingCandidate(validator,r,task.candidate.sequence,task.result);
     }
-    validator.onmessage=({data}:MessageEvent<ValidationReply>)=>{
+    const onValidationMessage=({data}:MessageEvent<ValidationReply>)=>{
       if(run.current!==r||r.ended||!matchesValidationReply(data,r,r.checking?.candidate.sequence))return;
       const candidate=r.checking!.candidate;
       r.checking=undefined;
@@ -185,11 +186,11 @@ export function useSolver() {
       sendNextValidation();
       if(r.finalizing&&!r.checking&&!r.pending.length)end('Complete');
     };
-    validator.onerror=event=>{
+    const onValidationError=(event:ErrorEvent)=>{
       if(run.current===r&&!r.ended)end('Error',event.message||'Yerleşim doğrulama işçisi durdu.');
     };
     initializeNestingWorkers(validator,preview,r,doc);
-    solver.onmessage=({data}:MessageEvent<SolverMessage>)=>{
+    const onSolverMessage=({data}:MessageEvent<SolverMessage>)=>{
       if(run.current!==r || !r.solver || !matchesRunMessage(data,r)) return;
       switch(data.type) {
         case 'run-input': (r.diagnostics.attempts??=[]).push(data);break;
@@ -236,7 +237,12 @@ export function useSolver() {
         case 'error': end('Error',data.message);break;
       }
     };
-    solver.onerror=e=>{if(run.current===r && r.solver) end('Error',e.message||'Arka plan işçisi yüklenemedi. Sayfayı yenileyip tekrar deneyin.');};
+    const onSolverError=(e:ErrorEvent)=>{if(run.current===r && r.solver) end('Error',e.message||'Arka plan işçisi yüklenemedi. Sayfayı yenileyip tekrar deneyin.');};
+    bindNestingWorkerEvents({ solver, preview, validator }, {
+      onSolverMessage, onSolverError,
+      onPreviewMessage, onPreviewError,
+      onValidationMessage, onValidationError,
+    });
     startNestingWorker(solver,r,doc,seed,threads,Math.max(0,(r.deadlineAtEpochMs??Date.now())-Date.now()));
   }
   function invalidate() {clear();setWorkers(undefined);setResult(undefined);setLive(undefined);setLiveError('');setState('Ready');setError('');}
