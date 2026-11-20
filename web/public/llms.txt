@@ -1,0 +1,16 @@
+# Serula Nesting Pro
+
+> Serula Nesting Pro is a web-based 2D nesting and manufacturing preparation application for DXF, SVG, and PLT/HP-GL drawings. It arranges parts for roll or sheet materials and prepares DXF output for cutting workflows.
+
+Serula uses a Rust/WebAssembly nesting engine in the browser. Its interface supports Turkish and other languages. Nesting, DXF conversion, and project features are intended for human users in the web application; this site does not advertise a public AI-agent API or autonomous machine-control interface.
+
+## Website
+
+- [Serula Nesting Pro](https://serula.site/): Official application, product overview, and editor.
+- [Sitemap](https://serula.site/sitemap.xml): Public pages listed for discovery.
+- [Robots instructions](https://serula.site/robots.txt): Crawler instructions.
+
+## Project information
+
+- [Official source repository](https://github.com/M93hasan/nesting): Source code, version information, architecture, and development history.
+- [README and supported workflows](https://github.com/M93hasan/nesting/blob/20.11.2026/README.md): File formats, geometry behavior, nesting and CAD production notes.
