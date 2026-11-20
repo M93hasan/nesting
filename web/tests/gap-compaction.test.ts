@@ -40,6 +40,26 @@ describe('safe roll gap compaction',()=>{
     expect(validate(doc,compacted).status).toBe('passed');
     expect(Math.abs(compacted.placements[1].xMm-compacted.placements[0].xMm)).toBeGreaterThanOrEqual(3-0.01);
   });
+  it('preserves concave DXF contours, fixed angles and clearance while testing two-axis gaps',()=>{
+    const lShape={...newPart([[0,0],[6,0],[6,2],[2,2],[2,6],[0,6]]),id:'concave',quantity:1};
+    const insert={...newPart([[0,0],[1.5,0],[1.5,1.5],[0,1.5]]),id:'insert',quantity:1};
+    const doc:Document={name:'concave DXF gap',parts:[lShape,insert],
+      settings:{...DEFAULT_SETTINGS,materialWidthMm:14,clearanceMm:0.2}};
+    const input:Result={documentRevision:1,solverRevision:'test',seed:'2',elapsedSeconds:1,
+      usedLengthMm:14,placements:[
+        {partId:'concave',copyIndex:0,xMm:2,yMm:0,angleDeg:0,orientationLocked:true},
+        {partId:'insert',copyIndex:0,xMm:10,yMm:8,angleDeg:0}
+      ],validation:{status:'pending',overlapAreaMm2:0,maxBoundaryViolationMm:0,minClearanceMm:null,errors:[]}};
+    input.validation=validate(doc,input);
+    expect(input.validation.status).toBe('passed');
+    const output=compactValidatedGaps(doc,input);
+    expect(validate(doc,output).status).toBe('passed');
+    expect(output.usedLengthMm).toBe(input.usedLengthMm);
+    expect(output.placements[0].orientationLocked).toBe(true);
+    expect(output.placements.map(p=>p.angleDeg)).toEqual([0,0]);
+    expect(doc.parts[0].outer).toEqual(lShape.outer);
+    expect(doc.parts[1].outer).toEqual(insert.outer);
+  });
   it('does not change fixed-sheet placement',()=>{
     const {doc,result}=fixture(0,'sheet');
     expect(compactValidatedGaps(doc,result)).toBe(result);
