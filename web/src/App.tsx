@@ -28,7 +28,8 @@ import Modal from './components/Modal';
 import SelectionControls from './components/SelectionControls';
 import SupportChat from './components/SupportChat';
 import ExportHistory from './components/ExportHistory';
-import {authorizeExport} from './AuthGate';
+import { AuthGateCadAuthorization } from './infrastructure/cad/AuthGateCadAuthorization';
+import { authorizeCadExport } from './application/use-cases/AuthorizeCadExport';
 import {displayLength,unitScale,type DisplayUnit} from './units';
 import {selectionBounds,type GeometryEdit} from './geometry/manipulate';
 import {isEditableTarget,preparationShortcut} from './geometry/gestures';
@@ -41,6 +42,7 @@ import { hasInvalidNestingSettings, reconcileExpandedSeries } from './domain/pro
 const recoveryStore = new IndexedDbRecoveryStore();
 const cadGeometry = new WorkerCadGeometry();
 const nestingPreparation = new WorkerNestingPreparation();
+const cadAuthorization = new AuthGateCadAuthorization();
 
 const emptyProject=(name='Adsız proje'):Document=>({name,parts:[],settings:{...DEFAULT_SETTINGS}});
 const CLOUD_SAVE_NAME='Serula Nesting En Temiz Hali';
@@ -561,16 +563,13 @@ export default function App({initialDocument=emptyProject(),initialError='',load
     if(busy||invalidSettings||showingLive||(running&&!result))return false;
     setBusy(true);setError('');
     try {
-      const bundle=await prepareCadExport(cadGeometry,canvasDocument,revision,++operation.current,result);
-      {
-        const content=bundle.dxf;
-        const fileName=`${exportAd}.dxf`;
-        const sourceFileName=doc.parts.find(part=>part.source.format==='dxf'||part.source.format==='plt')?.source.fileName??doc.name;
-        const projectJson=JSON.stringify({...doc,...(result?{placements:result.placements,result}:{}),schemaVersion:1,revision,serulaCloud:{label:CLOUD_SAVE_NAME,ui:{unit}}});
-        await authorizeExport(doc.name,sourceFileName,fileName,content,projectJson);
-        download(fileName,content,'application/dxf');setDownloadedResult(true);setExported({document:doc,result});return true;
-      }
-      return false;
+      const fileName=`${exportAd}.dxf`;
+      const content=await authorizeCadExport(cadGeometry,cadAuthorization,{
+        sourceDocument:doc,exportDocument:canvasDocument,result,revision,
+        runId:++operation.current,fileName,unit,cloudLabel:CLOUD_SAVE_NAME,
+      });
+      download(fileName,content,'application/dxf');
+      setDownloadedResult(true);setExported({document:doc,result});return true;
     } catch(e){setError(String(e));return false;}finally{setBusy(false);}
   }
   async function transferLayout(target:'corel') {
